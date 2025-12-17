@@ -39,10 +39,11 @@ const CalculatorForm: React.FC<CalculatorFormProps> = ({ onCalculate }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Valor Inicial */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Valor inicial</label>
+            <label htmlFor="initialValue" className="block text-sm font-medium text-slate-700 mb-1">Valor inicial</label>
             <div className="relative">
-              <span className="absolute left-3 top-2.5 text-slate-400 font-medium">R$</span>
+              <span className="absolute left-3 top-2.5 text-slate-400 font-medium" aria-hidden="true">R$</span>
               <input
+                id="initialValue"
                 type="number"
                 step="0.01"
                 className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all outline-none"
@@ -56,10 +57,11 @@ const CalculatorForm: React.FC<CalculatorFormProps> = ({ onCalculate }) => {
 
           {/* Valor Mensal */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Valor mensal</label>
+            <label htmlFor="monthlyValue" className="block text-sm font-medium text-slate-700 mb-1">Valor mensal</label>
             <div className="relative">
-              <span className="absolute left-3 top-2.5 text-slate-400 font-medium">R$</span>
+              <span className="absolute left-3 top-2.5 text-slate-400 font-medium" aria-hidden="true">R$</span>
               <input
+                id="monthlyValue"
                 type="number"
                 step="0.01"
                 className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all outline-none"
@@ -73,11 +75,12 @@ const CalculatorForm: React.FC<CalculatorFormProps> = ({ onCalculate }) => {
 
           {/* Taxa de Juros */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Taxa de juros</label>
+            <label htmlFor="interestRate" className="block text-sm font-medium text-slate-700 mb-1">Taxa de juros</label>
             <div className="flex">
               <div className="relative flex-grow">
-                <span className="absolute left-3 top-2.5 text-slate-400 font-medium">%</span>
+                <span className="absolute left-3 top-2.5 text-slate-400 font-medium" aria-hidden="true">%</span>
                 <input
+                  id="interestRate"
                   type="number"
                   step="0.01"
                   className="w-full pl-8 pr-4 py-2 border border-slate-300 rounded-l-lg bg-white text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all outline-none"
@@ -87,6 +90,7 @@ const CalculatorForm: React.FC<CalculatorFormProps> = ({ onCalculate }) => {
                 />
               </div>
               <select
+                aria-label="Tipo de taxa (mensal ou anual)"
                 className="border border-l-0 border-slate-300 rounded-r-lg px-4 py-2 bg-white text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all cursor-pointer outline-none min-w-[90px]"
                 value={formData.rateType}
                 onChange={(e) => setFormData({ ...formData, rateType: e.target.value as RateType })}
@@ -99,9 +103,10 @@ const CalculatorForm: React.FC<CalculatorFormProps> = ({ onCalculate }) => {
 
           {/* Período */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Período</label>
+            <label htmlFor="period" className="block text-sm font-medium text-slate-700 mb-1">Período</label>
             <div className="flex">
               <input
+                id="period"
                 type="number"
                 className="w-full px-4 py-2 border border-slate-300 rounded-l-lg bg-white text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all outline-none"
                 style={{ colorScheme: 'light' }}
@@ -109,6 +114,7 @@ const CalculatorForm: React.FC<CalculatorFormProps> = ({ onCalculate }) => {
                 onChange={(e) => setFormData({ ...formData, period: parseFloat(e.target.value) || 0 })}
               />
               <select
+                aria-label="Unidade de tempo (meses ou anos)"
                 className="border border-l-0 border-slate-300 rounded-r-lg px-4 py-2 bg-white text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all cursor-pointer outline-none min-w-[90px]"
                 value={formData.periodType}
                 onChange={(e) => setFormData({ ...formData, periodType: e.target.value as PeriodType })}
