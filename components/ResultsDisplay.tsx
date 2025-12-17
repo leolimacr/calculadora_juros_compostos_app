@@ -34,11 +34,11 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ result }) => {
 
   return (
     <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mt-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <h2 className="text-xl font-bold text-red-800">Resultado</h2>
+      <h2 className="text-xl font-bold text-emerald-800">Resultado</h2>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-red-800 text-white p-6 rounded-xl shadow-lg flex flex-col items-center justify-center">
+        <div className="bg-emerald-800 text-white p-6 rounded-xl shadow-lg flex flex-col items-center justify-center">
           <span className="text-sm font-medium opacity-90 mb-1 text-center">Valor total final</span>
           <span className="text-2xl font-bold tracking-tight">{formatCurrency(summary.totalFinal)}</span>
         </div>
@@ -54,7 +54,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ result }) => {
 
       {/* Chart Section */}
       <div className="space-y-4">
-        <h3 className="text-center font-bold text-red-800">Gráfico:</h3>
+        <h3 className="text-center font-bold text-emerald-800">Gráfico:</h3>
         <div className="h-[400px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
@@ -64,8 +64,8 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ result }) => {
                   <stop offset="95%" stopColor="#1e293b" stopOpacity={0}/>
                 </linearGradient>
                 <linearGradient id="colorJuros" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#991b1b" stopOpacity={0.8}/>
-                  <stop offset="95%" stopColor="#991b1b" stopOpacity={0}/>
+                  <stop offset="5%" stopColor="#065f46" stopOpacity={0.8}/>
+                  <stop offset="95%" stopColor="#065f46" stopOpacity={0}/>
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
@@ -101,7 +101,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ result }) => {
                 dataKey="juros" 
                 name="Total em Juros" 
                 stackId="1" 
-                stroke="#991b1b" 
+                stroke="#065f46" 
                 fillOpacity={1} 
                 fill="url(#colorJuros)" 
               />
@@ -112,7 +112,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ result }) => {
 
       {/* Table Section */}
       <div className="space-y-4">
-        <h3 className="text-center font-bold text-red-800">Tabela de Evolução:</h3>
+        <h3 className="text-center font-bold text-emerald-800">Tabela de Evolução:</h3>
         <div className="overflow-hidden border border-slate-200 rounded-lg">
           <div className="max-h-[500px] overflow-y-auto custom-scrollbar">
             <table className="min-w-full divide-y divide-slate-200">

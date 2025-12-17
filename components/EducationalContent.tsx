@@ -15,7 +15,7 @@ const EducationalContent: React.FC = () => {
       {/* Guia Passo a Passo */}
       <section>
         <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center">
-          <span className="bg-red-800 text-white w-8 h-8 rounded-full inline-flex items-center justify-center mr-3 text-sm">1</span>
+          <span className="bg-emerald-800 text-white w-8 h-8 rounded-full inline-flex items-center justify-center mr-3 text-sm">1</span>
           Guia para sua simulação
         </h2>
         <p className="text-slate-600 mb-8 max-w-2xl">
@@ -25,7 +25,7 @@ const EducationalContent: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           {steps.map((step, idx) => (
             <div key={idx} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-              <span className="text-xs font-bold text-red-700 uppercase tracking-widest block mb-2">Passo {idx + 1}</span>
+              <span className="text-xs font-bold text-emerald-700 uppercase tracking-widest block mb-2">Passo {idx + 1}</span>
               <h3 className="font-bold text-slate-800 mb-2">{step.title}</h3>
               <p className="text-sm text-slate-500 leading-relaxed">{step.description}</p>
             </div>
@@ -42,7 +42,7 @@ const EducationalContent: React.FC = () => {
             os juros compostos calculam o lucro sobre o valor atualizado (Capital + Juros anteriores).
           </p>
           <div className="bg-white/10 p-6 rounded-xl border border-white/20 text-center mb-6">
-            <span className="text-3xl font-mono text-red-400">M = C (1 + i)<sup>t</sup></span>
+            <span className="text-3xl font-mono text-emerald-400">M = C (1 + i)<sup>t</sup></span>
           </div>
           <ul className="space-y-3 text-sm">
             <li><strong className="text-white">M:</strong> Montante acumulado (resultado final)</li>
@@ -86,10 +86,10 @@ const EducationalContent: React.FC = () => {
               <li>• Comum em descontos e empréstimos curtos</li>
             </ul>
           </div>
-          <div className="bg-red-50 p-6 rounded-xl border-l-4 border-red-800">
-            <h3 className="font-bold text-lg text-red-900 mb-3">Juros Compostos</h3>
-            <p className="text-sm text-red-800/70 mb-4">Incidem sobre o saldo total atualizado. O rendimento é exponencial.</p>
-            <ul className="text-sm text-red-800/60 space-y-2">
+          <div className="bg-emerald-50 p-6 rounded-xl border-l-4 border-emerald-800">
+            <h3 className="font-bold text-lg text-emerald-900 mb-3">Juros Compostos</h3>
+            <p className="text-sm text-emerald-800/70 mb-4">Incidem sobre o saldo total atualizado. O rendimento é exponencial.</p>
+            <ul className="text-sm text-emerald-800/60 space-y-2">
               <li>• Crescimento em curva acelerada</li>
               <li>• "Bola de neve" de rendimentos</li>
               <li>• Base da construção de patrimônio</li>
