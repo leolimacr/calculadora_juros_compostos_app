@@ -1,5 +1,4 @@
-
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import CalculatorForm from './components/CalculatorForm';
 import ResultsDisplay from './components/ResultsDisplay';
 import EducationalContent from './components/EducationalContent';
@@ -14,7 +13,6 @@ const App: React.FC = () => {
   const [result, setResult] = useState<CalculationResult | null>(null);
   const [activeModal, setActiveModal] = useState<'artigos' | 'sobre' | 'passo-a-passo' | null>(null);
 
-  // Auto-calculate on load if in calculator view or when switching
   const handleCalculate = useCallback((input: CalculationInput) => {
     const calculation = calculateCompoundInterest(input);
     setResult(calculation);
@@ -59,7 +57,6 @@ const App: React.FC = () => {
             <button onClick={() => setActiveModal('sobre')} className="hover:text-emerald-800 transition-colors">Sobre</button>
           </nav>
 
-          {/* Mobile Menu Placeholder (Simplified for brevity) */}
           <div className="md:hidden">
             <button onClick={() => navigateTo('calculator')} className="bg-emerald-800 text-white px-3 py-1.5 rounded-md text-xs font-bold">Calculadora</button>
           </div>
@@ -70,283 +67,110 @@ const App: React.FC = () => {
       <main className="flex-grow">
         {currentView === 'home' ? (
           <div className="animate-in fade-in duration-500">
-            {/* Hero Section */}
             <section className="bg-slate-900 text-white py-20 px-4">
               <div className="max-w-4xl mx-auto text-center space-y-8">
                 <h1 className="text-4xl md:text-6xl font-extrabold leading-tight">
                   Organize suas finanças e <span className="text-emerald-400">invista com clareza</span>.
                 </h1>
                 <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto">
-                  Ferramentas práticas e conteúdo direto ao ponto para quem quer sair do básico, montar reservas e investir com segurança, sem complicar.
+                  Ferramentas práticas e conteúdo direto ao ponto para quem quer sair do básico, montar reservas e investir com segurança.
                 </p>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-                  <button 
-                    onClick={() => navigateTo('calculator')}
-                    className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-4 rounded-xl font-bold transition-all shadow-lg hover:shadow-emerald-500/20"
-                  >
-                    Usar a calculadora de juros compostos
+                  <button onClick={() => navigateTo('calculator')} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-4 rounded-xl font-bold transition-all shadow-lg">
+                    Usar a calculadora
                   </button>
-                  <button 
-                    onClick={() => setActiveModal('passo-a-passo')}
-                    className="w-full sm:w-auto bg-white/10 hover:bg-white/20 text-white border border-white/20 px-8 py-4 rounded-xl font-bold transition-all"
-                  >
-                    Começar pelo passo a passo
+                  <button onClick={() => setActiveModal('passo-a-passo')} className="w-full sm:w-auto bg-white/10 hover:bg-white/20 text-white border border-white/20 px-8 py-4 rounded-xl font-bold transition-all">
+                    Começar passo a passo
                   </button>
                 </div>
               </div>
             </section>
 
-            {/* Para quem é */}
             <section className="py-20 px-4 max-w-6xl mx-auto">
               <div className="text-center mb-12">
                 <h2 className="text-3xl font-bold text-slate-900 mb-4">Para quem é o Finanças Pro Invest</h2>
-                <p className="text-slate-600 max-w-2xl mx-auto">
-                  Desenvolvemos este portal para ser o guia definitivo na sua jornada financeira, não importa o seu nível atual.
-                </p>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
-                  <div className="w-12 h-12 bg-emerald-100 text-emerald-800 rounded-full flex items-center justify-center mb-6">
-                    <span className="font-bold text-xl">1</span>
-                  </div>
-                  <h3 className="text-xl font-bold mb-3">Iniciante em finanças</h3>
-                  <p className="text-slate-500 text-sm leading-relaxed">Para quem está começando do zero, quer entender para onde vai o dinheiro e como parar de viver no limite.</p>
+                  <h3 className="text-xl font-bold mb-3">1. Iniciante</h3>
+                  <p className="text-slate-500 text-sm">Para quem está começando do zero e quer organizar o orçamento.</p>
                 </div>
                 <div className="bg-white p-8 rounded-2xl border border-emerald-100 shadow-md ring-1 ring-emerald-800/10">
-                  <div className="w-12 h-12 bg-emerald-800 text-white rounded-full flex items-center justify-center mb-6">
-                    <span className="font-bold text-xl">2</span>
-                  </div>
-                  <h3 className="text-xl font-bold mb-3">Em evolução</h3>
-                  <p className="text-slate-500 text-sm leading-relaxed">Já consegue economizar algo, mas se sente perdido sobre onde colocar o dinheiro para render mais.</p>
+                  <h3 className="text-xl font-bold mb-3">2. Em evolução</h3>
+                  <p className="text-slate-500 text-sm">Já economiza e quer fazer o dinheiro render mais.</p>
                 </div>
                 <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
-                  <div className="w-12 h-12 bg-emerald-100 text-emerald-800 rounded-full flex items-center justify-center mb-6">
-                    <span className="font-bold text-xl">3</span>
-                  </div>
-                  <h3 className="text-xl font-bold mb-3">Já investe</h3>
-                  <p className="text-slate-500 text-sm leading-relaxed">Para quem quer otimizar o plano, projetar o futuro com ferramentas precisas e diversificar a carteira.</p>
-                </div>
-              </div>
-            </section>
-
-            {/* Ferramentas */}
-            <section className="bg-emerald-900 py-20 px-4">
-              <div className="max-w-6xl mx-auto">
-                <h2 className="text-3xl font-bold text-white mb-12 text-center md:text-left">Ferramentas que te ajudam a decidir</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                  <div className="bg-white p-8 rounded-2xl shadow-xl flex flex-col h-full">
-                    <h3 className="text-xl font-bold text-slate-900 mb-2">Calculadora de Juros Compostos</h3>
-                    <p className="text-slate-500 text-sm mb-6 flex-grow">A ferramenta clássica para visualizar o poder do tempo sobre seus aportes mensais e patrimônio.</p>
-                    <button 
-                      onClick={() => navigateTo('calculator')}
-                      className="w-full bg-emerald-800 text-white py-3 rounded-lg font-bold hover:bg-emerald-900 transition-colors"
-                    >
-                      Abrir calculadora
-                    </button>
-                  </div>
-                  <div className="bg-white/10 p-8 rounded-2xl border border-white/20 flex flex-col opacity-60">
-                    <h3 className="text-xl font-bold text-white mb-2">Reserva de Emergência</h3>
-                    <p className="text-emerald-100/70 text-sm mb-6 flex-grow">Quanto você precisa ter guardado para dormir tranquilo e enfrentar imprevistos sem dívidas.</p>
-                    <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest text-center py-3">Em Breve</span>
-                  </div>
-                  <div className="bg-white/10 p-8 rounded-2xl border border-white/20 flex flex-col opacity-60">
-                    <h3 className="text-xl font-bold text-white mb-2">Independência Financeira</h3>
-                    <p className="text-emerald-100/70 text-sm mb-6 flex-grow">Descubra qual o montante necessário para que seus rendimentos paguem seu custo de vida.</p>
-                    <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest text-center py-3">Em Breve</span>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* Aprenda antes de investir */}
-            <section className="py-20 px-4 max-w-6xl mx-auto">
-              <h2 className="text-3xl font-bold text-slate-900 mb-12 text-center md:text-left">Aprenda antes de investir</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {[
-                  {
-                    t: "Organização Financeira",
-                    d: "Primeiros passos para entender seu orçamento, cortar o desnecessário e sobrar dinheiro.",
-                    c: "Ver conteúdo"
-                  },
-                  {
-                    t: "Reserva de Segurança",
-                    d: "O guia completo de como montar o colchão financeiro ideal para sua realidade.",
-                    c: "Ver conteúdo"
-                  },
-                  {
-                    t: "O Básico dos Ativos",
-                    d: "Fundos, Tesouro Direto, Ações e FIIs: Entenda o que cada um faz de forma simples.",
-                    c: "Ver conteúdo"
-                  }
-                ].map((item, i) => (
-                  <div key={i} className="group cursor-pointer">
-                    <div className="bg-slate-200 h-40 rounded-t-2xl mb-4 group-hover:bg-slate-300 transition-colors flex items-center justify-center text-slate-400">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                      </svg>
-                    </div>
-                    <h3 className="text-lg font-bold mb-2 group-hover:text-emerald-800 transition-colors">{item.t}</h3>
-                    <p className="text-slate-500 text-sm mb-4">{item.d}</p>
-                    <button className="text-emerald-800 font-bold text-sm hover:underline">{item.c} &rarr;</button>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            {/* Como funciona */}
-            <section className="bg-slate-100 py-20 px-4">
-              <div className="max-w-6xl mx-auto">
-                <h2 className="text-3xl font-bold text-center mb-16">Como o Finanças Pro Invest funciona</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-12 text-center">
-                  <div>
-                    <div className="inline-block p-4 bg-white rounded-2xl shadow-sm mb-6">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-emerald-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                      </svg>
-                    </div>
-                    <h4 className="text-xl font-bold mb-2">1. Organize</h4>
-                    <p className="text-slate-500 text-sm">Entenda sua situação atual, listando gastos e dívidas para tomar o controle.</p>
-                  </div>
-                  <div>
-                    <div className="inline-block p-4 bg-white rounded-2xl shadow-sm mb-6">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-emerald-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                      </svg>
-                    </div>
-                    <h4 className="text-xl font-bold mb-2">2. Simule</h4>
-                    <p className="text-slate-500 text-sm">Use nossas calculadoras para projetar cenários realistas de crescimento.</p>
-                  </div>
-                  <div>
-                    <div className="inline-block p-4 bg-white rounded-2xl shadow-sm mb-6">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-emerald-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <h4 className="text-xl font-bold mb-2">3. Invista com clareza</h4>
-                    <p className="text-slate-500 text-sm">Aplique seu plano com metas definidas de prazo e aportes mensais.</p>
-                  </div>
+                  <h3 className="text-xl font-bold mb-3">3. Investidor</h3>
+                  <p className="text-slate-500 text-sm">Quer otimizar a carteira e usar ferramentas precisas.</p>
                 </div>
               </div>
             </section>
           </div>
         ) : (
           <div className="max-w-6xl mx-auto px-4 py-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="mb-10">
+            <div className="mb-10 text-center md:text-left">
               <h2 className="text-3xl font-extrabold text-slate-900 mb-2">Calculadora de Juros Compostos</h2>
-              <p className="text-slate-600">Simule o crescimento do seu patrimônio ao longo do tempo através do reinvestimento dos lucros.</p>
+              <p className="text-slate-600">O poder do tempo trabalhando a seu favor.</p>
             </div>
-
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2 space-y-8">
+              <div className="lg:col-span-2">
                 <CalculatorForm onCalculate={handleCalculate} />
-                {result && (
-                  <div id="results-section">
-                    <ResultsDisplay result={result} />
-                  </div>
-                )}
+                {result && <div id="results-section" className="mt-8"><ResultsDisplay result={result} /></div>}
               </div>
-              
               <aside className="space-y-6">
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                   <h3 className="font-bold text-emerald-800 mb-4">O que são Juros Compostos?</h3>
-                  <p className="text-sm text-slate-600 leading-relaxed mb-4">
-                    Diferente dos juros simples, aqui os rendimentos de cada mês são somados ao valor principal, servindo de base para o cálculo do mês seguinte. É o famoso efeito "bola de neve".
-                  </p>
-                  <p className="text-sm text-slate-600 leading-relaxed">
-                    Quanto maior o tempo e o aporte mensal, mais exponencial é o crescimento do seu dinheiro.
-                  </p>
-                </div>
-                
-                <div className="bg-emerald-800 text-white p-6 rounded-xl shadow-lg">
-                  <h3 className="font-bold mb-4">Pronto para começar?</h3>
-                  <p className="text-sm text-emerald-100 mb-6">
-                    A simulação é apenas o primeiro passo. Aprenda como sair da teoria e começar a investir de verdade.
-                  </p>
-                  <button 
-                    onClick={() => setActiveModal('passo-a-passo')}
-                    className="w-full bg-white text-emerald-800 py-3 rounded-lg font-bold hover:bg-emerald-50 transition-colors"
-                  >
-                    Ver Passo a Passo
-                  </button>
+                  <p className="text-sm text-slate-600 leading-relaxed italic">"Juros sobre juros": Onde cada ganho se torna base para o próximo crescimento.</p>
                 </div>
               </aside>
             </div>
-
-            <div className="mt-12">
-              <EducationalContent />
-            </div>
+            <div className="mt-12"><EducationalContent /></div>
           </div>
         )}
       </main>
 
       {/* Modals */}
-                  <ContentModal 
-        isOpen={activeModal === 'artigos'} 
-        onClose={() => setActiveModal(null)}
-        title="Conteúdos: Hub de Conhecimento Finanças Pro"
-      >
-        <div className="space-y-8">
-          <section>
-            <h4 className="text-emerald-800 font-bold text-lg mb-3 flex items-center">
-              <span className="mr-2">🧠</span> Mente Próspera
-            </h4>
-            <p className="text-slate-600 text-sm leading-relaxed">
-              Educação financeira começa na mentalidade. Aprenda a enxergar o dinheiro como uma ferramenta de liberdade, não apenas como papel para pagar boletos. O segredo está em dar um propósito para cada real investido.
-            </p>
-          </section>
-
+      <ContentModal isOpen={activeModal === 'artigos'} onClose={() => setActiveModal(null)} title="Conteúdos: Hub de Conhecimento">
+        <div className="space-y-6">
           <section className="bg-slate-50 p-4 rounded-xl border-l-4 border-emerald-800">
-            <h4 className="text-emerald-800 font-bold text-lg mb-3 flex items-center">
-              <span className="mr-2">📈</span> Renda Fixa: A Base de Tudo
-            </h4>
-            <p className="text-slate-600 text-sm leading-relaxed">
-              Entenda termos como <strong>Selic, IPCA e CDI</strong>. Aqui explicamos como emprestar dinheiro para o governo ou bancos de forma segura, garantindo que seu patrimônio cresça acima da inflação sem sustos.
-            </p>
+            <h4 className="text-emerald-800 font-bold mb-2">🧠 Mente Próspera</h4>
+            <p className="text-sm text-slate-600">Educação financeira começa na mentalidade e no propósito do seu dinheiro.</p>
           </section>
-
-          <section>
-            <h4 className="text-emerald-800 font-bold text-lg mb-3 flex items-center">
-              <span className="mr-2">📖</span> Dicionário Pro (Glossário Rápido)
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                <span className="font-bold text-slate-800 block text-xs">LIQUIDEZ</span>
-                <span className="text-xs text-slate-500">A facilidade de transformar seu investimento em dinheiro na mão.</span>
-              </div>
-              <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                <span className="font-bold text-slate-800 block text-xs">RENTABILIDADE REAL</span>
-                <span className="text-xs text-slate-500">Quanto você realmente ganhou descontando a inflação do período.</span>
-              </div>
-            </div>
+          <section className="bg-slate-50 p-4 rounded-xl border-l-4 border-emerald-800">
+            <h4 className="text-emerald-800 font-bold mb-2">📈 Renda Fixa</h4>
+            <p className="text-sm text-slate-600">Entenda Selic, IPCA e CDI de forma simples e direta.</p>
           </section>
+        </div>
+      </ContentModal>
 
-          <div className="bg-emerald-50 p-4 rounded-lg text-center">
-            <p className="text-emerald-900 text-sm font-medium">
-              Acompanhe também nossas dicas em vídeo para uma experiência mais visual!
-            </p>
+      <ContentModal isOpen={activeModal === 'sobre'} onClose={() => setActiveModal(null)} title="Sobre o Projeto">
+        <p className="font-semibold text-slate-800">Portal independente dedicado à educação financeira.</p>
+        <p className="mt-4">Idealizado por especialistas com sólida trajetória no setor bancário. Nossa base fica em <strong>Brumado/BA</strong>.</p>
+        <p className="mt-4 text-emerald-800 font-bold italic">Nossa missão: Dar clareza para o seu dinheiro trabalhar por você.</p>
+      </ContentModal>
+
+      <ContentModal isOpen={activeModal === 'passo-a-passo'} onClose={() => setActiveModal(null)} title="Trilha do Investidor">
+        <div className="space-y-4">
+          <div className="flex gap-4 p-3 bg-white border rounded-lg">
+            <div className="bg-emerald-800 text-white w-6 h-6 rounded-full flex items-center justify-center font-bold">1</div>
+            <p className="text-sm"><strong>Faxina Financeira:</strong> Organize dívidas e entenda seus gastos.</p>
+          </div>
+          <div className="flex gap-4 p-3 bg-white border rounded-lg">
+            <div className="bg-emerald-800 text-white w-6 h-6 rounded-full flex items-center justify-center font-bold">2</div>
+            <p className="text-sm"><strong>Reserva:</strong> Monte seu colchão de 6 a 12 meses de segurança.</p>
           </div>
         </div>
       </ContentModal>
 
+      <footer className="bg-white border-t border-slate-200 py-12 px-4 mt-auto">
+        <div className="max-w-6xl mx-auto text-center">
+          <p className="text-slate-400 text-xs">© {new Date().getFullYear()} Finanças Pro Invest. Conteúdo educacional.</p>
+          <p className="text-xs text-slate-300">financasproinvest.com.br</p>
+        </div>
+      </footer>
+    </div>
+  );
+};
 
-            <ContentModal 
-        isOpen={activeModal === 'sobre'} 
-        onClose={() => setActiveModal(null)}
-        title="Sobre o Finanças Pro Invest"
-      >
-        <p className="font-semibold text-slate-800 text-lg">
-          O Finanças Pro Invest é um portal independente dedicado à educação financeira e ao desenvolvimento de ferramentas práticas de simulação.
-        </p>
-        <p>
-          Nosso conteúdo é idealizado por especialistas com sólida trajetória no setor bancário, focados em transformar a complexidade do mercado financeiro em passos simples e executáveis. Acreditamos que a falta de informação clara é o maior custo para o investidor brasileiro, e nascemos para eliminar essa barreira.
-        </p>
-        <p>
-          Com base em <strong>Brumado/BA</strong> e alcance em todo o país, entregamos calculadoras, guias e análises para que você saia do básico e projete seu patrimônio com segurança. 
-        </p>
-        <p className="border-t border-slate-100 pt-4 mt-4 text-emerald-800 font-bold italic">
-          Nossa missão é uma só: Dar clareza para o seu dinheiro trabalhar por você.
-        </p>
-        <p className="text-xs text-slate-400 mt-4">
-          Este site tem caráter exclusivamente educacional e não constitui recomendação de investimento individual.
-        </p>
-      </ContentModal>
+export default App;
+
