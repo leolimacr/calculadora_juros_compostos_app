@@ -280,7 +280,7 @@ const App: React.FC = () => {
       </main>
 
       {/* Modals */}
-            <ContentModal 
+                  <ContentModal 
         isOpen={activeModal === 'artigos'} 
         onClose={() => setActiveModal(null)}
         title="Conteúdos: Hub de Conhecimento Finanças Pro"
