@@ -204,13 +204,7 @@ const App: React.FC = () => {
           </div>
         </div>
       </ContentModal>
-
-      <ContentModal isOpen={activeModal === 'sobre'} onClose={() => setActiveModal(null)} title="Sobre o Projeto">
-        <p className="font-semibold text-slate-800">Portal independente dedicado à educação financeira.</p>
-        <p className="mt-4">Idealizado por especialistas com sólida trajetória no setor bancário. Nossa base fica em <strong>Brumado/BA</strong>.</p>
-        <p className="mt-4 text-emerald-800 font-bold italic">Nossa missão: Dar clareza para o seu dinheiro trabalhar por você.</p>
-      </ContentModal>
-
+     
       <ContentModal
         isOpen={activeModal === 'passo-a-passo'}
         onClose={() => setActiveModal(null)}
