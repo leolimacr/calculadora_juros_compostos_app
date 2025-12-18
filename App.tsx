@@ -293,107 +293,24 @@ const App: React.FC = () => {
         <p>Educar-se financeiramente não é um evento único, e sim um hábito. Pequenos ajustes contínuos – estudar um pouco por semana, revisar metas, usar ferramentas simples de simulação e registro – criam um efeito composto de conhecimento, semelhante aos próprios juros compostos. Com o tempo, a pessoa deixa de “apagar incêndios” e passa a construir patrimônio de forma estruturada e alinhada com seus valores e objetivos de vida.</p>
       </ContentModal>
 
-      <ContentModal 
+            <ContentModal 
         isOpen={activeModal === 'sobre'} 
         onClose={() => setActiveModal(null)}
         title="Sobre o Finanças Pro Invest"
       >
-        <p className="font-semibold text-slate-800 text-lg">O Finanças Pro Invest nasceu com um objetivo simples: transformar conceitos financeiros complexos em ferramentas práticas.</p>
-        <p>A proposta deste site é ajudar você a entender como o dinheiro funciona, planejar seus objetivos e usar os juros compostos a seu favor de maneira clara e descomplicada.</p>
-        <p>Por trás do portal está alguém com experiência real no sistema financeiro e na vida de quem lida com boletos, compromissos e sonhos ao mesmo tempo. Depois de anos trabalhando em banco e estudando tecnologia, surgiu a ideia de criar calculadoras e simuladores que aproximam a educação financeira da rotina das pessoas comuns.</p>
-        <p>Aqui, cada ferramenta foi pensada para que você consiga dar o próximo passo: organizar gastos, planejar aportes e tomar decisões com mais segurança. Este site tem caráter exclusivamente educacional e não constitui recomendação de investimento individual.</p>
+        <p className="font-semibold text-slate-800 text-lg">
+          O Finanças Pro Invest é um portal independente dedicado à educação financeira e ao desenvolvimento de ferramentas práticas de simulação.
+        </p>
+        <p>
+          Nosso conteúdo é idealizado por especialistas com sólida trajetória no setor bancário, focados em transformar a complexidade do mercado financeiro em passos simples e executáveis. Acreditamos que a falta de informação clara é o maior custo para o investidor brasileiro, e nascemos para eliminar essa barreira.
+        </p>
+        <p>
+          Com base em <strong>Brumado/BA</strong> e alcance em todo o país, entregamos calculadoras, guias e análises para que você saia do básico e projete seu patrimônio com segurança. 
+        </p>
+        <p className="border-t border-slate-100 pt-4 mt-4 text-emerald-800 font-bold italic">
+          Nossa missão é uma só: Dar clareza para o seu dinheiro trabalhar por você.
+        </p>
+        <p className="text-xs text-slate-400 mt-4">
+          Este site tem caráter exclusivamente educacional e não constitui recomendação de investimento individual.
+        </p>
       </ContentModal>
-
-      <ContentModal 
-        isOpen={activeModal === 'passo-a-passo'} 
-        onClose={() => setActiveModal(null)}
-        title="Comece a Investir: Passo a Passo"
-      >
-        <div className="space-y-6">
-          <div className="flex gap-4">
-            <div className="flex-shrink-0 w-8 h-8 bg-emerald-800 text-white rounded-full flex items-center justify-center font-bold">1</div>
-            <div>
-              <h4 className="font-bold text-slate-800">Organização Total</h4>
-              <p className="text-sm text-slate-500">Liste todas as suas dívidas e despesas fixas. Antes de investir, o terreno precisa estar limpo.</p>
-            </div>
-          </div>
-          <div className="flex gap-4">
-            <div className="flex-shrink-0 w-8 h-8 bg-emerald-800 text-white rounded-full flex items-center justify-center font-bold">2</div>
-            <div>
-              <h4 className="font-bold text-slate-800">Reserva de Emergência</h4>
-              <p className="text-sm text-slate-500">Acumule entre 3 a 6 meses do seu custo de vida em um investimento de liquidez diária (Tesouro Selic ou CDB 100%).</p>
-            </div>
-          </div>
-          <div className="flex gap-4">
-            <div className="flex-shrink-0 w-8 h-8 bg-emerald-800 text-white rounded-full flex items-center justify-center font-bold">3</div>
-            <div>
-              <h4 className="font-bold text-slate-800">Definição de Objetivos</h4>
-              <p className="text-sm text-slate-500">Para que você quer o dinheiro? Aposentadoria? Casa própria? Viagem? O prazo define onde investir.</p>
-            </div>
-          </div>
-          <div className="flex gap-4">
-            <div className="flex-shrink-0 w-8 h-8 bg-emerald-800 text-white rounded-full flex items-center justify-center font-bold">4</div>
-            <div>
-              <h4 className="font-bold text-slate-800">Primeiros Aportes</h4>
-              <p className="text-sm text-slate-500">Comece pela renda fixa. À medida que ganhar confiança, explore fundos de índices (ETFs) e dividendos.</p>
-            </div>
-          </div>
-          <div className="flex gap-4">
-            <div className="flex-shrink-0 w-8 h-8 bg-emerald-800 text-white rounded-full flex items-center justify-center font-bold">5</div>
-            <div>
-              <h4 className="font-bold text-slate-800">Disciplina Mensal</h4>
-              <p className="text-sm text-slate-500">Invista todos os meses, não importa o valor. A constância é o que ativa a mágica dos juros compostos.</p>
-            </div>
-          </div>
-        </div>
-      </ContentModal>
-
-      {/* Footer */}
-      <footer className="bg-white border-t border-slate-200 py-12 px-4 mt-auto">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-            <div className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <div className="bg-emerald-800 text-white p-1.5 rounded-md">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                  </svg>
-                </div>
-                <span className="text-lg font-bold text-slate-900">Finanças Pro Invest</span>
-              </div>
-              <p className="text-sm text-slate-500">Sua ferramenta definitiva para planejar o futuro financeiro com inteligência.</p>
-            </div>
-            
-            <div>
-              <h5 className="font-bold text-slate-900 mb-4">Acesso Rápido</h5>
-              <ul className="text-sm text-slate-500 space-y-2">
-                <li><button onClick={() => navigateTo('home')} className="hover:text-emerald-800 transition-colors">Início</button></li>
-                <li><button onClick={() => navigateTo('calculator')} className="hover:text-emerald-800 transition-colors">Calculadora</button></li>
-                <li><button onClick={() => setActiveModal('passo-a-passo')} className="hover:text-emerald-800 transition-colors">Passo a Passo</button></li>
-                <li><button onClick={() => setActiveModal('sobre')} className="hover:text-emerald-800 transition-colors">Sobre Nós</button></li>
-              </ul>
-            </div>
-
-            <div>
-              <h5 className="font-bold text-slate-900 mb-4">Conteúdo</h5>
-              <ul className="text-sm text-slate-500 space-y-2">
-                <li><button onClick={() => setActiveModal('artigos')} className="hover:text-emerald-800 transition-colors">Educação Financeira</button></li>
-                <li><a href="#" className="hover:text-emerald-800 transition-colors">Dicas de Investimento</a></li>
-                <li><a href="#" className="hover:text-emerald-800 transition-colors">Glossário</a></li>
-              </ul>
-            </div>
-          </div>
-          
-          <div className="pt-8 border-t border-slate-100 text-center">
-            <p className="text-slate-400 text-[10px] md:text-xs max-w-2xl mx-auto mb-4">
-              © {new Date().getFullYear()} Finanças Pro Invest. Este site tem caráter exclusivamente educacional e não constitui recomendação de investimento individual. Simuladores são ferramentas de projeção e não garantem rentabilidade futura.
-            </p>
-            <p className="text-xs text-slate-300">financasproinvest.com.br</p>
-          </div>
-        </div>
-      </footer>
-    </div>
-  );
-};
-
-export default App;
