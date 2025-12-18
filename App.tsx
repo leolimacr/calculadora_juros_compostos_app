@@ -13,7 +13,7 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('home');
   const [result, setResult] = useState<CalculationResult | null>(null);
   const [activeModal, setActiveModal] = useState<'artigos' | 'sobre' | 'passo-a-passo' | null>(null);
-
+  const [activeStep, setActiveStep] = useState<1 | 2 | null>(null);
   const handleCalculate = useCallback((input: CalculationInput) => {
     const calculation = calculateCompoundInterest(input);
     setResult(calculation);
@@ -344,74 +344,103 @@ const App: React.FC = () => {
 
       <ContentModal
         isOpen={activeModal === 'passo-a-passo'}
-        onClose={() => setActiveModal(null)}
+        onClose={() => {
+          setActiveModal(null);
+          setActiveStep(null); // fecha a aba quando fechar o modal
+        }}
         title="Trilha do Investidor"
       >
         <div className="space-y-4 text-sm text-slate-800">
-          <div className="flex gap-4 p-3 bg-white border rounded-lg shadow-sm">
-            <div className="bg-emerald-800 text-white w-7 h-7 rounded-full flex items-center justify-center font-bold">
-              1
-            </div>
-            <div>
-              <p className="font-semibold mb-1">Faxina Financeira</p>
-              <p className="mb-1">
-                Antes de começar a investir, o primeiro passo é organizar a casa. Aqui você olha
-                para todas as suas contas, dívidas e gastos com honestidade, sem culpa, como quem
-                faz uma verdadeira faxina financeira.
-              </p>
-              <p className="mb-1">
-                Você reúne tudo em um só lugar: cartão de crédito, empréstimos, financiamentos,
-                boletos atrasados e gastos mensais. A partir daí, passa a enxergar quais dívidas
-                têm juros mais altos, onde está vazando dinheiro e o que pode ser renegociado ou
-                cortado.
-              </p>
-              <p>
-                O objetivo é reduzir o peso das dívidas, liberar espaço no orçamento e ganhar
-                controle. Quando a faxina financeira é bem feita, você sente alívio, para de viver
-                apagando incêndios e começa a ter dinheiro sobrando todo mês para construir
-                patrimônio de verdade.
-              </p>
-            </div>
+          {/* Abas */}
+          <div className="flex gap-2 mb-2">
+            <button
+              type="button"
+              onClick={() => setActiveStep(activeStep === 1 ? null : 1)}
+              className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-lg border text-left transition-colors ${
+                activeStep === 1
+                  ? 'bg-emerald-800 text-white border-emerald-800'
+                  : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              <span className="bg-white/10 border border-white/40 w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs">
+                1
+              </span>
+              <span className="font-semibold">Faxina Financeira</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveStep(activeStep === 2 ? null : 2)}
+              className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-lg border text-left transition-colors ${
+                activeStep === 2
+                  ? 'bg-emerald-800 text-white border-emerald-800'
+                  : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              <span className="bg-white/10 border border-white/40 w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs">
+                2
+              </span>
+              <span className="font-semibold">Reserva de Emergência</span>
+            </button>
           </div>
 
-          <div className="flex gap-4 p-3 bg-white border rounded-lg shadow-sm">
-            <div className="bg-emerald-800 text-white w-7 h-7 rounded-full flex items-center justify-center font-bold">
-              2
+          {/* Conteúdo da etapa 1 */}
+          {activeStep === 1 && (
+            <div className="flex gap-4 p-3 bg-slate-900 text-slate-100 border border-slate-700 rounded-lg shadow-sm">
+              <div className="bg-emerald-500 text-slate-900 w-7 h-7 rounded-full flex items-center justify-center font-bold">
+                1
+              </div>
+              <div>
+                <p className="font-semibold mb-1">Faxina Financeira</p>
+                <p className="mb-1">
+                  Antes de começar a investir, o primeiro passo é organizar a casa. Aqui você olha
+                  para todas as suas contas, dívidas e gastos com honestidade, sem culpa, como quem
+                  faz uma verdadeira faxina financeira.
+                </p>
+                <p className="mb-1">
+                  Você reúne tudo em um só lugar: cartão de crédito, empréstimos, financiamentos,
+                  boletos atrasados e gastos mensais. A partir daí, passa a enxergar quais dívidas
+                  têm juros mais altos, onde está vazando dinheiro e o que pode ser renegociado ou
+                  cortado.
+                </p>
+                <p>
+                  O objetivo é reduzir o peso das dívidas, liberar espaço no orçamento e ganhar
+                  controle. Quando a faxina financeira é bem feita, você sente alívio, para de viver
+                  apagando incêndios e começa a ter dinheiro sobrando todo mês para construir
+                  patrimônio de verdade.
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="font-semibold mb-1">Reserva de Emergência</p>
-              <p className="mb-1">
-                Com a casa em ordem, chega a hora de criar o seu colchão de segurança. A reserva de
-                emergência é o dinheiro que vai te proteger quando acontecer algo fora do roteiro:
-                perda de emprego, problema de saúde, conserto do carro ou imprevistos com a família.
-              </p>
-              <p className="mb-1">
-                Você calcula quanto custa manter sua vida por um mês e multiplica por um período
-                entre 6 e 12 meses, dependendo da sua estabilidade de renda. Esse valor é
-                direcionado para aplicações seguras e com resgate rápido, como Tesouro Selic ou CDB
-                com liquidez diária.
-              </p>
-              <p>
-                Quando essa reserva ganha corpo, investir deixa de ser motivo de medo e vira um
-                projeto tranquilo de longo prazo. Você não depende mais do cartão ou do cheque
-                especial para lidar com imprevistos e pode investir sabendo que, se a vida te
-                surpreender, você está preparado.
-              </p>
+          )}
+
+          {/* Conteúdo da etapa 2 */}
+          {activeStep === 2 && (
+            <div className="flex gap-4 p-3 bg-slate-900 text-slate-100 border border-slate-700 rounded-lg shadow-sm">
+              <div className="bg-emerald-500 text-slate-900 w-7 h-7 rounded-full flex items-center justify-center font-bold">
+                2
+              </div>
+              <div>
+                <p className="font-semibold mb-1">Reserva de Emergência</p>
+                <p className="mb-1">
+                  Com a casa em ordem, chega a hora de criar o seu colchão de segurança. A reserva
+                  de emergência é o dinheiro que vai te proteger quando acontecer algo fora do
+                  roteiro: perda de emprego, problema de saúde, conserto do carro ou imprevistos com
+                  a família.
+                </p>
+                <p className="mb-1">
+                  Você calcula quanto custa manter sua vida por um mês e multiplica por um período
+                  entre 6 e 12 meses, dependendo da sua estabilidade de renda. Esse valor é
+                  direcionado para aplicações seguras e com resgate rápido, como Tesouro Selic ou
+                  CDB com liquidez diária.
+                </p>
+                <p>
+                  Quando essa reserva ganha corpo, investir deixa de ser motivo de medo e vira um
+                  projeto tranquilo de longo prazo. Você não depende mais do cartão ou do cheque
+                  especial para lidar com imprevistos e pode investir sabendo que, se a vida te
+                  surpreender, você está preparado.
+                </p>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </ContentModal>
-
-      <footer className="bg-white border-t border-slate-200 py-12 px-4 mt-auto">
-        <div className="max-w-6xl mx-auto text-center">
-          <p className="text-slate-400 text-xs">
-            © {new Date().getFullYear()} Finanças Pro Invest. Conteúdo educacional.
-          </p>
-          <p className="text-xs text-slate-300">financasproinvest.com.br</p>
-        </div>
-      </footer>
-    </div>
-  );
-};
-
-export default App;
