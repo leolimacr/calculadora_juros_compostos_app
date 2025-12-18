@@ -130,16 +130,76 @@ const App: React.FC = () => {
       </main>
 
       {/* Modals */}
-      <ContentModal isOpen={activeModal === 'artigos'} onClose={() => setActiveModal(null)} title="Conteúdos: Hub de Conhecimento">
+      <ContentModal 
+        isOpen={activeModal === 'artigos'} 
+        onClose={() => setActiveModal(null)} 
+        title="Conteúdos: Hub de Conhecimento Finanças Pro"
+      >
         <div className="space-y-6">
-          <section className="bg-slate-50 p-4 rounded-xl border-l-4 border-emerald-800">
-            <h4 className="text-emerald-800 font-bold mb-2">🧠 Mente Próspera</h4>
-            <p className="text-sm text-slate-600">Educação financeira começa na mentalidade e no propósito do seu dinheiro.</p>
+          <section className="bg-slate-50 p-4 rounded-xl border-l-4 border-emerald-800 shadow-sm text-left">
+            <h4 className="text-emerald-800 font-bold text-lg mb-2 flex items-center">
+              <span className="mr-2">🧠</span> Mente Próspera
+            </h4>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Educação financeira começa na mentalidade. Aprenda a enxergar o dinheiro como uma ferramenta de liberdade, não apenas como papel para pagar boletos. Antes de escolher um produto, entenda qual o seu objetivo real com aquele dinheiro.
+            </p>
           </section>
-          <section className="bg-slate-50 p-4 rounded-xl border-l-4 border-emerald-800">
-            <h4 className="text-emerald-800 font-bold mb-2">📈 Renda Fixa</h4>
-            <p className="text-sm text-slate-600">Entenda Selic, IPCA e CDI de forma simples e direta.</p>
+
+          <section className="bg-slate-50 p-4 rounded-xl border-l-4 border-emerald-800 shadow-sm text-left">
+            <h4 className="text-emerald-800 font-bold text-lg mb-2 flex items-center">
+              <span className="mr-2">📈</span> Renda Fixa: A Base Segura
+            </h4>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Saiba como proteger seu patrimônio com <strong>Tesouro Selic, CDBs e LCIs</strong>. Entenda que a renda fixa não é "parada", ela é o motor que garante que você não perca poder de compra para a inflação enquanto dorme tranquilo.
+            </p>
           </section>
+
+          <section className="bg-slate-50 p-4 rounded-xl border-l-4 border-emerald-800 shadow-sm text-left">
+            <h4 className="text-emerald-800 font-bold text-lg mb-2 flex items-center">
+              <span className="mr-2">🏢</span> Renda Variável (Ações e FIIs)
+            </h4>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Descubra como se tornar sócio das maiores empresas do país e receber aluguéis mensais através de Fundos Imobiliários. Aprenda que o risco não é o inimigo, e sim a falta de conhecimento e diversificação.
+            </p>
+          </section>
+
+          <section className="bg-slate-50 p-4 rounded-xl border-l-4 border-emerald-800 shadow-sm text-left">
+            <h4 className="text-emerald-800 font-bold text-lg mb-2 flex items-center">
+              <span className="mr-2">🌅</span> Planejando a Aposentadoria
+            </h4>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Não dependa apenas do governo. Use o poder dos juros compostos para criar uma previdência própria. Projetar o futuro hoje é o que garante a sua liberdade geográfica e financeira amanhã.
+            </p>
+          </section>
+
+          <section className="text-left">
+            <h4 className="text-emerald-800 font-bold text-lg mb-3 flex items-center">
+              <span className="mr-2">📖</span> Dicionário Pro (Glossário)
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                <span className="font-bold text-slate-800 block text-xs uppercase tracking-wider">Liquidez</span>
+                <span className="text-[11px] text-slate-500">A velocidade com que você transforma o investimento em dinheiro na mão.</span>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                <span className="font-bold text-slate-800 block text-xs uppercase tracking-wider">CDI</span>
+                <span className="text-[11px] text-slate-500">O termômetro dos juros. É quanto o mercado paga para quem empresta dinheiro.</span>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                <span className="font-bold text-slate-800 block text-xs uppercase tracking-wider">Dividendos</span>
+                <span className="text-[11px] text-slate-500">Parte do lucro que as empresas depositam direto na sua conta por ser sócio.</span>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                <span className="font-bold text-slate-800 block text-xs uppercase tracking-wider">IPCA</span>
+                <span className="text-[11px] text-slate-500">A inflação oficial. Seu investimento deve sempre render acima dessa taxa.</span>
+              </div>
+            </div>
+          </section>
+
+          <div className="bg-emerald-900 text-white p-4 rounded-xl text-center shadow-lg">
+            <p className="text-sm font-bold">💡 Dica Extra:</p>
+            <p className="text-xs text-emerald-100 mt-1 italic">"Investir em conhecimento rende sempre os melhores juros."</p>
+          </div>
         </div>
       </ContentModal>
 
