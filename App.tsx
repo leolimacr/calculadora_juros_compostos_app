@@ -211,28 +211,62 @@ const App: React.FC = () => {
         <p className="mt-4 text-emerald-800 font-bold italic">Nossa missão: Dar clareza para o seu dinheiro trabalhar por você.</p>
       </ContentModal>
 
-      <ContentModal isOpen={activeModal === 'passo-a-passo'} onClose={() => setActiveModal(null)} title="Trilha do Investidor">
-        <div className="space-y-4">
-          <div className="flex gap-4 p-3 bg-white border rounded-lg">
-            <div className="bg-emerald-800 text-white w-6 h-6 rounded-full flex items-center justify-center font-bold">1</div>
-            <p className="text-sm"><strong>Faxina Financeira:</strong> Organize dívidas e entenda seus gastos.</p>
+      <ContentModal
+        isOpen={activeModal === 'passo-a-passo'}
+        onClose={() => setActiveModal(null)}
+        title="Trilha do Investidor"
+      >
+        <div className="space-y-4 text-sm text-slate-800">
+          <div className="flex gap-4 p-3 bg-white border rounded-lg shadow-sm">
+            <div className="bg-emerald-800 text-white w-7 h-7 rounded-full flex items-center justify-center font-bold">
+              1
+            </div>
+            <div>
+              <p className="font-semibold mb-1">Faxina Financeira</p>
+              <p className="mb-1">
+                Antes de começar a investir, o primeiro passo é organizar a casa. Aqui você olha
+                para todas as suas contas, dívidas e gastos com honestidade, sem culpa, como quem
+                faz uma verdadeira faxina financeira.
+              </p>
+              <p className="mb-1">
+                Você reúne tudo em um só lugar: cartão de crédito, empréstimos, financiamentos,
+                boletos atrasados e gastos mensais. A partir daí, passa a enxergar quais dívidas
+                têm juros mais altos, onde está vazando dinheiro e o que pode ser renegociado ou
+                cortado.
+              </p>
+              <p>
+                O objetivo é reduzir o peso das dívidas, liberar espaço no orçamento e ganhar
+                controle. Quando a faxina financeira é bem feita, você sente alívio, para de viver
+                apagando incêndios e começa a ter dinheiro sobrando todo mês para construir
+                patrimônio de verdade.
+              </p>
+            </div>
           </div>
-          <div className="flex gap-4 p-3 bg-white border rounded-lg">
-            <div className="bg-emerald-800 text-white w-6 h-6 rounded-full flex items-center justify-center font-bold">2</div>
-            <p className="text-sm"><strong>Reserva:</strong> Monte seu colchão de 6 a 12 meses de segurança.</p>
+
+          <div className="flex gap-4 p-3 bg-white border rounded-lg shadow-sm">
+            <div className="bg-emerald-800 text-white w-7 h-7 rounded-full flex items-center justify-center font-bold">
+              2
+            </div>
+            <div>
+              <p className="font-semibold mb-1">Reserva de Emergência</p>
+              <p className="mb-1">
+                Com a casa em ordem, chega a hora de criar o seu colchão de segurança. A reserva de
+                emergência é o dinheiro que vai te proteger quando acontecer algo fora do roteiro:
+                perda de emprego, problema de saúde, conserto do carro ou imprevistos com a família.
+              </p>
+              <p className="mb-1">
+                Você calcula quanto custa manter sua vida por um mês e multiplica por um período
+                entre 6 e 12 meses, dependendo da sua estabilidade de renda. Esse valor é
+                direcionado para aplicações seguras e com resgate rápido, como Tesouro Selic ou CDB
+                com liquidez diária.
+              </p>
+              <p>
+                Quando essa reserva ganha corpo, investir deixa de ser motivo de medo e vira um
+                projeto tranquilo de longo prazo. Você não depende mais do cartão ou do cheque
+                especial para lidar com imprevistos e pode investir sabendo que, se a vida te
+                surpreender, você está preparado.
+              </p>
+            </div>
           </div>
         </div>
       </ContentModal>
-
-      <footer className="bg-white border-t border-slate-200 py-12 px-4 mt-auto">
-        <div className="max-w-6xl mx-auto text-center">
-          <p className="text-slate-400 text-xs">© {new Date().getFullYear()} Finanças Pro Invest. Conteúdo educacional.</p>
-          <p className="text-xs text-slate-300">financasproinvest.com.br</p>
-        </div>
-      </footer>
-    </div>
-  );
-};
-
-export default App;
-
