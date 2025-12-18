@@ -280,18 +280,54 @@ const App: React.FC = () => {
       </main>
 
       {/* Modals */}
-      <ContentModal 
+            <ContentModal 
         isOpen={activeModal === 'artigos'} 
         onClose={() => setActiveModal(null)}
-        title="Artigo: Educação financeira na prática"
+        title="Conteúdos: Hub de Conhecimento Finanças Pro"
       >
-        <p className="font-semibold text-slate-800 text-lg">Educação financeira é entender como o dinheiro entra, sai e cresce na sua vida, de forma organizada e previsível.</p>
-        <p>Envolve controlar gastos, planejar objetivos, aprender sobre investimentos e usar o tempo a seu favor por meio dos juros compostos. Quem domina esses conceitos simples tende a se endividar menos, aproveitar melhor a renda e ter mais segurança em momentos de crise.</p>
-        <p>O primeiro passo é saber exatamente para onde seu dinheiro está indo. Um controle mensal – em planilha, app ou ferramenta online – ajuda a enxergar gastos invisíveis e cortar excessos sem sofrimento. Em vez de apenas “anotar despesas”, a ideia é dar um propósito para cada real: moradia, alimentação, lazer, reserva de emergência, investimentos e sonhos de médio e longo prazo.</p>
-        <p>Depois do controle vem o planejamento. Definir metas claras (quitar dívidas, montar reserva de 6 meses, fazer o primeiro investimento, alcançar independência financeira) transforma decisões do dia a dia em escolhas conscientes, não em impulsos. Um bom plano financeiro considera tempo, valor mensal possível e um retorno realista, usando ferramentas como simuladores de juros compostos para projetar o futuro.</p>
-        <p>Por fim, investir passa a ser consequência, não ponto de partida. Antes de pensar em produtos como renda fixa, fundos, ações ou criptomoedas, é essencial ter base organizada: dívidas sob controle, reserva de emergência e disciplina de aportes mensais. A partir daí, a educação financeira ajuda a entender risco, prazo e diversificação, evitando decisões movidas apenas por emoção ou promessas fáceis.</p>
-        <p>Educar-se financeiramente não é um evento único, e sim um hábito. Pequenos ajustes contínuos – estudar um pouco por semana, revisar metas, usar ferramentas simples de simulação e registro – criam um efeito composto de conhecimento, semelhante aos próprios juros compostos. Com o tempo, a pessoa deixa de “apagar incêndios” e passa a construir patrimônio de forma estruturada e alinhada com seus valores e objetivos de vida.</p>
+        <div className="space-y-8">
+          <section>
+            <h4 className="text-emerald-800 font-bold text-lg mb-3 flex items-center">
+              <span className="mr-2">🧠</span> Mente Próspera
+            </h4>
+            <p className="text-slate-600 text-sm leading-relaxed">
+              Educação financeira começa na mentalidade. Aprenda a enxergar o dinheiro como uma ferramenta de liberdade, não apenas como papel para pagar boletos. O segredo está em dar um propósito para cada real investido.
+            </p>
+          </section>
+
+          <section className="bg-slate-50 p-4 rounded-xl border-l-4 border-emerald-800">
+            <h4 className="text-emerald-800 font-bold text-lg mb-3 flex items-center">
+              <span className="mr-2">📈</span> Renda Fixa: A Base de Tudo
+            </h4>
+            <p className="text-slate-600 text-sm leading-relaxed">
+              Entenda termos como <strong>Selic, IPCA e CDI</strong>. Aqui explicamos como emprestar dinheiro para o governo ou bancos de forma segura, garantindo que seu patrimônio cresça acima da inflação sem sustos.
+            </p>
+          </section>
+
+          <section>
+            <h4 className="text-emerald-800 font-bold text-lg mb-3 flex items-center">
+              <span className="mr-2">📖</span> Dicionário Pro (Glossário Rápido)
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                <span className="font-bold text-slate-800 block text-xs">LIQUIDEZ</span>
+                <span className="text-xs text-slate-500">A facilidade de transformar seu investimento em dinheiro na mão.</span>
+              </div>
+              <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                <span className="font-bold text-slate-800 block text-xs">RENTABILIDADE REAL</span>
+                <span className="text-xs text-slate-500">Quanto você realmente ganhou descontando a inflação do período.</span>
+              </div>
+            </div>
+          </section>
+
+          <div className="bg-emerald-50 p-4 rounded-lg text-center">
+            <p className="text-emerald-900 text-sm font-medium">
+              Acompanhe também nossas dicas em vídeo para uma experiência mais visual!
+            </p>
+          </div>
+        </div>
       </ContentModal>
+
 
             <ContentModal 
         isOpen={activeModal === 'sobre'} 
