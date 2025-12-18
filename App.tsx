@@ -1,6 +1,4 @@
-Falta só o final do arquivo (footer, fechamento da div e do componente). A parte do modal está ok. Aqui vai o App.tsx completo, já corrigido e fechado:
 
-tsx
 import React, { useState, useCallback } from 'react';
 import CalculatorForm from './components/CalculatorForm';
 import ResultsDisplay from './components/ResultsDisplay';
