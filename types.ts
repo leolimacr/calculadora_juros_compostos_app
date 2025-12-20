@@ -27,3 +27,17 @@ export interface CalculationResult {
   };
   history: MonthlyData[];
 }
+
+// Novos tipos para o Gerenciador Financeiro
+export type TransactionType = 'income' | 'expense';
+
+export interface Transaction {
+  id: string;
+  type: TransactionType;
+  date: string;
+  description: string;
+  category: string;
+  amount: number;
+}
+
+export type FilterPeriod = 'tudo' | 'hoje' | 'mes' | 'ano';
