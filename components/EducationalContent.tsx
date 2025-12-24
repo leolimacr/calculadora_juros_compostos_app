@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 
 const EducationalContent: React.FC = () => {
@@ -69,7 +68,7 @@ const EducationalContent: React.FC = () => {
             <div className="bg-slate-900 p-6 rounded-xl border border-slate-700 hover:border-emerald-500/50 transition-colors">
               <h5 className="text-emerald-400 font-bold mb-2 uppercase tracking-wide text-xs">Onde investir?</h5>
               <p className="font-bold text-white text-lg">Liquidez Diária</p>
-              <p className="text-xs mt-2 text-slate-500">Tesouro Selic ou CDBs de grandes bancos com liquidez diária (100% do CDI). Segurança > Rentabilidade.</p>
+              <p className="text-xs mt-2 text-slate-500">Tesouro Selic ou CDBs de grandes bancos com liquidez diária (100% do CDI). Segurança &gt; Rentabilidade.</p>
             </div>
           </div>
           
