@@ -1,102 +1,186 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 
 const EducationalContent: React.FC = () => {
-  const steps = [
-    { title: "Valor Inicial", description: "Insira o montante que você já possui guardado para começar seu investimento agora." },
-    { title: "Aporte Mensal", description: "Defina quanto você pretende economizar e investir regularmente todos os meses." },
-    { title: "Rentabilidade", description: "Informe a taxa de juros (mensal ou anual) que espera obter sobre o capital aplicado." },
-    { title: "Tempo", description: "Diga por quanto tempo (meses ou anos) você manterá esse dinheiro trabalhando para você." },
-    { title: "Resultado", description: "Clique em calcular para visualizar a mágica do crescimento exponencial em detalhes." }
+  const [activeTab, setActiveTab] = useState<number>(0);
+
+  const articles = [
+    {
+      id: 'psy',
+      title: "Psicologia do Dinheiro",
+      icon: "🧠",
+      subtitle: "Como dominar o cérebro impulsivo",
+      content: (
+        <div className="space-y-6 text-slate-300">
+          <p className="text-lg leading-relaxed">
+            Você já comprou algo que não precisava só porque estava "barato" ou porque teve um dia ruim? 
+            Isso é o seu <strong className="text-white">Sistema Límbico</strong> agindo – a parte primitiva do cérebro que busca recompensa imediata.
+          </p>
+          
+          <div className="bg-indigo-900/20 border-l-4 border-indigo-500 p-6 rounded-r-xl my-6">
+             <h4 className="text-indigo-400 font-bold text-lg mb-2">A Regra dos 3 Dias (72 Horas)</h4>
+             <p className="text-sm">Para combater o impulso, implemente esta barreira mental: Sempre que quiser comprar algo não essencial, espere 72 horas.</p>
+          </div>
+
+          <ul className="space-y-4">
+            <li className="flex gap-4 items-start">
+               <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-slate-400 shrink-0">1</div>
+               <div>
+                 <strong className="block text-white">O Pico de Dopamina</strong>
+                 <span className="text-sm">No momento que você vê o produto, seu cérebro inunda de dopamina. É químico.</span>
+               </div>
+            </li>
+            <li className="flex gap-4 items-start">
+               <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-slate-400 shrink-0">2</div>
+               <div>
+                 <strong className="block text-white">A Queda da Emoção</strong>
+                 <span className="text-sm">Após 24h a 48h, a emoção diminui e o córtex pré-frontal (racional) começa a retomar o controle.</span>
+               </div>
+            </li>
+            <li className="flex gap-4 items-start">
+               <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-slate-400 shrink-0">3</div>
+               <div>
+                 <strong className="block text-white">Decisão Real</strong>
+                 <span className="text-sm">Se no 3º dia você ainda quiser, tiver o dinheiro à vista e for útil, compre. Na maioria das vezes, o desejo terá sumido.</span>
+               </div>
+            </li>
+          </ul>
+        </div>
+      )
+    },
+    {
+      id: 'reserva',
+      title: "Reserva de Emergência",
+      icon: "🛡️",
+      subtitle: "O alicerce da tranquilidade",
+      content: (
+        <div className="space-y-6 text-slate-300">
+          <p className="text-lg leading-relaxed">
+            Investir sem reserva de emergência é como pular de paraquedas sem o equipamento reserva. 
+            Se algo der errado (desemprego, doença, carro quebra), você será obrigado a vender seus investimentos com prejuízo ou fazer dívidas caras.
+          </p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
+            <div className="bg-slate-900 p-6 rounded-xl border border-slate-700 hover:border-emerald-500/50 transition-colors">
+              <h5 className="text-emerald-400 font-bold mb-2 uppercase tracking-wide text-xs">Quanto guardar?</h5>
+              <p className="font-bold text-white text-lg">6 a 12 meses</p>
+              <p className="text-xs mt-2 text-slate-500">Do seu custo de vida mensal. Se você é CLT, 6 meses. Autônomo? 12 meses no mínimo.</p>
+            </div>
+            <div className="bg-slate-900 p-6 rounded-xl border border-slate-700 hover:border-emerald-500/50 transition-colors">
+              <h5 className="text-emerald-400 font-bold mb-2 uppercase tracking-wide text-xs">Onde investir?</h5>
+              <p className="font-bold text-white text-lg">Liquidez Diária</p>
+              <p className="text-xs mt-2 text-slate-500">Tesouro Selic ou CDBs de grandes bancos com liquidez diária (100% do CDI). Segurança > Rentabilidade.</p>
+            </div>
+          </div>
+          
+          <div className="p-4 bg-red-900/10 border border-red-500/20 rounded-xl flex gap-3 items-center">
+             <span className="text-2xl">🚫</span>
+             <p className="text-sm text-red-300">Nunca coloque sua reserva em ações, fundos imobiliários ou criptomoedas. Ela precisa estar lá intacta quando você precisar.</p>
+          </div>
+        </div>
+      )
+    },
+    {
+      id: 'juros',
+      title: "Efeito Bola de Neve",
+      icon: "❄️",
+      subtitle: "A máquina de renda passiva",
+      content: (
+        <div className="space-y-6 text-slate-300">
+          <p className="text-lg leading-relaxed">
+            O segredo dos grandes investidores não é apenas escolher boas ações, mas o <strong>tempo</strong> e o <strong>reinvestimento</strong>. 
+            Albert Einstein supostamente chamou os juros compostos de "a oitava maravilha do mundo".
+          </p>
+
+          <div className="bg-slate-900 rounded-xl p-6 border border-slate-700 relative overflow-hidden">
+             <div className="absolute top-0 right-0 p-8 bg-emerald-500/10 rounded-full blur-2xl"></div>
+             <h4 className="font-bold text-white mb-4 relative z-10">O Ciclo da Riqueza</h4>
+             <div className="space-y-4 relative z-10">
+                <div className="flex items-center gap-4">
+                   <div className="w-12 h-12 rounded-lg bg-slate-800 flex items-center justify-center text-xl shadow border border-slate-700">🔨</div>
+                   <div>
+                      <strong className="text-slate-200">Fase 1: Acumulação</strong>
+                      <p className="text-xs text-slate-500">Você trabalha pelo dinheiro. Aportes constantes são mais importantes que a taxa de juros.</p>
+                   </div>
+                </div>
+                <div className="w-0.5 h-6 bg-slate-700 ml-6"></div>
+                 <div className="flex items-center gap-4">
+                   <div className="w-12 h-12 rounded-lg bg-slate-800 flex items-center justify-center text-xl shadow border border-slate-700">🤝</div>
+                   <div>
+                      <strong className="text-slate-200">Fase 2: Multiplicação</strong>
+                      <p className="text-xs text-slate-500">Você e seu dinheiro trabalham. Os juros começam a pagar algumas contas pequenas.</p>
+                   </div>
+                </div>
+                <div className="w-0.5 h-6 bg-slate-700 ml-6"></div>
+                 <div className="flex items-center gap-4">
+                   <div className="w-12 h-12 rounded-lg bg-emerald-600 flex items-center justify-center text-xl shadow shadow-emerald-900/50 text-white">🏖️</div>
+                   <div>
+                      <strong className="text-emerald-400">Fase 3: Liberdade</strong>
+                      <p className="text-xs text-slate-500">Seu dinheiro trabalha por você. Os rendimentos cobrem seu custo de vida.</p>
+                   </div>
+                </div>
+             </div>
+          </div>
+        </div>
+      )
+    }
   ];
 
   return (
-    <div className="mt-12 space-y-12 pb-20">
-      {/* Guia Passo a Passo */}
-      <section>
-        <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center">
-          <span className="bg-emerald-800 text-white w-8 h-8 rounded-full inline-flex items-center justify-center mr-3 text-sm">1</span>
-          Guia para sua simulação
-        </h2>
-        <p className="text-slate-600 mb-8 max-w-2xl">
-          Nossa calculadora financeira é gratuita e projetada para ser intuitiva. 
-          Siga estas etapas simples para planejar seu futuro financeiro:
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          {steps.map((step, idx) => (
-            <div key={idx} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-              <span className="text-xs font-bold text-emerald-700 uppercase tracking-widest block mb-2">Passo {idx + 1}</span>
-              <h3 className="font-bold text-slate-800 mb-2">{step.title}</h3>
-              <p className="text-sm text-slate-500 leading-relaxed">{step.description}</p>
+    <div className="flex flex-col lg:flex-row gap-8 max-w-6xl mx-auto">
+      {/* Sidebar Navigation */}
+      <div className="lg:w-1/3 space-y-3">
+        {articles.map((article, index) => (
+          <button
+            key={article.id}
+            onClick={() => setActiveTab(index)}
+            className={`w-full text-left p-5 rounded-xl border transition-all flex items-center gap-4 group ${
+              activeTab === index 
+                ? 'bg-slate-800 border-emerald-500 shadow-lg shadow-emerald-900/10 ring-1 ring-emerald-500/50' 
+                : 'bg-slate-900/50 border-slate-800 hover:bg-slate-800 hover:border-slate-700'
+            }`}
+          >
+            <span className={`text-2xl filter ${activeTab === index ? 'grayscale-0' : 'grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100 transition-all'}`}>{article.icon}</span>
+            <div>
+              <h3 className={`font-bold text-sm ${activeTab === index ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`}>{article.title}</h3>
+              <p className="text-xs text-slate-500 truncate max-w-[200px]">{article.subtitle}</p>
             </div>
-          ))}
+            {activeTab === index && (
+              <span className="ml-auto w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            )}
+          </button>
+        ))}
+        
+        <div className="mt-8 p-6 bg-gradient-to-br from-indigo-900/50 to-slate-900 rounded-2xl border border-indigo-500/30">
+           <h4 className="font-bold text-white text-sm mb-2">Quer ir além?</h4>
+           <p className="text-xs text-indigo-200 mb-4">Assine o plano PRO e tenha acesso a masterclasses sobre Investimentos no Exterior e Contabilidade.</p>
+           <button className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg shadow-lg">Ver Planos</button>
         </div>
-      </section>
-
-      {/* Fórmula e Teoria */}
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-        <div className="bg-slate-900 text-slate-300 p-8 rounded-2xl shadow-xl">
-          <h2 className="text-2xl font-bold text-white mb-6">A Ciência por Trás</h2>
-          <p className="mb-6">
-            Diferente dos juros simples, onde o rendimento é fixo sobre o capital original, 
-            os juros compostos calculam o lucro sobre o valor atualizado (Capital + Juros anteriores).
-          </p>
-          <div className="bg-white/10 p-6 rounded-xl border border-white/20 text-center mb-6">
-            <span className="text-3xl font-mono text-emerald-400">M = C (1 + i)<sup>t</sup></span>
+      </div>
+      
+      {/* Content Area */}
+      <div className="lg:w-2/3">
+        <div className="bg-slate-800 p-8 rounded-3xl border border-slate-700 shadow-2xl min-h-[600px] relative overflow-hidden animate-in fade-in duration-500 key={activeTab}">
+          {/* Header */}
+          <div className="mb-8 pb-8 border-b border-slate-700">
+             <div className="flex items-center gap-3 mb-2">
+               <span className="text-4xl">{articles[activeTab].icon}</span>
+               <h2 className="text-3xl font-bold text-white">{articles[activeTab].title}</h2>
+             </div>
+             <p className="text-emerald-400 font-medium text-lg">{articles[activeTab].subtitle}</p>
           </div>
-          <ul className="space-y-3 text-sm">
-            <li><strong className="text-white">M:</strong> Montante acumulado (resultado final)</li>
-            <li><strong className="text-white">C:</strong> Capital investido inicialmente</li>
-            <li><strong className="text-white">i:</strong> Taxa de juros (formato decimal)</li>
-            <li><strong className="text-white">t:</strong> Tempo da aplicação</li>
-          </ul>
-        </div>
-
-        <div className="space-y-6">
-          <h2 className="text-2xl font-bold text-slate-800">Por que juros compostos?</h2>
-          <div className="prose prose-slate text-slate-600">
-            <p>
-              Frequentemente chamados de "juros sobre juros", eles representam o crescimento exponencial. 
-              No início, o efeito pode parecer tímido, mas conforme o tempo passa, os juros gerados pelo 
-              capital acumulado superam significativamente o valor dos seus aportes mensais.
-            </p>
-            <p>
-              Albert Einstein supostamente chamou os juros compostos de "a oitava maravilha do mundo". 
-              Quem os compreende, ganha; quem não, os paga. Eles estão presentes em:
-            </p>
-            <ul className="list-disc pl-5 space-y-2">
-              <li><strong>Investimentos de Renda Fixa:</strong> Tesouro Direto, CDBs e LCIs.</li>
-              <li><strong>Dividendos:</strong> Reinvestir lucros de ações acelera drasticamente o acúmulo.</li>
-              <li><strong>Financiamentos:</strong> Aqui, eles trabalham contra você, aumentando dívidas de cartões e empréstimos.</li>
-            </ul>
+          
+          {/* Body */}
+          <div className="leading-relaxed">
+            {articles[activeTab].content}
+          </div>
+          
+          <div className="mt-12 pt-6 border-t border-slate-700 flex justify-between items-center text-xs text-slate-500">
+             <span>Leitura: 3 min</span>
+             <button className="hover:text-emerald-400 transition-colors">Compartilhar Artigo</button>
           </div>
         </div>
-      </section>
-
-      {/* Diferenças Simples vs Compostos */}
-      <section className="bg-white p-8 rounded-2xl border border-slate-200">
-        <h2 className="text-2xl font-bold text-slate-800 mb-6">Juros Simples vs. Compostos</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="bg-slate-50 p-6 rounded-xl border-l-4 border-slate-300">
-            <h3 className="font-bold text-lg mb-3">Juros Simples</h3>
-            <p className="text-sm text-slate-600 mb-4">Incidem apenas sobre o capital inicial. O rendimento é linear.</p>
-            <ul className="text-sm text-slate-500 space-y-2">
-              <li>• Crescimento em linha reta</li>
-              <li>• Rendimentos constantes</li>
-              <li>• Comum em descontos e empréstimos curtos</li>
-            </ul>
-          </div>
-          <div className="bg-emerald-50 p-6 rounded-xl border-l-4 border-emerald-800">
-            <h3 className="font-bold text-lg text-emerald-900 mb-3">Juros Compostos</h3>
-            <p className="text-sm text-emerald-800/70 mb-4">Incidem sobre o saldo total atualizado. O rendimento é exponencial.</p>
-            <ul className="text-sm text-emerald-800/60 space-y-2">
-              <li>• Crescimento em curva acelerada</li>
-              <li>• "Bola de neve" de rendimentos</li>
-              <li>• Base da construção de patrimônio</li>
-            </ul>
-          </div>
-        </div>
-      </section>
+      </div>
     </div>
   );
 };
