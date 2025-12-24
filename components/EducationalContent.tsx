@@ -1,6 +1,11 @@
+
 import React, { useState } from 'react';
 
-const EducationalContent: React.FC = () => {
+interface EducationalContentProps {
+  onOpenPlans?: () => void;
+}
+
+const EducationalContent: React.FC<EducationalContentProps> = ({ onOpenPlans }) => {
   const [activeTab, setActiveTab] = useState<number>(0);
 
   const articles = [
@@ -153,7 +158,12 @@ const EducationalContent: React.FC = () => {
         <div className="mt-8 p-6 bg-gradient-to-br from-indigo-900/50 to-slate-900 rounded-2xl border border-indigo-500/30">
            <h4 className="font-bold text-white text-sm mb-2">Quer ir além?</h4>
            <p className="text-xs text-indigo-200 mb-4">Assine o plano PRO e tenha acesso a masterclasses sobre Investimentos no Exterior e Contabilidade.</p>
-           <button className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg shadow-lg">Ver Planos</button>
+           <button 
+             onClick={onOpenPlans}
+             className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg shadow-lg hover:shadow-indigo-900/50 transition-all active:scale-95"
+           >
+             Ver Planos
+           </button>
         </div>
       </div>
       

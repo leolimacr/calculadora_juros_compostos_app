@@ -1,9 +1,9 @@
-
 import React, { useState, useMemo } from 'react';
 import { Transaction, FilterPeriod, Goal } from '../types';
 import FilterBar from './FilterBar';
 import TransactionHistory from './TransactionHistory';
 import GoalsWidget from './GoalsWidget';
+import Breadcrumb from './Breadcrumb';
 import { formatCurrency, maskCurrency } from '../utils/calculations';
 import {
   PieChart,
@@ -27,6 +27,7 @@ interface DashboardProps {
   onUpdateGoal: (id: string, amount: number) => void;
   onDeleteGoal: (id: string) => void;
   isPrivacyMode?: boolean;
+  navigateToHome?: () => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
@@ -37,7 +38,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   onAddGoal,
   onUpdateGoal,
   onDeleteGoal,
-  isPrivacyMode = false
+  isPrivacyMode = false,
+  navigateToHome
 }) => {
   const [selectedCategory, setSelectedCategory] = useState('Todas Categorias');
   const [selectedPeriod, setSelectedPeriod] = useState<FilterPeriod>('tudo');
@@ -129,6 +131,8 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
+      {navigateToHome && <Breadcrumb items={[{ label: 'Home', action: navigateToHome }, { label: 'Dashboard Financeiro' }]} />}
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 no-print">
         <div>
            <h2 className="text-2xl font-bold text-white">Dashboard Financeiro</h2>

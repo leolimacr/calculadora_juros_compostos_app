@@ -23,7 +23,8 @@ interface ResultsDisplayProps {
 
 const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ result, isPrivacyMode = false }) => {
   const { summary, history } = result;
-  const [showRealValue, setShowRealValue] = useState(false);
+  const [activeTab, setActiveTab] = useState<'nominal' | 'real'>('nominal');
+  const showRealValue = activeTab === 'real';
   const hasTax = summary.totalTax > 0;
 
   // Pie Chart Data
@@ -63,23 +64,22 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ result, isPrivacyMode =
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
-      {/* Controls */}
-      <div className="flex justify-end">
-         <div className="bg-slate-800 p-1 rounded-xl flex gap-1 border border-slate-700">
-            <button 
-              onClick={() => setShowRealValue(false)}
-              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${!showRealValue ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
-            >
-              Valor Nominal (Hoje)
-            </button>
-            <button 
-              onClick={() => setShowRealValue(true)}
-              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 ${showRealValue ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
-            >
-              Poder de Compra Real 
-              <span className="text-[9px] bg-black/20 px-1.5 rounded">Inflação</span>
-            </button>
-         </div>
+      {/* Tab Switcher - Visibilidade Crítica */}
+      <div className="flex gap-4 mb-6 border-b border-slate-700">
+         <button 
+           className={`py-3 px-4 font-bold text-sm transition-colors relative ${activeTab === 'nominal' ? 'text-emerald-400' : 'text-slate-400 hover:text-white'}`}
+           onClick={() => setActiveTab('nominal')}
+         >
+           Valor Nominal
+           {activeTab === 'nominal' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-500"></span>}
+         </button>
+         <button 
+           className={`py-3 px-4 font-bold text-sm transition-colors relative ${activeTab === 'real' ? 'text-emerald-400' : 'text-slate-400 hover:text-white'}`}
+           onClick={() => setActiveTab('real')}
+         >
+           Valor Real (com Inflação)
+           {activeTab === 'real' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-500"></span>}
+         </button>
       </div>
 
       {/* Main Stats Cards */}

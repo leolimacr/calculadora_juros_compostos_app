@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect, Suspense, lazy } from 'react';
 import CalculatorForm from './components/CalculatorForm';
 import ResultsDisplay from './components/ResultsDisplay';
@@ -6,6 +5,9 @@ import ContentModal from './components/ContentModal';
 import AiAdvisor from './components/AiAdvisor';
 import ToastContainer from './components/Toast';
 import ErrorBoundary from './components/ErrorBoundary';
+import Breadcrumb from './components/Breadcrumb';
+import Footer from './components/Footer';
+import BackToTop from './components/BackToTop';
 import { CalculationInput, CalculationResult, Transaction, Goal, ToastMessage, ToastType } from './types';
 import { calculateCompoundInterest } from './utils/calculations';
 
@@ -36,9 +38,9 @@ const LoadingFallback = () => (
 const App: React.FC = () => {
   const [currentTool, setCurrentTool] = useState<ToolView>('home');
   const [result, setResult] = useState<CalculationResult | null>(null);
-  const [activeModal, setActiveModal] = useState<string | null>(null);
+  const [activeModal, setActiveModal] = useState<string | null>(null); // 'transaction', 'plans', etc.
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isAiChatOpen, setIsAiChatOpen] = useState(false); // Renomeado para ser universal
+  const [isAiChatOpen, setIsAiChatOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   
   // Privacy & Settings State
@@ -173,6 +175,7 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-[#020617] text-slate-200 flex flex-col font-sans selection:bg-emerald-500/30">
       
       <ToastContainer toasts={toasts} removeToast={removeToast} />
+      <BackToTop />
 
       {/* Navigation Bar */}
       <nav className="border-b border-slate-800 bg-[#020617]/95 sticky top-0 z-50 backdrop-blur no-print">
@@ -186,7 +189,7 @@ const App: React.FC = () => {
             {/* Desktop Menu */}
             <div className="hidden lg:flex items-center space-x-6">
               <button onClick={() => navigateTo('education')} className="hover:text-emerald-400 transition-colors text-base font-medium">Academia</button>
-              <button onClick={() => navigateTo('game')} className="hover:text-emerald-400 transition-colors text-base font-medium">Mini-Game</button>
+              <button onClick={() => navigateTo('game')} className="hover:text-emerald-400 transition-colors text-base font-medium">Simulador Financeiro</button>
               
               {/* Privacy Toggle */}
               <button 
@@ -210,7 +213,7 @@ const App: React.FC = () => {
                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
               </button>
 
-              <button className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2.5 rounded-full text-sm font-bold uppercase tracking-wider shadow-lg shadow-emerald-900/20 transition-transform hover:scale-105">Assinar Pro</button>
+              <button onClick={() => setActiveModal('plans')} className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2.5 rounded-full text-sm font-bold uppercase tracking-wider shadow-lg shadow-emerald-900/20 transition-transform hover:scale-105">Assinar Pro</button>
             </div>
 
             {/* Mobile Menu Button */}
@@ -269,7 +272,7 @@ const App: React.FC = () => {
 
             <div className="border-t border-slate-800 pt-6 mt-6 space-y-4">
                <button onClick={() => navigateTo('education')} className="w-full text-left px-6 py-4 rounded-2xl bg-slate-900/50 text-slate-300 font-bold text-lg">📚 Academia Financeira</button>
-               <button onClick={() => navigateTo('game')} className="w-full text-left px-6 py-4 rounded-2xl bg-gradient-to-r from-emerald-900/50 to-slate-900/50 text-emerald-400 font-bold text-lg">🎮 O Sobrevivente</button>
+               <button onClick={() => navigateTo('game')} className="w-full text-left px-6 py-4 rounded-2xl bg-gradient-to-r from-emerald-900/50 to-slate-900/50 text-emerald-400 font-bold text-lg">🎮 Simulador Financeiro</button>
             </div>
           </div>
         </div>
@@ -277,152 +280,351 @@ const App: React.FC = () => {
 
       <div className="flex-grow flex relative w-full px-4 py-8 gap-12">
         
-        {/* Desktop Sidebar (Largura aumentada para 72 - 18rem) */}
+        {/* Desktop Sidebar */}
         <aside className="hidden lg:block w-72 flex-shrink-0 space-y-3 sticky top-28 h-fit no-print">
           <div className="text-sm font-bold text-slate-500 uppercase tracking-widest px-4 mb-4">Ferramentas</div>
           {menuItems.map(tool => (
             <button
               key={tool.id}
               onClick={() => navigateTo(tool.id as ToolView)}
-              className={`w-full text-left px-6 py-4 rounded-2xl flex items-center gap-4 transition-all group ${currentTool === tool.id ? 'bg-slate-800 text-emerald-400 shadow-xl border border-slate-700' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}
+              className={`w-full text-left px-6 py-4 rounded-2xl flex items-center gap-4 transition-all group ${
+                currentTool === tool.id 
+                  ? 'bg-emerald-900/20 text-emerald-400 border border-emerald-500/30' 
+                  : 'text-slate-400 hover:bg-slate-900/50 hover:text-white'
+              }`}
             >
               <span className="text-xl group-hover:scale-110 transition-transform">{tool.icon}</span>
-              <span className="font-semibold text-base">{tool.label}</span>
+              <span className="text-base font-medium">{tool.label}</span>
               {tool.pro && <span className="ml-auto text-[10px] bg-slate-900 border border-slate-700 text-emerald-500 px-1.5 rounded">PRO</span>}
             </button>
           ))}
           
           <div className="mt-10 pt-10 border-t border-slate-800">
              <button onClick={() => navigateTo('game')} className="w-full bg-gradient-to-r from-emerald-900 to-slate-900 border border-emerald-800 p-6 rounded-2xl text-left group relative overflow-hidden shadow-xl hover:shadow-emerald-900/20 transition-all">
-                <h4 className="font-bold text-emerald-400 z-10 relative text-lg">O Sobrevivente</h4>
-                <p className="text-sm text-slate-400 z-10 relative mt-2 leading-relaxed">Jogue o simulador e teste suas habilidades.</p>
+                <h4 className="font-bold text-emerald-400 z-10 relative text-lg">Teste sua Gestão</h4>
+                <p className="text-sm text-slate-400 z-10 relative mt-2 leading-relaxed">Simulador de 12 meses: Aprenda a poupar e investir jogando.</p>
                 <div className="absolute inset-0 bg-emerald-600/10 group-hover:bg-emerald-600/20 transition-colors"></div>
              </button>
           </div>
         </aside>
 
         {/* Main Content Area */}
-        <main className="flex-1 min-w-0">
-          <ErrorBoundary>
-            <Suspense fallback={<LoadingFallback />}>
-              {currentTool === 'home' && (
-                <div className="space-y-16 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                  {/* Hero Section Isolada */}
-                  <section className="text-center py-20 px-4 mb-12">
-                    <h1 className="text-5xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-200 to-slate-500 mb-8 leading-tight tracking-tight">
-                      Domine o Jogo<br/>do Dinheiro
-                    </h1>
-                    <p className="text-xl md:text-2xl text-slate-400 max-w-3xl mx-auto mb-12 leading-relaxed font-light">
-                      Um hub de ferramentas profissionais para quem cansou de perder para a inflação e quer construir patrimônio real.
-                    </p>
-                    <div className="flex flex-col sm:flex-row justify-center gap-6">
-                      <button 
-                        onClick={() => navigateTo('compound')} 
-                        className="bg-emerald-600 hover:bg-emerald-500 text-white text-xl font-bold px-10 py-5 rounded-2xl shadow-2xl shadow-emerald-900/30 transition-all hover:scale-105 active:scale-95 border border-emerald-500/20"
-                      >
-                        Começar Simulação
-                      </button>
-                      <button 
-                        onClick={() => navigateTo('manager')} 
-                        className="bg-slate-800 hover:bg-slate-700 text-white text-xl font-bold px-10 py-5 rounded-2xl border border-slate-600 transition-all hover:scale-105 active:scale-95 shadow-xl"
-                      >
-                        💰 Gestão Financeira
-                      </button>
-                    </div>
-                  </section>
-                  
-                  {/* Cards Section Secundária */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pb-12">
-                    <div 
-                      onClick={() => navigateTo('rent')}
-                      className="bg-slate-800 p-10 rounded-[2rem] border border-slate-700 hover:border-emerald-500/50 hover:bg-slate-800/80 transition-all group cursor-pointer relative overflow-hidden shadow-2xl"
-                    >
-                        <div className="absolute -right-4 -top-4 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl group-hover:bg-emerald-500/20 transition-colors"></div>
-                        <span className="text-5xl mb-8 block group-hover:scale-110 transition-transform duration-300">🏠</span>
-                        <h3 className="font-bold text-white text-2xl mb-4">Alugar ou Financiar?</h3>
-                        <p className="text-base text-slate-300 leading-relaxed mb-8 font-normal">
-                          Não siga o senso comum. Simule matematicamente o custo de oportunidade entre comprar um imóvel ou viver de aluguel investindo a diferença.
-                        </p>
-                        <div className="flex items-center text-emerald-400 font-bold text-sm uppercase tracking-wider gap-2 opacity-80 group-hover:opacity-100">
-                           <span>Fazer Comparativo</span>
-                           <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+        <main className="flex-1 min-w-0 flex flex-col">
+          <div className="flex-grow">
+            <ErrorBoundary>
+              <Suspense fallback={<LoadingFallback />}>
+                {currentTool === 'home' && (
+                  <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+                    {/* Hero Section Isolada */}
+                    <section className="text-center py-16 md:py-24 px-4 mb-12 md:mb-20">
+                      <h1 className="text-5xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-200 to-slate-500 mb-8 leading-tight tracking-tight">
+                        Domine o Jogo<br/>do Dinheiro
+                      </h1>
+                      <p className="text-xl md:text-2xl text-slate-400 max-w-3xl mx-auto mb-10 leading-relaxed font-light">
+                        Um hub de ferramentas profissionais e educação para quem cansou de perder para a inflação e quer construir patrimônio real.
+                      </p>
+                      
+                      <div className="flex flex-col items-center">
+                        <p className="text-slate-500 text-sm font-bold uppercase tracking-widest mb-4">Escolha seu caminho:</p>
+                        <div className="flex flex-col sm:flex-row justify-center gap-6 mb-8">
+                          <button 
+                             onClick={() => navigateTo('game')} 
+                             className="bg-emerald-600 hover:bg-emerald-500 text-white text-xl font-bold px-10 py-5 rounded-2xl shadow-2xl shadow-emerald-900/30 transition-all hover:scale-105 active:scale-95 border border-emerald-500/20 w-full sm:w-auto"
+                           >
+                             Jogar: O Sobrevivente
+                           </button>
+                          
+                          <button 
+                            onClick={() => navigateTo('manager')} 
+                            className="bg-slate-800 hover:bg-slate-700 text-white text-xl font-bold px-10 py-5 rounded-2xl border border-slate-600 transition-all hover:scale-105 active:scale-95 shadow-xl w-full sm:w-auto"
+                          >
+                            Acessar Dashboard
+                          </button>
                         </div>
-                    </div>
+                        
+                        <div className="flex flex-wrap justify-center gap-4 text-slate-500 text-xs font-medium">
+                           <span className="flex items-center gap-1"><span className="text-emerald-500">✓</span> Gratuito e sem anúncios</span>
+                           <span className="flex items-center gap-1"><span className="text-emerald-500">✓</span> Criado por especialistas</span>
+                           <span className="flex items-center gap-1"><span className="text-emerald-500">✓</span> Simuladores precisos</span>
+                        </div>
+                      </div>
+                    </section>
 
-                    <div 
-                      onClick={() => navigateTo('debt')}
-                      className="bg-slate-800 p-10 rounded-[2rem] border border-slate-700 hover:border-red-500/50 hover:bg-slate-800/80 transition-all group cursor-pointer relative overflow-hidden shadow-2xl"
-                    >
-                        <div className="absolute -right-4 -top-4 w-32 h-32 bg-red-500/10 rounded-full blur-3xl group-hover:bg-red-500/20 transition-colors"></div>
-                        <span className="text-5xl mb-8 block group-hover:scale-110 transition-transform duration-300">🏔️</span>
-                        <h3 className="font-bold text-white text-2xl mb-4">Otimizador de Dívidas</h3>
-                        <p className="text-base text-slate-300 leading-relaxed mb-8 font-normal">
-                          Utilize o Método Avalanche para eliminar juros abusivos. Nosso algoritmo organiza a ordem ideal de pagamento para você sair do buraco.
-                        </p>
-                        <div className="flex items-center text-red-400 font-bold text-sm uppercase tracking-wider gap-2 opacity-80 group-hover:opacity-100">
-                           <span>Criar Plano</span>
-                           <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-                        </div>
-                    </div>
+                    {/* Section: Para Quem é? */}
+                    <section className="py-12 md:py-20 mb-12 md:mb-20">
+                       <div className="text-center mb-12">
+                          <h2 className="text-3xl font-bold text-white mb-2">Para Quem é Finanças Pro?</h2>
+                          <p className="text-slate-400">Não importa onde você está no caminho financeiro, temos ferramentas para ajudar.</p>
+                       </div>
+                       
+                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          <div className="bg-slate-800/50 p-8 rounded-2xl border border-slate-700 hover:border-emerald-500/30 hover:bg-slate-800 transition-all group cursor-pointer" onClick={() => navigateTo('education')}>
+                             <span className="text-5xl mb-6 block group-hover:scale-110 transition-transform">🌱</span>
+                             <h3 className="text-xl font-bold text-white mb-3">Iniciante</h3>
+                             <p className="text-sm text-slate-400 mb-6 leading-relaxed">Você quer aprender a organizar finanças desde zero. Comece com nossa Educação Financeira na Prática.</p>
+                             <span className="text-emerald-400 text-xs font-bold uppercase tracking-wider flex items-center gap-2 group-hover:gap-3 transition-all">Começar pelo guia <span>→</span></span>
+                          </div>
+                          <div className="bg-slate-800/50 p-8 rounded-2xl border border-slate-700 hover:border-blue-500/30 hover:bg-slate-800 transition-all group cursor-pointer" onClick={() => navigateTo('compound')}>
+                             <span className="text-5xl mb-6 block group-hover:scale-110 transition-transform">📈</span>
+                             <h3 className="text-xl font-bold text-white mb-3">Em Evolução</h3>
+                             <p className="text-sm text-slate-400 mb-6 leading-relaxed">Já tem noção básica, agora quer investir melhor. Use a Calculadora de Juros Compostos e FIRE.</p>
+                             <span className="text-blue-400 text-xs font-bold uppercase tracking-wider flex items-center gap-2 group-hover:gap-3 transition-all">Simular agora <span>→</span></span>
+                          </div>
+                          <div className="bg-slate-800/50 p-8 rounded-2xl border border-slate-700 hover:border-indigo-500/30 hover:bg-slate-800 transition-all group cursor-pointer" onClick={() => navigateTo('roi')}>
+                             <span className="text-5xl mb-6 block group-hover:scale-110 transition-transform">🎯</span>
+                             <h3 className="text-xl font-bold text-white mb-3">Avançado</h3>
+                             <p className="text-sm text-slate-400 mb-6 leading-relaxed">Você investe, mas quer otimizar. Explore Carteira de Dividendos, ROI e Rebalanceamento.</p>
+                             <span className="text-indigo-400 text-xs font-bold uppercase tracking-wider flex items-center gap-2 group-hover:gap-3 transition-all">Explorar ferramentas PRO <span>→</span></span>
+                          </div>
+                       </div>
+                    </section>
+                    
+                    {/* Section: Cards Principais */}
+                    <section className="py-12 md:py-20 mb-12 md:mb-20 grid grid-cols-1 md:grid-cols-3 gap-8">
+                      <div 
+                        onClick={() => navigateTo('rent')}
+                        className="bg-slate-800 p-8 rounded-[2rem] border border-slate-700 hover:border-blue-500/50 hover:bg-blue-500/5 transition-all duration-300 group cursor-pointer relative overflow-hidden shadow-xl"
+                      >
+                          <div className="absolute -right-4 -top-4 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl group-hover:bg-blue-500/20 transition-colors"></div>
+                          <span className="text-4xl mb-6 block group-hover:scale-110 transition-transform duration-300">🏠</span>
+                          <h3 className="font-bold text-white text-xl mb-4">Alugar ou Financiar? (Simulador Imobiliário)</h3>
+                          <p className="text-base text-slate-300 leading-relaxed mb-8 font-normal">
+                            Não siga o senso comum. Simule matematicamente o custo de oportunidade entre comprar um imóvel ou viver de aluguel investindo a diferença. Descubra qual cenário é melhor PARA VOCÊ.
+                          </p>
+                          <div className="flex items-center text-blue-400 font-bold text-sm uppercase tracking-wider gap-2 opacity-80 group-hover:opacity-100 mt-auto">
+                             <span>Fazer Comparativo</span>
+                             <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+                          </div>
+                      </div>
 
-                    <div 
-                      onClick={() => navigateTo('fire')}
-                      className="bg-slate-800 p-10 rounded-[2rem] border border-slate-700 hover:border-orange-500/50 hover:bg-slate-800/80 transition-all group cursor-pointer relative overflow-hidden shadow-2xl"
-                    >
-                        <div className="absolute -right-4 -top-4 w-32 h-32 bg-orange-500/10 rounded-full blur-3xl group-hover:bg-orange-500/20 transition-colors"></div>
-                        <span className="text-5xl mb-8 block group-hover:scale-110 transition-transform duration-300">🔥</span>
-                        <h3 className="font-bold text-white text-2xl mb-4">Calculadora FIRE</h3>
-                        <p className="text-base text-slate-300 leading-relaxed mb-8 font-normal">
-                          Financial Independence, Retire Early. Descubra seu "Número Mágico" de patrimônio para viver de renda passiva pelo resto da vida.
-                        </p>
-                        <div className="flex items-center text-orange-400 font-bold text-sm uppercase tracking-wider gap-2 opacity-80 group-hover:opacity-100">
-                           <span>Calcular Liberdade</span>
-                           <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-                        </div>
-                    </div>
+                      <div 
+                        onClick={() => navigateTo('debt')}
+                        className="bg-slate-800 p-8 rounded-[2rem] border border-slate-700 hover:border-orange-500/50 hover:bg-orange-500/5 transition-all duration-300 group cursor-pointer relative overflow-hidden shadow-xl"
+                      >
+                          <div className="absolute -right-4 -top-4 w-32 h-32 bg-orange-500/10 rounded-full blur-3xl group-hover:bg-orange-500/20 transition-colors"></div>
+                          <span className="text-4xl mb-6 block group-hover:scale-110 transition-transform duration-300">🏔️</span>
+                          <h3 className="font-bold text-white text-xl mb-4">Otimizador de Dívidas (Método Avalanche)</h3>
+                          <p className="text-base text-slate-300 leading-relaxed mb-8 font-normal">
+                            Você está preso a juros altos? Utilize o Método Avalanche: nosso algoritmo organiza a ordem ideal de pagamento para você sair do buraco mais rápido. Simule quanto você pode poupar.
+                          </p>
+                          <div className="flex items-center text-orange-400 font-bold text-sm uppercase tracking-wider gap-2 opacity-80 group-hover:opacity-100 mt-auto">
+                             <span>Criar Plano</span>
+                             <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+                          </div>
+                      </div>
+
+                      <div 
+                        onClick={() => navigateTo('fire')}
+                        className="bg-slate-800 p-8 rounded-[2rem] border border-slate-700 hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all duration-300 group cursor-pointer relative overflow-hidden shadow-xl"
+                      >
+                          <div className="absolute -right-4 -top-4 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl group-hover:bg-emerald-500/20 transition-colors"></div>
+                          <span className="text-4xl mb-6 block group-hover:scale-110 transition-transform duration-300">🔥</span>
+                          <h3 className="font-bold text-white text-xl mb-4">Calculadora FIRE (Independência Financeira)</h3>
+                          <p className="text-base text-slate-300 leading-relaxed mb-8 font-normal">
+                            Quanto você precisa de patrimônio para viver de renda passiva? Descubra seu 'Número Mágico' e veja o caminho até a Independência Financeira em apenas 3 cliques.
+                          </p>
+                          <div className="flex items-center text-emerald-400 font-bold text-sm uppercase tracking-wider gap-2 opacity-80 group-hover:opacity-100 mt-auto">
+                             <span>Calcular Liberdade</span>
+                             <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+                          </div>
+                      </div>
+                    </section>
+
+                    {/* Section: Categorias de Conteúdo */}
+                    <section className="py-12 md:py-20 mb-12 md:mb-20">
+                       <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4 border-b border-slate-800 pb-4">
+                          <div>
+                             <h2 className="text-3xl font-bold text-white mb-2">Aprenda com Nossos Guias</h2>
+                             <p className="text-slate-400">Mais de 30 artigos e cursos para você dominar suas finanças.</p>
+                          </div>
+                          <button onClick={() => navigateTo('education')} className="text-emerald-400 font-bold text-sm hover:text-emerald-300 transition-colors flex items-center gap-1">Ver Tudo <span>→</span></button>
+                       </div>
+
+                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
+                          <div onClick={() => navigateTo('education')} className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 hover:bg-slate-800 hover:border-slate-600 transition-all cursor-pointer group flex items-start gap-4">
+                             <div className="p-3 bg-slate-900 rounded-lg text-2xl">🎓</div>
+                             <div className="flex-grow">
+                                <div className="flex justify-between items-center mb-1">
+                                   <h4 className="font-bold text-white group-hover:text-emerald-400 transition-colors">Educação Financeira</h4>
+                                   <span className="text-[10px] bg-slate-900 text-slate-400 px-2 py-1 rounded">12 artigos</span>
+                                </div>
+                                <p className="text-xs text-slate-500 mb-3">Educação Financeira na Prática, Psicologia do Gasto...</p>
+                                <span className="text-emerald-500 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">Explorar</span>
+                             </div>
+                          </div>
+
+                          <div onClick={() => navigateTo('education')} className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 hover:bg-slate-800 hover:border-slate-600 transition-all cursor-pointer group flex items-start gap-4">
+                             <div className="p-3 bg-slate-900 rounded-lg text-2xl">📊</div>
+                             <div className="flex-grow">
+                                <div className="flex justify-between items-center mb-1">
+                                   <h4 className="font-bold text-white group-hover:text-emerald-400 transition-colors">Investimentos & Renda Passiva</h4>
+                                   <span className="text-[10px] bg-slate-900 text-slate-400 px-2 py-1 rounded">18 artigos</span>
+                                </div>
+                                <p className="text-xs text-slate-500 mb-3">O Poder dos Dividendos, Ações para Iniciantes...</p>
+                                <span className="text-emerald-500 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">Explorar</span>
+                             </div>
+                          </div>
+
+                          <div onClick={() => navigateTo('rent')} className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 hover:bg-slate-800 hover:border-slate-600 transition-all cursor-pointer group flex items-start gap-4">
+                             <div className="p-3 bg-slate-900 rounded-lg text-2xl">🏠</div>
+                             <div className="flex-grow">
+                                <div className="flex justify-between items-center mb-1">
+                                   <h4 className="font-bold text-white group-hover:text-emerald-400 transition-colors">Imóveis & Patrimônio</h4>
+                                   <span className="text-[10px] bg-slate-900 text-slate-400 px-2 py-1 rounded">9 artigos</span>
+                                </div>
+                                <p className="text-xs text-slate-500 mb-3">Comprar vs Alugar, Financiamento Imobiliário...</p>
+                                <span className="text-emerald-500 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">Explorar</span>
+                             </div>
+                          </div>
+
+                          <div onClick={() => navigateTo('debt')} className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 hover:bg-slate-800 hover:border-slate-600 transition-all cursor-pointer group flex items-start gap-4">
+                             <div className="p-3 bg-slate-900 rounded-lg text-2xl">💳</div>
+                             <div className="flex-grow">
+                                <div className="flex justify-between items-center mb-1">
+                                   <h4 className="font-bold text-white group-hover:text-emerald-400 transition-colors">Dívidas & Crédito</h4>
+                                   <span className="text-[10px] bg-slate-900 text-slate-400 px-2 py-1 rounded">15 artigos</span>
+                                </div>
+                                <p className="text-xs text-slate-500 mb-3">Sair das Dívidas, Renegociar Juros...</p>
+                                <span className="text-emerald-500 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">Explorar</span>
+                             </div>
+                          </div>
+
+                          <div onClick={() => navigateTo('roi')} className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 hover:bg-slate-800 hover:border-slate-600 transition-all cursor-pointer group flex items-start gap-4">
+                             <div className="p-3 bg-slate-900 rounded-lg text-2xl">🚀</div>
+                             <div className="flex-grow">
+                                <div className="flex justify-between items-center mb-1">
+                                   <h4 className="font-bold text-white group-hover:text-emerald-400 transition-colors">Empreendedorismo</h4>
+                                   <span className="text-[10px] bg-slate-900 text-slate-400 px-2 py-1 rounded">7 artigos</span>
+                                </div>
+                                <p className="text-xs text-slate-500 mb-3">Gestão para Autônomos, ROI de Negócios...</p>
+                                <span className="text-emerald-500 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">Explorar</span>
+                             </div>
+                          </div>
+
+                          <div onClick={() => navigateTo('fire')} className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 hover:bg-slate-800 hover:border-slate-600 transition-all cursor-pointer group flex items-start gap-4">
+                             <div className="p-3 bg-slate-900 rounded-lg text-2xl">🎯</div>
+                             <div className="flex-grow">
+                                <div className="flex justify-between items-center mb-1">
+                                   <h4 className="font-bold text-white group-hover:text-emerald-400 transition-colors">Metas Financeiras</h4>
+                                   <span className="text-[10px] bg-slate-900 text-slate-400 px-2 py-1 rounded">8 artigos</span>
+                                </div>
+                                <p className="text-xs text-slate-500 mb-3">FIRE, Independência Financeira...</p>
+                                <span className="text-emerald-500 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">Explorar</span>
+                             </div>
+                          </div>
+                       </div>
+                    </section>
+
+                    {/* Section: Por Que Escolher? */}
+                    <section className="py-12 md:py-20 mb-12 md:mb-20">
+                       <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-8 rounded-3xl border border-slate-700 relative overflow-hidden">
+                          <div className="relative z-10">
+                             <div className="text-center mb-12">
+                                <h2 className="text-3xl font-bold text-white mb-2">Por Que Escolher Finanças Pro?</h2>
+                                <p className="text-slate-400">Tudo que você precisa para dominar suas finanças está aqui.</p>
+                             </div>
+                             
+                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                                <div className="text-center">
+                                   <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 border border-slate-700 shadow-lg">🎁</div>
+                                   <h3 className="text-emerald-400 font-bold mb-2">100% Gratuito</h3>
+                                   <p className="text-sm text-slate-400">Acesse todas as ferramentas e conteúdo sem pagar um centavo.</p>
+                                </div>
+                                <div className="text-center">
+                                   <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 border border-slate-700 shadow-lg">🧠</div>
+                                   <h3 className="text-emerald-400 font-bold mb-2">Educação de Verdade</h3>
+                                   <p className="text-sm text-slate-400">Conteúdo criado por especialistas, não influencers vendendo cursos.</p>
+                                </div>
+                                <div className="text-center">
+                                   <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 border border-slate-700 shadow-lg">⚡</div>
+                                   <h3 className="text-emerald-400 font-bold mb-2">Ferramentas Precisas</h3>
+                                   <p className="text-sm text-slate-400">Calculadoras com lógica real, considerando inflação e impostos.</p>
+                                </div>
+                                <div className="text-center">
+                                   <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 border border-slate-700 shadow-lg">🚫</div>
+                                   <h3 className="text-emerald-400 font-bold mb-2">Sem Anúncios</h3>
+                                   <p className="text-sm text-slate-400">Nada de pop-ups irritantes. Foco total no seu aprendizado.</p>
+                                </div>
+                             </div>
+                          </div>
+                       </div>
+                    </section>
+
+                    {/* Section: Comece Agora (CTA) */}
+                    <section className="py-12 md:py-20 mb-20">
+                       <h2 className="text-3xl font-bold text-white text-center mb-12">Comece Sua Jornada Financeira Hoje</h2>
+                       
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                          <div className="bg-gradient-to-br from-emerald-900/40 to-slate-900 p-8 rounded-3xl border border-emerald-500/30 flex flex-col items-center text-center hover:scale-[1.02] transition-transform">
+                             <div className="text-6xl mb-6">🎮</div>
+                             <h3 className="text-2xl font-bold text-white mb-3">Prefere Aprender Jogando?</h3>
+                             <p className="text-slate-400 mb-8 max-w-sm">O Sobrevivente é um simulador de 12 meses onde você toma decisões reais e vê o impacto no seu patrimônio.</p>
+                             <button 
+                                onClick={() => navigateTo('game')}
+                                className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg transition-colors text-lg"
+                             >
+                                Jogar Agora
+                             </button>
+                          </div>
+
+                          <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-8 rounded-3xl border border-slate-700 flex flex-col items-center text-center hover:scale-[1.02] transition-transform">
+                             <div className="text-6xl mb-6">📚</div>
+                             <h3 className="text-2xl font-bold text-white mb-3">Prefere Aprender Lendo?</h3>
+                             <p className="text-slate-400 mb-8 max-w-sm">Explore nossa Academia com artigos, guias e dicas práticas sobre cada aspecto das suas finanças.</p>
+                             <button 
+                                onClick={() => navigateTo('education')}
+                                className="w-full py-4 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl border border-slate-500 transition-colors text-lg"
+                             >
+                                Ir para Academia
+                             </button>
+                          </div>
+                       </div>
+                    </section>
                   </div>
-                </div>
-              )}
+                )}
 
-              {currentTool === 'compound' && (
-                <div className="space-y-8 animate-in fade-in duration-500">
-                  <CalculatorForm onCalculate={handleCalculate} />
-                  {result ? <ResultsDisplay result={result} isPrivacyMode={isPrivacyMode} /> : <div className="text-center text-slate-600 py-12 bg-slate-800/50 rounded-2xl border border-slate-800">Preencha os dados acima para simular.</div>}
-                </div>
-              )}
+                {currentTool === 'compound' && (
+                  <div className="space-y-8 animate-in fade-in duration-500">
+                    <Breadcrumb items={[{ label: 'Home', action: () => navigateTo('home') }, { label: 'Juros Compostos' }]} />
+                    <CalculatorForm onCalculate={handleCalculate} />
+                    {result ? <ResultsDisplay result={result} isPrivacyMode={isPrivacyMode} /> : <div className="text-center text-slate-600 py-12 bg-slate-800/50 rounded-2xl border border-slate-800">Preencha os dados acima para simular.</div>}
+                  </div>
+                )}
 
-              {currentTool === 'manager' && (
-                <Dashboard 
-                  transactions={transactions} 
-                  onDeleteTransaction={handleDeleteTransaction} 
-                  onOpenForm={() => setActiveModal('transaction')}
-                  goals={goals}
-                  onAddGoal={handleAddGoal}
-                  onUpdateGoal={handleUpdateGoal}
-                  onDeleteGoal={handleDeleteGoal}
-                  isPrivacyMode={isPrivacyMode}
-                />
-              )}
+                {currentTool === 'manager' && (
+                  <Dashboard 
+                    transactions={transactions} 
+                    onDeleteTransaction={handleDeleteTransaction} 
+                    onOpenForm={() => setActiveModal('transaction')}
+                    goals={goals}
+                    onAddGoal={handleAddGoal}
+                    onUpdateGoal={handleUpdateGoal}
+                    onDeleteGoal={handleDeleteGoal}
+                    isPrivacyMode={isPrivacyMode}
+                    navigateToHome={() => navigateTo('home')}
+                  />
+                )}
 
-              {currentTool === 'rent' && <div className="animate-in fade-in duration-500"><Tools isPrivacyMode={isPrivacyMode} /></div>}
-              {currentTool === 'debt' && <div className="animate-in fade-in duration-500"><DebtTool isPrivacyMode={isPrivacyMode} /></div>}
-              {currentTool === 'fire' && <div className="animate-in fade-in duration-500"><FireTool isPrivacyMode={isPrivacyMode} /></div>}
-              {currentTool === 'inflation' && <div className="animate-in fade-in duration-500"><InflationTool isPrivacyMode={isPrivacyMode} /></div>}
-              {currentTool === 'dividend' && <div className="animate-in fade-in duration-500"><DividendSimulator isPrivacyMode={isPrivacyMode} /></div>}
-              {currentTool === 'roi' && <div className="animate-in fade-in duration-500"><RoiCalculator isPrivacyMode={isPrivacyMode} /></div>}
-              {currentTool === 'game' && <div className="animate-in fade-in duration-500"><MiniGame isPrivacyMode={isPrivacyMode} /></div>}
+                {currentTool === 'rent' && <div className="animate-in fade-in duration-500"><Tools toolType="rent" isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('home')} /></div>}
+                {currentTool === 'debt' && <div className="animate-in fade-in duration-500"><DebtTool toolType="debt" isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('home')} /></div>}
+                {currentTool === 'fire' && <div className="animate-in fade-in duration-500"><FireTool toolType="fire" isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('home')} /></div>}
+                {currentTool === 'inflation' && <div className="animate-in fade-in duration-500"><InflationTool toolType="inflation" isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('home')} /></div>}
+                {currentTool === 'dividend' && <div className="animate-in fade-in duration-500"><DividendSimulator isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('home')} /></div>}
+                {currentTool === 'roi' && <div className="animate-in fade-in duration-500"><RoiCalculator isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('home')} /></div>}
+                {currentTool === 'game' && <div className="animate-in fade-in duration-500"><MiniGame isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('home')} /></div>}
 
-              {currentTool === 'education' && (
-                <div className="space-y-8 animate-in fade-in duration-500">
-                    <h2 className="text-3xl font-bold text-white mb-8">Academia Finanças Pro</h2>
-                    <EducationalContent />
-                </div>
-              )}
-            </Suspense>
-          </ErrorBoundary>
+                {currentTool === 'education' && (
+                  <div className="space-y-8 animate-in fade-in duration-500">
+                      <Breadcrumb items={[{ label: 'Home', action: () => navigateTo('home') }, { label: 'Academia Financeira' }]} />
+                      <h2 className="text-3xl font-bold text-white mb-8">Academia Finanças Pro</h2>
+                      <EducationalContent onOpenPlans={() => setActiveModal('plans')} />
+                  </div>
+                )}
+              </Suspense>
+            </ErrorBoundary>
+          </div>
+          <Footer onNavigate={(tool) => navigateTo(tool as ToolView)} />
         </main>
-
-        {/* AI Sidecar removed from layout. Now accessed via Floating Action Button */}
 
         {/* AI Floating Action Button (Desktop & Mobile) */}
         <button
@@ -501,6 +703,54 @@ const App: React.FC = () => {
                      </div>
                  </div>
             </div>
+        </div>
+      </ContentModal>
+
+      {/* Plans Modal */}
+      <ContentModal
+        isOpen={activeModal === 'plans'}
+        onClose={() => setActiveModal(null)}
+        title="Planos Finanças Pro"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+           {/* Free Tier */}
+           <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 flex flex-col h-full opacity-70 hover:opacity-100 transition-opacity">
+              <h3 className="text-xl font-bold text-white mb-2">Gratuito</h3>
+              <p className="text-3xl font-black text-slate-200 mb-4">R$ 0</p>
+              <ul className="text-sm text-slate-400 space-y-2 mb-8 flex-grow">
+                 <li>✅ Simuladores Básicos</li>
+                 <li>✅ Gerenciador Financeiro</li>
+                 <li>✅ Acesso à Academia</li>
+              </ul>
+              <button className="w-full py-3 bg-slate-700 text-slate-300 font-bold rounded-xl cursor-not-allowed">Plano Atual</button>
+           </div>
+
+           {/* Pro Monthly */}
+           <div className="bg-gradient-to-b from-emerald-900/40 to-slate-800 p-6 rounded-2xl border border-emerald-500/50 flex flex-col h-full relative overflow-hidden shadow-2xl">
+              <div className="absolute top-0 right-0 bg-emerald-500 text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg uppercase">Popular</div>
+              <h3 className="text-xl font-bold text-emerald-400 mb-2">Pro Mensal</h3>
+              <p className="text-3xl font-black text-white mb-4">R$ 29,90<span className="text-sm font-normal text-slate-400">/mês</span></p>
+              <ul className="text-sm text-slate-300 space-y-2 mb-8 flex-grow">
+                 <li>🚀 <strong>IA Consultora Ilimitada</strong></li>
+                 <li>📈 Gráficos Avançados</li>
+                 <li>📱 Sincronização em Nuvem</li>
+                 <li>🔒 Backup Automático</li>
+              </ul>
+              <button className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg transition-transform hover:scale-105">Contratar Agora</button>
+           </div>
+
+           {/* Pro Annual */}
+           <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 flex flex-col h-full hover:border-indigo-500/50 transition-colors">
+              <h3 className="text-xl font-bold text-indigo-400 mb-2">Pro Anual</h3>
+              <p className="text-3xl font-black text-white mb-4">R$ 299<span className="text-sm font-normal text-slate-400">/ano</span></p>
+              <p className="text-xs text-indigo-300 mb-4 bg-indigo-900/20 p-2 rounded">Economize 2 meses (16% OFF)</p>
+              <ul className="text-sm text-slate-400 space-y-2 mb-8 flex-grow">
+                 <li>💎 Todos os benefícios Pro</li>
+                 <li>🎓 Masterclasses Exclusivas</li>
+                 <li>🎁 Suporte Prioritário</li>
+              </ul>
+              <button className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg transition-transform hover:scale-105">Contratar Anual</button>
+           </div>
         </div>
       </ContentModal>
 

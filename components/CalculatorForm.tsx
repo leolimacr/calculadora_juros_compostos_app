@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { CalculationInput, RateType, PeriodType } from '../types';
 
@@ -28,7 +27,7 @@ const CalculatorForm: React.FC<CalculatorFormProps> = ({ onCalculate }) => {
   const InputGroup = ({ label, icon, children, tooltip }: { label: string, icon: string, children: React.ReactNode, tooltip?: string }) => (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+        <label className="text-sm font-semibold text-slate-200 uppercase tracking-wider flex items-center gap-2">
           {label}
         </label>
         {tooltip && (
@@ -61,7 +60,7 @@ const CalculatorForm: React.FC<CalculatorFormProps> = ({ onCalculate }) => {
           </div>
           <div>
             <h2 className="text-2xl font-bold text-white">Simulador Pro</h2>
-            <p className="text-xs text-slate-400">Juros Compostos com Precisão</p>
+            <p className="text-sm text-slate-400">Juros Compostos com Precisão</p>
           </div>
         </div>
         

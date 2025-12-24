@@ -112,25 +112,35 @@ export interface RoiInput {
   period: number;
 }
 
-// Mini Game
+// Mini Game - Updated
+export interface GameLog {
+  month: number;
+  message: string;
+  type: 'info' | 'success' | 'danger' | 'warning';
+}
+
 export interface GameState {
   month: number;
   balance: number;
   investments: number;
   happiness: number;
-  logs: string[];
+  incomeRate: number; // Multiplicador de renda (promoções, cursos aumentam isso)
+  logs: GameLog[];
   gameOver: boolean;
   victory: boolean;
+  score: number;
+  badges: string[];
 }
 
 export interface GameEvent {
   id: string;
-  text: string;
-  impactMoney: number;
-  impactHappiness: number;
-  options?: {
+  title: string;
+  description: string;
+  icon: string;
+  type: 'opportunity' | 'setback' | 'neutral';
+  choices?: {
     text: string;
-    money: number;
-    happiness: number;
+    cost?: number;
+    effect: (state: GameState) => Partial<GameState>;
   }[];
 }
