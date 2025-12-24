@@ -38,7 +38,7 @@ const LoadingFallback = () => (
 const App: React.FC = () => {
   const [currentTool, setCurrentTool] = useState<ToolView>('home');
   const [result, setResult] = useState<CalculationResult | null>(null);
-  const [activeModal, setActiveModal] = useState<string | null>(null); // 'transaction', 'plans', etc.
+  const [activeModal, setActiveModal] = useState<string | null>(null); // 'transaction', etc.
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAiChatOpen, setIsAiChatOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -167,8 +167,8 @@ const App: React.FC = () => {
     { id: 'debt', label: 'Otimizador de Dívidas', icon: '🏔️' },
     { id: 'fire', label: 'Calculadora FIRE', icon: '🔥' },
     { id: 'inflation', label: 'Poder de Compra', icon: '💸' },
-    { id: 'dividend', label: 'Simulador Dividendos', icon: '💎', pro: false }, 
-    { id: 'roi', label: 'Calculadora ROI', icon: '📊', pro: false },
+    { id: 'dividend', label: 'Simulador Dividendos', icon: '💎' }, 
+    { id: 'roi', label: 'Calculadora ROI', icon: '📊' },
   ];
 
   return (
@@ -212,8 +212,6 @@ const App: React.FC = () => {
               >
                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
               </button>
-
-              <button onClick={() => setActiveModal('plans')} className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2.5 rounded-full text-sm font-bold uppercase tracking-wider shadow-lg shadow-emerald-900/20 transition-transform hover:scale-105">Assinar Pro</button>
             </div>
 
             {/* Mobile Menu Button */}
@@ -258,7 +256,6 @@ const App: React.FC = () => {
               >
                 <span className="text-2xl">{tool.icon}</span>
                 <span className="font-semibold text-lg">{tool.label}</span>
-                {tool.pro && <span className="ml-auto text-xs bg-slate-950 border border-slate-700 text-emerald-500 px-2 py-0.5 rounded">PRO</span>}
               </button>
             ))}
             
@@ -295,7 +292,6 @@ const App: React.FC = () => {
             >
               <span className="text-xl group-hover:scale-110 transition-transform">{tool.icon}</span>
               <span className="text-base font-medium">{tool.label}</span>
-              {tool.pro && <span className="ml-auto text-[10px] bg-slate-900 border border-slate-700 text-emerald-500 px-1.5 rounded">PRO</span>}
             </button>
           ))}
           
@@ -343,7 +339,7 @@ const App: React.FC = () => {
                         </div>
                         
                         <div className="flex flex-wrap justify-center gap-4 text-slate-500 text-xs font-medium">
-                           <span className="flex items-center gap-1"><span className="text-emerald-500">✓</span> Gratuito e sem anúncios</span>
+                           <span className="flex items-center gap-1"><span className="text-emerald-500">✓</span> 100% Gratuito</span>
                            <span className="flex items-center gap-1"><span className="text-emerald-500">✓</span> Criado por especialistas</span>
                            <span className="flex items-center gap-1"><span className="text-emerald-500">✓</span> Simuladores precisos</span>
                         </div>
@@ -374,7 +370,7 @@ const App: React.FC = () => {
                              <span className="text-5xl mb-6 block group-hover:scale-110 transition-transform">🎯</span>
                              <h3 className="text-xl font-bold text-white mb-3">Avançado</h3>
                              <p className="text-sm text-slate-400 mb-6 leading-relaxed">Você investe, mas quer otimizar. Explore Carteira de Dividendos, ROI e Rebalanceamento.</p>
-                             <span className="text-indigo-400 text-xs font-bold uppercase tracking-wider flex items-center gap-2 group-hover:gap-3 transition-all">Explorar ferramentas PRO <span>→</span></span>
+                             <span className="text-indigo-400 text-xs font-bold uppercase tracking-wider flex items-center gap-2 group-hover:gap-3 transition-all">Explorar ferramentas <span>→</span></span>
                           </div>
                        </div>
                     </section>
@@ -617,7 +613,7 @@ const App: React.FC = () => {
                   <div className="space-y-8 animate-in fade-in duration-500">
                       <Breadcrumb items={[{ label: 'Home', action: () => navigateTo('home') }, { label: 'Academia Financeira' }]} />
                       <h2 className="text-3xl font-bold text-white mb-8">Academia Finanças Pro</h2>
-                      <EducationalContent onOpenPlans={() => setActiveModal('plans')} />
+                      <EducationalContent onOpenPlans={() => {/* Removed plans modal */}} />
                   </div>
                 )}
               </Suspense>
@@ -699,58 +695,10 @@ const App: React.FC = () => {
                      <div className="w-12 h-12 bg-emerald-600 rounded-lg flex items-center justify-center font-bold text-xl text-white">FP</div>
                      <div>
                          <h4 className="font-bold text-white">Finanças Pro Invest</h4>
-                         <p className="text-xs text-slate-400">Versão 1.3.0 (World Class Build - PWA)</p>
+                         <p className="text-xs text-slate-400">Versão 1.4.0 (Free & Unlimited)</p>
                      </div>
                  </div>
             </div>
-        </div>
-      </ContentModal>
-
-      {/* Plans Modal */}
-      <ContentModal
-        isOpen={activeModal === 'plans'}
-        onClose={() => setActiveModal(null)}
-        title="Planos Finanças Pro"
-      >
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-           {/* Free Tier */}
-           <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 flex flex-col h-full opacity-70 hover:opacity-100 transition-opacity">
-              <h3 className="text-xl font-bold text-white mb-2">Gratuito</h3>
-              <p className="text-3xl font-black text-slate-200 mb-4">R$ 0</p>
-              <ul className="text-sm text-slate-400 space-y-2 mb-8 flex-grow">
-                 <li>✅ Simuladores Básicos</li>
-                 <li>✅ Gerenciador Financeiro</li>
-                 <li>✅ Acesso à Academia</li>
-              </ul>
-              <button className="w-full py-3 bg-slate-700 text-slate-300 font-bold rounded-xl cursor-not-allowed">Plano Atual</button>
-           </div>
-
-           {/* Pro Monthly */}
-           <div className="bg-gradient-to-b from-emerald-900/40 to-slate-800 p-6 rounded-2xl border border-emerald-500/50 flex flex-col h-full relative overflow-hidden shadow-2xl">
-              <div className="absolute top-0 right-0 bg-emerald-500 text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg uppercase">Popular</div>
-              <h3 className="text-xl font-bold text-emerald-400 mb-2">Pro Mensal</h3>
-              <p className="text-3xl font-black text-white mb-4">R$ 29,90<span className="text-sm font-normal text-slate-400">/mês</span></p>
-              <ul className="text-sm text-slate-300 space-y-2 mb-8 flex-grow">
-                 <li>🚀 <strong>IA Consultora Ilimitada</strong></li>
-                 <li>📈 Gráficos Avançados</li>
-                 <li>📱 Sincronização em Nuvem</li>
-                 <li>🔒 Backup Automático</li>
-              </ul>
-              <button className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg transition-transform hover:scale-105">Contratar Agora</button>
-           </div>
-
-           {/* Pro Annual */}
-           <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 flex flex-col h-full hover:border-indigo-500/50 transition-colors">
-              <h3 className="text-xl font-bold text-indigo-400 mb-2">Pro Anual</h3>
-              <p className="text-3xl font-black text-white mb-4">R$ 299<span className="text-sm font-normal text-slate-400">/ano</span></p>
-              <p className="text-xs text-indigo-300 mb-4 bg-indigo-900/20 p-2 rounded">Economize 2 meses (16% OFF)</p>
-              <ul className="text-sm text-slate-400 space-y-2 mb-8 flex-grow">
-                 <li>💎 Todos os benefícios Pro</li>
-                 <li>🎓 Masterclasses Exclusivas</li>
-                 <li>🎁 Suporte Prioritário</li>
-              </ul>
-              <button className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg transition-transform hover:scale-105">Contratar Anual</button>
-           </div>
         </div>
       </ContentModal>
 
