@@ -11,8 +11,8 @@ import Footer from './components/Footer';
 import BackToTop from './components/BackToTop';
 import InstallPrompt from './components/InstallPrompt';
 import MobileBottomNav from './components/MobileBottomNav';
-import LockedManager from './components/Auth/LockedManager'; // Novo componente
-import { useAuth } from './contexts/AuthContext'; // Contexto
+import LockedManager from './components/Auth/LockedManager'; 
+import { useAuth } from './contexts/AuthContext';
 import { CalculationInput, CalculationResult, Transaction, Goal, ToastMessage, ToastType } from './types';
 import { calculateCompoundInterest } from './utils/calculations';
 import { logEvent, ANALYTICS_EVENTS } from './utils/analytics';
@@ -46,7 +46,7 @@ const App: React.FC = () => {
   
   const [currentTool, setCurrentTool] = useState<ToolView>('home');
   const [result, setResult] = useState<CalculationResult | null>(null);
-  const [activeModal, setActiveModal] = useState<string | null>(null); // 'transaction', etc.
+  const [activeModal, setActiveModal] = useState<string | null>(null); 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAiChatOpen, setIsAiChatOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -88,14 +88,10 @@ const App: React.FC = () => {
       // Logic: Mobile (<768px) + "Has Account"
       const isMobile = window.innerWidth < 768;
       
-      // Prioridade absoluta para quem já tem conta (hasLocalUser)
-      // Se não tem conta, mas tem uso histórico (flag antiga), também consideramos
       const shouldRedirect = hasLocalUser || localStorage.getItem('finpro_has_used_manager') === 'true';
       const hasRedirected = sessionStorage.getItem('finpro_redirected');
       
       if (isMobile && shouldRedirect && !hasRedirected) {
-         // Redireciona para o Manager.
-         // Se não estiver autenticado, o componente LockedManager será exibido automaticamente.
          logEvent(ANALYTICS_EVENTS.VIEW_MANAGER, { origin: 'mobile_redirect' });
          setCurrentTool('manager');
          sessionStorage.setItem('finpro_redirected', 'true');
@@ -146,8 +142,8 @@ const App: React.FC = () => {
             setIncomeCategories(['💰 Salário', '💸 Freelance', '📈 Dividendos']);
             localStorage.removeItem('finpro_debts');
             localStorage.removeItem('finpro_has_used_manager');
-            logout(); // Logoff ao resetar tudo
-            localStorage.removeItem('finpro_auth_user'); // Remove usuário local
+            logout(); 
+            localStorage.removeItem('finpro_auth_user'); 
         }
         notify("Dados resetados com sucesso.", 'success');
         setShowSettings(false);
@@ -166,7 +162,6 @@ const App: React.FC = () => {
     notify("Lançamento salvo com sucesso!", 'success');
     logEvent(ANALYTICS_EVENTS.ADD_TRANSACTION, { category: newT.category, type: newT.type });
     
-    // Marca engajamento se usuário ainda não tiver conta
     if (!localStorage.getItem('finpro_has_used_manager')) {
        localStorage.setItem('finpro_has_used_manager', 'true');
     }
@@ -232,9 +227,7 @@ const App: React.FC = () => {
               <span className="font-bold text-2xl tracking-tight text-white hidden sm:block">Finanças<span className="text-emerald-500">Pro</span></span>
             </div>
             
-            {/* Desktop Menu */}
             <div className="hidden lg:flex items-center space-x-6">
-              {/* FIXED SHORTCUT FOR MANAGER */}
               <button 
                 onClick={() => navigateTo('manager', 'navbar_shortcut')} 
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors font-bold ${currentTool === 'manager' ? 'bg-emerald-600 text-white' : 'text-slate-300 hover:text-white hover:bg-slate-800'}`}
@@ -246,7 +239,6 @@ const App: React.FC = () => {
               <button onClick={() => navigateTo('education', 'navbar')} className="hover:text-emerald-400 transition-colors text-base font-medium">Academia</button>
               <button onClick={() => navigateTo('game', 'navbar')} className="hover:text-emerald-400 transition-colors text-base font-medium">Simulador Financeiro</button>
               
-              {/* Privacy Toggle */}
               <button 
                  onClick={() => setIsPrivacyMode(!isPrivacyMode)}
                  className={`p-2.5 rounded-full transition-colors ${isPrivacyMode ? 'text-emerald-500 bg-emerald-900/20' : 'text-slate-400 hover:text-white'}`}
@@ -259,7 +251,6 @@ const App: React.FC = () => {
                   )}
               </button>
 
-              {/* Settings Toggle */}
               <button 
                  onClick={() => setShowSettings(true)}
                  className="p-2.5 text-slate-400 hover:text-white transition-colors"
