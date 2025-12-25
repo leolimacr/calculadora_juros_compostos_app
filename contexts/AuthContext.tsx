@@ -15,6 +15,8 @@ interface AuthContextType {
   login: (email: string, pin: string) => Promise<boolean>;
   register: (email: string, pin: string) => Promise<boolean>;
   logout: () => void;
+  changePassword: (currentPin: string, newPin: string) => Promise<boolean>;
+  recoverPassword: (emailConfirm: string, newPin: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -96,8 +98,70 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Não removemos 'finpro_auth_user' para não apagar a conta, apenas a sessão
   };
 
+  const changePassword = async (currentPin: string, newPin: string): Promise<boolean> => {
+    const storedData = localStorage.getItem('finpro_auth_user');
+    if (!storedData) return false;
+
+    try {
+      const userData = JSON.parse(storedData);
+      
+      // Valida a senha atual
+      const isValid = await validatePassword(currentPin, userData.hash, userData.salt);
+      if (!isValid) return false;
+
+      // Gera novo hash e salt
+      const newSalt = generateSalt();
+      const newHash = await hashPassword(newPin, newSalt);
+
+      // Atualiza apenas as credenciais, mantendo o email
+      const updatedUser = { ...userData, hash: newHash, salt: newSalt };
+      localStorage.setItem('finpro_auth_user', JSON.stringify(updatedUser));
+      
+      return true;
+    } catch (e) {
+      console.error("Erro ao alterar senha", e);
+      return false;
+    }
+  };
+
+  const recoverPassword = async (emailConfirm: string, newPin: string): Promise<boolean> => {
+    const storedData = localStorage.getItem('finpro_auth_user');
+    if (!storedData) return false;
+
+    try {
+      const userData = JSON.parse(storedData);
+      
+      // Validação de segurança: O e-mail informado deve ser idêntico ao cadastrado
+      if (emailConfirm.toLowerCase() !== userData.email.toLowerCase()) {
+        return false;
+      }
+
+      // Gera novo hash e salt (Redefinição forçada autorizada pelo email)
+      const newSalt = generateSalt();
+      const newHash = await hashPassword(newPin, newSalt);
+
+      const updatedUser = { ...userData, hash: newHash, salt: newSalt };
+      localStorage.setItem('finpro_auth_user', JSON.stringify(updatedUser));
+      
+      return true;
+    } catch (e) {
+      console.error("Erro na recuperação de senha", e);
+      return false;
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, hasLocalUser, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      isAuthenticated, 
+      hasLocalUser, 
+      isLoading, 
+      login, 
+      register, 
+      logout,
+      changePassword,
+      recoverPassword
+    }}>
       {children}
     </AuthContext.Provider>
   );
