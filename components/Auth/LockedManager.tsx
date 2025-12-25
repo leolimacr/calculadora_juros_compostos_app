@@ -4,7 +4,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import AuthLogin from './AuthLogin';
 import AuthRegister from './AuthRegister';
 
-const LockedManager: React.FC = () => {
+interface LockedManagerProps {
+  onAuthSuccess: () => void;
+}
+
+const LockedManager: React.FC<LockedManagerProps> = ({ onAuthSuccess }) => {
   const { hasLocalUser } = useAuth();
   // Se já tem usuário, padrão é Login. Se não, padrão é Registro.
   const [view, setView] = useState<'login' | 'register'>(hasLocalUser ? 'login' : 'register');
@@ -18,12 +22,12 @@ const LockedManager: React.FC = () => {
           <div className="relative z-10">
             {view === 'login' ? (
                 <AuthLogin 
-                    onSuccess={() => {/* AuthContext atualiza estado e App.tsx renderiza o Dashboard automaticamente */}} 
+                    onSuccess={onAuthSuccess} 
                     onSwitchToRegister={() => setView('register')}
                 />
             ) : (
                 <AuthRegister 
-                    onSuccess={() => {/* Mesmo fluxo */}}
+                    onSuccess={onAuthSuccess}
                     onSwitchToLogin={() => setView('login')}
                 />
             )}

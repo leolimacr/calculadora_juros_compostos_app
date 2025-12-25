@@ -58,7 +58,14 @@ const App: React.FC = () => {
   // Data for Expense Manager with Persistence
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     const saved = localStorage.getItem('finpro_transactions');
-    return saved ? JSON.parse(saved) : [
+    if (saved) return JSON.parse(saved);
+
+    // Se usuário já criou conta local (é um usuário real), inicia ZERADO.
+    // Se não tem conta (visitante curioso), mostra dados de EXEMPLO.
+    const hasLocalAccount = localStorage.getItem('finpro_auth_user');
+    if (hasLocalAccount) return [];
+
+    return [
       { id: '1', type: 'income', date: new Date().toISOString().split('T')[0], description: 'Salário Inicial (Exemplo)', category: '💰 Salário', amount: 5000 },
       { id: '2', type: 'expense', date: new Date().toISOString().split('T')[0], description: 'Exemplo de Despesa', category: '🛒 Supermercado', amount: 450.50 },
     ];
@@ -418,7 +425,7 @@ const App: React.FC = () => {
 
                 {currentTool === 'manager' && (
                   !isAuthenticated ? (
-                     <LockedManager />
+                     <LockedManager onAuthSuccess={() => navigateTo('manager', 'auth_success')} />
                   ) : (
                       <Dashboard 
                         transactions={transactions} 
