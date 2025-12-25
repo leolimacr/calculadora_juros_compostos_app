@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect, Suspense, lazy } from 'react';
 import CalculatorForm from './components/CalculatorForm';
 import ResultsDisplay from './components/ResultsDisplay';
@@ -8,8 +9,13 @@ import ErrorBoundary from './components/ErrorBoundary';
 import Breadcrumb from './components/Breadcrumb';
 import Footer from './components/Footer';
 import BackToTop from './components/BackToTop';
+import InstallPrompt from './components/InstallPrompt';
+import MobileBottomNav from './components/MobileBottomNav';
+import LockedManager from './components/Auth/LockedManager'; // Novo componente
+import { useAuth } from './contexts/AuthContext'; // Contexto
 import { CalculationInput, CalculationResult, Transaction, Goal, ToastMessage, ToastType } from './types';
 import { calculateCompoundInterest } from './utils/calculations';
+import { logEvent, ANALYTICS_EVENTS } from './utils/analytics';
 
 // Lazy Loading Components for Performance
 const Dashboard = lazy(() => import('./components/Dashboard'));
@@ -36,6 +42,8 @@ const LoadingFallback = () => (
 );
 
 const App: React.FC = () => {
+  const { isAuthenticated, hasLocalUser, logout, isLoading: isAuthLoading } = useAuth();
+  
   const [currentTool, setCurrentTool] = useState<ToolView>('home');
   const [result, setResult] = useState<CalculationResult | null>(null);
   const [activeModal, setActiveModal] = useState<string | null>(null); // 'transaction', etc.
@@ -71,6 +79,31 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('finpro_goals');
     return saved ? JSON.parse(saved) : [];
   });
+
+  // ROUTING & REDIRECT LOGIC
+  useEffect(() => {
+    if (isAuthLoading) return;
+
+    const checkMobileRedirect = () => {
+      // Logic: Mobile (<768px) + "Has Account"
+      const isMobile = window.innerWidth < 768;
+      
+      // Prioridade absoluta para quem já tem conta (hasLocalUser)
+      // Se não tem conta, mas tem uso histórico (flag antiga), também consideramos
+      const shouldRedirect = hasLocalUser || localStorage.getItem('finpro_has_used_manager') === 'true';
+      const hasRedirected = sessionStorage.getItem('finpro_redirected');
+      
+      if (isMobile && shouldRedirect && !hasRedirected) {
+         // Redireciona para o Manager.
+         // Se não estiver autenticado, o componente LockedManager será exibido automaticamente.
+         logEvent(ANALYTICS_EVENTS.VIEW_MANAGER, { origin: 'mobile_redirect' });
+         setCurrentTool('manager');
+         sessionStorage.setItem('finpro_redirected', 'true');
+      }
+    };
+
+    checkMobileRedirect();
+  }, [hasLocalUser, isAuthLoading]);
 
   // Persist Data
   useEffect(() => {
@@ -109,10 +142,12 @@ const App: React.FC = () => {
             setGoals([]);
         }
         if (target === 'all') {
-            // Reset categories to default
             setExpenseCategories(['🏠 Moradia', '🛒 Supermercado', '🚗 Transporte', '💊 Saúde', '🎬 Lazer', '🧹 Contas', '💳 Dívidas']);
             setIncomeCategories(['💰 Salário', '💸 Freelance', '📈 Dividendos']);
-            localStorage.removeItem('finpro_debts'); // Clear debts from tools
+            localStorage.removeItem('finpro_debts');
+            localStorage.removeItem('finpro_has_used_manager');
+            logout(); // Logoff ao resetar tudo
+            localStorage.removeItem('finpro_auth_user'); // Remove usuário local
         }
         notify("Dados resetados com sucesso.", 'success');
         setShowSettings(false);
@@ -129,6 +164,12 @@ const App: React.FC = () => {
     setTransactions(prev => [{ ...newT, id: Math.random().toString(36).substr(2, 9) }, ...prev]);
     setActiveModal(null);
     notify("Lançamento salvo com sucesso!", 'success');
+    logEvent(ANALYTICS_EVENTS.ADD_TRANSACTION, { category: newT.category, type: newT.type });
+    
+    // Marca engajamento se usuário ainda não tiver conta
+    if (!localStorage.getItem('finpro_has_used_manager')) {
+       localStorage.setItem('finpro_has_used_manager', 'true');
+    }
   };
 
   const handleDeleteTransaction = (id: string) => {
@@ -138,7 +179,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Goals Handlers
   const handleAddGoal = (goal: Omit<Goal, 'id'>) => {
     setGoals(prev => [...prev, { ...goal, id: Math.random().toString(36).substr(2, 9) }]);
     notify("Nova meta criada! Foco nela.", 'success');
@@ -147,6 +187,7 @@ const App: React.FC = () => {
   const handleUpdateGoal = (id: string, amount: number) => {
     setGoals(prev => prev.map(g => g.id === id ? { ...g, currentAmount: amount } : g));
     notify("Progresso atualizado!", 'success');
+    logEvent(ANALYTICS_EVENTS.GOAL_PROGRESS_VIEW);
   };
 
   const handleDeleteGoal = (id: string) => {
@@ -154,7 +195,11 @@ const App: React.FC = () => {
     notify("Meta removida.", 'info');
   };
 
-  const navigateTo = (tool: ToolView) => {
+  const navigateTo = (tool: ToolView, origin: string = 'internal_nav') => {
+    if (tool === 'manager') {
+       logEvent(ANALYTICS_EVENTS.VIEW_MANAGER, { origin });
+    }
+    
     setCurrentTool(tool);
     setIsMobileMenuOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -175,21 +220,31 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-[#020617] text-slate-200 flex flex-col font-sans selection:bg-emerald-500/30">
       
       <ToastContainer toasts={toasts} removeToast={removeToast} />
+      <InstallPrompt />
       <BackToTop />
 
       {/* Navigation Bar */}
       <nav className="border-b border-slate-800 bg-[#020617]/95 sticky top-0 z-50 backdrop-blur no-print">
         <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3 cursor-pointer z-50" onClick={() => navigateTo('home')}>
+            <div className="flex items-center gap-3 cursor-pointer z-50" onClick={() => navigateTo('home', 'navbar_logo')}>
               <div className="w-9 h-9 bg-emerald-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-emerald-900/50">FP</div>
               <span className="font-bold text-2xl tracking-tight text-white hidden sm:block">Finanças<span className="text-emerald-500">Pro</span></span>
             </div>
             
             {/* Desktop Menu */}
             <div className="hidden lg:flex items-center space-x-6">
-              <button onClick={() => navigateTo('education')} className="hover:text-emerald-400 transition-colors text-base font-medium">Academia</button>
-              <button onClick={() => navigateTo('game')} className="hover:text-emerald-400 transition-colors text-base font-medium">Simulador Financeiro</button>
+              {/* FIXED SHORTCUT FOR MANAGER */}
+              <button 
+                onClick={() => navigateTo('manager', 'navbar_shortcut')} 
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors font-bold ${currentTool === 'manager' ? 'bg-emerald-600 text-white' : 'text-slate-300 hover:text-white hover:bg-slate-800'}`}
+              >
+                 <span>💰</span>
+                 Gerenciador
+              </button>
+
+              <button onClick={() => navigateTo('education', 'navbar')} className="hover:text-emerald-400 transition-colors text-base font-medium">Academia</button>
+              <button onClick={() => navigateTo('game', 'navbar')} className="hover:text-emerald-400 transition-colors text-base font-medium">Simulador Financeiro</button>
               
               {/* Privacy Toggle */}
               <button 
@@ -212,6 +267,15 @@ const App: React.FC = () => {
               >
                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
               </button>
+              
+              {isAuthenticated && (
+                <button 
+                  onClick={logout}
+                  className="text-xs font-bold text-slate-500 hover:text-red-400 border border-slate-700 hover:border-red-500/50 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  Sair
+                </button>
+              )}
             </div>
 
             {/* Mobile Menu Button */}
@@ -245,13 +309,13 @@ const App: React.FC = () => {
 
       {/* Mobile Menu Drawer */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-40 bg-[#020617] pt-24 px-4 pb-8 overflow-y-auto lg:hidden animate-in slide-in-from-top-10 duration-200">
+        <div className="fixed inset-0 z-40 bg-[#020617] pt-24 px-4 pb-8 overflow-y-auto lg:hidden animate-in slide-in-from-top-10 duration-200 safe-area-bottom">
           <div className="space-y-4">
             <div className="text-sm font-bold text-slate-500 uppercase tracking-widest px-3 mb-2">Ferramentas</div>
             {menuItems.map(tool => (
               <button
                 key={tool.id}
-                onClick={() => navigateTo(tool.id as ToolView)}
+                onClick={() => navigateTo(tool.id as ToolView, 'mobile_menu')}
                 className={`w-full text-left px-6 py-5 rounded-2xl flex items-center gap-4 transition-all ${currentTool === tool.id ? 'bg-slate-800 text-emerald-400 border border-slate-700' : 'bg-slate-900/50 text-slate-400 border border-transparent'}`}
               >
                 <span className="text-2xl">{tool.icon}</span>
@@ -266,11 +330,16 @@ const App: React.FC = () => {
                <span className="text-2xl">⚙️</span>
                <span className="font-semibold text-lg">Configurações</span>
             </button>
-
-            <div className="border-t border-slate-800 pt-6 mt-6 space-y-4">
-               <button onClick={() => navigateTo('education')} className="w-full text-left px-6 py-4 rounded-2xl bg-slate-900/50 text-slate-300 font-bold text-lg">📚 Academia Financeira</button>
-               <button onClick={() => navigateTo('game')} className="w-full text-left px-6 py-4 rounded-2xl bg-gradient-to-r from-emerald-900/50 to-slate-900/50 text-emerald-400 font-bold text-lg">🎮 Simulador Financeiro</button>
-            </div>
+            
+            {isAuthenticated && (
+              <button 
+                 onClick={() => { logout(); setIsMobileMenuOpen(false); }}
+                 className="w-full text-left px-6 py-5 rounded-2xl flex items-center gap-4 bg-red-900/10 text-red-400 border border-transparent mt-4"
+              >
+                 <span className="text-2xl">🚪</span>
+                 <span className="font-semibold text-lg">Sair (Bloquear)</span>
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -283,7 +352,7 @@ const App: React.FC = () => {
           {menuItems.map(tool => (
             <button
               key={tool.id}
-              onClick={() => navigateTo(tool.id as ToolView)}
+              onClick={() => navigateTo(tool.id as ToolView, 'sidebar')}
               className={`w-full text-left px-6 py-4 rounded-2xl flex items-center gap-4 transition-all group ${
                 currentTool === tool.id 
                   ? 'bg-emerald-900/20 text-emerald-400 border border-emerald-500/30' 
@@ -296,7 +365,7 @@ const App: React.FC = () => {
           ))}
           
           <div className="mt-10 pt-10 border-t border-slate-800">
-             <button onClick={() => navigateTo('game')} className="w-full bg-gradient-to-r from-emerald-900 to-slate-900 border border-emerald-800 p-6 rounded-2xl text-left group relative overflow-hidden shadow-xl hover:shadow-emerald-900/20 transition-all">
+             <button onClick={() => navigateTo('game', 'sidebar_banner')} className="w-full bg-gradient-to-r from-emerald-900 to-slate-900 border border-emerald-800 p-6 rounded-2xl text-left group relative overflow-hidden shadow-xl hover:shadow-emerald-900/20 transition-all">
                 <h4 className="font-bold text-emerald-400 z-10 relative text-lg">Teste sua Gestão</h4>
                 <p className="text-sm text-slate-400 z-10 relative mt-2 leading-relaxed">Simulador de 12 meses: Aprenda a poupar e investir jogando.</p>
                 <div className="absolute inset-0 bg-emerald-600/10 group-hover:bg-emerald-600/20 transition-colors"></div>
@@ -324,14 +393,14 @@ const App: React.FC = () => {
                         <p className="text-slate-500 text-sm font-bold uppercase tracking-widest mb-4">Escolha seu caminho:</p>
                         <div className="flex flex-col sm:flex-row justify-center gap-6 mb-8">
                           <button 
-                             onClick={() => navigateTo('game')} 
+                             onClick={() => navigateTo('game', 'hero_cta')} 
                              className="bg-emerald-600 hover:bg-emerald-500 text-white text-xl font-bold px-10 py-5 rounded-2xl shadow-2xl shadow-emerald-900/30 transition-all hover:scale-105 active:scale-95 border border-emerald-500/20 w-full sm:w-auto"
                            >
                              Jogar: O Sobrevivente
                            </button>
                           
                           <button 
-                            onClick={() => navigateTo('manager')} 
+                            onClick={() => navigateTo('manager', 'hero_cta')} 
                             className="bg-slate-800 hover:bg-slate-700 text-white text-xl font-bold px-10 py-5 rounded-2xl border border-slate-600 transition-all hover:scale-105 active:scale-95 shadow-xl w-full sm:w-auto"
                           >
                             Acessar Dashboard
@@ -340,278 +409,51 @@ const App: React.FC = () => {
                         
                         <div className="flex flex-wrap justify-center gap-4 text-slate-500 text-xs font-medium">
                            <span className="flex items-center gap-1"><span className="text-emerald-500">✓</span> 100% Gratuito</span>
-                           <span className="flex items-center gap-1"><span className="text-emerald-500">✓</span> Criado por especialistas</span>
+                           <span className="flex items-center gap-1"><span className="text-emerald-500">✓</span> Criptografia Local</span>
                            <span className="flex items-center gap-1"><span className="text-emerald-500">✓</span> Simuladores precisos</span>
                         </div>
                       </div>
-                    </section>
-
-                    {/* Section: Para Quem é? */}
-                    <section className="py-12 md:py-20 mb-12 md:mb-20">
-                       <div className="text-center mb-12">
-                          <h2 className="text-3xl font-bold text-white mb-2">Para Quem é Finanças Pro?</h2>
-                          <p className="text-slate-400">Não importa onde você está no caminho financeiro, temos ferramentas para ajudar.</p>
-                       </div>
-                       
-                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                          <div className="bg-slate-800/50 p-8 rounded-2xl border border-slate-700 hover:border-emerald-500/30 hover:bg-slate-800 transition-all group cursor-pointer" onClick={() => navigateTo('education')}>
-                             <span className="text-5xl mb-6 block group-hover:scale-110 transition-transform">🌱</span>
-                             <h3 className="text-xl font-bold text-white mb-3">Iniciante</h3>
-                             <p className="text-sm text-slate-400 mb-6 leading-relaxed">Você quer aprender a organizar finanças desde zero. Comece com nossa Educação Financeira na Prática.</p>
-                             <span className="text-emerald-400 text-xs font-bold uppercase tracking-wider flex items-center gap-2 group-hover:gap-3 transition-all">Começar pelo guia <span>→</span></span>
-                          </div>
-                          <div className="bg-slate-800/50 p-8 rounded-2xl border border-slate-700 hover:border-blue-500/30 hover:bg-slate-800 transition-all group cursor-pointer" onClick={() => navigateTo('compound')}>
-                             <span className="text-5xl mb-6 block group-hover:scale-110 transition-transform">📈</span>
-                             <h3 className="text-xl font-bold text-white mb-3">Em Evolução</h3>
-                             <p className="text-sm text-slate-400 mb-6 leading-relaxed">Já tem noção básica, agora quer investir melhor. Use a Calculadora de Juros Compostos e FIRE.</p>
-                             <span className="text-blue-400 text-xs font-bold uppercase tracking-wider flex items-center gap-2 group-hover:gap-3 transition-all">Simular agora <span>→</span></span>
-                          </div>
-                          <div className="bg-slate-800/50 p-8 rounded-2xl border border-slate-700 hover:border-indigo-500/30 hover:bg-slate-800 transition-all group cursor-pointer" onClick={() => navigateTo('roi')}>
-                             <span className="text-5xl mb-6 block group-hover:scale-110 transition-transform">🎯</span>
-                             <h3 className="text-xl font-bold text-white mb-3">Avançado</h3>
-                             <p className="text-sm text-slate-400 mb-6 leading-relaxed">Você investe, mas quer otimizar. Explore Carteira de Dividendos, ROI e Rebalanceamento.</p>
-                             <span className="text-indigo-400 text-xs font-bold uppercase tracking-wider flex items-center gap-2 group-hover:gap-3 transition-all">Explorar ferramentas <span>→</span></span>
-                          </div>
-                       </div>
-                    </section>
-                    
-                    {/* Section: Cards Principais */}
-                    <section className="py-12 md:py-20 mb-12 md:mb-20 grid grid-cols-1 md:grid-cols-3 gap-8">
-                      <div 
-                        onClick={() => navigateTo('rent')}
-                        className="bg-slate-800 p-8 rounded-[2rem] border border-slate-700 hover:border-blue-500/50 hover:bg-blue-500/5 transition-all duration-300 group cursor-pointer relative overflow-hidden shadow-xl"
-                      >
-                          <div className="absolute -right-4 -top-4 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl group-hover:bg-blue-500/20 transition-colors"></div>
-                          <span className="text-4xl mb-6 block group-hover:scale-110 transition-transform duration-300">🏠</span>
-                          <h3 className="font-bold text-white text-xl mb-4">Alugar ou Financiar? (Simulador Imobiliário)</h3>
-                          <p className="text-base text-slate-300 leading-relaxed mb-8 font-normal">
-                            Não siga o senso comum. Simule matematicamente o custo de oportunidade entre comprar um imóvel ou viver de aluguel investindo a diferença. Descubra qual cenário é melhor PARA VOCÊ.
-                          </p>
-                          <div className="flex items-center text-blue-400 font-bold text-sm uppercase tracking-wider gap-2 opacity-80 group-hover:opacity-100 mt-auto">
-                             <span>Fazer Comparativo</span>
-                             <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-                          </div>
-                      </div>
-
-                      <div 
-                        onClick={() => navigateTo('debt')}
-                        className="bg-slate-800 p-8 rounded-[2rem] border border-slate-700 hover:border-orange-500/50 hover:bg-orange-500/5 transition-all duration-300 group cursor-pointer relative overflow-hidden shadow-xl"
-                      >
-                          <div className="absolute -right-4 -top-4 w-32 h-32 bg-orange-500/10 rounded-full blur-3xl group-hover:bg-orange-500/20 transition-colors"></div>
-                          <span className="text-4xl mb-6 block group-hover:scale-110 transition-transform duration-300">🏔️</span>
-                          <h3 className="font-bold text-white text-xl mb-4">Otimizador de Dívidas (Método Avalanche)</h3>
-                          <p className="text-base text-slate-300 leading-relaxed mb-8 font-normal">
-                            Você está preso a juros altos? Utilize o Método Avalanche: nosso algoritmo organiza a ordem ideal de pagamento para você sair do buraco mais rápido. Simule quanto você pode poupar.
-                          </p>
-                          <div className="flex items-center text-orange-400 font-bold text-sm uppercase tracking-wider gap-2 opacity-80 group-hover:opacity-100 mt-auto">
-                             <span>Criar Plano</span>
-                             <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-                          </div>
-                      </div>
-
-                      <div 
-                        onClick={() => navigateTo('fire')}
-                        className="bg-slate-800 p-8 rounded-[2rem] border border-slate-700 hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all duration-300 group cursor-pointer relative overflow-hidden shadow-xl"
-                      >
-                          <div className="absolute -right-4 -top-4 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl group-hover:bg-emerald-500/20 transition-colors"></div>
-                          <span className="text-4xl mb-6 block group-hover:scale-110 transition-transform duration-300">🔥</span>
-                          <h3 className="font-bold text-white text-xl mb-4">Calculadora FIRE (Independência Financeira)</h3>
-                          <p className="text-base text-slate-300 leading-relaxed mb-8 font-normal">
-                            Quanto você precisa de patrimônio para viver de renda passiva? Descubra seu 'Número Mágico' e veja o caminho até a Independência Financeira em apenas 3 cliques.
-                          </p>
-                          <div className="flex items-center text-emerald-400 font-bold text-sm uppercase tracking-wider gap-2 opacity-80 group-hover:opacity-100 mt-auto">
-                             <span>Calcular Liberdade</span>
-                             <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-                          </div>
-                      </div>
-                    </section>
-
-                    {/* Section: Categorias de Conteúdo */}
-                    <section className="py-12 md:py-20 mb-12 md:mb-20">
-                       <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4 border-b border-slate-800 pb-4">
-                          <div>
-                             <h2 className="text-3xl font-bold text-white mb-2">Aprenda com Nossos Guias</h2>
-                             <p className="text-slate-400">Mais de 30 artigos e cursos para você dominar suas finanças.</p>
-                          </div>
-                          <button onClick={() => navigateTo('education')} className="text-emerald-400 font-bold text-sm hover:text-emerald-300 transition-colors flex items-center gap-1">Ver Tudo <span>→</span></button>
-                       </div>
-
-                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
-                          <div onClick={() => navigateTo('education')} className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 hover:bg-slate-800 hover:border-slate-600 transition-all cursor-pointer group flex items-start gap-4">
-                             <div className="p-3 bg-slate-900 rounded-lg text-2xl">🎓</div>
-                             <div className="flex-grow">
-                                <div className="flex justify-between items-center mb-1">
-                                   <h4 className="font-bold text-white group-hover:text-emerald-400 transition-colors">Educação Financeira</h4>
-                                   <span className="text-[10px] bg-slate-900 text-slate-400 px-2 py-1 rounded">12 artigos</span>
-                                </div>
-                                <p className="text-xs text-slate-500 mb-3">Educação Financeira na Prática, Psicologia do Gasto...</p>
-                                <span className="text-emerald-500 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">Explorar</span>
-                             </div>
-                          </div>
-
-                          <div onClick={() => navigateTo('education')} className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 hover:bg-slate-800 hover:border-slate-600 transition-all cursor-pointer group flex items-start gap-4">
-                             <div className="p-3 bg-slate-900 rounded-lg text-2xl">📊</div>
-                             <div className="flex-grow">
-                                <div className="flex justify-between items-center mb-1">
-                                   <h4 className="font-bold text-white group-hover:text-emerald-400 transition-colors">Investimentos & Renda Passiva</h4>
-                                   <span className="text-[10px] bg-slate-900 text-slate-400 px-2 py-1 rounded">18 artigos</span>
-                                </div>
-                                <p className="text-xs text-slate-500 mb-3">O Poder dos Dividendos, Ações para Iniciantes...</p>
-                                <span className="text-emerald-500 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">Explorar</span>
-                             </div>
-                          </div>
-
-                          <div onClick={() => navigateTo('rent')} className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 hover:bg-slate-800 hover:border-slate-600 transition-all cursor-pointer group flex items-start gap-4">
-                             <div className="p-3 bg-slate-900 rounded-lg text-2xl">🏠</div>
-                             <div className="flex-grow">
-                                <div className="flex justify-between items-center mb-1">
-                                   <h4 className="font-bold text-white group-hover:text-emerald-400 transition-colors">Imóveis & Patrimônio</h4>
-                                   <span className="text-[10px] bg-slate-900 text-slate-400 px-2 py-1 rounded">9 artigos</span>
-                                </div>
-                                <p className="text-xs text-slate-500 mb-3">Comprar vs Alugar, Financiamento Imobiliário...</p>
-                                <span className="text-emerald-500 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">Explorar</span>
-                             </div>
-                          </div>
-
-                          <div onClick={() => navigateTo('debt')} className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 hover:bg-slate-800 hover:border-slate-600 transition-all cursor-pointer group flex items-start gap-4">
-                             <div className="p-3 bg-slate-900 rounded-lg text-2xl">💳</div>
-                             <div className="flex-grow">
-                                <div className="flex justify-between items-center mb-1">
-                                   <h4 className="font-bold text-white group-hover:text-emerald-400 transition-colors">Dívidas & Crédito</h4>
-                                   <span className="text-[10px] bg-slate-900 text-slate-400 px-2 py-1 rounded">15 artigos</span>
-                                </div>
-                                <p className="text-xs text-slate-500 mb-3">Sair das Dívidas, Renegociar Juros...</p>
-                                <span className="text-emerald-500 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">Explorar</span>
-                             </div>
-                          </div>
-
-                          <div onClick={() => navigateTo('roi')} className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 hover:bg-slate-800 hover:border-slate-600 transition-all cursor-pointer group flex items-start gap-4">
-                             <div className="p-3 bg-slate-900 rounded-lg text-2xl">🚀</div>
-                             <div className="flex-grow">
-                                <div className="flex justify-between items-center mb-1">
-                                   <h4 className="font-bold text-white group-hover:text-emerald-400 transition-colors">Empreendedorismo</h4>
-                                   <span className="text-[10px] bg-slate-900 text-slate-400 px-2 py-1 rounded">7 artigos</span>
-                                </div>
-                                <p className="text-xs text-slate-500 mb-3">Gestão para Autônomos, ROI de Negócios...</p>
-                                <span className="text-emerald-500 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">Explorar</span>
-                             </div>
-                          </div>
-
-                          <div onClick={() => navigateTo('fire')} className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 hover:bg-slate-800 hover:border-slate-600 transition-all cursor-pointer group flex items-start gap-4">
-                             <div className="p-3 bg-slate-900 rounded-lg text-2xl">🎯</div>
-                             <div className="flex-grow">
-                                <div className="flex justify-between items-center mb-1">
-                                   <h4 className="font-bold text-white group-hover:text-emerald-400 transition-colors">Metas Financeiras</h4>
-                                   <span className="text-[10px] bg-slate-900 text-slate-400 px-2 py-1 rounded">8 artigos</span>
-                                </div>
-                                <p className="text-xs text-slate-500 mb-3">FIRE, Independência Financeira...</p>
-                                <span className="text-emerald-500 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">Explorar</span>
-                             </div>
-                          </div>
-                       </div>
-                    </section>
-
-                    {/* Section: Por Que Escolher? */}
-                    <section className="py-12 md:py-20 mb-12 md:mb-20">
-                       <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-8 rounded-3xl border border-slate-700 relative overflow-hidden">
-                          <div className="relative z-10">
-                             <div className="text-center mb-12">
-                                <h2 className="text-3xl font-bold text-white mb-2">Por Que Escolher Finanças Pro?</h2>
-                                <p className="text-slate-400">Tudo que você precisa para dominar suas finanças está aqui.</p>
-                             </div>
-                             
-                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                                <div className="text-center">
-                                   <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 border border-slate-700 shadow-lg">🎁</div>
-                                   <h3 className="text-emerald-400 font-bold mb-2">100% Gratuito</h3>
-                                   <p className="text-sm text-slate-400">Acesse todas as ferramentas e conteúdo sem pagar um centavo.</p>
-                                </div>
-                                <div className="text-center">
-                                   <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 border border-slate-700 shadow-lg">🧠</div>
-                                   <h3 className="text-emerald-400 font-bold mb-2">Educação de Verdade</h3>
-                                   <p className="text-sm text-slate-400">Conteúdo criado por especialistas, não influencers vendendo cursos.</p>
-                                </div>
-                                <div className="text-center">
-                                   <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 border border-slate-700 shadow-lg">⚡</div>
-                                   <h3 className="text-emerald-400 font-bold mb-2">Ferramentas Precisas</h3>
-                                   <p className="text-sm text-slate-400">Calculadoras com lógica real, considerando inflação e impostos.</p>
-                                </div>
-                                <div className="text-center">
-                                   <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 border border-slate-700 shadow-lg">🚫</div>
-                                   <h3 className="text-emerald-400 font-bold mb-2">Sem Anúncios</h3>
-                                   <p className="text-sm text-slate-400">Nada de pop-ups irritantes. Foco total no seu aprendizado.</p>
-                                </div>
-                             </div>
-                          </div>
-                       </div>
-                    </section>
-
-                    {/* Section: Comece Agora (CTA) */}
-                    <section className="py-12 md:py-20 mb-20">
-                       <h2 className="text-3xl font-bold text-white text-center mb-12">Comece Sua Jornada Financeira Hoje</h2>
-                       
-                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                          <div className="bg-gradient-to-br from-emerald-900/40 to-slate-900 p-8 rounded-3xl border border-emerald-500/30 flex flex-col items-center text-center hover:scale-[1.02] transition-transform">
-                             <div className="text-6xl mb-6">🎮</div>
-                             <h3 className="text-2xl font-bold text-white mb-3">Prefere Aprender Jogando?</h3>
-                             <p className="text-slate-400 mb-8 max-w-sm">O Sobrevivente é um simulador de 12 meses onde você toma decisões reais e vê o impacto no seu patrimônio.</p>
-                             <button 
-                                onClick={() => navigateTo('game')}
-                                className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg transition-colors text-lg"
-                             >
-                                Jogar Agora
-                             </button>
-                          </div>
-
-                          <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-8 rounded-3xl border border-slate-700 flex flex-col items-center text-center hover:scale-[1.02] transition-transform">
-                             <div className="text-6xl mb-6">📚</div>
-                             <h3 className="text-2xl font-bold text-white mb-3">Prefere Aprender Lendo?</h3>
-                             <p className="text-slate-400 mb-8 max-w-sm">Explore nossa Academia com artigos, guias e dicas práticas sobre cada aspecto das suas finanças.</p>
-                             <button 
-                                onClick={() => navigateTo('education')}
-                                className="w-full py-4 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl border border-slate-500 transition-colors text-lg"
-                             >
-                                Ir para Academia
-                             </button>
-                          </div>
-                       </div>
                     </section>
                   </div>
                 )}
 
                 {currentTool === 'compound' && (
                   <div className="space-y-8 animate-in fade-in duration-500">
-                    <Breadcrumb items={[{ label: 'Home', action: () => navigateTo('home') }, { label: 'Juros Compostos' }]} />
+                    <Breadcrumb items={[{ label: 'Home', action: () => navigateTo('home', 'breadcrumb') }, { label: 'Juros Compostos' }]} />
                     <CalculatorForm onCalculate={handleCalculate} />
                     {result ? <ResultsDisplay result={result} isPrivacyMode={isPrivacyMode} /> : <div className="text-center text-slate-600 py-12 bg-slate-800/50 rounded-2xl border border-slate-800">Preencha os dados acima para simular.</div>}
                   </div>
                 )}
 
                 {currentTool === 'manager' && (
-                  <Dashboard 
-                    transactions={transactions} 
-                    onDeleteTransaction={handleDeleteTransaction} 
-                    onOpenForm={() => setActiveModal('transaction')}
-                    goals={goals}
-                    onAddGoal={handleAddGoal}
-                    onUpdateGoal={handleUpdateGoal}
-                    onDeleteGoal={handleDeleteGoal}
-                    isPrivacyMode={isPrivacyMode}
-                    navigateToHome={() => navigateTo('home')}
-                  />
+                  !isAuthenticated ? (
+                     <LockedManager />
+                  ) : (
+                      <Dashboard 
+                        transactions={transactions} 
+                        onDeleteTransaction={handleDeleteTransaction} 
+                        onOpenForm={() => setActiveModal('transaction')}
+                        goals={goals}
+                        onAddGoal={handleAddGoal}
+                        onUpdateGoal={handleUpdateGoal}
+                        onDeleteGoal={handleDeleteGoal}
+                        isPrivacyMode={isPrivacyMode}
+                        navigateToHome={() => navigateTo('home', 'breadcrumb')}
+                      />
+                  )
                 )}
 
-                {currentTool === 'rent' && <div className="animate-in fade-in duration-500"><Tools toolType="rent" isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('home')} /></div>}
-                {currentTool === 'debt' && <div className="animate-in fade-in duration-500"><DebtTool toolType="debt" isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('home')} /></div>}
-                {currentTool === 'fire' && <div className="animate-in fade-in duration-500"><FireTool toolType="fire" isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('home')} /></div>}
-                {currentTool === 'inflation' && <div className="animate-in fade-in duration-500"><InflationTool toolType="inflation" isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('home')} /></div>}
-                {currentTool === 'dividend' && <div className="animate-in fade-in duration-500"><DividendSimulator isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('home')} /></div>}
-                {currentTool === 'roi' && <div className="animate-in fade-in duration-500"><RoiCalculator isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('home')} /></div>}
-                {currentTool === 'game' && <div className="animate-in fade-in duration-500"><MiniGame isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('home')} /></div>}
+                {currentTool === 'rent' && <div className="animate-in fade-in duration-500"><Tools toolType="rent" isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('home', 'breadcrumb')} /></div>}
+                {currentTool === 'debt' && <div className="animate-in fade-in duration-500"><DebtTool toolType="debt" isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('home', 'breadcrumb')} /></div>}
+                {currentTool === 'fire' && <div className="animate-in fade-in duration-500"><FireTool toolType="fire" isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('home', 'breadcrumb')} /></div>}
+                {currentTool === 'inflation' && <div className="animate-in fade-in duration-500"><InflationTool toolType="inflation" isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('home', 'breadcrumb')} /></div>}
+                {currentTool === 'dividend' && <div className="animate-in fade-in duration-500"><DividendSimulator isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('home', 'breadcrumb')} /></div>}
+                {currentTool === 'roi' && <div className="animate-in fade-in duration-500"><RoiCalculator isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('home', 'breadcrumb')} /></div>}
+                {currentTool === 'game' && <div className="animate-in fade-in duration-500"><MiniGame isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('home', 'breadcrumb')} /></div>}
 
                 {currentTool === 'education' && (
                   <div className="space-y-8 animate-in fade-in duration-500">
-                      <Breadcrumb items={[{ label: 'Home', action: () => navigateTo('home') }, { label: 'Academia Financeira' }]} />
+                      <Breadcrumb items={[{ label: 'Home', action: () => navigateTo('home', 'breadcrumb') }, { label: 'Academia Financeira' }]} />
                       <h2 className="text-3xl font-bold text-white mb-8">Academia Finanças Pro</h2>
                       <EducationalContent onOpenPlans={() => {/* Removed plans modal */}} />
                   </div>
@@ -619,20 +461,26 @@ const App: React.FC = () => {
               </Suspense>
             </ErrorBoundary>
           </div>
-          <Footer onNavigate={(tool) => navigateTo(tool as ToolView)} />
+          <Footer onNavigate={(tool) => navigateTo(tool as ToolView, 'footer')} />
         </main>
 
-        {/* AI Floating Action Button (Desktop & Mobile) */}
+        {/* AI Floating Action Button (Desktop Only) */}
         <button
           onClick={() => setIsAiChatOpen(true)}
-          className="fixed bottom-8 right-8 z-40 w-16 h-16 bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-full shadow-2xl shadow-emerald-900/50 flex items-center justify-center text-3xl animate-in slide-in-from-bottom-10 hover:scale-110 transition-transform active:scale-95 border-2 border-white/10 group no-print"
+          className="hidden lg:flex fixed bottom-8 right-8 z-40 w-16 h-16 bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-full shadow-2xl shadow-emerald-900/50 items-center justify-center text-3xl animate-in slide-in-from-bottom-10 hover:scale-110 transition-transform active:scale-95 border-2 border-white/10 group no-print"
           aria-label="Abrir Consultor IA"
         >
           <span className="group-hover:animate-pulse">🤖</span>
-          <span className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 rounded-full border-2 border-[#020617] animate-bounce"></span>
         </button>
 
       </div>
+      
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav 
+         currentTool={currentTool} 
+         onNavigate={(tool) => navigateTo(tool as ToolView, 'mobile_bottom_nav')} 
+         onOpenAi={() => setIsAiChatOpen(true)}
+      />
 
       {/* Global Modals */}
       <Suspense fallback={null}>
@@ -662,7 +510,7 @@ const App: React.FC = () => {
             <div className="space-y-4">
                 <h3 className="text-lg font-bold text-white border-b border-slate-700 pb-2">Gerenciamento de Dados</h3>
                 <p className="text-sm text-slate-400">
-                    Seus dados são salvos apenas no navegador deste dispositivo (LocalStorage). Nenhum dado é enviado para servidores externos além da análise da IA.
+                    Seus dados são criptografados localmente. Nenhum dado é enviado para servidores externos.
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <button 
@@ -684,20 +532,9 @@ const App: React.FC = () => {
                         className="md:col-span-2 p-4 rounded-xl border border-red-900/50 bg-red-900/10 hover:bg-red-900/20 transition-colors text-left group"
                     >
                         <span className="block font-bold text-red-400 text-sm mb-1 group-hover:text-red-300">🏭 Factory Reset (Apagar Tudo)</span>
-                        <span className="block text-xs text-red-300/70">Reseta o aplicativo para o estado inicial. Apaga transações, metas, categorias personalizadas e dívidas.</span>
+                        <span className="block text-xs text-red-300/70">Reseta o aplicativo para o estado inicial. Remove conta local e todos os dados.</span>
                     </button>
                 </div>
-            </div>
-            
-            <div className="space-y-4">
-                 <h3 className="text-lg font-bold text-white border-b border-slate-700 pb-2">Sobre</h3>
-                 <div className="flex items-center gap-4 bg-slate-800 p-4 rounded-xl border border-slate-700">
-                     <div className="w-12 h-12 bg-emerald-600 rounded-lg flex items-center justify-center font-bold text-xl text-white">FP</div>
-                     <div>
-                         <h4 className="font-bold text-white">Finanças Pro Invest</h4>
-                         <p className="text-xs text-slate-400">Versão 1.4.0 (Free & Unlimited)</p>
-                     </div>
-                 </div>
             </div>
         </div>
       </ContentModal>
@@ -708,7 +545,6 @@ const App: React.FC = () => {
         onClose={() => setIsAiChatOpen(false)} 
         title="Consultor Virtual IA"
       >
-         {/* Ajustado altura para desktop */}
          <div className="h-[70vh] md:h-[600px]">
             <AiAdvisor 
               transactions={transactions} 
