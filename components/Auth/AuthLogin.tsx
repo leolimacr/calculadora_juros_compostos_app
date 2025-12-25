@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { sendConfirmationEmail } from '../../utils/email';
 
 interface AuthLoginProps {
   onSuccess: () => void;
@@ -24,6 +25,7 @@ const AuthLogin: React.FC<AuthLoginProps> = ({ onSuccess, onSwitchToRegister }) 
   const [newPin, setNewPin] = useState('');
   const [resetError, setResetError] = useState('');
   const [resetSuccess, setResetSuccess] = useState(false);
+  const [showRegisterHint, setShowRegisterHint] = useState(false); // Novo estado para o CTA
 
   // Tenta preencher email se já existir salvo
   React.useEffect(() => {
@@ -53,6 +55,7 @@ const AuthLogin: React.FC<AuthLoginProps> = ({ onSuccess, onSwitchToRegister }) 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setResetError('');
+    setShowRegisterHint(false);
     setLoading(true);
 
     if (newPin.length < 4) {
@@ -62,7 +65,11 @@ const AuthLogin: React.FC<AuthLoginProps> = ({ onSuccess, onSwitchToRegister }) 
     }
 
     const success = await recoverPassword(resetEmail, newPin);
+    
     if (success) {
+      // Envia e-mail de confirmação (Mock)
+      await sendConfirmationEmail(resetEmail, 'reset');
+      
       setResetSuccess(true);
       // Auto-switch back to login after success
       setTimeout(() => {
@@ -71,11 +78,20 @@ const AuthLogin: React.FC<AuthLoginProps> = ({ onSuccess, onSwitchToRegister }) 
         setEmail(resetEmail); // Preenche o email para facilitar
         setError(''); 
         setResetSuccess(false);
-      }, 2000);
+      }, 3000); // Aumentado tempo para leitura da mensagem de e-mail
     } else {
       setResetError('E-mail não confere com o cadastro local.');
+      setShowRegisterHint(true); // Ativa o CTA para cadastro
     }
     setLoading(false);
+  };
+
+  const handleGoToRegister = () => {
+    // Reseta estados e vai para registro
+    setMode('login');
+    setResetError('');
+    setShowRegisterHint(false);
+    onSwitchToRegister();
   };
 
   // --- MODO DE RECUPERAÇÃO DE SENHA ---
@@ -95,9 +111,12 @@ const AuthLogin: React.FC<AuthLoginProps> = ({ onSuccess, onSwitchToRegister }) 
         </p>
 
         {resetSuccess ? (
-          <div className="bg-emerald-500/20 border border-emerald-500/50 p-4 rounded-xl text-center">
-            <p className="text-emerald-400 font-bold">Sucesso!</p>
-            <p className="text-xs text-slate-300 mt-1">Sua senha foi redefinida.</p>
+          <div className="bg-emerald-500/20 border border-emerald-500/50 p-6 rounded-xl text-center animate-in zoom-in">
+            <p className="text-emerald-400 font-bold text-lg mb-2">Sucesso!</p>
+            <p className="text-sm text-slate-200">Sua senha foi redefinida.</p>
+            <p className="text-xs text-slate-400 mt-2">
+               Enviamos uma mensagem para seu e-mail ({resetEmail}) confirmando a alteração.
+            </p>
           </div>
         ) : (
           <form onSubmit={handleReset} className="space-y-4">
@@ -124,7 +143,24 @@ const AuthLogin: React.FC<AuthLoginProps> = ({ onSuccess, onSwitchToRegister }) 
               />
             </div>
 
-            {resetError && <p className="text-red-400 text-sm font-medium text-center bg-red-900/10 p-2 rounded-lg border border-red-500/20">{resetError}</p>}
+            {resetError && (
+              <div className="bg-red-900/10 p-3 rounded-lg border border-red-500/20 text-center animate-in shake">
+                 <p className="text-red-400 text-sm font-medium">{resetError}</p>
+                 
+                 {showRegisterHint && (
+                   <p className="mt-2 text-xs text-slate-400 pt-2 border-t border-red-500/10">
+                      Ainda não criou sua conta neste dispositivo?{' '}
+                      <button
+                        type="button"
+                        className="text-emerald-400 hover:text-emerald-300 font-semibold underline-offset-2 underline transition-colors"
+                        onClick={handleGoToRegister}
+                      >
+                        Crie agora clicando aqui
+                      </button>
+                   </p>
+                 )}
+              </div>
+            )}
 
             <button 
               type="submit" 
@@ -177,7 +213,7 @@ const AuthLogin: React.FC<AuthLoginProps> = ({ onSuccess, onSwitchToRegister }) 
           disabled={loading}
           className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-emerald-900/20 transition-all active:scale-95 disabled:opacity-50"
         >
-          {loading ? 'Verificando...' : 'Desbloquear'}
+          {loading ? 'Verificando...' : 'Entrar'}
         </button>
 
         <div className="flex justify-between items-center pt-4 border-t border-slate-800">

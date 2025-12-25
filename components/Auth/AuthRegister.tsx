@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { sendConfirmationEmail } from '../../utils/email';
 
 interface AuthRegisterProps {
   onSuccess: () => void;
@@ -14,6 +15,7 @@ const AuthRegister: React.FC<AuthRegisterProps> = ({ onSuccess, onSwitchToLogin 
   const [confirmPin, setConfirmPin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [registerSuccess, setRegisterSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,13 +33,43 @@ const AuthRegister: React.FC<AuthRegisterProps> = ({ onSuccess, onSwitchToLogin 
 
     setLoading(true);
     const success = await register(email, pin);
+    
     if (success) {
-      onSuccess();
+      setRegisterSuccess(true);
+      
+      // Envia e-mail mockado
+      await sendConfirmationEmail(email, 'register');
+      
+      // Delay para o usuário ler a mensagem antes de entrar
+      setTimeout(() => {
+        onSuccess();
+      }, 3000);
     } else {
       setError('Erro ao criar conta local.');
+      setLoading(false);
     }
-    setLoading(false);
   };
+
+  if (registerSuccess) {
+    return (
+      <div className="w-full max-w-sm mx-auto text-center animate-in zoom-in duration-500">
+        <div className="inline-block p-4 bg-emerald-500/20 rounded-full mb-4">
+           <span className="text-4xl">🎉</span>
+        </div>
+        <h3 className="text-2xl font-bold text-white mb-2">Conta Criada!</h3>
+        <p className="text-slate-300 text-sm mb-4 leading-relaxed">
+          Seu cofre digital está pronto.
+        </p>
+        <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700">
+           <p className="text-xs text-slate-400">
+             Enviamos uma mensagem para <strong>{email}</strong>. 
+             Confirme o acesso por lá para maior segurança.
+           </p>
+        </div>
+        <p className="text-xs text-slate-500 mt-6 animate-pulse">Entrando no sistema...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-sm mx-auto animate-in fade-in slide-in-from-bottom-4">
