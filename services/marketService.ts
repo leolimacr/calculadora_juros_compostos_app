@@ -8,9 +8,8 @@ import { MarketQuote } from '../types';
 const AWESOME_API_URL = 'https://economia.awesomeapi.com.br/last/USD-BRL,EUR-BRL,BTC-BRL,ETH-BRL';
 
 // Brapi.dev (Índices) requer token.
-// TODO: Adicione sua chave aqui ou no .env como VITE_BRAPI_TOKEN
-// Se estiver vazia, usará dados mockados para índices como fallback.
-const BRAPI_TOKEN = process.env.VITE_BRAPI_TOKEN || ''; 
+// Chave definida para acesso a dados reais de mercado.
+const BRAPI_TOKEN = process.env.VITE_BRAPI_TOKEN || 'jKCiHhurRb4ZrePxXJh8Y3'; 
 const BRAPI_URL = `https://brapi.dev/api/quote/^BVSP,^GSPC?token=${BRAPI_TOKEN}`;
 
 // Cache para evitar muitas requisições (30 segundos)
