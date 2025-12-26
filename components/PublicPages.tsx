@@ -356,7 +356,7 @@ export const DemoPage: React.FC<{ onNavigate: (path: any) => void }> = ({ onNavi
            <div className="space-y-6 flex-grow">
               <div>
                 <label className="flex justify-between text-sm font-bold text-slate-300 mb-2">
-                  <span>Aporte Mensal</span>
+                  <span>Valor Mensal</span>
                   <span className="text-emerald-400">R$ {compoundMonthly}</span>
                 </label>
                 <input 

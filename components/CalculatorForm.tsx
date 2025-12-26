@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { CalculationInput, RateType, PeriodType } from '../types';
 
@@ -86,7 +87,7 @@ const CalculatorForm: React.FC<CalculatorFormProps> = ({ onCalculate }) => {
             </div>
           </InputGroup>
 
-          <InputGroup label="Aporte Mensal" icon="📅" tooltip="Quanto você vai investir todos os meses?">
+          <InputGroup label="Valor Mensal" icon="📅" tooltip="Quanto você vai investir todos os meses?">
             <div className="relative">
               <span className="absolute left-10 top-1/2 -translate-y-1/2 text-emerald-500 font-bold text-sm">R$</span>
               <input
