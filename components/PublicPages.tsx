@@ -190,11 +190,13 @@ export const PublicHome: React.FC<{ onNavigate: (path: any) => void; onStartNow:
       <div className="lg:col-span-2 space-y-12">
         <section className="text-center py-12 md:py-20 px-4 relative overflow-hidden rounded-3xl bg-slate-900/50 border border-slate-800">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 via-blue-500 to-purple-500"></div>
+          {/* H1 Otimizado para SEO */}
           <h1 className="text-4xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-200 to-slate-400 mb-6 leading-tight tracking-tight">
             Domine o Jogo<br/>do Dinheiro
           </h1>
           
           <div className="text-lg md:text-xl text-slate-400 max-w-3xl mx-auto mb-8 leading-relaxed font-light space-y-2">
+            <h2 className="sr-only">Gerenciador Financeiro Gratuito e Calculadora FIRE</h2>
             <p>Simuladores profissionais, gerenciamento de caixa e educação financeira.</p>
             <p>
               Tudo, <span className="text-emerald-400 font-bold">GRATUITAMENTE</span>, em um só lugar. 
