@@ -66,7 +66,8 @@ export const fetchMarketQuotes = async (forceRefresh = false): Promise<MarketRes
     if (apiRes.ok) {
         const data = await apiRes.json();
         
-        // Verifica se o backend reportou dados simulados (por erro ou rate limit lá)
+        // A API retorna { indices: [], simulated: boolean }
+        // Se data.simulated for true, significa que o backend usou fallback (rate limit ou erro)
         if (data.simulated) {
             isRateLimited = true;
         }
@@ -75,25 +76,26 @@ export const fetchMarketQuotes = async (forceRefresh = false): Promise<MarketRes
             data.indices.forEach((idx: any) => {
                 quotes.push({
                     symbol: idx.symbol,
-                    name: idx.name,
+                    name: idx.name, // "Ibovespa", "S&P 500"
                     price: idx.price,
                     changePercent: idx.changePercent,
                     category: 'index',
-                    timestamp: Date.now()
+                    timestamp: Date.now(),
+                    simulated: data.simulated // Propaga o status simulado para o item individual
                 });
             });
         }
     } else {
         console.warn(`Erro na rota ${INDICES_API_URL}: ${apiRes.status}`);
-        // Se a rota falhar, adiciona mocks locais para não quebrar a UI
-        quotes.push(createMockIndex('IBOV', 'Ibovespa (Off)', 128000, 0));
-        quotes.push(createMockIndex('S&P 500', 'S&P 500 (Off)', 5200, 0));
+        // Se a rota falhar (ex: erro 500 no Vercel), adiciona mocks locais
+        quotes.push(createMockIndex('IBOV', 'Ibovespa', 128000, 0));
+        quotes.push(createMockIndex('S&P 500', 'S&P 500', 5200, 0));
     }
   } catch (error) {
     console.error("Falha de conexão com /api/market:", error);
-    // Fallback de rede
-    quotes.push(createMockIndex('IBOV', 'Ibovespa (Off)', 128000, 0));
-    quotes.push(createMockIndex('S&P 500', 'S&P 500 (Off)', 5200, 0));
+    // Fallback de rede (sem internet ou API down)
+    quotes.push(createMockIndex('IBOV', 'Ibovespa', 128000, 0));
+    quotes.push(createMockIndex('S&P 500', 'S&P 500', 5200, 0));
   }
 
   const result: MarketResponse = { quotes, isRateLimited };
@@ -115,7 +117,8 @@ const mapAwesomeItem = (symbol: string, name: string, data: any, category: 'curr
   price: parseFloat(data.bid),
   changePercent: parseFloat(data.pctChange),
   category,
-  timestamp: Date.now()
+  timestamp: Date.now(),
+  simulated: false
 });
 
 const createMockIndex = (symbol: string, name: string, basePrice: number, baseChange: number): MarketQuote => {
@@ -125,6 +128,7 @@ const createMockIndex = (symbol: string, name: string, basePrice: number, baseCh
     price: basePrice,
     changePercent: baseChange,
     category: 'index',
-    timestamp: Date.now()
+    timestamp: Date.now(),
+    simulated: true // Fallback local é sempre simulado
   };
 };

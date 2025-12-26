@@ -49,18 +49,16 @@ const MarketWidget = () => {
   const [quotes, setQuotes] = useState<MarketQuote[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
-  const [rateLimitWarning, setRateLimitWarning] = useState(false);
-
+  
   const refreshData = async (manual = false) => {
     if (manual) setLoading(true); // Mostra loading se for clique manual
     
     // Passa 'manual' como forceRefresh para o serviço
-    const { quotes: data, isRateLimited } = await fetchMarketQuotes(manual);
+    const { quotes: data } = await fetchMarketQuotes(manual);
     
     if (data && data.length > 0) {
       setQuotes(data);
       setLastUpdate(new Date());
-      setRateLimitWarning(isRateLimited);
     }
     setLoading(false);
   };
@@ -73,6 +71,9 @@ const MarketWidget = () => {
     const interval = setInterval(() => refreshData(false), 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // Verifica se há algum índice simulado para mostrar o aviso
+  const showSimulatedWarning = quotes.some(q => q.category === 'index' && q.simulated);
 
   // Skeleton Loading Component
   const MarketSkeleton = () => (
@@ -89,24 +90,33 @@ const MarketWidget = () => {
     </div>
   );
 
-  const ItemRow = ({ item }: { item: MarketQuote }) => (
-      <div className="flex justify-between items-center py-2 border-b border-slate-700/50 last:border-0 hover:bg-slate-700/20 transition-colors px-1 rounded animate-in fade-in duration-500">
-          <div className="flex flex-col">
-             <span className="text-xs text-slate-300 font-bold">{item.symbol}</span>
-             <span className="text-[9px] text-slate-500 truncate max-w-[80px] hidden sm:block">{item.name}</span>
-          </div>
-          <div className="text-right">
-              <div className="text-xs font-bold text-white">
-                  {item.category === 'index' 
-                    ? `${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} pts`
-                    : `R$ ${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-              </div>
-              <div className={`text-[10px] font-bold ${item.changePercent >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {item.changePercent >= 0 ? '↑' : '↓'} {Math.abs(item.changePercent).toFixed(2)}%
-              </div>
-          </div>
-      </div>
-  );
+  const ItemRow = ({ item }: { item: MarketQuote }) => {
+      // Monta o nome com sufixo se for índice simulado
+      const displayName = item.category === 'index' && item.simulated 
+        ? `${item.name} (Simulado)` 
+        : item.name;
+
+      return (
+        <div className="flex justify-between items-center py-2 border-b border-slate-700/50 last:border-0 hover:bg-slate-700/20 transition-colors px-1 rounded animate-in fade-in duration-500">
+            <div className="flex flex-col">
+               <span className="text-xs text-slate-300 font-bold">{item.symbol}</span>
+               <span className="text-[9px] text-slate-500 truncate max-w-[120px] hidden sm:block" title={displayName}>
+                 {displayName}
+               </span>
+            </div>
+            <div className="text-right">
+                <div className="text-xs font-bold text-white">
+                    {item.category === 'index' 
+                      ? `${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} pts`
+                      : `R$ ${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                </div>
+                <div className={`text-[10px] font-bold ${item.changePercent >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {item.changePercent >= 0 ? '↑' : '↓'} {Math.abs(item.changePercent).toFixed(2)}%
+                </div>
+            </div>
+        </div>
+      );
+  };
 
   return (
     <div className="bg-slate-800/50 rounded-2xl border border-slate-700 p-5 mt-6 relative overflow-hidden">
@@ -159,7 +169,7 @@ const MarketWidget = () => {
               </button>
            </div>
            
-           {rateLimitWarning && (
+           {showSimulatedWarning && (
              <p className="text-[9px] text-orange-400 font-medium mt-2 text-center bg-orange-900/10 py-1 rounded border border-orange-500/20 animate-in fade-in">
                ⚠️ Muitos acessos. Índices simulados.
              </p>

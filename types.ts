@@ -86,6 +86,7 @@ export interface MarketQuote {
   changePercent: number;
   category: MarketCategory;
   timestamp: number;
+  simulated?: boolean; // Indica se o dado é simulado (fallback/rate limit)
 }
 
 // Novas Ferramentas
@@ -184,4 +185,4 @@ export type ToolView =
   | 'dividend' 
   | 'roi' 
   | 'game' 
-  | 'education'; 
+  | 'education';
