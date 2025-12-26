@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 
 interface EducationalContentProps {
@@ -157,7 +158,7 @@ const EducationalContent: React.FC<EducationalContentProps> = ({ onOpenPlans }) 
       
       {/* Content Area */}
       <div className="lg:w-2/3">
-        <div className="bg-slate-800 p-8 rounded-3xl border border-slate-700 shadow-2xl min-h-[600px] relative overflow-hidden animate-in fade-in duration-500 key={activeTab}">
+        <div key={activeTab} className="bg-slate-800 p-8 rounded-3xl border border-slate-700 shadow-2xl min-h-[600px] relative overflow-hidden animate-in fade-in duration-500">
           {/* Header */}
           <div className="mb-8 pb-8 border-b border-slate-700">
              <div className="flex items-center gap-3 mb-2">

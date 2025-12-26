@@ -144,14 +144,14 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete, userName }) => {
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center text-center max-w-md mx-auto w-full">
-        <div className="text-8xl mb-8 animate-in zoom-in duration-500 key={slideIndex}">
+        <div key={slideIndex} className="text-8xl mb-8 animate-in zoom-in duration-500">
           {slides[slideIndex].icon}
         </div>
         <span className="text-emerald-500 font-bold text-sm uppercase tracking-wider mb-2 block">{slides[slideIndex].tool}</span>
-        <h2 className="text-3xl font-bold text-white mb-4 animate-in slide-in-from-bottom-2 duration-500 key={`h-${slideIndex}`}>
+        <h2 key={`h-${slideIndex}`} className="text-3xl font-bold text-white mb-4 animate-in slide-in-from-bottom-2 duration-500">
           {slides[slideIndex].title}
         </h2>
-        <p className="text-slate-400 text-lg leading-relaxed animate-in slide-in-from-bottom-4 duration-500 key={`p-${slideIndex}`}>
+        <p key={`p-${slideIndex}`} className="text-slate-400 text-lg leading-relaxed animate-in slide-in-from-bottom-4 duration-500">
           {slides[slideIndex].desc}
         </p>
       </div>
