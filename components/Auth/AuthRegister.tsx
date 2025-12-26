@@ -11,6 +11,7 @@ interface AuthRegisterProps {
 const AuthRegister: React.FC<AuthRegisterProps> = ({ onSuccess, onSwitchToLogin }) => {
   const { register } = useAuth();
   const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -66,7 +67,7 @@ const AuthRegister: React.FC<AuthRegisterProps> = ({ onSuccess, onSwitchToLogin 
     if (!validate()) return;
 
     setLoading(true);
-    const success = await register(email, pin);
+    const success = await register(email, pin, name);
     
     if (success) {
       // Envia e-mail mockado
@@ -92,7 +93,7 @@ const AuthRegister: React.FC<AuthRegisterProps> = ({ onSuccess, onSwitchToLogin 
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-           <label className="block text-xs font-bold text-slate-500 uppercase mb-1">E-mail</label>
+           <label className="block text-xs font-bold text-slate-500 uppercase mb-1">E-mail (Login)</label>
            <input 
              type="email" 
              value={email}
@@ -101,6 +102,17 @@ const AuthRegister: React.FC<AuthRegisterProps> = ({ onSuccess, onSwitchToLogin 
              placeholder="Digite seu e-mail"
            />
            {errors.email && <p className="text-[10px] text-red-400 mt-1 font-bold">{errors.email}</p>}
+        </div>
+
+        <div>
+           <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Como deseja ser chamado?</label>
+           <input 
+             type="text" 
+             value={name}
+             onChange={e => setName(e.target.value)}
+             className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-emerald-500 transition-colors"
+             placeholder="Seu nome ou apelido (Opcional)"
+           />
         </div>
 
         <div>

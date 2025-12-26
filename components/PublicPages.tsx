@@ -42,9 +42,149 @@ export const NewsWidget = () => {
   );
 };
 
+// --- Widget de Cotações (Mockado/Real) ---
+const MarketWidget = () => {
+  const [data, setData] = useState<any>(null);
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+
+  useEffect(() => {
+    // Simulação de fetch para garantir UI imediata (fallback)
+    // Em produção, aqui entrariam chamadas reais para CoinGecko/Brapi/AlphaVantage
+    const mockData = {
+        currencies: [
+            { name: 'Dólar (USD)', val: 5.15, change: -0.5 },
+            { name: 'Euro (EUR)', val: 5.58, change: 0.2 },
+        ],
+        crypto: [
+            { name: 'Bitcoin', val: 380500, change: 1.5 },
+            { name: 'Ethereum', val: 18200, change: -0.8 },
+        ],
+        indices: [
+            { name: 'Ibovespa', val: 128500, change: 0.4 },
+            { name: 'S&P 500', val: 5200, change: 0.9 },
+        ]
+    };
+    
+    // Tenta buscar dados reais (Exemplo CoinGecko simples para BTC/ETH)
+    const fetchData = async () => {
+        try {
+            const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=brl&include_24hr_change=true');
+            if (res.ok) {
+                const json = await res.json();
+                mockData.crypto[0].val = json.bitcoin.brl;
+                mockData.crypto[0].change = json.bitcoin.brl_24h_change;
+                mockData.crypto[1].val = json.ethereum.brl;
+                mockData.crypto[1].change = json.ethereum.brl_24h_change;
+            }
+        } catch (e) {
+            console.log("Using cached market data");
+        }
+        setData(mockData);
+        setLastUpdate(new Date());
+    };
+
+    fetchData();
+    const interval = setInterval(fetchData, 60000 * 5); // 5 min
+    return () => clearInterval(interval);
+  }, []);
+
+  if (!data) return null;
+
+  const ItemRow = ({ name, val, change, isCrypto = false }: any) => (
+      <div className="flex justify-between items-center py-2 border-b border-slate-700/50 last:border-0">
+          <span className="text-xs text-slate-300 font-medium">{name}</span>
+          <div className="text-right">
+              <div className="text-xs font-bold text-white">
+                  {isCrypto ? formatCurrency(val) : `R$ ${val.toFixed(2)}`}
+              </div>
+              <div className={`text-[10px] font-bold ${change >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {change >= 0 ? '↑' : '↓'} {Math.abs(change).toFixed(2)}%
+              </div>
+          </div>
+      </div>
+  );
+
+  return (
+    <div className="bg-slate-800/50 rounded-2xl border border-slate-700 p-5 mt-6">
+        <div className="flex justify-between items-center mb-4 pb-2 border-b border-slate-700">
+            <h3 className="font-bold text-white text-sm uppercase tracking-wide flex items-center gap-2">
+                <span className="text-emerald-500 text-lg">📊</span> Mercado
+            </h3>
+            <span className="text-[9px] text-slate-500">
+                {lastUpdate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+            </span>
+        </div>
+
+        <div className="space-y-4">
+            <div>
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Moedas</span>
+                {data.currencies.map((c: any) => <ItemRow key={c.name} {...c} />)}
+            </div>
+            <div>
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Cripto</span>
+                {data.crypto.map((c: any) => <ItemRow key={c.name} {...c} isCrypto />)}
+            </div>
+            <div>
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Índices</span>
+                {data.indices.map((c: any) => <ItemRow key={c.name} {...c} isCrypto />)}
+            </div>
+        </div>
+        
+        <p className="text-[9px] text-slate-600 mt-4 text-center">
+            ⚠️ Informativo. Consulte fontes oficiais.
+        </p>
+    </div>
+  );
+};
+
+// --- Banner Desktop ---
+const DesktopAppBanner = () => {
+    const [visible, setVisible] = useState(false);
+
+    useEffect(() => {
+        // Mostra apenas em desktop se não foi fechado recentemente
+        const isMobile = window.innerWidth < 768;
+        const lastClosed = localStorage.getItem('finpro_banner_closed');
+        const now = new Date().getTime();
+        
+        if (!isMobile && (!lastClosed || now - parseInt(lastClosed) > 7 * 24 * 60 * 60 * 1000)) {
+            // setTimeout(() => setVisible(true), 2000); // Delay suave
+            setVisible(true);
+        }
+    }, []);
+
+    if (!visible) return null;
+
+    return (
+        <div className="hidden md:flex bg-gradient-to-r from-emerald-900/90 to-slate-900/95 text-white p-3 items-center justify-center gap-6 relative border-b border-emerald-500/30 animate-in slide-in-from-top-full duration-500">
+            <div className="flex items-center gap-3">
+                <span className="text-2xl">📱</span>
+                <div>
+                    <p className="text-sm font-bold">Melhor experiência no app mobile!</p>
+                    <p className="text-xs text-slate-300">Instale o Finanças Pro Invest para acessar offline.</p>
+                </div>
+            </div>
+            <button className="bg-white text-emerald-900 px-4 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-100 transition-colors">
+                Instalar App
+            </button>
+            <button 
+                onClick={() => {
+                    setVisible(false);
+                    localStorage.setItem('finpro_banner_closed', new Date().getTime().toString());
+                }}
+                className="absolute right-4 text-slate-400 hover:text-white"
+            >
+                ✕
+            </button>
+        </div>
+    );
+};
+
 // --- Home Pública ---
 export const PublicHome: React.FC<{ onNavigate: (path: any) => void; onStartNow: () => void }> = ({ onNavigate, onStartNow }) => {
   return (
+    <>
+    <DesktopAppBanner />
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* Hero Central */}
       <div className="lg:col-span-2 space-y-12">
@@ -120,6 +260,7 @@ export const PublicHome: React.FC<{ onNavigate: (path: any) => void; onStartNow:
       {/* Sidebar News */}
       <aside className="hidden lg:block">
         <NewsWidget />
+        <MarketWidget />
         <div className="mt-6 bg-emerald-900/20 border border-emerald-500/30 p-6 rounded-2xl text-center">
            <h4 className="font-bold text-emerald-400 mb-2">Cadastre-se Gratuitamente</h4>
            <p className="text-xs text-slate-300 mb-4">Tenha acesso a todas as 8 ferramentas exclusivas.</p>
@@ -129,6 +270,7 @@ export const PublicHome: React.FC<{ onNavigate: (path: any) => void; onStartNow:
         </div>
       </aside>
     </div>
+    </>
   );
 };
 

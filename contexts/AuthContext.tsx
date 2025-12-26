@@ -10,14 +10,15 @@ interface User {
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  hasLocalUser: boolean; // Indica se já existe conta criada neste device
+  hasLocalUser: boolean; 
   isLoading: boolean;
   login: (email: string, pin: string) => Promise<boolean>;
-  register: (email: string, pin: string) => Promise<boolean>;
+  register: (email: string, pin: string, name?: string) => Promise<boolean>;
   logout: () => void;
   changePassword: (currentPin: string, newPin: string) => Promise<boolean>;
   recoverPassword: (emailConfirm: string, newPin: string) => Promise<boolean>;
   resetAppData: (pin: string) => Promise<boolean>;
+  updateProfile: (data: { name?: string }) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -48,7 +49,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           if (now < expiry) {
             const parsedUser = JSON.parse(storedUser);
-            setUser({ email: parsedUser.email });
+            setUser({ email: parsedUser.email, name: parsedUser.name });
             setIsAuthenticated(true);
           } else {
             // Sessão expirada
@@ -68,17 +69,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem(SESSION_KEY, JSON.stringify({ expiry }));
   };
 
-  const register = async (email: string, pin: string) => {
+  const register = async (email: string, pin: string, name?: string) => {
     try {
       const salt = generateSalt();
       const hash = await hashPassword(pin, salt);
-      const userPayload = { email, hash, salt };
+      const userPayload = { email, hash, salt, name };
       
       localStorage.setItem('finpro_auth_user', JSON.stringify(userPayload));
       // Marca flag de engajamento também, já que criou conta
       localStorage.setItem('finpro_has_used_manager', 'true');
       
-      setUser({ email });
+      setUser({ email, name });
       setIsAuthenticated(true);
       setHasLocalUser(true);
       
@@ -97,11 +98,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!storedData) return false;
 
     try {
-      const { email: storedEmail, hash, salt } = JSON.parse(storedData);
+      const { email: storedEmail, hash, salt, name } = JSON.parse(storedData);
 
       // Validação: Email deve bater (case insensitive) e Hash deve bater usando o Salt armazenado
       if (email.toLowerCase() === storedEmail.toLowerCase() && await validatePassword(pin, hash, salt)) {
-        setUser({ email });
+        setUser({ email, name });
         setIsAuthenticated(true);
         
         // Renova/Inicia persistência de 7 dias
@@ -124,6 +125,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Não removemos 'finpro_auth_user' para não apagar a conta
   };
 
+  const updateProfile = (data: { name?: string }) => {
+    const storedData = localStorage.getItem('finpro_auth_user');
+    if (!storedData) return;
+
+    try {
+      const userData = JSON.parse(storedData);
+      const updatedUser = { ...userData, ...data };
+      localStorage.setItem('finpro_auth_user', JSON.stringify(updatedUser));
+      setUser(prev => prev ? { ...prev, ...data } : null);
+    } catch (e) {
+      console.error("Erro ao atualizar perfil", e);
+    }
+  };
+
   const changePassword = async (currentPin: string, newPin: string): Promise<boolean> => {
     const storedData = localStorage.getItem('finpro_auth_user');
     if (!storedData) return false;
@@ -139,7 +154,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const newSalt = generateSalt();
       const newHash = await hashPassword(newPin, newSalt);
 
-      // Atualiza apenas as credenciais, mantendo o email
+      // Atualiza apenas as credenciais, mantendo o email e nome
       const updatedUser = { ...userData, hash: newHash, salt: newSalt };
       localStorage.setItem('finpro_auth_user', JSON.stringify(updatedUser));
       
@@ -209,7 +224,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       logout,
       changePassword,
       recoverPassword,
-      resetAppData
+      resetAppData,
+      updateProfile
     }}>
       {children}
     </AuthContext.Provider>

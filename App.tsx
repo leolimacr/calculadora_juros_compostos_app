@@ -18,6 +18,7 @@ import UserMenu from './components/UserMenu';
 import ChangePasswordForm from './components/Auth/ChangePasswordForm';
 import UserPanel from './components/UserPanel';
 import SettingsPage from './components/SettingsPage';
+import Onboarding from './components/Onboarding';
 import { PublicHome, DemoPage, GuidesPage, FaqPage, AboutPage } from './components/PublicPages';
 import ArticlesPage from './components/ArticlesPage';
 
@@ -59,18 +60,22 @@ const LoadingFallback = () => (
 );
 
 const App: React.FC = () => {
-  const { isAuthenticated, hasLocalUser, logout, isLoading: isAuthLoading } = useAuth();
+  const { isAuthenticated, hasLocalUser, user, logout, isLoading: isAuthLoading } = useAuth();
   
   const [currentTool, setCurrentTool] = useState<ToolView>('home');
   const [result, setResult] = useState<CalculationResult | null>(null);
   const [activeModal, setActiveModal] = useState<string | null>(null); 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAiChatOpen, setIsAiChatOpen] = useState(false);
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false); // Mobile Drawer
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   
   const [isPrivacyMode, setIsPrivacyMode] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   
+  // Onboarding State
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
   // Data States
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     const saved = localStorage.getItem('finpro_transactions');
@@ -102,11 +107,24 @@ const App: React.FC = () => {
   useEffect(() => {
     if (isAuthLoading) return;
     
-    // Redireciona para o Painel se logar estando na home ou login/register
-    if (isAuthenticated && ['home', 'login', 'register'].includes(currentTool)) {
-        setCurrentTool('panel');
+    // Check Onboarding Logic
+    if (isAuthenticated) {
+        const onboardingDone = localStorage.getItem('finpro_onboarding_completed');
+        if (!onboardingDone) {
+            setShowOnboarding(true);
+        } else {
+            // Check Home Preference logic if landing on login/home
+            if (['home', 'login', 'register'].includes(currentTool)) {
+                const pref = localStorage.getItem('preferredHomeScreen');
+                if (pref && PRIVATE_TOOLS.includes(pref as ToolView)) {
+                    setCurrentTool(pref as ToolView);
+                } else {
+                    setCurrentTool('panel');
+                }
+            }
+        }
     }
-  }, [isAuthenticated, isAuthLoading, currentTool]);
+  }, [isAuthenticated, isAuthLoading]); // Run once on auth change
 
   useEffect(() => { localStorage.setItem('finpro_transactions', JSON.stringify(transactions)); }, [transactions]);
   useEffect(() => { localStorage.setItem('finpro_cat_expense', JSON.stringify(expenseCategories)); }, [expenseCategories]);
@@ -161,6 +179,7 @@ const App: React.FC = () => {
     if (tool === 'manager') logEvent(ANALYTICS_EVENTS.VIEW_MANAGER, { origin });
     setCurrentTool(tool);
     setIsMobileMenuOpen(false);
+    setIsMoreMenuOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -178,6 +197,11 @@ const App: React.FC = () => {
     logout();
     setCurrentTool('home');
     notify("Você foi desconectado.", 'info');
+  };
+
+  const handleOnboardingComplete = () => {
+      setShowOnboarding(false);
+      setCurrentTool('manager'); // Direct to manager after onboarding
   };
 
   // --- RENDER CONTENT GUARD ---
@@ -280,6 +304,8 @@ const App: React.FC = () => {
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       <InstallPrompt />
       <BackToTop />
+      
+      {showOnboarding && <Onboarding onComplete={handleOnboardingComplete} userName={user?.name || user?.email.split('@')[0]} />}
 
       {/* Navigation Bar */}
       <nav className="border-b border-slate-800 bg-[#020617]/95 sticky top-0 z-50 backdrop-blur no-print">
@@ -317,12 +343,15 @@ const App: React.FC = () => {
             {/* Desktop Right Actions */}
             <div className="hidden lg:flex items-center gap-3">
                {isAuthenticated && (
-                 <button 
-                    onClick={() => navigateTo('panel')} 
-                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 text-emerald-400 rounded-lg hover:bg-slate-700 transition-colors text-sm font-bold border border-slate-700"
-                 >
-                   <span>⚡</span> Meu Painel
-                 </button>
+                 <>
+                    <span className="text-sm font-medium text-slate-300">👋 Bem-vindo, {user?.name || 'Investidor'}!</span>
+                    <button 
+                        onClick={() => navigateTo('panel')} 
+                        className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 text-emerald-400 rounded-lg hover:bg-slate-700 transition-colors text-sm font-bold border border-slate-700"
+                    >
+                    <span>⚡</span> Meu Painel
+                    </button>
+                 </>
                )}
 
                <button 
@@ -355,7 +384,7 @@ const App: React.FC = () => {
                )}
             </div>
 
-            {/* Mobile Menu Button */}
+            {/* Mobile Menu Button (Top Right) */}
             <div className="lg:hidden flex items-center gap-3">
               <button 
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -374,7 +403,7 @@ const App: React.FC = () => {
         </div>
       </nav>
 
-      {/* Mobile Menu Drawer */}
+      {/* Mobile Menu Drawer (Top Right) */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-40 bg-[#020617] pt-24 px-4 pb-8 overflow-y-auto lg:hidden animate-in slide-in-from-top-10 duration-200 safe-area-bottom">
           <div className="space-y-4">
@@ -391,18 +420,6 @@ const App: React.FC = () => {
             
             {isAuthenticated && (
               <>
-                <div className="text-sm font-bold text-slate-500 uppercase tracking-widest px-3 mb-2 mt-6">Minhas Ferramentas</div>
-                {privateMenuItems.map(tool => (
-                  <button
-                    key={tool.id}
-                    onClick={() => navigateTo(tool.id as ToolView)}
-                    className={`w-full text-left px-6 py-4 rounded-2xl flex items-center gap-4 transition-all ${currentTool === tool.id ? 'bg-emerald-900/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-900/50 text-slate-400'}`}
-                  >
-                    <span className="text-xl">{tool.icon}</span>
-                    <span className="font-semibold text-lg">{tool.label}</span>
-                  </button>
-                ))}
-                
                 <button
                     onClick={() => navigateTo('settings')}
                     className="w-full text-left px-6 py-4 rounded-2xl flex items-center gap-4 transition-all bg-slate-900/50 text-slate-400 mt-4"
@@ -429,6 +446,49 @@ const App: React.FC = () => {
                </button>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Mobile "More" Menu Drawer (Bottom) */}
+      {isMoreMenuOpen && isAuthenticated && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center lg:hidden bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div 
+                className="bg-slate-900 w-full rounded-t-3xl p-6 border-t border-slate-700 shadow-2xl animate-in slide-in-from-bottom duration-300 max-h-[80vh] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
+            >
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-white text-lg">Todas as Ferramentas</h3>
+                    <button 
+                        onClick={() => setIsMoreMenuOpen(false)}
+                        className="bg-slate-800 p-2 rounded-full text-slate-400 hover:text-white"
+                    >
+                        ✕
+                    </button>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                    {privateMenuItems.map(tool => (
+                        <button
+                            key={tool.id}
+                            onClick={() => navigateTo(tool.id as ToolView)}
+                            className="flex flex-col items-center justify-center p-4 bg-slate-800 rounded-xl border border-slate-700 hover:border-emerald-500/50 active:scale-95 transition-all"
+                        >
+                            <span className="text-3xl mb-2">{tool.icon}</span>
+                            <span className="text-xs font-bold text-slate-300 text-center">{tool.label}</span>
+                        </button>
+                    ))}
+                </div>
+                
+                {/* AI Button here in Drawer as fallback */}
+                <button
+                    onClick={() => { setIsMoreMenuOpen(false); setIsAiChatOpen(true); }}
+                    className="w-full mt-6 flex items-center justify-center gap-2 p-4 bg-gradient-to-r from-emerald-900 to-slate-900 rounded-xl border border-emerald-500/30 text-emerald-400 font-bold"
+                >
+                    <span className="text-xl">🤖</span> Consultor IA
+                </button>
+            </div>
+            {/* Close area */}
+            <div className="absolute inset-0 -z-10" onClick={() => setIsMoreMenuOpen(false)}></div>
         </div>
       )}
 
@@ -474,11 +534,12 @@ const App: React.FC = () => {
           <Footer onNavigate={(tool) => navigateTo(tool as ToolView)} />
         </main>
 
-        {/* AI FAB */}
+        {/* AI FAB (Desktop Only) */}
         <button
           onClick={() => setIsAiChatOpen(true)}
           className="hidden lg:flex fixed bottom-8 right-8 z-40 w-16 h-16 bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-full shadow-2xl shadow-emerald-900/50 items-center justify-center text-3xl animate-in slide-in-from-bottom-10 hover:scale-110 transition-transform active:scale-95 border-2 border-white/10 group no-print"
           aria-label="Abrir Consultor IA"
+          title="Consultor IA"
         >
           <span className="group-hover:animate-pulse">🤖</span>
         </button>
@@ -491,6 +552,7 @@ const App: React.FC = () => {
            currentTool={currentTool} 
            onNavigate={(tool) => navigateTo(tool as ToolView)} 
            onOpenAi={() => setIsAiChatOpen(true)}
+           onOpenMore={() => setIsMoreMenuOpen(true)}
         />
       )}
 
