@@ -26,23 +26,25 @@ interface CachedData {
 // SERVIÇO
 // ============================================================================
 
-export const fetchMarketQuotes = async (): Promise<MarketQuote[]> => {
-  // 1. Verificar Cache
-  const cached = localStorage.getItem(CACHE_KEY);
-  if (cached) {
-    const { timestamp, data } = JSON.parse(cached) as CachedData;
-    if (Date.now() - timestamp < CACHE_DURATION) {
-      // console.log('Serving market data from cache');
-      return data;
+export const fetchMarketQuotes = async (forceRefresh = false): Promise<MarketQuote[]> => {
+  // 1. Verificar Cache (Pula se forceRefresh for true)
+  if (!forceRefresh) {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      const { timestamp, data } = JSON.parse(cached) as CachedData;
+      if (Date.now() - timestamp < CACHE_DURATION) {
+        // console.log('Serving market data from cache');
+        return data;
+      }
     }
   }
 
   const quotes: MarketQuote[] = [];
 
+  // --- BUSCA DADOS REAIS (AwesomeAPI) ---
   try {
-    // 2. Fetch AwesomeAPI (USD, EUR, BTC, ETH)
-    // Documentação: https://docs.awesomeapi.com.br/api-de-moedas
-    const awesomeRes = await fetch(AWESOME_API_URL);
+    // Adiciona timestamp na URL para evitar cache do navegador e garantir atualização real
+    const awesomeRes = await fetch(`${AWESOME_API_URL}?t=${Date.now()}`);
     if (awesomeRes.ok) {
       const json = await awesomeRes.json();
       
@@ -98,10 +100,14 @@ export const fetchMarketQuotes = async (): Promise<MarketQuote[]> => {
     console.error("Erro ao buscar AwesomeAPI:", error);
   }
 
+  // --- BUSCA ÍNDICES (Brapi ou Mock) ---
   try {
-    // 3. Fetch Brapi (Indices) - Somente se tiver token, senão usa mock
+    // 3. Fetch Brapi (Indices) - Somente se tiver token, senão usa mock com variação
     if (BRAPI_TOKEN) {
-      const brapiRes = await fetch(BRAPI_URL);
+      // Adiciona t=timestamp se forceRefresh para furar cache do browser/cdn
+      const url = forceRefresh ? `${BRAPI_URL}&t=${Date.now()}` : BRAPI_URL;
+      const brapiRes = await fetch(url);
+      
       if (brapiRes.ok) {
         const json = await brapiRes.json();
         // Brapi retorna { results: [ ... ] }
@@ -130,11 +136,30 @@ export const fetchMarketQuotes = async (): Promise<MarketQuote[]> => {
         }
       }
     } else {
-      // Fallback Mockado para Índices se não houver Token
-      // Isso garante que a UI não quebre
+      // MODO SIMULAÇÃO (Sem Token)
+      // Adiciona um delay artificial de 600ms para o usuário ver o "Carregando..." no botão
+      if (forceRefresh) await new Promise(r => setTimeout(r, 600));
+
+      // Fallback Mockado com "Jitter" (Variação) para parecer vivo se não houver Token
+      const jitter = () => (Math.random() * 0.5) - 0.25; // Variação pequena
+      
       quotes.push(
-        { symbol: 'IBOV', name: 'Ibovespa', price: 128500, changePercent: 0.45, category: 'index', timestamp: Date.now() },
-        { symbol: 'S&P 500', name: 'S&P 500', price: 5200, changePercent: 0.12, category: 'index', timestamp: Date.now() }
+        { 
+            symbol: 'IBOV', 
+            name: 'Ibovespa (Simulado)', 
+            price: 128500 + (Math.random() * 200 - 100), // Variação de preço
+            changePercent: 0.45 + jitter(), 
+            category: 'index', 
+            timestamp: Date.now() 
+        },
+        { 
+            symbol: 'S&P 500', 
+            name: 'S&P 500 (Simulado)', 
+            price: 5200 + (Math.random() * 20 - 10), 
+            changePercent: 0.12 + jitter(), 
+            category: 'index', 
+            timestamp: Date.now() 
+        }
       );
     }
   } catch (error) {

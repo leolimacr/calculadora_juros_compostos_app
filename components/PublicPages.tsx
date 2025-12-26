@@ -50,9 +50,12 @@ const MarketWidget = () => {
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
-  const refreshData = async () => {
-    // setLoading(true); // Opcional: Não setar loading no refresh para não piscar a tela
-    const data = await fetchMarketQuotes();
+  const refreshData = async (manual = false) => {
+    if (manual) setLoading(true); // Mostra loading se for clique manual
+    
+    // Passa 'manual' como forceRefresh para o serviço
+    const data = await fetchMarketQuotes(manual);
+    
     if (data && data.length > 0) {
       setQuotes(data);
       setLastUpdate(new Date());
@@ -64,8 +67,8 @@ const MarketWidget = () => {
     // Initial fetch
     refreshData();
 
-    // Atualiza a cada 60 segundos
-    const interval = setInterval(refreshData, 60000);
+    // Atualiza a cada 30 segundos automaticamente (usa cache se disponível)
+    const interval = setInterval(() => refreshData(false), 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -85,7 +88,7 @@ const MarketWidget = () => {
   );
 
   const ItemRow = ({ item }: { item: MarketQuote }) => (
-      <div className="flex justify-between items-center py-2 border-b border-slate-700/50 last:border-0 hover:bg-slate-700/20 transition-colors px-1 rounded">
+      <div className="flex justify-between items-center py-2 border-b border-slate-700/50 last:border-0 hover:bg-slate-700/20 transition-colors px-1 rounded animate-in fade-in duration-500">
           <div className="flex flex-col">
              <span className="text-xs text-slate-300 font-bold">{item.symbol}</span>
              <span className="text-[9px] text-slate-500 truncate max-w-[80px] hidden sm:block">{item.name}</span>
@@ -93,7 +96,7 @@ const MarketWidget = () => {
           <div className="text-right">
               <div className="text-xs font-bold text-white">
                   {item.category === 'index' 
-                    ? item.price.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) 
+                    ? `${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} pontos`
                     : `R$ ${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
               </div>
               <div className={`text-[10px] font-bold ${item.changePercent >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
@@ -110,7 +113,7 @@ const MarketWidget = () => {
                 <span className="text-emerald-500 text-lg">📊</span> Mercado
             </h3>
             <span className="text-[9px] text-slate-500 flex items-center gap-1">
-               {loading ? <span className="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></span> : '●'}
+               {loading ? <span className="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></span> : <span className="w-2 h-2 bg-slate-600 rounded-full"></span>}
                {lastUpdate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
             </span>
         </div>
@@ -122,18 +125,18 @@ const MarketWidget = () => {
               {/* Moedas */}
               <div>
                   <span className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Moedas</span>
-                  {quotes.filter(q => q.category === 'currency').map(q => <ItemRow key={q.symbol} item={q} />)}
+                  {quotes.filter(q => q.category === 'currency').map(q => <ItemRow key={`${q.symbol}-${lastUpdate.getTime()}`} item={q} />)}
               </div>
               {/* Cripto */}
               <div>
                   <span className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Cripto</span>
-                  {quotes.filter(q => q.category === 'crypto').map(q => <ItemRow key={q.symbol} item={q} />)}
+                  {quotes.filter(q => q.category === 'crypto').map(q => <ItemRow key={`${q.symbol}-${lastUpdate.getTime()}`} item={q} />)}
               </div>
               {/* Índices (Se houver) */}
               {quotes.some(q => q.category === 'index') && (
                 <div>
                     <span className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Índices</span>
-                    {quotes.filter(q => q.category === 'index').map(q => <ItemRow key={q.symbol} item={q} />)}
+                    {quotes.filter(q => q.category === 'index').map(q => <ItemRow key={`${q.symbol}-${lastUpdate.getTime()}`} item={q} />)}
                 </div>
               )}
           </div>
@@ -144,11 +147,11 @@ const MarketWidget = () => {
               Dados: AwesomeAPI / Brapi
            </p>
            <button 
-             onClick={refreshData} 
-             className="text-[10px] text-emerald-500 hover:text-emerald-400 font-bold flex items-center gap-1"
+             onClick={() => refreshData(true)} 
+             className={`text-[10px] text-emerald-500 hover:text-emerald-400 font-bold flex items-center gap-1 transition-all ${loading ? 'opacity-50 cursor-not-allowed' : 'active:scale-95'}`}
              disabled={loading}
            >
-             Atualizar ↻
+             {loading ? 'Atualizando...' : 'Atualizar ↻'}
            </button>
         </div>
     </div>
@@ -201,9 +204,9 @@ export const PublicHome: React.FC<{ onNavigate: (path: any) => void; onStartNow:
   return (
     <>
     <DesktopAppBanner />
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-24 lg:pb-0">
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] xl:grid-cols-[1fr_400px] gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-24 lg:pb-0">
       {/* Hero Central */}
-      <div className="lg:col-span-2 space-y-12">
+      <div className="space-y-12">
         <section className="text-center py-16 md:py-20 px-4 relative overflow-hidden rounded-3xl bg-slate-900/50 border border-slate-800">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 via-blue-500 to-purple-500"></div>
           
@@ -341,7 +344,7 @@ export const DemoPage: React.FC<{ onNavigate: (path: any) => void }> = ({ onNavi
   });
 
   return (
-    <div className="max-w-5xl mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-4 relative pb-24 lg:pb-0">
+    <div className="max-w-7xl mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-4 relative pb-24 lg:pb-0">
       
       {showToast && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 bg-yellow-600 text-white px-6 py-3 rounded-full shadow-xl z-50 animate-in slide-in-from-top-2 fade-in font-bold text-sm border border-yellow-400">
@@ -460,7 +463,7 @@ export const DemoPage: React.FC<{ onNavigate: (path: any) => void }> = ({ onNavi
 
 export const GuidesPage: React.FC<{ onNavigate: (path: any) => void }> = ({ onNavigate }) => {
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in pb-24 lg:pb-0 px-4">
+    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in pb-24 lg:pb-0 px-4">
       <div className="text-center mb-10 pt-4">
         <h2 className="text-3xl font-bold text-white mb-3">Guias Práticos</h2>
         <p className="text-slate-400">Roteiros passo a passo para sua organização.</p>
@@ -495,7 +498,7 @@ export const GuidesPage: React.FC<{ onNavigate: (path: any) => void }> = ({ onNa
 
 export const FaqPage = () => {
   return (
-    <div className="max-w-3xl mx-auto animate-in fade-in pb-24 lg:pb-0 px-4">
+    <div className="max-w-5xl mx-auto animate-in fade-in pb-24 lg:pb-0 px-4">
       <h2 className="text-3xl font-bold text-white text-center mb-10 pt-4">Perguntas Frequentes</h2>
       <div className="space-y-4">
         {[
@@ -523,7 +526,7 @@ export const FaqPage = () => {
 
 export const AboutPage: React.FC<{ onNavigate: (path: any) => void }> = ({ onNavigate }) => {
   return (
-    <div className="max-w-3xl mx-auto text-center space-y-8 animate-in fade-in pb-24 lg:pb-0 px-4">
+    <div className="max-w-5xl mx-auto text-center space-y-8 animate-in fade-in pb-24 lg:pb-0 px-4">
       <h2 className="text-3xl font-bold text-white pt-4">Nosso Propósito</h2>
       <p className="text-lg text-slate-300 leading-relaxed">
         Acreditamos que a <strong>liberdade financeira</strong> não deve ser complexa nem custosa. 

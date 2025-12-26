@@ -27,7 +27,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
 
   return (
     <footer className="border-t border-slate-800 bg-[#0f172a] pt-20 pb-8 no-print">
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8">
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
           

@@ -49,7 +49,7 @@ export const RentVsFinanceTool: React.FC<ToolProps> = ({ isPrivacyMode = false, 
     <div className="space-y-6">
       {navigateToHome && <Breadcrumb items={[{ label: 'Home', action: navigateToHome }, { label: 'Alugar vs Financiar' }]} />}
       
-      <div className="bg-slate-800 p-8 rounded-2xl border border-slate-700 shadow-xl w-full max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="bg-slate-800 p-8 rounded-2xl border border-slate-700 shadow-xl w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className="flex items-center gap-4 mb-8 pb-6 border-b border-slate-700">
           <span className="text-4xl">🏡</span>
           <div>
@@ -58,7 +58,7 @@ export const RentVsFinanceTool: React.FC<ToolProps> = ({ isPrivacyMode = false, 
           </div>
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
           
           {/* Coluna 1: Dados do Imóvel */}
           <div className="bg-slate-900/50 p-5 rounded-xl border border-slate-700/50">
@@ -179,7 +179,6 @@ export const RentVsFinanceTool: React.FC<ToolProps> = ({ isPrivacyMode = false, 
 // DEBT OPTIMIZER
 // =======================
 export const DebtOptimizerTool: React.FC<ToolProps> = ({ isPrivacyMode = false, navigateToHome }) => {
-  // Load initial debts from localStorage
   const [debts, setDebts] = useState<DebtItem[]>(() => {
     const saved = localStorage.getItem('finpro_debts');
     return saved ? JSON.parse(saved) : [];
@@ -189,7 +188,6 @@ export const DebtOptimizerTool: React.FC<ToolProps> = ({ isPrivacyMode = false, 
   const [extraPayment, setExtraPayment] = useState(0);
   const [result, setResult] = useState<any>(null);
 
-  // Save changes to localStorage
   useEffect(() => {
     localStorage.setItem('finpro_debts', JSON.stringify(debts));
   }, [debts]);
@@ -208,7 +206,7 @@ export const DebtOptimizerTool: React.FC<ToolProps> = ({ isPrivacyMode = false, 
     <div className="space-y-6">
       {navigateToHome && <Breadcrumb items={[{ label: 'Home', action: navigateToHome }, { label: 'Otimizador de Dívidas' }]} />}
       
-      <div className="bg-slate-800 p-8 rounded-2xl border border-slate-700 shadow-xl w-full max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="bg-slate-800 p-8 rounded-2xl border border-slate-700 shadow-xl w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className="flex items-center gap-4 mb-8 pb-6 border-b border-slate-700">
           <span className="text-4xl">🏔️</span>
           <div>
@@ -266,9 +264,8 @@ export const DebtOptimizerTool: React.FC<ToolProps> = ({ isPrivacyMode = false, 
           </div>
         )}
 
-        {/* Informações Adicionais (Preenchendo Espaço Vazio) */}
+        {/* Informações Adicionais */}
         <div className="mt-12 grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Card 1: Como Funciona */}
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
             <h3 className="text-lg font-bold text-emerald-400 mb-4">Como Funciona o Método Avalanche</h3>
             <ol className="space-y-3 text-sm text-slate-300">
@@ -279,7 +276,6 @@ export const DebtOptimizerTool: React.FC<ToolProps> = ({ isPrivacyMode = false, 
             </ol>
           </div>
 
-          {/* Card 2: Calculadora Simples */}
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
             <h3 className="text-lg font-bold text-blue-400 mb-4">Economia Estimada</h3>
             <p className="text-3xl font-bold text-emerald-400">
@@ -288,7 +284,6 @@ export const DebtOptimizerTool: React.FC<ToolProps> = ({ isPrivacyMode = false, 
             <p className="text-xs text-slate-400 mt-2">Será atualizado ao calcular o plano</p>
           </div>
 
-          {/* Card 3: Dicas */}
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
             <h3 className="text-lg font-bold text-orange-400 mb-4">💡 Dicas Importantes</h3>
             <ul className="space-y-3 text-sm text-slate-300">
@@ -305,7 +300,7 @@ export const DebtOptimizerTool: React.FC<ToolProps> = ({ isPrivacyMode = false, 
 };
 
 // =======================
-// FIRE CALCULATOR
+// FIRE CALCULATOR (Layout Wide)
 // =======================
 export const FireCalculatorTool: React.FC<ToolProps> = ({ isPrivacyMode = false, navigateToHome }) => {
   const [expenses, setExpenses] = useState(5000);
@@ -315,59 +310,71 @@ export const FireCalculatorTool: React.FC<ToolProps> = ({ isPrivacyMode = false,
     <div className="space-y-6">
       {navigateToHome && <Breadcrumb items={[{ label: 'Home', action: navigateToHome }, { label: 'Calculadora FIRE' }]} />}
       
-      <div className="bg-slate-800 p-8 rounded-2xl border border-slate-700 shadow-xl w-full max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div className="text-center mb-8">
+      <div className="bg-slate-800 p-8 rounded-2xl border border-slate-700 shadow-xl w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="text-center mb-10">
           <span className="text-6xl block mb-4">🔥</span>
-          <h3 className="text-2xl font-bold text-white mb-2">Calculadora FIRE</h3>
+          <h3 className="text-3xl font-bold text-white mb-2">Calculadora FIRE</h3>
           <p className="text-slate-400 text-sm">Financial Independence, Retire Early (Regra dos 4%)</p>
         </div>
         
-        <div className="bg-slate-900 p-6 rounded-2xl border border-slate-600 mb-8">
-          <label className="block text-sm font-bold text-slate-300 mb-4 text-center uppercase tracking-widest">Qual seu custo de vida mensal desejado?</label>
-          <div className="relative max-w-xs mx-auto">
-             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500 font-bold text-xl">R$</span>
-             <input 
-                type="number" 
-                className="w-full bg-slate-800 border border-slate-600 rounded-xl py-4 pl-12 pr-4 text-3xl text-white font-bold text-center focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all" 
-                value={expenses} 
-                onChange={e => setExpenses(+e.target.value)} 
-             />
-          </div>
-        </div>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-12 items-center">
+            {/* Input Section */}
+            <div className="space-y-8">
+                <div className="bg-slate-900 p-8 rounded-2xl border border-slate-600">
+                    <label className="block text-sm font-bold text-slate-300 mb-6 text-center uppercase tracking-widest">
+                        Qual seu custo de vida mensal desejado?
+                    </label>
+                    <div className="relative max-w-sm mx-auto">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500 font-bold text-xl">R$</span>
+                        <input 
+                            type="number" 
+                            className="w-full bg-slate-800 border border-slate-600 rounded-xl py-4 pl-12 pr-4 text-3xl text-white font-bold text-center focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all" 
+                            value={expenses} 
+                            onChange={e => setExpenses(+e.target.value)} 
+                        />
+                    </div>
+                </div>
 
-        <button onClick={() => setResult(calculateFire({monthlyExpenses: expenses, currentNetWorth: 0, monthlyContribution: 0, annualReturn: 0, inflation: 0, safeWithdrawalRate: 4}).fireNumber)} className="w-full bg-orange-600 hover:bg-orange-500 text-white text-lg font-bold py-4 rounded-xl shadow-lg shadow-orange-900/30 transition-all hover:scale-[1.01] mb-8">
-          Calcular Meu Número Mágico
-        </button>
-
-        {result > 0 && (
-          <div className="text-center p-8 bg-gradient-to-b from-slate-700 to-slate-800 rounded-2xl border border-orange-500/30 animate-in zoom-in duration-500 shadow-2xl">
-            <p className="text-slate-400 mb-2 font-medium uppercase tracking-widest text-xs">Patrimônio Necessário</p>
-            <p className="text-4xl md:text-5xl font-black text-white tracking-tight mb-4">{maskCurrency(result, isPrivacyMode)}</p>
-            
-            <div className="flex justify-center items-center gap-2">
-              <div className="inline-block bg-slate-900/50 px-4 py-2 rounded-lg border border-slate-600">
-                 <p className="text-xs text-slate-400">
-                   Baseado na retirada segura de <span className="text-orange-400 font-bold">4% ao ano</span>.
-                 </p>
-              </div>
-              
-              <div className="group relative cursor-help">
-                 <div className="w-5 h-5 rounded-full border border-slate-500 text-slate-500 flex items-center justify-center text-xs font-bold hover:border-orange-400 hover:text-orange-400 transition-colors bg-slate-900">?</div>
-                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-72 p-4 bg-slate-950 border border-slate-700 rounded-xl shadow-2xl text-xs text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 text-left leading-relaxed">
-                    Para chegar a este valor, multiplicamos seu custo mensal por 12 e dividimos por 0,04, o que equivale a acumular cerca de 25 vezes seu gasto anual. Estudos históricos indicam que esse montante costuma permitir saques sustentáveis de 4% ao ano na aposentadoria. Esta é uma estimativa educacional, não uma recomendação de investimento.
-                    <div className="absolute bottom-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-950 border-r border-b border-slate-700 transform rotate-45"></div>
-                 </div>
-              </div>
+                <button 
+                    onClick={() => setResult(calculateFire({monthlyExpenses: expenses, currentNetWorth: 0, monthlyContribution: 0, annualReturn: 0, inflation: 0, safeWithdrawalRate: 4}).fireNumber)} 
+                    className="w-full bg-orange-600 hover:bg-orange-500 text-white text-xl font-bold py-5 rounded-xl shadow-lg shadow-orange-900/30 transition-all hover:scale-[1.01]"
+                >
+                    Calcular Meu Número Mágico
+                </button>
             </div>
-          </div>
-        )}
+
+            {/* Result Section (Side by side on big screens) */}
+            <div className={`transition-all duration-500 ${result > 0 ? 'opacity-100 translate-x-0' : 'opacity-50 blur-sm grayscale'}`}>
+                <div className="text-center p-8 bg-gradient-to-b from-slate-700 to-slate-800 rounded-2xl border border-orange-500/30 shadow-2xl h-full flex flex-col justify-center">
+                    <p className="text-slate-400 mb-4 font-medium uppercase tracking-widest text-sm">Patrimônio Necessário</p>
+                    <p className="text-5xl md:text-6xl font-black text-white tracking-tight mb-6">
+                        {result > 0 ? maskCurrency(result, isPrivacyMode) : "R$ ---"}
+                    </p>
+                    
+                    <div className="flex justify-center items-center gap-2">
+                    <div className="inline-block bg-slate-900/50 px-6 py-3 rounded-lg border border-slate-600">
+                        <p className="text-sm text-slate-400">
+                        Baseado na retirada segura de <span className="text-orange-400 font-bold">4% ao ano</span>.
+                        </p>
+                    </div>
+                    
+                    <div className="group relative cursor-help">
+                        <div className="w-6 h-6 rounded-full border border-slate-500 text-slate-500 flex items-center justify-center text-sm font-bold hover:border-orange-400 hover:text-orange-400 transition-colors bg-slate-900">?</div>
+                        <div className="absolute bottom-full right-0 mb-3 w-80 p-4 bg-slate-950 border border-slate-700 rounded-xl shadow-2xl text-xs text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 text-left leading-relaxed">
+                            Para chegar a este valor, multiplicamos seu custo mensal por 12 e dividimos por 0,04, o que equivale a acumular cerca de 25 vezes seu gasto anual. Estudos históricos indicam que esse montante costuma permitir saques sustentáveis de 4% ao ano na aposentadoria. Esta é uma estimativa educacional, não uma recomendação de investimento.
+                        </div>
+                    </div>
+                    </div>
+                </div>
+            </div>
+        </div>
       </div>
     </div>
   );
 };
 
 // =======================
-// INFLATION CONVERTER (Renomeado para Poder de Compra)
+// INFLATION TOOL (Layout Wide)
 // =======================
 export const InflationTool: React.FC<ToolProps> = ({ isPrivacyMode = false, navigateToHome }) => {
   const [val, setVal] = useState(100);
@@ -378,7 +385,7 @@ export const InflationTool: React.FC<ToolProps> = ({ isPrivacyMode = false, navi
     <div className="space-y-6">
       {navigateToHome && <Breadcrumb items={[{ label: 'Home', action: navigateToHome }, { label: 'Poder de Compra' }]} />}
       
-      <div className="bg-slate-800 p-8 rounded-2xl border border-slate-700 shadow-xl w-full max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="bg-slate-800 p-8 rounded-2xl border border-slate-700 shadow-xl w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className="flex items-center gap-4 mb-8 pb-6 border-b border-slate-700">
           <span className="text-4xl">💸</span>
           <div>
@@ -387,30 +394,42 @@ export const InflationTool: React.FC<ToolProps> = ({ isPrivacyMode = false, navi
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <ToolInput label="Valor Antigo" prefix="R$" value={val} onChange={(e: any) => setVal(+e.target.value)} />
-          <ToolInput label="Ano de Referência" prefix="📅" value={year} onChange={(e: any) => setYear(+e.target.value)} />
-        </div>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-12">
+            {/* Controls */}
+            <div className="space-y-6">
+                <div className="bg-slate-900/50 p-6 rounded-xl border border-slate-700">
+                    <ToolInput label="Valor Antigo" prefix="R$" value={val} onChange={(e: any) => setVal(+e.target.value)} />
+                    <ToolInput label="Ano de Referência" prefix="📅" value={year} onChange={(e: any) => setYear(+e.target.value)} />
+                </div>
 
-        <button onClick={() => setRes(calculateInflationLoss(val, year))} className="w-full bg-slate-600 hover:bg-slate-500 text-white font-bold py-4 rounded-xl shadow-lg transition-all hover:scale-[1.01]">
-          Atualizar pelo IPCA (Estimado)
-        </button>
-        
-        {res && (
-          <div className="mt-8 text-center bg-slate-900 p-8 rounded-2xl border border-slate-700 animate-in zoom-in">
-            <p className="text-slate-400 text-sm mb-4">Para comprar os mesmos itens hoje, você precisaria de:</p>
-            <p className="text-4xl font-black text-emerald-400 mb-6">{maskCurrency(res.todayValue, isPrivacyMode)}</p>
-            
-            <div className="bg-red-900/20 border border-red-500/20 p-4 rounded-xl">
-              <p className="text-red-300 font-bold text-sm">
-                 ⚠️ O dinheiro perdeu {res.lossPercentage.toFixed(0)}% do seu valor.
-              </p>
-              <p className="text-xs text-red-400/70 mt-1">
-                 Isso é a inflação silenciosa corroendo seu trabalho.
-              </p>
+                <button 
+                    onClick={() => setRes(calculateInflationLoss(val, year))} 
+                    className="w-full bg-slate-600 hover:bg-slate-500 text-white font-bold py-4 rounded-xl shadow-lg transition-all hover:scale-[1.01]"
+                >
+                    Atualizar pelo IPCA (Estimado)
+                </button>
             </div>
-          </div>
-        )}
+            
+            {/* Results */}
+            <div className={`flex items-center justify-center ${!res ? 'opacity-50' : ''}`}>
+                {res ? (
+                    <div className="text-center w-full bg-slate-700/30 p-8 rounded-2xl border border-slate-600 animate-in zoom-in">
+                        <p className="text-slate-400 text-sm mb-4 uppercase tracking-widest">Para comprar o mesmo hoje, você precisaria de:</p>
+                        <p className="text-5xl font-black text-white mb-6">{maskCurrency(res.todayValue, isPrivacyMode)}</p>
+                        
+                        <div className="inline-flex items-center gap-2 bg-red-900/30 px-4 py-2 rounded-lg border border-red-500/30">
+                            <span className="text-red-400 font-bold">Invisível:</span>
+                            <span className="text-slate-300 text-sm">Seu dinheiro perdeu <strong>{res.lossPercentage.toFixed(0)}%</strong> do poder de compra.</span>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="text-center text-slate-500">
+                        <span className="text-6xl block mb-4 opacity-20">📊</span>
+                        <p>Preencha os dados ao lado para simular.</p>
+                    </div>
+                )}
+            </div>
+        </div>
       </div>
     </div>
   );

@@ -314,7 +314,7 @@ const App: React.FC = () => {
 
       {/* Navigation Bar */}
       <nav className="border-b border-slate-800 bg-[#020617]/95 sticky top-0 z-50 backdrop-blur no-print">
-        <div className="w-full px-4 sm:px-6 lg:px-8">
+        <div className="w-full px-4 sm:px-6 lg:px-8 max-w-[1920px] mx-auto">
           <div className="flex items-center justify-between h-16">
             
             {/* Logo */}
@@ -522,7 +522,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      <div className="flex-grow flex relative w-full px-4 py-8 gap-12 max-w-7xl mx-auto">
+      <div className="flex-grow flex relative w-full px-4 sm:px-6 lg:px-8 py-8 gap-8 lg:gap-12 max-w-[1920px] mx-auto">
         
         {/* Sidebar (Only shown if Logged In AND viewing a Private Tool AND NOT on Panel) */}
         {isAuthenticated && PRIVATE_TOOLS.includes(currentTool) && currentTool !== 'panel' && (
