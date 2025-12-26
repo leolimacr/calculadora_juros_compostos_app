@@ -13,7 +13,7 @@ export const NewsWidget = () => {
   ];
 
   return (
-    <div className="bg-slate-800/50 rounded-2xl border border-slate-700 p-5 h-fit sticky top-24">
+    <div className="bg-slate-800/50 rounded-2xl border border-slate-700 p-5 h-fit">
       <div className="flex items-center gap-2 mb-4 border-b border-slate-700 pb-2">
         <span className="text-xl">📰</span>
         <h3 className="font-bold text-white text-sm uppercase tracking-wide">Em Destaque</h3>
@@ -279,7 +279,6 @@ export const PublicHome: React.FC<{ onNavigate: (path: any) => void; onStartNow:
   );
 };
 
-// ... Rest of the file (DemoPage, GuidesPage, etc. kept as is but included in file content)
 export const DemoPage: React.FC<{ onNavigate: (path: any) => void }> = ({ onNavigate }) => {
   const { isAuthenticated } = useAuth();
   const [showToast, setShowToast] = useState(false);
