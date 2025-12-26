@@ -54,7 +54,7 @@ const AuthRegister: React.FC<AuthRegisterProps> = ({ onSuccess, onSwitchToLogin 
     }
 
     if (!acceptedTerms) {
-      newErrors.terms = '❌ Você precisa aceitar os termos.';
+      newErrors.terms = '❌ Você deve concordar com os termos para continuar.';
       isValid = false;
     }
 
@@ -162,7 +162,7 @@ const AuthRegister: React.FC<AuthRegisterProps> = ({ onSuccess, onSwitchToLogin 
              className="mt-1 bg-slate-900 border-slate-700 rounded text-emerald-500 focus:ring-emerald-500"
            />
            <label htmlFor="terms" className="text-xs text-slate-400 leading-relaxed cursor-pointer select-none">
-             Li e concordo com os <span className="text-emerald-400 hover:underline">Termos de Uso</span> e <span className="text-emerald-400 hover:underline">Política de Privacidade</span>.
+             Li e concordo com os <a href="/termos-de-uso" target="_blank" className="text-emerald-400 hover:underline" onClick={(e) => e.stopPropagation()}>Termos de Uso</a> e <a href="/politica-privacidade" target="_blank" className="text-emerald-400 hover:underline" onClick={(e) => e.stopPropagation()}>Política de Privacidade</a>.
            </label>
         </div>
         {errors.terms && <p className="text-[10px] text-red-400 font-bold text-center">{errors.terms}</p>}

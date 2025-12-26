@@ -79,20 +79,20 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               <li><button onClick={() => handleNav('education')} className="hover:text-emerald-400 transition-colors text-left">Blog Oficial</button></li>
               <li><button onClick={() => handleNav('education')} className="hover:text-emerald-400 transition-colors text-left">Guias para Iniciantes</button></li>
               <li><button onClick={() => handleNav('education')} className="hover:text-emerald-400 transition-colors text-left">Psicologia do Dinheiro</button></li>
-              <li><button onClick={() => handleNav('game')} className="hover:text-emerald-400 transition-colors text-left">Simulador O Sobrevivente</button></li>
+              <li><button onClick={() => handleNav('game')} className="hover:text-emerald-400 transition-colors text-left">Simulador de Resiliência</button></li>
               <li><button onClick={() => handleNav('inflation')} className="hover:text-emerald-400 transition-colors text-left">Poder de Compra</button></li>
             </ul>
           </div>
 
-          {/* Coluna 4: Empresa */}
+          {/* Coluna 4: Institucional */}
           <div>
             <h4 className="font-bold text-white mb-6 text-sm uppercase tracking-wider">Institucional</h4>
             <ul className="space-y-3 text-sm text-slate-400">
-              <li><button className="hover:text-emerald-400 transition-colors text-left">Sobre Nós</button></li>
-              <li><button className="hover:text-emerald-400 transition-colors text-left">Contato</button></li>
-              <li><button className="hover:text-emerald-400 transition-colors text-left">Política de Privacidade</button></li>
-              <li><button className="hover:text-emerald-400 transition-colors text-left">Termos de Uso</button></li>
-              <li><button className="hover:text-emerald-400 transition-colors text-left">Feedback & Sugestões</button></li>
+              <li><button onClick={() => handleNav('sobre')} className="hover:text-emerald-400 transition-colors text-left">Sobre Nós</button></li>
+              <li><button onClick={() => handleNav('faq')} className="hover:text-emerald-400 transition-colors text-left">FAQ</button></li>
+              <li><button onClick={() => handleNav('politica-privacidade')} className="hover:text-emerald-400 transition-colors text-left">Política de Privacidade</button></li>
+              <li><button onClick={() => handleNav('termos-de-uso')} className="hover:text-emerald-400 transition-colors text-left">Termos de Uso</button></li>
+              <li><button onClick={() => handleNav('sobre')} className="hover:text-emerald-400 transition-colors text-left">Contato</button></li>
             </ul>
           </div>
 

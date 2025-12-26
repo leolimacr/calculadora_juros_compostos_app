@@ -14,11 +14,12 @@ import MobileBottomNav from './components/MobileBottomNav';
 import LockedManager from './components/Auth/LockedManager'; 
 import AuthRegister from './components/Auth/AuthRegister';
 import AuthLogin from './components/Auth/AuthLogin';
-import UserMenu from './components/UserMenu'; 
 import ChangePasswordForm from './components/Auth/ChangePasswordForm';
 import UserPanel from './components/UserPanel';
 import SettingsPage from './components/SettingsPage';
+import ProfilePage from './components/ProfilePage';
 import Onboarding from './components/Onboarding';
+import { TermsPage, PrivacyPage } from './components/LegalPages';
 import { PublicHome, DemoPage, GuidesPage, FaqPage, AboutPage } from './components/PublicPages';
 import ArticlesPage from './components/ArticlesPage';
 
@@ -41,20 +42,20 @@ const InflationTool = lazy(() => import('./components/Tools').then(module => ({ 
 
 // Definição de Rotas/Views
 type ToolView = 
-  | 'home' | 'artigos' | 'guias' | 'faq' | 'sobre' | 'demo' | 'login' | 'register' // Públicas
-  | 'panel' | 'settings' // Privadas (Gerais)
+  | 'home' | 'artigos' | 'guias' | 'faq' | 'sobre' | 'demo' | 'login' | 'register' | 'termos-de-uso' | 'politica-privacidade' // Públicas
+  | 'panel' | 'settings' | 'perfil' // Privadas (Gerais)
   | 'compound' | 'manager' | 'rent' | 'debt' | 'fire' | 'inflation' | 'dividend' | 'roi' | 'game' | 'education'; // Privadas (Ferramentas)
 
 // Ferramentas que exigem login
 const PRIVATE_TOOLS: ToolView[] = [
-  'panel', 'settings', 'compound', 'manager', 'rent', 'debt', 'fire', 'inflation', 'dividend', 'roi', 'game', 'education'
+  'panel', 'settings', 'perfil', 'compound', 'manager', 'rent', 'debt', 'fire', 'inflation', 'dividend', 'roi', 'game'
 ];
 
 const LoadingFallback = () => (
   <div className="w-full h-96 bg-slate-800/50 rounded-2xl animate-pulse flex items-center justify-center border border-slate-700">
     <div className="flex flex-col items-center gap-2">
       <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-      <span className="text-slate-500 text-sm font-medium">Carregando conteúdo...</span>
+      <span className="text-slate-500 text-sm font-medium">Carregando...</span>
     </div>
   </div>
 );
@@ -65,16 +66,16 @@ const App: React.FC = () => {
   const [currentTool, setCurrentTool] = useState<ToolView>('home');
   const [result, setResult] = useState<CalculationResult | null>(null);
   const [activeModal, setActiveModal] = useState<string | null>(null); 
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAiChatOpen, setIsAiChatOpen] = useState(false);
-  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false); // Mobile Drawer
+  
+  // Navigation State
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // Top Right Menu
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false); // Bottom Drawer
+  
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  
   const [isPrivacyMode, setIsPrivacyMode] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  
-  // Onboarding State
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   // Data States
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
@@ -194,9 +195,12 @@ const App: React.FC = () => {
   };
 
   const handleLogout = () => {
-    logout();
-    setCurrentTool('home');
-    notify("Você foi desconectado.", 'info');
+    if (confirm('Tem certeza que deseja sair?')) {
+        logout();
+        setCurrentTool('home');
+        setIsMobileMenuOpen(false);
+        notify("Você foi desconectado.", 'info');
+    }
   };
 
   const handleOnboardingComplete = () => {
@@ -240,10 +244,13 @@ const App: React.FC = () => {
       case 'guias': return <GuidesPage onNavigate={navigateTo} />;
       case 'faq': return <FaqPage />;
       case 'sobre': return <AboutPage onNavigate={navigateTo} />;
+      case 'termos-de-uso': return <TermsPage />;
+      case 'politica-privacidade': return <PrivacyPage />;
       
       // Private User Views
       case 'panel': return <UserPanel onNavigate={navigateTo} />;
       case 'settings': return <SettingsPage onOpenChangePassword={() => setActiveModal('change_password')} />;
+      case 'perfil': return <ProfilePage onOpenChangePassword={() => setActiveModal('change_password')} navigateToHome={() => navigateTo('panel')} />;
 
       // Private Tools
       case 'compound': 
@@ -286,16 +293,14 @@ const App: React.FC = () => {
     }
   };
 
-  const privateMenuItems = [
-    { id: 'manager', label: 'Gerenciador', icon: '💰' },
+  const toolsList = [
+    { id: 'manager', label: 'Gerenciador Financeiro', icon: '💰' },
+    { id: 'fire', label: 'Calculadora FIRE', icon: '🔥' },
     { id: 'compound', label: 'Juros Compostos', icon: '📈' },
-    { id: 'rent', label: 'Aluguel vs Financiar', icon: '🏠' },
     { id: 'debt', label: 'Otimizador Dívidas', icon: '🏔️' },
-    { id: 'fire', label: 'Calc. FIRE', icon: '🔥' },
-    { id: 'inflation', label: 'Poder de Compra', icon: '💸' },
-    { id: 'dividend', label: 'Sim. Dividendos', icon: '💎' }, 
-    { id: 'roi', label: 'Calc. ROI', icon: '📊' },
-    { id: 'education', label: 'Academia Pro', icon: '🎓' },
+    { id: 'rent', label: 'Aluguel vs Financiamento', icon: '🏠' },
+    { id: 'roi', label: 'Calculadora ROI', icon: '📊' },
+    { id: 'dividend', label: 'Sim. Dividendos', icon: '💎' },
     { id: 'game', label: 'Simulador Resiliência', icon: '🎮' },
   ];
 
@@ -336,8 +341,6 @@ const App: React.FC = () => {
               <button onClick={() => navigateTo('artigos')} className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentTool === 'artigos' ? 'text-white bg-slate-800' : 'text-slate-400 hover:text-white'}`}>Artigos</button>
               <button onClick={() => navigateTo('guias')} className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentTool === 'guias' ? 'text-white bg-slate-800' : 'text-slate-400 hover:text-white'}`}>Guias</button>
               <button onClick={() => navigateTo('demo')} className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentTool === 'demo' ? 'text-white bg-slate-800' : 'text-slate-400 hover:text-white'}`}>Demo</button>
-              <button onClick={() => navigateTo('faq')} className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentTool === 'faq' ? 'text-white bg-slate-800' : 'text-slate-400 hover:text-white'}`}>FAQ</button>
-              <button onClick={() => navigateTo('sobre')} className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentTool === 'sobre' ? 'text-white bg-slate-800' : 'text-slate-400 hover:text-white'}`}>Sobre</button>
             </div>
 
             {/* Desktop Right Actions */}
@@ -366,15 +369,17 @@ const App: React.FC = () => {
                    )}
                </button>
 
-               {isAuthenticated ? (
-                  <div className="pl-3 border-l border-slate-700">
-                    <UserMenu 
-                      onOpenChangePassword={() => navigateTo('settings')} 
-                      onNavigateSettings={() => navigateTo('settings')}
-                      onLogout={handleLogout}
-                    />
-                  </div>
-               ) : (
+               {/* Top Right Menu (Hamburger Desktop) */}
+               <button 
+                  onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                  className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+               >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+               </button>
+
+               {!isAuthenticated && (
                   <button
                     onClick={() => navigateTo('login')}
                     className="ml-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm px-4 py-2 rounded-lg shadow-lg shadow-emerald-900/20 transition-all active:scale-95"
@@ -384,7 +389,7 @@ const App: React.FC = () => {
                )}
             </div>
 
-            {/* Mobile Menu Button (Top Right) */}
+            {/* Mobile Top Menu Button (Visible only on mobile) */}
             <div className="lg:hidden flex items-center gap-3">
               <button 
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -403,89 +408,114 @@ const App: React.FC = () => {
         </div>
       </nav>
 
-      {/* Mobile Menu Drawer (Top Right) */}
+      {/* Top Menu Drawer (Right Side) */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-40 bg-[#020617] pt-24 px-4 pb-8 overflow-y-auto lg:hidden animate-in slide-in-from-top-10 duration-200 safe-area-bottom">
-          <div className="space-y-4">
-            <div className="text-sm font-bold text-slate-500 uppercase tracking-widest px-3 mb-2">Navegação</div>
-            {['home', 'artigos', 'guias', 'demo', 'faq', 'sobre'].map(page => (
-               <button
-                 key={page}
-                 onClick={() => navigateTo(page as ToolView)}
-                 className={`w-full text-left px-6 py-4 rounded-2xl flex items-center gap-4 transition-all ${currentTool === page ? 'bg-slate-800 text-white border border-slate-700' : 'bg-slate-900/50 text-slate-400'}`}
-               >
-                 <span className="font-semibold text-lg capitalize">{page}</span>
-               </button>
-            ))}
-            
-            {isAuthenticated && (
-              <>
-                <button
-                    onClick={() => navigateTo('settings')}
-                    className="w-full text-left px-6 py-4 rounded-2xl flex items-center gap-4 transition-all bg-slate-900/50 text-slate-400 mt-4"
-                  >
-                    <span className="text-xl">⚙️</span>
-                    <span className="font-semibold text-lg">Configurações</span>
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)}></div>
+          <div className="bg-[#020617] border-l border-slate-800 w-64 h-full relative z-10 p-6 flex flex-col animate-in slide-in-from-right duration-300">
+             <div className="flex justify-between items-center mb-8">
+                <span className="font-bold text-white text-lg">Menu</span>
+                <button onClick={() => setIsMobileMenuOpen(false)} className="text-slate-400 hover:text-white">✕</button>
+             </div>
+             
+             <div className="space-y-2 flex-grow">
+                <button onClick={() => navigateTo(isAuthenticated ? 'panel' : 'home')} className="w-full text-left p-3 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white flex items-center gap-3 transition-colors">
+                   <span>🏠</span> Home
                 </button>
-                <button
-                    onClick={handleLogout}
-                    className="w-full text-left px-6 py-4 rounded-2xl flex items-center gap-4 transition-all bg-red-900/10 text-red-400 mt-2"
-                  >
-                    <span className="text-xl">🚪</span>
-                    <span className="font-semibold text-lg">Sair</span>
+                <button onClick={() => navigateTo('faq')} className="w-full text-left p-3 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white flex items-center gap-3 transition-colors">
+                   <span>❓</span> FAQ
                 </button>
-              </>
-            )}
-            
-            {!isAuthenticated && (
-               <button 
-                 onClick={() => { setIsMobileMenuOpen(false); navigateTo('login'); }}
-                 className="w-full text-left px-6 py-5 rounded-2xl flex items-center gap-4 bg-emerald-600 text-white font-bold mt-4"
-               >
-                 Entrar / Cadastrar
-               </button>
-            )}
+                <button onClick={() => navigateTo('sobre')} className="w-full text-left p-3 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white flex items-center gap-3 transition-colors">
+                   <span>ℹ️</span> Sobre
+                </button>
+                
+                {isAuthenticated && (
+                   <>
+                     <div className="h-px bg-slate-800 my-2"></div>
+                     <button onClick={() => navigateTo('perfil')} className="w-full text-left p-3 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white flex items-center gap-3 transition-colors">
+                        <span>👤</span> Perfil
+                     </button>
+                     <button onClick={() => navigateTo('settings')} className="w-full text-left p-3 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white flex items-center gap-3 transition-colors">
+                        <span>⚙️</span> Configurações
+                     </button>
+                     <button onClick={handleLogout} className="w-full text-left p-3 rounded-xl hover:bg-red-900/20 text-red-400 hover:text-red-300 flex items-center gap-3 transition-colors mt-auto">
+                        <span>🚪</span> Sair
+                     </button>
+                   </>
+                )}
+                
+                {!isAuthenticated && (
+                   <button onClick={() => navigateTo('login')} className="w-full text-left p-3 rounded-xl bg-emerald-600 text-white font-bold flex items-center gap-3 justify-center mt-4">
+                      Entrar
+                   </button>
+                )}
+             </div>
           </div>
         </div>
       )}
 
-      {/* Mobile "More" Menu Drawer (Bottom) */}
-      {isMoreMenuOpen && isAuthenticated && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center lg:hidden bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      {/* Bottom Drawer "Mais" */}
+      {isMoreMenuOpen && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
             <div 
-                className="bg-slate-900 w-full rounded-t-3xl p-6 border-t border-slate-700 shadow-2xl animate-in slide-in-from-bottom duration-300 max-h-[80vh] overflow-y-auto"
-                onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
+                className="bg-slate-900 w-full rounded-t-3xl p-0 border-t border-slate-700 shadow-2xl animate-in slide-in-from-bottom duration-300 max-h-[85vh] overflow-hidden flex flex-col"
+                onClick={(e) => e.stopPropagation()} 
             >
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="font-bold text-white text-lg">Todas as Ferramentas</h3>
-                    <button 
-                        onClick={() => setIsMoreMenuOpen(false)}
-                        className="bg-slate-800 p-2 rounded-full text-slate-400 hover:text-white"
-                    >
-                        ✕
+                <div className="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-900 sticky top-0 z-10">
+                    <button onClick={() => setIsMoreMenuOpen(false)} className="text-sm font-bold text-slate-400 flex items-center gap-1">
+                       ⬅ Voltar
                     </button>
+                    <div className="w-12 h-1 bg-slate-700 rounded-full mx-auto absolute left-1/2 -translate-x-1/2"></div>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-3">
-                    {privateMenuItems.map(tool => (
-                        <button
-                            key={tool.id}
-                            onClick={() => navigateTo(tool.id as ToolView)}
-                            className="flex flex-col items-center justify-center p-4 bg-slate-800 rounded-xl border border-slate-700 hover:border-emerald-500/50 active:scale-95 transition-all"
-                        >
-                            <span className="text-3xl mb-2">{tool.icon}</span>
-                            <span className="text-xs font-bold text-slate-300 text-center">{tool.label}</span>
-                        </button>
-                    ))}
+                <div className="overflow-y-auto p-4 space-y-6 pb-24">
+                   {/* Seção Ferramentas */}
+                   <div>
+                      <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 pl-2">🔧 Ferramentas</h4>
+                      <div className="grid grid-cols-2 gap-3">
+                          {toolsList.map(tool => (
+                              <button
+                                  key={tool.id}
+                                  onClick={() => navigateTo(tool.id as ToolView)}
+                                  className="flex flex-col items-center justify-center p-4 bg-slate-800 rounded-xl border border-slate-700 hover:border-emerald-500/50 active:scale-95 transition-all group"
+                              >
+                                  <span className="text-3xl mb-2 group-hover:scale-110 transition-transform">{tool.icon}</span>
+                                  <span className="text-[10px] font-bold text-slate-300 text-center">{tool.label}</span>
+                              </button>
+                          ))}
+                      </div>
+                   </div>
+
+                   <div className="h-px bg-slate-800"></div>
+
+                   {/* Seção Explorar */}
+                   <div>
+                      <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 pl-2">📚 Explorar & Aprender</h4>
+                      <div className="space-y-2">
+                         <button onClick={() => navigateTo('artigos')} className="w-full text-left p-3 rounded-xl bg-slate-800/50 border border-slate-700 hover:bg-slate-800 flex items-center gap-3">
+                            <span className="text-xl">📄</span> <span className="text-sm font-bold text-slate-300">Artigos & Insights</span>
+                         </button>
+                         <button onClick={() => navigateTo('guias')} className="w-full text-left p-3 rounded-xl bg-slate-800/50 border border-slate-700 hover:bg-slate-800 flex items-center gap-3">
+                            <span className="text-xl">📋</span> <span className="text-sm font-bold text-slate-300">Guias Práticos</span>
+                         </button>
+                         <button onClick={() => navigateTo('home')} className="w-full text-left p-3 rounded-xl bg-slate-800/50 border border-slate-700 hover:bg-slate-800 flex items-center gap-3">
+                            <span className="text-xl">📊</span> <span className="text-sm font-bold text-slate-300">Cotações do Mercado</span>
+                         </button>
+                         <button onClick={() => navigateTo('faq')} className="w-full text-left p-3 rounded-xl bg-slate-800/50 border border-slate-700 hover:bg-slate-800 flex items-center gap-3">
+                            <span className="text-xl">❓</span> <span className="text-sm font-bold text-slate-300">Perguntas Frequentes</span>
+                         </button>
+                         <button onClick={() => navigateTo('termos-de-uso')} className="w-full text-left p-3 rounded-xl bg-slate-800/50 border border-slate-700 hover:bg-slate-800 flex items-center gap-3">
+                            <span className="text-xl">📜</span> <span className="text-sm font-bold text-slate-300">Termos de Uso</span>
+                         </button>
+                         <button onClick={() => navigateTo('politica-privacidade')} className="w-full text-left p-3 rounded-xl bg-slate-800/50 border border-slate-700 hover:bg-slate-800 flex items-center gap-3">
+                            <span className="text-xl">🔒</span> <span className="text-sm font-bold text-slate-300">Política de Privacidade</span>
+                         </button>
+                         <button onClick={() => navigateTo('sobre')} className="w-full text-left p-3 rounded-xl bg-slate-800/50 border border-slate-700 hover:bg-slate-800 flex items-center gap-3">
+                            <span className="text-xl">ℹ️</span> <span className="text-sm font-bold text-slate-300">Sobre Nós</span>
+                         </button>
+                      </div>
+                   </div>
                 </div>
-                
-                {/* AI Button here in Drawer as fallback */}
-                <button
-                    onClick={() => { setIsMoreMenuOpen(false); setIsAiChatOpen(true); }}
-                    className="w-full mt-6 flex items-center justify-center gap-2 p-4 bg-gradient-to-r from-emerald-900 to-slate-900 rounded-xl border border-emerald-500/30 text-emerald-400 font-bold"
-                >
-                    <span className="text-xl">🤖</span> Consultor IA
-                </button>
             </div>
             {/* Close area */}
             <div className="absolute inset-0 -z-10" onClick={() => setIsMoreMenuOpen(false)}></div>
@@ -505,7 +535,7 @@ const App: React.FC = () => {
             </button>
             
             <div className="text-sm font-bold text-slate-500 uppercase tracking-widest px-4 mb-4">Navegação Rápida</div>
-            {privateMenuItems.slice(0, 5).map(tool => (
+            {toolsList.slice(0, 5).map(tool => (
               <button
                 key={tool.id}
                 onClick={() => navigateTo(tool.id as ToolView)}
@@ -546,15 +576,12 @@ const App: React.FC = () => {
 
       </div>
       
-      {/* Mobile Bottom Navigation (Only for Logged Users inside App) */}
-      {isAuthenticated && PRIVATE_TOOLS.includes(currentTool) && (
-        <MobileBottomNav 
-           currentTool={currentTool} 
-           onNavigate={(tool) => navigateTo(tool as ToolView)} 
-           onOpenAi={() => setIsAiChatOpen(true)}
-           onOpenMore={() => setIsMoreMenuOpen(true)}
-        />
-      )}
+      {/* Mobile Bottom Navigation (Only for Mobile) */}
+      <MobileBottomNav 
+          currentTool={currentTool} 
+          onNavigate={(tool) => navigateTo(tool as ToolView)} 
+          onOpenMore={() => setIsMoreMenuOpen(true)}
+      />
 
       {/* Modals */}
       <Suspense fallback={null}>

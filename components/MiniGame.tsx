@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { formatCurrency, maskCurrency } from '../utils/calculations';
 import { GameState, GameEvent, GameLog } from '../types';
-import ContentModal from './ContentModal';
 import Breadcrumb from './Breadcrumb';
 
 interface MiniGameProps {
@@ -210,8 +209,6 @@ const MiniGame: React.FC<MiniGameProps> = ({ isPrivacyMode = false, navigateToHo
     if (!eventTriggered) {
       setGame({ ...newState, logs: [...newState.logs, ...turnLogs] });
     } else {
-      // Se houve evento, salva o estado PRE-evento (mas com mês atualizado) e mostra modal
-      // O modal aplicará o efeito do evento
       setGame({ ...newState, logs: [...newState.logs, ...turnLogs] });
     }
   };
@@ -219,8 +216,6 @@ const MiniGame: React.FC<MiniGameProps> = ({ isPrivacyMode = false, navigateToHo
   const handleEventChoice = (effect: (state: GameState) => Partial<GameState>, choiceText: string) => {
     const changes = effect(game);
     const updatedGame = { ...game, ...changes };
-    
-    // Re-check limits after event
     updatedGame.happiness = Math.min(100, Math.max(0, updatedGame.happiness));
     
     setGame({
@@ -274,7 +269,7 @@ const MiniGame: React.FC<MiniGameProps> = ({ isPrivacyMode = false, navigateToHo
 
   return (
     <div className="space-y-6">
-      {navigateToHome && <Breadcrumb items={[{ label: 'Home', action: navigateToHome }, { label: 'Simulador Financeiro' }]} />}
+      {navigateToHome && <Breadcrumb items={[{ label: 'Home', action: navigateToHome }, { label: 'Simulador de Resiliência' }]} />}
 
       <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in duration-500 relative min-h-[600px]">
         
@@ -286,7 +281,7 @@ const MiniGame: React.FC<MiniGameProps> = ({ isPrivacyMode = false, navigateToHo
                 💼
               </div>
               <div>
-                <h2 className="text-3xl font-black text-white mb-2">O Sobrevivente</h2>
+                <h2 className="text-3xl font-black text-white mb-2">Simulador de Resiliência</h2>
                 <p className="text-slate-400">Cenário: <strong>Desafio do Freelancer</strong>. Você é Alex, um designer autônomo. Sua renda varia todo mês e depende da sua produtividade.</p>
               </div>
               
@@ -374,9 +369,6 @@ const MiniGame: React.FC<MiniGameProps> = ({ isPrivacyMode = false, navigateToHo
               <div className="space-y-3">
                 <button onClick={resetGame} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-transform hover:scale-105">
                   Jogar Novamente
-                </button>
-                <button className="w-full bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-3 rounded-xl">
-                  Compartilhar Resultado
                 </button>
               </div>
             </div>
