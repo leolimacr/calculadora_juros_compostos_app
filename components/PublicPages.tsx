@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { calculateCompoundInterest, calculateFire, maskCurrency, formatCurrency } from '../utils/calculations';
+import { fetchMarketQuotes } from '../services/marketService';
+import { MarketQuote } from '../types';
 
 // --- Widget de Notícias ---
 export const NewsWidget = () => {
@@ -42,94 +44,113 @@ export const NewsWidget = () => {
   );
 };
 
-// --- Widget de Cotações (Mockado/Real) ---
+// --- Widget de Cotações (Real-Time) ---
 const MarketWidget = () => {
-  const [data, setData] = useState<any>(null);
+  const [quotes, setQuotes] = useState<MarketQuote[]>([]);
+  const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
-  useEffect(() => {
-    const mockData = {
-        currencies: [
-            { name: 'Dólar (USD)', val: 5.15, change: -0.5 },
-            { name: 'Euro (EUR)', val: 5.58, change: 0.2 },
-        ],
-        crypto: [
-            { name: 'Bitcoin', val: 380500, change: 1.5 },
-            { name: 'Ethereum', val: 18200, change: -0.8 },
-        ],
-        indices: [
-            { name: 'Ibovespa', val: 128500, change: 0.4 },
-            { name: 'S&P 500', val: 5200, change: 0.9 },
-        ]
-    };
-    
-    const fetchData = async () => {
-        try {
-            const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=brl&include_24hr_change=true');
-            if (res.ok) {
-                const json = await res.json();
-                mockData.crypto[0].val = json.bitcoin.brl;
-                mockData.crypto[0].change = json.bitcoin.brl_24h_change;
-                mockData.crypto[1].val = json.ethereum.brl;
-                mockData.crypto[1].change = json.ethereum.brl_24h_change;
-            }
-        } catch (e) {
-            console.log("Using cached market data");
-        }
-        setData(mockData);
-        setLastUpdate(new Date());
-    };
+  const refreshData = async () => {
+    // setLoading(true); // Opcional: Não setar loading no refresh para não piscar a tela
+    const data = await fetchMarketQuotes();
+    if (data && data.length > 0) {
+      setQuotes(data);
+      setLastUpdate(new Date());
+    }
+    setLoading(false);
+  };
 
-    fetchData();
-    const interval = setInterval(fetchData, 60000 * 5); 
+  useEffect(() => {
+    // Initial fetch
+    refreshData();
+
+    // Atualiza a cada 60 segundos
+    const interval = setInterval(refreshData, 60000);
     return () => clearInterval(interval);
   }, []);
 
-  if (!data) return null;
+  // Skeleton Loading Component
+  const MarketSkeleton = () => (
+    <div className="space-y-3 animate-pulse">
+      {[1, 2, 3].map(i => (
+        <div key={i} className="flex justify-between items-center py-2 border-b border-slate-700/50">
+          <div className="h-3 w-20 bg-slate-700 rounded"></div>
+          <div className="space-y-1">
+            <div className="h-3 w-16 bg-slate-700 rounded ml-auto"></div>
+            <div className="h-2 w-10 bg-slate-700 rounded ml-auto"></div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 
-  const ItemRow = ({ name, val, change, isCrypto = false }: any) => (
-      <div className="flex justify-between items-center py-2 border-b border-slate-700/50 last:border-0">
-          <span className="text-xs text-slate-300 font-medium">{name}</span>
+  const ItemRow = ({ item }: { item: MarketQuote }) => (
+      <div className="flex justify-between items-center py-2 border-b border-slate-700/50 last:border-0 hover:bg-slate-700/20 transition-colors px-1 rounded">
+          <div className="flex flex-col">
+             <span className="text-xs text-slate-300 font-bold">{item.symbol}</span>
+             <span className="text-[9px] text-slate-500 truncate max-w-[80px] hidden sm:block">{item.name}</span>
+          </div>
           <div className="text-right">
               <div className="text-xs font-bold text-white">
-                  {isCrypto ? formatCurrency(val) : `R$ ${val.toFixed(2)}`}
+                  {item.category === 'crypto' || item.category === 'index' 
+                    ? item.price.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) 
+                    : `R$ ${item.price.toFixed(2)}`}
               </div>
-              <div className={`text-[10px] font-bold ${change >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {change >= 0 ? '↑' : '↓'} {Math.abs(change).toFixed(2)}%
+              <div className={`text-[10px] font-bold ${item.changePercent >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {item.changePercent >= 0 ? '↑' : '↓'} {Math.abs(item.changePercent).toFixed(2)}%
               </div>
           </div>
       </div>
   );
 
   return (
-    <div className="bg-slate-800/50 rounded-2xl border border-slate-700 p-5 mt-6">
+    <div className="bg-slate-800/50 rounded-2xl border border-slate-700 p-5 mt-6 relative overflow-hidden">
         <div className="flex justify-between items-center mb-4 pb-2 border-b border-slate-700">
             <h3 className="font-bold text-white text-sm uppercase tracking-wide flex items-center gap-2">
                 <span className="text-emerald-500 text-lg">📊</span> Mercado
             </h3>
-            <span className="text-[9px] text-slate-500">
-                {lastUpdate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+            <span className="text-[9px] text-slate-500 flex items-center gap-1">
+               {loading ? <span className="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></span> : '●'}
+               {lastUpdate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
             </span>
         </div>
 
-        <div className="space-y-4">
-            <div>
-                <span className="text-[10px] font-bold text-slate-500 uppercase">Moedas</span>
-                {data.currencies.map((c: any) => <ItemRow key={c.name} {...c} />)}
-            </div>
-            <div>
-                <span className="text-[10px] font-bold text-slate-500 uppercase">Cripto</span>
-                {data.crypto.map((c: any) => <ItemRow key={c.name} {...c} isCrypto />)}
-            </div>
-            <div>
-                <span className="text-[10px] font-bold text-slate-500 uppercase">Índices</span>
-                {data.indices.map((c: any) => <ItemRow key={c.name} {...c} isCrypto />)}
-            </div>
-        </div>
+        {loading && quotes.length === 0 ? (
+          <MarketSkeleton />
+        ) : (
+          <div className="space-y-4">
+              {/* Moedas */}
+              <div>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Moedas</span>
+                  {quotes.filter(q => q.category === 'currency').map(q => <ItemRow key={q.symbol} item={q} />)}
+              </div>
+              {/* Cripto */}
+              <div>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Cripto</span>
+                  {quotes.filter(q => q.category === 'crypto').map(q => <ItemRow key={q.symbol} item={q} />)}
+              </div>
+              {/* Índices (Se houver) */}
+              {quotes.some(q => q.category === 'index') && (
+                <div>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Índices</span>
+                    {quotes.filter(q => q.category === 'index').map(q => <ItemRow key={q.symbol} item={q} />)}
+                </div>
+              )}
+          </div>
+        )}
         
-        <p className="text-[9px] text-slate-600 mt-4 text-center">
-            ⚠️ Informativo. Consulte fontes oficiais.
-        </p>
+        <div className="mt-4 pt-2 border-t border-slate-700/50 flex justify-between items-center">
+           <p className="text-[8px] text-slate-600">
+              Dados: AwesomeAPI / Brapi
+           </p>
+           <button 
+             onClick={refreshData} 
+             className="text-[10px] text-emerald-500 hover:text-emerald-400 font-bold flex items-center gap-1"
+             disabled={loading}
+           >
+             Atualizar ↻
+           </button>
+        </div>
     </div>
   );
 };

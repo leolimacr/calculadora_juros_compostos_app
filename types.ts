@@ -76,6 +76,18 @@ export interface ToastMessage {
   type: ToastType;
 }
 
+// Dados de Mercado (API)
+export type MarketCategory = 'currency' | 'crypto' | 'index';
+
+export interface MarketQuote {
+  symbol: string;
+  name: string;
+  price: number;
+  changePercent: number;
+  category: MarketCategory;
+  timestamp: number;
+}
+
 // Novas Ferramentas
 
 export interface RentVsFinanceInput {
@@ -154,6 +166,14 @@ export type ToolView =
   | 'faq' 
   | 'sobre' 
   | 'demo' 
+  | 'login' 
+  | 'register' 
+  | 'termos-de-uso' 
+  | 'politica-privacidade' 
+  // Privadas (Gerais)
+  | 'panel' 
+  | 'settings' 
+  | 'perfil' 
   // Privadas (Ferramentas)
   | 'compound' 
   | 'manager' 
@@ -164,4 +184,4 @@ export type ToolView =
   | 'dividend' 
   | 'roi' 
   | 'game' 
-  | 'education'; // Mantido como educação/academia interna
+  | 'education'; 
