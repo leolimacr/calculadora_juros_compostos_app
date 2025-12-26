@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { calculateCompoundInterest, calculateFire, maskCurrency, formatCurrency } from '../utils/calculations';
 
@@ -43,7 +43,7 @@ export const NewsWidget = () => {
 };
 
 // --- Home Pública ---
-export const PublicHome: React.FC<{ onNavigate: (path: any) => void }> = ({ onNavigate }) => {
+export const PublicHome: React.FC<{ onNavigate: (path: any) => void; onStartNow: () => void }> = ({ onNavigate, onStartNow }) => {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* Hero Central */}
@@ -64,7 +64,7 @@ export const PublicHome: React.FC<{ onNavigate: (path: any) => void }> = ({ onNa
           
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <button 
-              onClick={() => onNavigate('manager')} 
+              onClick={onStartNow} 
               className="bg-emerald-600 hover:bg-emerald-500 text-white text-lg font-bold px-8 py-4 rounded-xl shadow-lg shadow-emerald-900/30 transition-all hover:scale-105 active:scale-95"
             >
               Começar Agora
@@ -78,29 +78,43 @@ export const PublicHome: React.FC<{ onNavigate: (path: any) => void }> = ({ onNa
           </div>
         </section>
 
-        {/* Features Grid */}
+        {/* 8 Ferramentas Header */}
+        <div className="text-center py-4">
+            <h2 className="text-xl font-bold text-white uppercase tracking-widest border-b border-slate-800 pb-4">
+                <span className="text-emerald-500">8 Ferramentas Poderosas</span> para dominar suas finanças
+            </h2>
+        </div>
+
+        {/* Features Grid (Updated to show 8 tools conceptually, or main 4 with link) */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-           <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 hover:border-emerald-500/30 transition-colors">
-              <span className="text-3xl mb-3 block">💰</span>
+           <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 hover:border-emerald-500/30 transition-colors group">
+              <span className="text-3xl mb-3 block group-hover:scale-110 transition-transform">💰</span>
               <h3 className="text-xl font-bold text-white mb-2">Gerenciador Financeiro</h3>
-              <p className="text-slate-400 text-sm">Controle receitas, despesas e metas em um painel unificado e seguro.</p>
+              <p className="text-slate-400 text-sm">Controle completo de fluxo de caixa e metas.</p>
            </div>
-           <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 hover:border-emerald-500/30 transition-colors">
-              <span className="text-3xl mb-3 block">📈</span>
+           <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 hover:border-emerald-500/30 transition-colors group">
+              <span className="text-3xl mb-3 block group-hover:scale-110 transition-transform">📈</span>
               <h3 className="text-xl font-bold text-white mb-2">Simulador Juros Compostos</h3>
-              <p className="text-slate-400 text-sm">Visualize o poder do tempo e dos aportes mensais no seu patrimônio.</p>
+              <p className="text-slate-400 text-sm">Visualize o poder do tempo no seu patrimônio.</p>
            </div>
-           <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 hover:border-emerald-500/30 transition-colors">
-              <span className="text-3xl mb-3 block">🔥</span>
+           <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 hover:border-emerald-500/30 transition-colors group">
+              <span className="text-3xl mb-3 block group-hover:scale-110 transition-transform">🔥</span>
               <h3 className="text-xl font-bold text-white mb-2">Calculadora FIRE</h3>
-              <p className="text-slate-400 text-sm">Descubra exatamente quanto você precisa para atingir a independência financeira.</p>
+              <p className="text-slate-400 text-sm">Descubra sua liberdade financeira.</p>
            </div>
-           <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 hover:border-emerald-500/30 transition-colors">
-              <span className="text-3xl mb-3 block">🏔️</span>
+           <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 hover:border-emerald-500/30 transition-colors group">
+              <span className="text-3xl mb-3 block group-hover:scale-110 transition-transform">🏔️</span>
               <h3 className="text-xl font-bold text-white mb-2">Otimizador de Dívidas</h3>
-              <p className="text-slate-400 text-sm">Use o método Avalanche para sair do vermelho da forma mais rápida possível.</p>
+              <p className="text-slate-400 text-sm">Método Avalanche para sair do vermelho.</p>
            </div>
         </section>
+        
+        <div className="text-center">
+            <p className="text-slate-500 text-sm mb-4">+ Aluguel vs Financiamento, ROI, Dividendos e Simulador de Crise.</p>
+            <button onClick={onStartNow} className="text-emerald-400 font-bold hover:text-white transition-colors border-b border-emerald-500/30 pb-1">
+                Criar conta gratuita para acessar tudo →
+            </button>
+        </div>
       </div>
 
       {/* Sidebar News */}
@@ -109,7 +123,7 @@ export const PublicHome: React.FC<{ onNavigate: (path: any) => void }> = ({ onNa
         <div className="mt-6 bg-emerald-900/20 border border-emerald-500/30 p-6 rounded-2xl text-center">
            <h4 className="font-bold text-emerald-400 mb-2">Cadastre-se Gratuitamente</h4>
            <p className="text-xs text-slate-300 mb-4">Tenha acesso a todas as 8 ferramentas exclusivas.</p>
-           <button onClick={() => onNavigate('manager')} className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-sm transition-colors">
+           <button onClick={onStartNow} className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-sm transition-colors">
              Criar Conta
            </button>
         </div>
@@ -121,15 +135,29 @@ export const PublicHome: React.FC<{ onNavigate: (path: any) => void }> = ({ onNa
 // --- Página de Demonstração (INTERATIVA) ---
 export const DemoPage: React.FC<{ onNavigate: (path: any) => void }> = ({ onNavigate }) => {
   const { isAuthenticated } = useAuth();
+  const [showToast, setShowToast] = useState(false);
+
+  // Redireciona se já logado
+  useEffect(() => {
+    if (isAuthenticated) {
+        onNavigate('panel');
+    }
+  }, [isAuthenticated, onNavigate]);
+
+  const handleInteraction = () => {
+    if (!showToast) {
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 4000);
+    }
+  };
 
   // Estados locais para interatividade dos cards
-  // 1. Juros Compostos
   const [compoundMonthly, setCompoundMonthly] = useState(500);
   const [compoundYears, setCompoundYears] = useState(20);
   const compoundResult = calculateCompoundInterest({
     initialValue: 0,
     monthlyValue: compoundMonthly,
-    interestRate: 10, // 10% a.a. fixo para demo
+    interestRate: 10,
     rateType: 'annual',
     period: compoundYears,
     periodType: 'years',
@@ -137,7 +165,6 @@ export const DemoPage: React.FC<{ onNavigate: (path: any) => void }> = ({ onNavi
     inflationRate: 0
   });
 
-  // 2. FIRE
   const [fireExpenses, setFireExpenses] = useState(4000);
   const fireResult = calculateFire({
     monthlyExpenses: fireExpenses,
@@ -149,8 +176,14 @@ export const DemoPage: React.FC<{ onNavigate: (path: any) => void }> = ({ onNavi
   });
 
   return (
-    <div className="max-w-5xl mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-4">
+    <div className="max-w-5xl mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-4 relative">
       
+      {showToast && (
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 bg-yellow-600 text-white px-6 py-3 rounded-full shadow-xl z-50 animate-in slide-in-from-top-2 fade-in font-bold text-sm border border-yellow-400">
+            💾 Modo Demo: Dados não serão salvos.
+        </div>
+      )}
+
       {/* Header */}
       <div className="text-center space-y-4">
         <div className="inline-flex items-center gap-2 bg-emerald-900/30 text-emerald-400 px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider border border-emerald-500/20">
@@ -162,15 +195,6 @@ export const DemoPage: React.FC<{ onNavigate: (path: any) => void }> = ({ onNavi
           Use versões simplificadas abaixo com dados fictícios. <br/>
           <span className="text-white">Para salvar seus resultados, crie sua conta gratuitamente.</span>
         </p>
-        
-        {isAuthenticated && (
-          <button 
-            onClick={() => onNavigate('manager')}
-            className="mt-4 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 px-6 py-2 rounded-xl font-bold transition-all"
-          >
-            Você já está logado. Ir para Versão Completa →
-          </button>
-        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -194,7 +218,7 @@ export const DemoPage: React.FC<{ onNavigate: (path: any) => void }> = ({ onNavi
                 <input 
                   type="range" min="100" max="5000" step="100" 
                   value={compoundMonthly} 
-                  onChange={(e) => setCompoundMonthly(+e.target.value)}
+                  onChange={(e) => { setCompoundMonthly(+e.target.value); handleInteraction(); }}
                   className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
                 />
               </div>
@@ -206,7 +230,7 @@ export const DemoPage: React.FC<{ onNavigate: (path: any) => void }> = ({ onNavi
                 <input 
                   type="range" min="5" max="40" step="1" 
                   value={compoundYears} 
-                  onChange={(e) => setCompoundYears(+e.target.value)}
+                  onChange={(e) => { setCompoundYears(+e.target.value); handleInteraction(); }}
                   className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
                 />
               </div>
@@ -214,14 +238,13 @@ export const DemoPage: React.FC<{ onNavigate: (path: any) => void }> = ({ onNavi
               <div className="bg-slate-900 p-4 rounded-xl text-center border border-slate-700">
                  <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">Patrimônio Projetado</p>
                  <p className="text-3xl font-black text-white mt-1">{formatCurrency(compoundResult.summary.totalFinal)}</p>
-                 <p className="text-[10px] text-slate-500 mt-2">Considerando taxa média de 10% a.a.</p>
               </div>
            </div>
 
            <div className="mt-6 pt-4 border-t border-slate-700 text-center">
               <p className="text-xs text-slate-400 mb-3">Gostou do resultado?</p>
               <button 
-                onClick={() => onNavigate('manager')}
+                onClick={() => onNavigate('register')}
                 className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-all shadow-lg active:scale-95"
               >
                 Criar Conta para Salvar
@@ -248,7 +271,7 @@ export const DemoPage: React.FC<{ onNavigate: (path: any) => void }> = ({ onNavi
                 <input 
                   type="range" min="2000" max="20000" step="500" 
                   value={fireExpenses} 
-                  onChange={(e) => setFireExpenses(+e.target.value)}
+                  onChange={(e) => { setFireExpenses(+e.target.value); handleInteraction(); }}
                   className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
                 />
               </div>
@@ -256,103 +279,19 @@ export const DemoPage: React.FC<{ onNavigate: (path: any) => void }> = ({ onNavi
               <div className="bg-slate-900 p-4 rounded-xl text-center border border-slate-700 flex flex-col justify-center h-32">
                  <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">Número de Liberdade</p>
                  <p className="text-3xl font-black text-white mt-1">{formatCurrency(fireResult.fireNumber)}</p>
-                 <p className="text-[10px] text-slate-500 mt-2">Montante necessário para viver com saques de 4% a.a.</p>
               </div>
            </div>
 
            <div className="mt-6 pt-4 border-t border-slate-700 text-center">
               <p className="text-xs text-slate-400 mb-3">Quer calcular seu prazo?</p>
               <button 
-                onClick={() => onNavigate('manager')}
+                onClick={() => onNavigate('register')}
                 className="w-full py-3 bg-slate-700 hover:bg-white hover:text-slate-900 text-white font-bold rounded-xl transition-all shadow-lg active:scale-95"
               >
                 Acessar Ferramenta Completa
               </button>
            </div>
         </div>
-
-        {/* Card Visual: Dashboard */}
-        <div className="md:col-span-2 bg-slate-800 border border-slate-700 rounded-3xl p-8 shadow-xl relative overflow-hidden group">
-           <div className="absolute top-0 right-0 p-32 bg-indigo-500/5 blur-[80px] rounded-full pointer-events-none"></div>
-           
-           <div className="flex flex-col md:flex-row items-center gap-8 relative z-10">
-              <div className="flex-1 space-y-4">
-                 <div className="inline-block bg-indigo-900/30 text-indigo-400 px-3 py-1 rounded-lg text-xs font-bold uppercase">
-                    O Coração do Sistema
-                 </div>
-                 <h3 className="text-2xl font-bold text-white">Gerenciador Financeiro Completo</h3>
-                 <p className="text-slate-400 leading-relaxed">
-                    Mais que uma planilha. Organize suas receitas, despesas e metas em um dashboard visual. 
-                    Acompanhe seu progresso e receba insights automáticos.
-                 </p>
-                 <ul className="space-y-2 text-sm text-slate-300">
-                    <li className="flex items-center gap-2"><span className="text-green-400">✓</span> Funciona 100% Offline</li>
-                    <li className="flex items-center gap-2"><span className="text-green-400">✓</span> Categorias Personalizáveis</li>
-                    <li className="flex items-center gap-2"><span className="text-green-400">✓</span> Metas de Curto e Longo Prazo</li>
-                 </ul>
-                 <button 
-                    onClick={() => onNavigate('manager')}
-                    className="mt-4 px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-900/30 transition-transform hover:scale-105"
-                 >
-                    Criar meu Dashboard Grátis
-                 </button>
-              </div>
-              
-              {/* Visual Mockup */}
-              <div className="flex-1 w-full bg-slate-900 rounded-2xl border border-slate-700 p-4 opacity-90 rotate-1 group-hover:rotate-0 transition-transform duration-500">
-                 <div className="flex justify-between mb-4 border-b border-slate-700 pb-2">
-                    <div className="h-4 w-24 bg-slate-700 rounded"></div>
-                    <div className="h-4 w-8 bg-slate-700 rounded"></div>
-                 </div>
-                 <div className="grid grid-cols-2 gap-3 mb-4">
-                    <div className="h-20 bg-slate-800 rounded-xl border border-slate-700 flex items-center justify-center">
-                       <span className="text-emerald-500 font-bold">+ R$ 5.000</span>
-                    </div>
-                    <div className="h-20 bg-slate-800 rounded-xl border border-slate-700 flex items-center justify-center">
-                       <span className="text-red-400 font-bold">- R$ 3.200</span>
-                    </div>
-                 </div>
-                 <div className="space-y-2">
-                    <div className="h-10 bg-slate-800 rounded-lg w-full"></div>
-                    <div className="h-10 bg-slate-800 rounded-lg w-full"></div>
-                    <div className="h-10 bg-slate-800 rounded-lg w-full"></div>
-                 </div>
-              </div>
-           </div>
-        </div>
-
-      </div>
-
-      {/* Outras Ferramentas (Cards Menores) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-         {[
-            { title: "Aluguel vs Financiamento", icon: "🏠", desc: "Matemática imobiliária precisa." },
-            { title: "Otimizador de Dívidas", icon: "🏔️", desc: "Método Avalanche para quitar débitos." },
-            { title: "Calculadora ROI", icon: "📊", desc: "Analise a rentabilidade de projetos." },
-            { title: "Simulador de Dividendos", icon: "💎", desc: "Efeito bola de neve na renda passiva." }
-         ].map((tool, idx) => (
-            <div key={idx} className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700 hover:border-slate-500 transition-colors text-center">
-               <span className="text-3xl block mb-3">{tool.icon}</span>
-               <h4 className="font-bold text-white text-sm mb-2">{tool.title}</h4>
-               <p className="text-xs text-slate-400 mb-4">{tool.desc}</p>
-               <button 
-                  onClick={() => onNavigate('manager')}
-                  className="text-xs font-bold text-emerald-400 hover:text-white transition-colors"
-               >
-                  Usar agora →
-               </button>
-            </div>
-         ))}
-      </div>
-
-      <div className="bg-gradient-to-r from-emerald-900/40 to-slate-900 p-8 rounded-3xl border border-emerald-500/30 text-center">
-         <h3 className="text-2xl font-bold text-white mb-4">Pronto para assumir o controle?</h3>
-         <button 
-            onClick={() => onNavigate('manager')}
-            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-8 py-4 rounded-xl shadow-lg transition-transform hover:scale-105"
-         >
-            Criar Conta Gratuita e Acessar Tudo
-         </button>
       </div>
     </div>
   );
@@ -402,9 +341,11 @@ export const FaqPage = () => {
       <div className="space-y-4">
         {[
           { q: "Meus dados são seguros?", a: "Sim. Seus dados são armazenados localmente no seu dispositivo (LocalStorage) com criptografia básica no login. Nós não temos servidores que leem seus dados financeiros." },
+          { q: "Como faço um backup dos meus dados?", a: "Seus dados estão apenas neste dispositivo. Recomendamos fazer prints dos seus resumos ou anotar os valores importantes. Estamos trabalhando em uma funcionalidade de exportação." },
+          { q: "Posso usar a conta em mais de um dispositivo?", a: "Não. Como os dados são salvos localmente no navegador, cada dispositivo (celular, notebook) terá seus próprios dados separados." },
+          { q: "O que acontece se eu limpar o cache do navegador?", a: "Se você limpar os dados de navegação/cache, seus lançamentos serão apagados. Tenha cuidado ao usar ferramentas de limpeza." },
           { q: "É realmente gratuito?", a: "Sim, 100% gratuito. Nossa missão é democratizar ferramentas financeiras de alto nível." },
           { q: "Preciso de internet?", a: "O app funciona offline (PWA), mas recursos de IA e atualizações de taxas precisam de conexão." },
-          { q: "O login dura quanto tempo?", a: "Para sua segurança e conveniência, a sessão dura 7 dias. Após isso, pedimos o PIN novamente." }
         ].map((faq, idx) => (
           <details key={idx} className="bg-slate-800 rounded-xl border border-slate-700 group">
             <summary className="p-6 font-bold text-white cursor-pointer list-none flex justify-between items-center">
@@ -450,7 +391,7 @@ export const AboutPage: React.FC<{ onNavigate: (path: any) => void }> = ({ onNav
       </div>
 
       <button 
-        onClick={() => onNavigate('manager')}
+        onClick={() => onNavigate('register')}
         className="text-emerald-400 font-bold hover:text-emerald-300 transition-colors border-b-2 border-emerald-500/30 hover:border-emerald-500 pb-1"
       >
         Junte-se a nós e comece hoje →

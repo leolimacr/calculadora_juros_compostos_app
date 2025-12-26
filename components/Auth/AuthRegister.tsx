@@ -13,64 +13,70 @@ const AuthRegister: React.FC<AuthRegisterProps> = ({ onSuccess, onSwitchToLogin 
   const [email, setEmail] = useState('');
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
+  
+  // Form Errors
+  const [errors, setErrors] = useState({
+    email: '',
+    pin: '',
+    confirmPin: '',
+    terms: '',
+    general: ''
+  });
+  
   const [loading, setLoading] = useState(false);
-  const [registerSuccess, setRegisterSuccess] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
+  const validate = () => {
+    let isValid = true;
+    const newErrors = { email: '', pin: '', confirmPin: '', terms: '', general: '' };
 
-    if (pin.length < 4) {
-      setError('O PIN deve ter pelo menos 4 dígitos.');
-      return;
+    if (!email) {
+      newErrors.email = '❌ E-mail é obrigatório.';
+      isValid = false;
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
+      newErrors.email = '❌ Formato de e-mail inválido.';
+      isValid = false;
+    }
+
+    if (!pin) {
+      newErrors.pin = '❌ PIN é obrigatório.';
+      isValid = false;
+    } else if (pin.length < 4) {
+      newErrors.pin = '❌ O PIN deve ter no mínimo 4 caracteres.';
+      isValid = false;
     }
 
     if (pin !== confirmPin) {
-      setError('Os PINs não conferem.');
-      return;
+      newErrors.confirmPin = '❌ Os PINs não conferem.';
+      isValid = false;
     }
+
+    if (!acceptedTerms) {
+      newErrors.terms = '❌ Você precisa aceitar os termos.';
+      isValid = false;
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validate()) return;
 
     setLoading(true);
     const success = await register(email, pin);
     
     if (success) {
-      setRegisterSuccess(true);
-      
       // Envia e-mail mockado
       await sendConfirmationEmail(email, 'register');
-      
-      // Delay para o usuário ler a mensagem antes de entrar
-      setTimeout(() => {
-        onSuccess();
-      }, 3000);
+      onSuccess();
     } else {
-      setError('Erro ao criar conta local.');
+      setErrors(prev => ({ ...prev, general: 'Erro ao criar conta local. Tente novamente.' }));
       setLoading(false);
     }
   };
-
-  if (registerSuccess) {
-    return (
-      <div className="w-full max-w-sm mx-auto text-center animate-in zoom-in duration-500">
-        <div className="inline-block p-4 bg-emerald-500/20 rounded-full mb-4">
-           <span className="text-4xl">🎉</span>
-        </div>
-        <h3 className="text-2xl font-bold text-white mb-2">Conta Criada!</h3>
-        <p className="text-slate-300 text-sm mb-4 leading-relaxed">
-          Seu cofre digital está pronto.
-        </p>
-        <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700">
-           <p className="text-xs text-slate-400">
-             Enviamos uma mensagem para <strong>{email}</strong>. 
-             Confirme o acesso por lá para maior segurança.
-           </p>
-        </div>
-        <p className="text-xs text-slate-500 mt-6 animate-pulse">Entrando no sistema...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="w-full max-w-sm mx-auto animate-in fade-in slide-in-from-bottom-4">
@@ -89,13 +95,12 @@ const AuthRegister: React.FC<AuthRegisterProps> = ({ onSuccess, onSwitchToLogin 
            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">E-mail</label>
            <input 
              type="email" 
-             required
              value={email}
-             onChange={e => setEmail(e.target.value)}
-             className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-emerald-500 transition-colors"
+             onChange={e => { setEmail(e.target.value); setErrors(prev => ({...prev, email: ''})); }}
+             className={`w-full bg-slate-900 border rounded-xl px-4 py-3 text-white outline-none transition-colors ${errors.email ? 'border-red-500' : 'border-slate-700 focus:border-emerald-500'}`}
              placeholder="Digite seu e-mail"
            />
-           <p className="text-[10px] text-slate-500 mt-1 ml-1">Utilizado apenas para recuperação de acesso.</p>
+           {errors.email && <p className="text-[10px] text-red-400 mt-1 font-bold">{errors.email}</p>}
         </div>
 
         <div>
@@ -103,11 +108,10 @@ const AuthRegister: React.FC<AuthRegisterProps> = ({ onSuccess, onSwitchToLogin 
            <div className="relative">
              <input 
                type={showPassword ? "text" : "password"} 
-               required
                value={pin}
-               onChange={e => setPin(e.target.value)}
-               className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-4 pr-12 py-3 text-white outline-none focus:border-emerald-500 transition-colors tracking-widest"
-               placeholder="******"
+               onChange={e => { setPin(e.target.value); setErrors(prev => ({...prev, pin: ''})); }}
+               className={`w-full bg-slate-900 border rounded-xl pl-4 pr-12 py-3 text-white outline-none transition-colors tracking-widest ${errors.pin ? 'border-red-500' : 'border-slate-700 focus:border-emerald-500'}`}
+               placeholder="- - - - - -"
              />
              <button
                 type="button"
@@ -122,35 +126,52 @@ const AuthRegister: React.FC<AuthRegisterProps> = ({ onSuccess, onSwitchToLogin 
                 )}
              </button>
            </div>
+           {errors.pin && <p className="text-[10px] text-red-400 mt-1 font-bold">{errors.pin}</p>}
         </div>
 
         <div>
            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Confirme o PIN</label>
-           <div className="relative">
-             <input 
-               type={showPassword ? "text" : "password"} 
-               required
-               value={confirmPin}
-               onChange={e => setConfirmPin(e.target.value)}
-               className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-4 pr-12 py-3 text-white outline-none focus:border-emerald-500 transition-colors tracking-widest"
-               placeholder="******"
-             />
-           </div>
+           <input 
+             type={showPassword ? "text" : "password"} 
+             value={confirmPin}
+             onChange={e => { setConfirmPin(e.target.value); setErrors(prev => ({...prev, confirmPin: ''})); }}
+             className={`w-full bg-slate-900 border rounded-xl px-4 py-3 text-white outline-none transition-colors tracking-widest ${errors.confirmPin ? 'border-red-500' : 'border-slate-700 focus:border-emerald-500'}`}
+             placeholder="- - - - - -"
+           />
+           {errors.confirmPin && <p className="text-[10px] text-red-400 mt-1 font-bold">{errors.confirmPin}</p>}
         </div>
 
-        {error && <p className="text-red-400 text-sm font-medium text-center bg-red-900/10 p-2 rounded-lg border border-red-500/20">{error}</p>}
+        <div className="flex items-start gap-3 py-2">
+           <input 
+             type="checkbox" 
+             id="terms" 
+             checked={acceptedTerms}
+             onChange={e => { setAcceptedTerms(e.target.checked); setErrors(prev => ({...prev, terms: ''})); }}
+             className="mt-1 bg-slate-900 border-slate-700 rounded text-emerald-500 focus:ring-emerald-500"
+           />
+           <label htmlFor="terms" className="text-xs text-slate-400 leading-relaxed cursor-pointer select-none">
+             Li e concordo com os <span className="text-emerald-400 hover:underline">Termos de Uso</span> e <span className="text-emerald-400 hover:underline">Política de Privacidade</span>.
+           </label>
+        </div>
+        {errors.terms && <p className="text-[10px] text-red-400 font-bold text-center">{errors.terms}</p>}
+
+        {errors.general && (
+          <p className="text-red-400 text-sm font-medium text-center bg-red-900/10 p-2 rounded-lg border border-red-500/20">
+            {errors.general}
+          </p>
+        )}
 
         <button 
           type="submit" 
           disabled={loading}
           className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-emerald-900/20 transition-all active:scale-95 disabled:opacity-50"
         >
-          {loading ? 'Criando...' : 'Acessar'}
+          {loading ? 'Criando Conta...' : 'Criar Conta'}
         </button>
         
         <div className="text-center pt-2">
-            <button type="button" onClick={onSwitchToLogin} className="text-xs text-emerald-500 hover:text-emerald-400 font-bold">
-                Já tenho uma conta neste dispositivo
+            <button type="button" onClick={onSwitchToLogin} className="text-xs text-slate-400 hover:text-white transition-colors">
+                Já tem conta? <span className="text-emerald-400 font-bold">Faça login aqui</span>
             </button>
         </div>
       </form>

@@ -17,6 +17,7 @@ interface AuthContextType {
   logout: () => void;
   changePassword: (currentPin: string, newPin: string) => Promise<boolean>;
   recoverPassword: (emailConfirm: string, newPin: string) => Promise<boolean>;
+  resetAppData: (pin: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -175,6 +176,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const resetAppData = async (pin: string): Promise<boolean> => {
+    const storedData = localStorage.getItem('finpro_auth_user');
+    if (!storedData) return false;
+
+    try {
+      const userData = JSON.parse(storedData);
+      // Valida a senha antes de apagar
+      const isValid = await validatePassword(pin, userData.hash, userData.salt);
+      
+      if (isValid) {
+        // Apaga TUDO do localStorage
+        localStorage.clear();
+        logout();
+        setHasLocalUser(false);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -185,7 +208,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       register, 
       logout,
       changePassword,
-      recoverPassword
+      recoverPassword,
+      resetAppData
     }}>
       {children}
     </AuthContext.Provider>

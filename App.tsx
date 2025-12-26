@@ -12,8 +12,12 @@ import BackToTop from './components/BackToTop';
 import InstallPrompt from './components/InstallPrompt';
 import MobileBottomNav from './components/MobileBottomNav';
 import LockedManager from './components/Auth/LockedManager'; 
+import AuthRegister from './components/Auth/AuthRegister';
+import AuthLogin from './components/Auth/AuthLogin';
 import UserMenu from './components/UserMenu'; 
 import ChangePasswordForm from './components/Auth/ChangePasswordForm';
+import UserPanel from './components/UserPanel';
+import SettingsPage from './components/SettingsPage';
 import { PublicHome, DemoPage, GuidesPage, FaqPage, AboutPage } from './components/PublicPages';
 import ArticlesPage from './components/ArticlesPage';
 
@@ -36,12 +40,13 @@ const InflationTool = lazy(() => import('./components/Tools').then(module => ({ 
 
 // Definição de Rotas/Views
 type ToolView = 
-  | 'home' | 'artigos' | 'guias' | 'faq' | 'sobre' | 'demo' // Públicas
-  | 'compound' | 'manager' | 'rent' | 'debt' | 'fire' | 'inflation' | 'dividend' | 'roi' | 'game' | 'education'; // Privadas
+  | 'home' | 'artigos' | 'guias' | 'faq' | 'sobre' | 'demo' | 'login' | 'register' // Públicas
+  | 'panel' | 'settings' // Privadas (Gerais)
+  | 'compound' | 'manager' | 'rent' | 'debt' | 'fire' | 'inflation' | 'dividend' | 'roi' | 'game' | 'education'; // Privadas (Ferramentas)
 
 // Ferramentas que exigem login
 const PRIVATE_TOOLS: ToolView[] = [
-  'compound', 'manager', 'rent', 'debt', 'fire', 'inflation', 'dividend', 'roi', 'game', 'education'
+  'panel', 'settings', 'compound', 'manager', 'rent', 'debt', 'fire', 'inflation', 'dividend', 'roi', 'game', 'education'
 ];
 
 const LoadingFallback = () => (
@@ -96,17 +101,12 @@ const App: React.FC = () => {
   // Effects & Handlers
   useEffect(() => {
     if (isAuthLoading) return;
-    const isMobile = window.innerWidth < 768;
-    const shouldRedirect = hasLocalUser || localStorage.getItem('finpro_has_used_manager') === 'true';
-    const hasRedirected = sessionStorage.getItem('finpro_redirected');
     
-    // Se o usuário tem conta, redireciona para o manager ao abrir (mobile friendly)
-    if (isMobile && shouldRedirect && !hasRedirected) {
-         logEvent(ANALYTICS_EVENTS.VIEW_MANAGER, { origin: 'mobile_redirect' });
-         setCurrentTool('manager');
-         sessionStorage.setItem('finpro_redirected', 'true');
+    // Redireciona para o Painel se logar estando na home ou login/register
+    if (isAuthenticated && ['home', 'login', 'register'].includes(currentTool)) {
+        setCurrentTool('panel');
     }
-  }, [hasLocalUser, isAuthLoading]);
+  }, [isAuthenticated, isAuthLoading, currentTool]);
 
   useEffect(() => { localStorage.setItem('finpro_transactions', JSON.stringify(transactions)); }, [transactions]);
   useEffect(() => { localStorage.setItem('finpro_cat_expense', JSON.stringify(expenseCategories)); }, [expenseCategories]);
@@ -119,23 +119,6 @@ const App: React.FC = () => {
   };
 
   const removeToast = (id: string) => setToasts(prev => prev.filter(t => t.id !== id));
-
-  const handleResetData = (target: 'all' | 'transactions' | 'goals') => {
-    if (confirm("Tem certeza? Esta ação não pode ser desfeita.")) {
-        if (target === 'transactions' || target === 'all') setTransactions([]);
-        if (target === 'goals' || target === 'all') setGoals([]);
-        if (target === 'all') {
-            setExpenseCategories(['🏠 Moradia', '🛒 Supermercado', '🚗 Transporte', '💊 Saúde', '🎬 Lazer', '🧹 Contas', '💳 Dívidas']);
-            setIncomeCategories(['💰 Salário', '💸 Freelance', '📈 Dividendos']);
-            localStorage.removeItem('finpro_debts');
-            localStorage.removeItem('finpro_has_used_manager');
-            logout(); 
-            localStorage.removeItem('finpro_auth_user'); 
-        }
-        notify("Dados resetados com sucesso.", 'success');
-        setShowSettings(false);
-    }
-  };
 
   const handleCalculate = useCallback((input: CalculationInput) => {
     const calculation = calculateCompoundInterest(input);
@@ -181,45 +164,68 @@ const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const privateMenuItems = [
-    { id: 'manager', label: 'Gerenciador', icon: '💰' },
-    { id: 'compound', label: 'Juros Compostos', icon: '📈' },
-    { id: 'rent', label: 'Aluguel vs Financiar', icon: '🏠' },
-    { id: 'debt', label: 'Otimizador Dívidas', icon: '🏔️' },
-    { id: 'fire', label: 'Calc. FIRE', icon: '🔥' },
-    { id: 'inflation', label: 'Poder de Compra', icon: '💸' },
-    { id: 'dividend', label: 'Sim. Dividendos', icon: '💎' }, 
-    { id: 'roi', label: 'Calc. ROI', icon: '📊' },
-    { id: 'education', label: 'Academia Pro', icon: '🎓' },
-    { id: 'game', label: 'Simulador Jogo', icon: '🎮' },
-  ];
+  const handleStartNow = () => {
+    if (isAuthenticated) {
+      navigateTo('panel');
+    } else if (hasLocalUser) {
+      navigateTo('login');
+    } else {
+      navigateTo('register');
+    }
+  };
+
+  const handleLogout = () => {
+    logout();
+    setCurrentTool('home');
+    notify("Você foi desconectado.", 'info');
+  };
 
   // --- RENDER CONTENT GUARD ---
   const renderContent = () => {
-    // 1. Protection Check
+    // 1. Protection Check for Private Tools
     if (PRIVATE_TOOLS.includes(currentTool) && !isAuthenticated) {
       return (
         <LockedManager onAuthSuccess={() => {
-           // Stay on the requested tool after login
-           // The AuthContext update will trigger re-render and pass this check
+           // Stay on the requested tool after login logic in useEffect
         }} />
       );
     }
 
     // 2. Route Switch
     switch(currentTool) {
-      case 'home': return <PublicHome onNavigate={navigateTo} />;
+      // Public Views
+      case 'home': return <PublicHome onNavigate={navigateTo} onStartNow={handleStartNow} />;
+      case 'register': 
+        return (
+          <div className="flex flex-col items-center justify-center min-h-[70vh]">
+             <div className="bg-slate-800 border border-slate-700 p-8 rounded-3xl shadow-2xl w-full max-w-md">
+                <AuthRegister onSuccess={() => setCurrentTool('panel')} onSwitchToLogin={() => setCurrentTool('login')} />
+             </div>
+          </div>
+        );
+      case 'login': 
+        return (
+          <div className="flex flex-col items-center justify-center min-h-[70vh]">
+             <div className="bg-slate-800 border border-slate-700 p-8 rounded-3xl shadow-2xl w-full max-w-md">
+                <AuthLogin onSuccess={() => setCurrentTool('panel')} onSwitchToRegister={() => setCurrentTool('register')} />
+             </div>
+          </div>
+        );
       case 'artigos': return <ArticlesPage onReadArticle={() => {}} />;
       case 'demo': return <DemoPage onNavigate={navigateTo} />;
       case 'guias': return <GuidesPage onNavigate={navigateTo} />;
       case 'faq': return <FaqPage />;
       case 'sobre': return <AboutPage onNavigate={navigateTo} />;
       
+      // Private User Views
+      case 'panel': return <UserPanel onNavigate={navigateTo} />;
+      case 'settings': return <SettingsPage onOpenChangePassword={() => setActiveModal('change_password')} />;
+
       // Private Tools
       case 'compound': 
         return (
           <div className="space-y-8 animate-in fade-in duration-500">
-            <Breadcrumb items={[{ label: 'Painel', action: () => navigateTo('manager') }, { label: 'Juros Compostos' }]} />
+            <Breadcrumb items={[{ label: 'Painel', action: () => navigateTo('panel') }, { label: 'Juros Compostos' }]} />
             <CalculatorForm onCalculate={handleCalculate} />
             {result ? <ResultsDisplay result={result} isPrivacyMode={isPrivacyMode} /> : <div className="text-center text-slate-600 py-12 bg-slate-800/50 rounded-2xl border border-slate-800">Preencha os dados acima para simular.</div>}
           </div>
@@ -235,26 +241,39 @@ const App: React.FC = () => {
             onUpdateGoal={handleUpdateGoal}
             onDeleteGoal={handleDeleteGoal}
             isPrivacyMode={isPrivacyMode}
-            navigateToHome={() => navigateTo('home')}
+            navigateToHome={() => navigateTo('panel')}
           />
         );
-      case 'rent': return <Tools toolType="rent" isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('manager')} />;
-      case 'debt': return <DebtTool toolType="debt" isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('manager')} />;
-      case 'fire': return <FireTool toolType="fire" isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('manager')} />;
-      case 'inflation': return <InflationTool toolType="inflation" isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('manager')} />;
-      case 'dividend': return <DividendSimulator isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('manager')} />;
-      case 'roi': return <RoiCalculator isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('manager')} />;
-      case 'game': return <MiniGame isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('manager')} />;
+      case 'rent': return <Tools toolType="rent" isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('panel')} />;
+      case 'debt': return <DebtTool toolType="debt" isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('panel')} />;
+      case 'fire': return <FireTool toolType="fire" isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('panel')} />;
+      case 'inflation': return <InflationTool toolType="inflation" isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('panel')} />;
+      case 'dividend': return <DividendSimulator isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('panel')} />;
+      case 'roi': return <RoiCalculator isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('panel')} />;
+      case 'game': return <MiniGame isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('panel')} />;
       case 'education': return (
         <div className="space-y-8 animate-in fade-in duration-500">
-            <Breadcrumb items={[{ label: 'Painel', action: () => navigateTo('manager') }, { label: 'Academia Financeira' }]} />
+            <Breadcrumb items={[{ label: 'Painel', action: () => navigateTo('panel') }, { label: 'Academia Financeira' }]} />
             <h2 className="text-3xl font-bold text-white mb-8">Academia Finanças Pro Invest</h2>
             <EducationalContent onOpenPlans={() => {/* Removed plans modal */}} />
         </div>
       );
-      default: return <PublicHome onNavigate={navigateTo} />;
+      default: return <PublicHome onNavigate={navigateTo} onStartNow={handleStartNow} />;
     }
   };
+
+  const privateMenuItems = [
+    { id: 'manager', label: 'Gerenciador', icon: '💰' },
+    { id: 'compound', label: 'Juros Compostos', icon: '📈' },
+    { id: 'rent', label: 'Aluguel vs Financiar', icon: '🏠' },
+    { id: 'debt', label: 'Otimizador Dívidas', icon: '🏔️' },
+    { id: 'fire', label: 'Calc. FIRE', icon: '🔥' },
+    { id: 'inflation', label: 'Poder de Compra', icon: '💸' },
+    { id: 'dividend', label: 'Sim. Dividendos', icon: '💎' }, 
+    { id: 'roi', label: 'Calc. ROI', icon: '📊' },
+    { id: 'education', label: 'Academia Pro', icon: '🎓' },
+    { id: 'game', label: 'Simulador Resiliência', icon: '🎮' },
+  ];
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-200 flex flex-col font-sans selection:bg-emerald-500/30">
@@ -268,20 +287,15 @@ const App: React.FC = () => {
           <div className="flex items-center justify-between h-16">
             
             {/* Logo */}
-            <div className="flex items-center gap-3 cursor-pointer z-50 group" onClick={() => navigateTo('home')}>
+            <div className="flex items-center gap-3 cursor-pointer z-50 group" onClick={() => navigateTo(isAuthenticated ? 'panel' : 'home')}>
               {/* Money Bag + Bars Icon (SVG Customizado) */}
               <div className="w-10 h-10 flex items-center justify-center transform group-hover:scale-105 transition-transform duration-300">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" className="w-10 h-10 drop-shadow-md">
-                  {/* Saco de dinheiro verde */}
                   <path d="M32 58C44 58 52 50 52 38C52 28 44 26 40 24L32 10L24 24C20 26 12 28 12 38C12 50 20 58 32 58Z" fill="#10B981" />
                   <path d="M26 24L38 24" stroke="#FBBF24" strokeWidth="2" strokeLinecap="round" />
                   <text x="32" y="48" fontSize="24" textAnchor="middle" fill="#ECFDF5" fontWeight="bold" fontFamily="sans-serif">$</text>
-                  
-                  {/* Barras Douradas */}
                   <rect x="48" y="36" width="6" height="20" rx="1" fill="#F59E0B" stroke="#020617" strokeWidth="1" />
                   <rect x="56" y="24" width="6" height="32" rx="1" fill="#F59E0B" stroke="#020617" strokeWidth="1" />
-                  
-                  {/* Seta de Crescimento */}
                   <path d="M48 20 L60 8 M60 8 L52 8 M60 8 L60 16" stroke="#F59E0B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
@@ -304,10 +318,10 @@ const App: React.FC = () => {
             <div className="hidden lg:flex items-center gap-3">
                {isAuthenticated && (
                  <button 
-                    onClick={() => navigateTo('manager')} 
+                    onClick={() => navigateTo('panel')} 
                     className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 text-emerald-400 rounded-lg hover:bg-slate-700 transition-colors text-sm font-bold border border-slate-700"
                  >
-                   <span>⚡</span> Painel
+                   <span>⚡</span> Meu Painel
                  </button>
                )}
 
@@ -323,21 +337,17 @@ const App: React.FC = () => {
                    )}
                </button>
 
-               <button 
-                  onClick={() => setShowSettings(true)}
-                  className="p-2.5 text-slate-400 hover:text-white transition-colors"
-                  title="Configurações Gerais"
-               >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-               </button>
-
                {isAuthenticated ? (
                   <div className="pl-3 border-l border-slate-700">
-                    <UserMenu onOpenChangePassword={() => setActiveModal('change_password')} />
+                    <UserMenu 
+                      onOpenChangePassword={() => navigateTo('settings')} 
+                      onNavigateSettings={() => navigateTo('settings')}
+                      onLogout={handleLogout}
+                    />
                   </div>
                ) : (
                   <button
-                    onClick={() => navigateTo('manager')}
+                    onClick={() => navigateTo('login')}
                     className="ml-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm px-4 py-2 rounded-lg shadow-lg shadow-emerald-900/20 transition-all active:scale-95"
                   >
                     Entrar
@@ -392,12 +402,27 @@ const App: React.FC = () => {
                     <span className="font-semibold text-lg">{tool.label}</span>
                   </button>
                 ))}
+                
+                <button
+                    onClick={() => navigateTo('settings')}
+                    className="w-full text-left px-6 py-4 rounded-2xl flex items-center gap-4 transition-all bg-slate-900/50 text-slate-400 mt-4"
+                  >
+                    <span className="text-xl">⚙️</span>
+                    <span className="font-semibold text-lg">Configurações</span>
+                </button>
+                <button
+                    onClick={handleLogout}
+                    className="w-full text-left px-6 py-4 rounded-2xl flex items-center gap-4 transition-all bg-red-900/10 text-red-400 mt-2"
+                  >
+                    <span className="text-xl">🚪</span>
+                    <span className="font-semibold text-lg">Sair</span>
+                </button>
               </>
             )}
             
             {!isAuthenticated && (
                <button 
-                 onClick={() => { setIsMobileMenuOpen(false); navigateTo('manager'); }}
+                 onClick={() => { setIsMobileMenuOpen(false); navigateTo('login'); }}
                  className="w-full text-left px-6 py-5 rounded-2xl flex items-center gap-4 bg-emerald-600 text-white font-bold mt-4"
                >
                  Entrar / Cadastrar
@@ -409,11 +434,18 @@ const App: React.FC = () => {
 
       <div className="flex-grow flex relative w-full px-4 py-8 gap-12 max-w-7xl mx-auto">
         
-        {/* Sidebar (Only shown if Logged In AND viewing a Private Tool) */}
-        {isAuthenticated && PRIVATE_TOOLS.includes(currentTool) && (
+        {/* Sidebar (Only shown if Logged In AND viewing a Private Tool AND NOT on Panel) */}
+        {isAuthenticated && PRIVATE_TOOLS.includes(currentTool) && currentTool !== 'panel' && (
           <aside className="hidden lg:block w-64 flex-shrink-0 space-y-3 sticky top-28 h-fit no-print">
-            <div className="text-sm font-bold text-slate-500 uppercase tracking-widest px-4 mb-4">Minhas Ferramentas</div>
-            {privateMenuItems.map(tool => (
+            <button 
+                onClick={() => navigateTo('panel')}
+                className="w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all bg-slate-800 border border-slate-700 hover:bg-slate-700 text-white font-bold mb-4"
+            >
+                <span>⬅</span> Voltar ao Painel
+            </button>
+            
+            <div className="text-sm font-bold text-slate-500 uppercase tracking-widest px-4 mb-4">Navegação Rápida</div>
+            {privateMenuItems.slice(0, 5).map(tool => (
               <button
                 key={tool.id}
                 onClick={() => navigateTo(tool.id as ToolView)}
@@ -483,23 +515,16 @@ const App: React.FC = () => {
       <ContentModal 
         isOpen={showSettings} 
         onClose={() => setShowSettings(false)} 
-        title="Configurações e Dados"
+        title="Configurações Rápidas"
       >
-        <div className="space-y-8">
-            <div className="space-y-4">
-                <h3 className="text-lg font-bold text-white border-b border-slate-700 pb-2">Gerenciamento de Dados</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <button onClick={() => handleResetData('transactions')} className="p-4 rounded-xl border border-slate-700 bg-slate-800 hover:border-red-500/50 transition-colors text-left">
-                        <span className="block font-bold text-slate-200 text-sm mb-1">Apagar Lançamentos</span>
-                    </button>
-                    <button onClick={() => handleResetData('goals')} className="p-4 rounded-xl border border-slate-700 bg-slate-800 hover:border-red-500/50 transition-colors text-left">
-                        <span className="block font-bold text-slate-200 text-sm mb-1">Apagar Metas</span>
-                    </button>
-                    <button onClick={() => handleResetData('all')} className="md:col-span-2 p-4 rounded-xl border border-red-900/50 bg-red-900/10 hover:bg-red-900/20 transition-colors text-left group">
-                        <span className="block font-bold text-red-400 text-sm mb-1 group-hover:text-red-300">🏭 Factory Reset (Apagar Tudo)</span>
-                    </button>
-                </div>
-            </div>
+        <div className="space-y-4 text-center">
+            <p className="text-slate-400">Acesse o painel completo de configurações para mais opções.</p>
+            <button 
+                onClick={() => { setShowSettings(false); navigateTo('settings'); }} 
+                className="w-full bg-slate-700 p-3 rounded-xl text-white font-bold"
+            >
+                Ir para Configurações Completas
+            </button>
         </div>
       </ContentModal>
 
