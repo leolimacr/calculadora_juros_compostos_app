@@ -11,21 +11,31 @@ const AWESOME_API_URL = 'https://economia.awesomeapi.com.br/last/USD-BRL,EUR-BRL
 const BRAPI_TOKEN = process.env.VITE_BRAPI_TOKEN || 'jKCiHhurRb4ZrePxXJh8Y3'; 
 const BRAPI_URL = `https://brapi.dev/api/quote/^BVSP,^GSPC?token=${BRAPI_TOKEN}`;
 
-// Cache para evitar muitas requisições (30 segundos)
+// Cache Geral (Evita chamadas em loop do componente)
 const CACHE_KEY = 'finpro_market_cache';
-const CACHE_DURATION = 30 * 1000;
+const CACHE_DURATION = 30 * 1000; // 30 segundos para Moedas/Geral
+
+// Controle Específico para Brapi (Rate Limit Strict)
+const INDICES_FETCH_KEY = 'finpro_indices_last_fetch';
+const INDICES_COOLDOWN = 60 * 1000; // 60 segundos estritos para índices
+
+export interface MarketResponse {
+  quotes: MarketQuote[];
+  isRateLimited: boolean;
+}
 
 interface CachedData {
   timestamp: number;
-  data: MarketQuote[];
+  data: MarketResponse;
 }
 
 // ============================================================================
 // SERVIÇO
 // ============================================================================
 
-export const fetchMarketQuotes = async (forceRefresh = false): Promise<MarketQuote[]> => {
-  // 1. Verificar Cache (Pula se forceRefresh for true)
+export const fetchMarketQuotes = async (forceRefresh = false): Promise<MarketResponse> => {
+  // 1. Verificar Cache GERAL (Pula se forceRefresh for true)
+  // Isso protege chamadas automáticas excessivas (intervalo do componente)
   if (!forceRefresh) {
     const cached = localStorage.getItem(CACHE_KEY);
     if (cached) {
@@ -37,8 +47,10 @@ export const fetchMarketQuotes = async (forceRefresh = false): Promise<MarketQuo
   }
 
   const quotes: MarketQuote[] = [];
+  let isRateLimited = false;
 
   // --- 2. BUSCA DADOS REAIS (AwesomeAPI - Moedas/Cripto) ---
+  // Sempre tenta buscar se passou do cache geral ou se é forceRefresh
   try {
     const awesomeRes = await fetch(`${AWESOME_API_URL}?t=${Date.now()}`);
     if (awesomeRes.ok) {
@@ -53,16 +65,29 @@ export const fetchMarketQuotes = async (forceRefresh = false): Promise<MarketQuo
     console.error("Erro ao buscar AwesomeAPI:", error);
   }
 
-  // --- 3. BUSCA ÍNDICES (Brapi ou Fallback) ---
+  // --- 3. BUSCA ÍNDICES (Lógica Condicional Estrita) ---
+  const lastIndexFetch = parseInt(localStorage.getItem(INDICES_FETCH_KEY) || '0');
+  const now = Date.now();
+  const timeSinceLastIndex = now - lastIndexFetch;
+  
+  // Só busca na Brapi se passou 60s, MESMO com forceRefresh
+  // Isso protege contra cliques repetidos no botão "Atualizar" que estourariam a cota
+  const shouldFetchIndices = BRAPI_TOKEN && (timeSinceLastIndex >= INDICES_COOLDOWN);
+
   let ibovFound = false;
   let sp500Found = false;
 
-  if (BRAPI_TOKEN) {
+  if (shouldFetchIndices) {
     try {
-      const url = forceRefresh ? `${BRAPI_URL}&t=${Date.now()}` : BRAPI_URL;
+      const url = `${BRAPI_URL}&t=${now}`;
       const brapiRes = await fetch(url);
       
-      if (brapiRes.ok) {
+      // Detecção de Rate Limit (429)
+      if (brapiRes.status === 429) {
+        console.warn("Brapi API Rate Limit Exceeded (429). Usando dados simulados.");
+        isRateLimited = true;
+        // Não atualiza o timestamp INDICES_FETCH_KEY para tentar novamente no próximo ciclo se o erro for temporário
+      } else if (brapiRes.ok) {
         const json = await brapiRes.json();
         if (json.results && Array.isArray(json.results)) {
           json.results.forEach((item: any) => {
@@ -73,7 +98,7 @@ export const fetchMarketQuotes = async (forceRefresh = false): Promise<MarketQuo
                 price: item.regularMarketPrice,
                 changePercent: item.regularMarketChangePercent,
                 category: 'index',
-                timestamp: Date.now()
+                timestamp: now
               });
               ibovFound = true;
             } else if (item.symbol === '^GSPC') {
@@ -83,20 +108,35 @@ export const fetchMarketQuotes = async (forceRefresh = false): Promise<MarketQuo
                 price: item.regularMarketPrice,
                 changePercent: item.regularMarketChangePercent,
                 category: 'index',
-                timestamp: Date.now()
+                timestamp: now
               });
               sp500Found = true;
             }
           });
+          // Sucesso: Atualiza o timestamp da última busca de índices
+          localStorage.setItem(INDICES_FETCH_KEY, now.toString());
         }
       }
     } catch (error) {
       console.error("Erro ao buscar Brapi:", error);
     }
+  } else {
+    // --- MODO REUTILIZAÇÃO (Cache Específico) ---
+    // Estamos no intervalo de 60s. Tentar pegar os índices do CACHE GERAL anterior.
+    const cachedGlobal = localStorage.getItem(CACHE_KEY);
+    if (cachedGlobal) {
+      const { data } = JSON.parse(cachedGlobal) as CachedData;
+      const cachedIndices = data.quotes.filter(q => q.category === 'index');
+      
+      cachedIndices.forEach(q => {
+        quotes.push(q);
+        if (q.symbol === 'IBOV') ibovFound = true;
+        if (q.symbol === 'S&P 500') sp500Found = true;
+      });
+    }
   }
 
-  // --- 4. FALLBACK PARA ÍNDICES (Se API falhar ou não retornar) ---
-  // Isso garante que os cards nunca sumam da tela
+  // --- 4. FALLBACK PARA ÍNDICES (Se API falhar, for 429 ou Cache vazio) ---
   if (!ibovFound) {
     quotes.push(createMockIndex('IBOV', 'Ibovespa (Simulado)', 128500, 0.45));
   }
@@ -104,15 +144,16 @@ export const fetchMarketQuotes = async (forceRefresh = false): Promise<MarketQuo
     quotes.push(createMockIndex('S&P 500', 'S&P 500 (Simulado)', 5200, 0.12));
   }
 
-  // 5. Salvar no Cache
-  if (quotes.length > 0) {
-    localStorage.setItem(CACHE_KEY, JSON.stringify({
-      timestamp: Date.now(),
-      data: quotes
-    }));
-  }
+  const result: MarketResponse = { quotes, isRateLimited };
 
-  return quotes;
+  // 5. Salvar no Cache Geral
+  // Atualizamos o cache geral com: Novas Moedas + (Novos Índices OU Índices Antigos)
+  localStorage.setItem(CACHE_KEY, JSON.stringify({
+    timestamp: Date.now(),
+    data: result
+  }));
+
+  return result;
 };
 
 // --- Helpers ---

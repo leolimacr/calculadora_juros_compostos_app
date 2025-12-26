@@ -49,16 +49,18 @@ const MarketWidget = () => {
   const [quotes, setQuotes] = useState<MarketQuote[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [rateLimitWarning, setRateLimitWarning] = useState(false);
 
   const refreshData = async (manual = false) => {
     if (manual) setLoading(true); // Mostra loading se for clique manual
     
     // Passa 'manual' como forceRefresh para o serviço
-    const data = await fetchMarketQuotes(manual);
+    const { quotes: data, isRateLimited } = await fetchMarketQuotes(manual);
     
     if (data && data.length > 0) {
       setQuotes(data);
       setLastUpdate(new Date());
+      setRateLimitWarning(isRateLimited);
     }
     setLoading(false);
   };
@@ -96,7 +98,7 @@ const MarketWidget = () => {
           <div className="text-right">
               <div className="text-xs font-bold text-white">
                   {item.category === 'index' 
-                    ? `${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} pontos`
+                    ? `${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} pts`
                     : `R$ ${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
               </div>
               <div className={`text-[10px] font-bold ${item.changePercent >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
@@ -142,17 +144,26 @@ const MarketWidget = () => {
           </div>
         )}
         
-        <div className="mt-4 pt-2 border-t border-slate-700/50 flex justify-between items-center">
-           <p className="text-[8px] text-slate-600">
-              Dados: AwesomeAPI / Brapi
-           </p>
-           <button 
-             onClick={() => refreshData(true)} 
-             className={`text-[10px] text-emerald-500 hover:text-emerald-400 font-bold flex items-center gap-1 transition-all ${loading ? 'opacity-50 cursor-not-allowed' : 'active:scale-95'}`}
-             disabled={loading}
-           >
-             {loading ? 'Atualizando...' : 'Atualizar ↻'}
-           </button>
+        <div className="mt-4 pt-2 border-t border-slate-700/50">
+           <div className="flex justify-between items-center">
+              <p className="text-[8px] text-slate-500 leading-tight max-w-[120px]">
+                  Moedas/Cripto: 30s<br/>
+                  Índices: 1 min
+              </p>
+              <button 
+                onClick={() => refreshData(true)} 
+                className={`text-[10px] text-emerald-500 hover:text-emerald-400 font-bold flex items-center gap-1 transition-all ${loading ? 'opacity-50 cursor-not-allowed' : 'active:scale-95'}`}
+                disabled={loading}
+              >
+                {loading ? 'Atualizando...' : 'Atualizar ↻'}
+              </button>
+           </div>
+           
+           {rateLimitWarning && (
+             <p className="text-[9px] text-orange-400 font-medium mt-2 text-center bg-orange-900/10 py-1 rounded border border-orange-500/20 animate-in fade-in">
+               ⚠️ Muitos acessos. Índices simulados.
+             </p>
+           )}
         </div>
     </div>
   );
