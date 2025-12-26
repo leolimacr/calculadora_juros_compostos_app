@@ -7,24 +7,27 @@ const InstallPrompt: React.FC = () => {
   const [showPrompt, setShowPrompt] = useState(false);
 
   useEffect(() => {
-    // 1. Escuta o evento do navegador
+    // 1. Check if Mobile
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (!isMobile) return;
+
+    // 2. Check 72h Dismissal Cooldown
+    const lastDismissed = localStorage.getItem('finpro_install_dismissed_ts');
+    if (lastDismissed) {
+      const hoursSinceDismiss = (Date.now() - parseInt(lastDismissed)) / (1000 * 60 * 60);
+      if (hoursSinceDismiss < 72) return;
+    }
+
+    // 3. Listen for browser event
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      
-      // 2. Verifica se o usuário é "engajado" antes de mostrar
-      // Isso reduz atrito e só pede instalação para quem realmente usa
-      const isEngaged = localStorage.getItem('finpro_has_used_manager') === 'true';
-      const hasDismissed = sessionStorage.getItem('finpro_install_dismissed');
-      
-      // Só mostra se: Engajado E não recusou na sessão atual
-      if (isEngaged && !hasDismissed) {
-         setShowPrompt(true);
-      }
+      setShowPrompt(true);
     };
 
     window.addEventListener('beforeinstallprompt', handler);
 
+    // 4. Handle installation success
     window.addEventListener('appinstalled', () => {
       logEvent(ANALYTICS_EVENTS.PWA_INSTALLED);
       setShowPrompt(false);
@@ -35,10 +38,13 @@ const InstallPrompt: React.FC = () => {
   }, []);
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
+    if (!deferredPrompt) {
+        // Fallback for iOS or if event didn't fire (manual instructions could go here)
+        alert("Para instalar no iPhone: Toque em 'Compartilhar' e depois em 'Adicionar à Tela de Início'.");
+        return;
+    }
     
     logEvent(ANALYTICS_EVENTS.PWA_INSTALL_CLICK);
-    
     deferredPrompt.prompt();
     
     const { outcome } = await deferredPrompt.userChoice;
@@ -50,35 +56,42 @@ const InstallPrompt: React.FC = () => {
 
   const handleDismiss = () => {
       setShowPrompt(false);
-      sessionStorage.setItem('finpro_install_dismissed', 'true');
+      // Save timestamp to hide for 72 hours
+      localStorage.setItem('finpro_install_dismissed_ts', Date.now().toString());
   };
 
   if (!showPrompt) return null;
 
   return (
-    <div className="fixed bottom-24 lg:bottom-8 left-4 right-4 lg:left-auto lg:right-8 z-50 animate-in slide-in-from-bottom-10 fade-in duration-500 max-w-sm ml-auto">
-      <div className="bg-slate-800 border border-emerald-500/50 p-4 rounded-2xl shadow-2xl flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-xl shadow-lg shrink-0">
+    <div className="fixed bottom-20 lg:bottom-8 left-4 right-4 z-[999] animate-in slide-in-from-bottom-full duration-500 safe-area-bottom">
+      <div className="bg-[#0f172a] border border-emerald-500/30 p-4 rounded-2xl shadow-2xl shadow-black flex flex-col gap-3 relative overflow-hidden">
+        {/* Decorative Glow */}
+        <div className="absolute top-0 right-0 p-16 bg-emerald-500/10 blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
+
+        <div className="flex items-start gap-4 relative z-10">
+          <div className="w-12 h-12 bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-xl flex items-center justify-center text-2xl shadow-lg shrink-0 border border-emerald-500/20">
             📲
           </div>
           <div>
-            <h4 className="font-bold text-white text-sm">Instalar App</h4>
-            <p className="text-xs text-slate-400">Acesse offline e mais rápido.</p>
+            <h4 className="font-bold text-white text-sm leading-tight">Melhore sua experiência</h4>
+            <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+              Instale o app para acesso mais rápido, offline e em tela cheia.
+            </p>
           </div>
         </div>
-        <div className="flex gap-2 shrink-0">
+
+        <div className="flex gap-3 mt-1 relative z-10">
             <button 
                 onClick={handleDismiss}
-                className="text-slate-400 hover:text-white px-2 py-2 text-xs font-bold"
+                className="flex-1 py-2.5 text-xs font-bold text-slate-400 hover:text-white bg-slate-800/50 rounded-lg transition-colors"
             >
                 Agora não
             </button>
             <button 
                 onClick={handleInstallClick}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-lg shadow-emerald-900/20"
+                className="flex-[2] py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow-lg shadow-emerald-900/30 transition-colors flex items-center justify-center gap-2"
             >
-                Instalar
+                Instalar App ⚡
             </button>
         </div>
       </div>

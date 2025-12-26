@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'finpro-cache-v3';
+const CACHE_NAME = 'finpro-cache-v4';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -9,7 +9,6 @@ const STATIC_ASSETS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      // Pré-cache do shell mínimo
       return cache.addAll(STATIC_ASSETS).catch(err => console.warn('SW install warning:', err));
     })
   );
@@ -34,27 +33,33 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // 1. Navigation (HTML): Network First
-  // Garante que o usuário sempre tenha a versão mais recente do app se estiver online
+  // 1. Navigation (HTML): Network First with Cache Fallback
+  // Critical for SPA: If offline, serve index.html to allow client-side routing to work.
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
         .then(response => {
-          // Atualiza cache com a nova versão
           const responseClone = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseClone));
           return response;
         })
         .catch(() => {
-          // Fallback para cache se offline
-          return caches.match('/index.html') || caches.match('/');
+          return caches.match('/index.html').then(response => {
+             return response || caches.match('/');
+          });
         })
     );
     return;
   }
 
-  // 2. Static Assets (JS, CSS, Images, Fonts): Stale-While-Revalidate
-  // Entrega rápido do cache e atualiza em background
+  // 2. External APIs (Google GenAI, etc): Network Only
+  // Do not cache API calls to avoid stale data logic issues
+  if (url.origin !== self.location.origin) {
+      return;
+  }
+
+  // 3. Static Assets (JS, CSS, Images, Fonts): Stale-While-Revalidate
+  // Serve fast from cache, update in background.
   if (
     event.request.destination === 'script' ||
     event.request.destination === 'style' ||
@@ -72,7 +77,7 @@ self.addEventListener('fetch', (event) => {
            }
            return networkResponse;
         }).catch(() => {
-           // Silently fail fetch for assets if offline
+           // Output debug info if needed, but keep silent for user
         });
 
         return cachedResponse || fetchPromise;
@@ -80,6 +85,4 @@ self.addEventListener('fetch', (event) => {
     );
     return;
   }
-
-  // Default: Network only for APIs or external calls not handled above
 });

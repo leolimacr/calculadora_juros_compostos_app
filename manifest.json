@@ -1,42 +1,61 @@
 
 {
   "name": "Finanças Pro Invest",
-  "short_name": "Finanças Pro Invest",
+  "short_name": "Finanças Pro",
   "start_url": "/?source=pwa",
   "display": "standalone",
   "background_color": "#020617",
   "theme_color": "#020617",
   "orientation": "portrait",
   "scope": "/",
-  "description": "Seu gerenciador financeiro pessoal com IA e simuladores.",
+  "description": "Seu gerenciador financeiro pessoal 100% offline. Controle gastos, calcule independência financeira (FIRE) e simule investimentos.",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/5501/5501360.png",
+      "src": "/icons/icon-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/5501/5501360.png",
+      "src": "/icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "screenshots": [
     {
-       "src": "https://cdn-icons-png.flaticon.com/512/5501/5501360.png",
-       "sizes": "512x512",
-       "type": "image/png",
-       "form_factor": "wide",
-       "label": "Dashboard Financeiro"
+      "src": "/screenshots/mobile-dashboard.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Dashboard Financeiro Mobile"
     },
-     {
-       "src": "https://cdn-icons-png.flaticon.com/512/5501/5501360.png",
-       "sizes": "512x512",
-       "type": "image/png",
-       "form_factor": "narrow",
-       "label": "Gestão Mobile"
+    {
+      "src": "/screenshots/mobile-tools.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Ferramentas de Investimento"
+    },
+    {
+      "src": "/screenshots/desktop-overview.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Visão Geral Desktop"
     }
   ]
 }
