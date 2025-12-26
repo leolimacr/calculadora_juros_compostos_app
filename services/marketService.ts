@@ -8,7 +8,6 @@ import { MarketQuote } from '../types';
 const AWESOME_API_URL = 'https://economia.awesomeapi.com.br/last/USD-BRL,EUR-BRL,BTC-BRL,ETH-BRL';
 
 // Brapi.dev (Índices) requer token.
-// Chave definida para acesso a dados reais de mercado.
 const BRAPI_TOKEN = process.env.VITE_BRAPI_TOKEN || 'jKCiHhurRb4ZrePxXJh8Y3'; 
 const BRAPI_URL = `https://brapi.dev/api/quote/^BVSP,^GSPC?token=${BRAPI_TOKEN}`;
 
@@ -32,7 +31,6 @@ export const fetchMarketQuotes = async (forceRefresh = false): Promise<MarketQuo
     if (cached) {
       const { timestamp, data } = JSON.parse(cached) as CachedData;
       if (Date.now() - timestamp < CACHE_DURATION) {
-        // console.log('Serving market data from cache');
         return data;
       }
     }
@@ -40,76 +38,32 @@ export const fetchMarketQuotes = async (forceRefresh = false): Promise<MarketQuo
 
   const quotes: MarketQuote[] = [];
 
-  // --- BUSCA DADOS REAIS (AwesomeAPI) ---
+  // --- 2. BUSCA DADOS REAIS (AwesomeAPI - Moedas/Cripto) ---
   try {
-    // Adiciona timestamp na URL para evitar cache do navegador e garantir atualização real
     const awesomeRes = await fetch(`${AWESOME_API_URL}?t=${Date.now()}`);
     if (awesomeRes.ok) {
       const json = await awesomeRes.json();
       
-      // Normalização USD
-      if (json.USDBRL) {
-        quotes.push({
-          symbol: 'USD',
-          name: 'Dólar Comercial',
-          price: parseFloat(json.USDBRL.bid),
-          changePercent: parseFloat(json.USDBRL.pctChange),
-          category: 'currency',
-          timestamp: Date.now()
-        });
-      }
-      
-      // Normalização EUR
-      if (json.EURBRL) {
-        quotes.push({
-          symbol: 'EUR',
-          name: 'Euro Comercial',
-          price: parseFloat(json.EURBRL.bid),
-          changePercent: parseFloat(json.EURBRL.pctChange),
-          category: 'currency',
-          timestamp: Date.now()
-        });
-      }
-
-      // Normalização BTC
-      if (json.BTCBRL) {
-        quotes.push({
-          symbol: 'BTC',
-          name: 'Bitcoin',
-          price: parseFloat(json.BTCBRL.bid),
-          changePercent: parseFloat(json.BTCBRL.pctChange),
-          category: 'crypto',
-          timestamp: Date.now()
-        });
-      }
-
-      // Normalização ETH
-      if (json.ETHBRL) {
-        quotes.push({
-          symbol: 'ETH',
-          name: 'Ethereum',
-          price: parseFloat(json.ETHBRL.bid),
-          changePercent: parseFloat(json.ETHBRL.pctChange),
-          category: 'crypto',
-          timestamp: Date.now()
-        });
-      }
+      if (json.USDBRL) quotes.push(mapAwesomeItem('USD', 'Dólar Comercial', json.USDBRL, 'currency'));
+      if (json.EURBRL) quotes.push(mapAwesomeItem('EUR', 'Euro Comercial', json.EURBRL, 'currency'));
+      if (json.BTCBRL) quotes.push(mapAwesomeItem('BTC', 'Bitcoin', json.BTCBRL, 'crypto'));
+      if (json.ETHBRL) quotes.push(mapAwesomeItem('ETH', 'Ethereum', json.ETHBRL, 'crypto'));
     }
   } catch (error) {
     console.error("Erro ao buscar AwesomeAPI:", error);
   }
 
-  // --- BUSCA ÍNDICES (Brapi ou Mock) ---
-  try {
-    // 3. Fetch Brapi (Indices) - Somente se tiver token, senão usa mock com variação
-    if (BRAPI_TOKEN) {
-      // Adiciona t=timestamp se forceRefresh para furar cache do browser/cdn
+  // --- 3. BUSCA ÍNDICES (Brapi ou Fallback) ---
+  let ibovFound = false;
+  let sp500Found = false;
+
+  if (BRAPI_TOKEN) {
+    try {
       const url = forceRefresh ? `${BRAPI_URL}&t=${Date.now()}` : BRAPI_URL;
       const brapiRes = await fetch(url);
       
       if (brapiRes.ok) {
         const json = await brapiRes.json();
-        // Brapi retorna { results: [ ... ] }
         if (json.results && Array.isArray(json.results)) {
           json.results.forEach((item: any) => {
             if (item.symbol === '^BVSP') {
@@ -121,6 +75,7 @@ export const fetchMarketQuotes = async (forceRefresh = false): Promise<MarketQuo
                 category: 'index',
                 timestamp: Date.now()
               });
+              ibovFound = true;
             } else if (item.symbol === '^GSPC') {
               quotes.push({
                 symbol: 'S&P 500',
@@ -130,47 +85,26 @@ export const fetchMarketQuotes = async (forceRefresh = false): Promise<MarketQuo
                 category: 'index',
                 timestamp: Date.now()
               });
+              sp500Found = true;
             }
           });
         }
       }
-    } else {
-      // MODO SIMULAÇÃO (Sem Token)
-      // Adiciona um delay artificial de 600ms para o usuário ver o "Carregando..." no botão
-      if (forceRefresh) await new Promise(r => setTimeout(r, 600));
-
-      // Fallback Mockado com "Jitter" (Variação) para parecer vivo se não houver Token
-      const jitter = () => (Math.random() * 0.5) - 0.25; // Variação pequena
-      
-      quotes.push(
-        { 
-            symbol: 'IBOV', 
-            name: 'Ibovespa (Simulado)', 
-            price: 128500 + (Math.random() * 200 - 100), // Variação de preço
-            changePercent: 0.45 + jitter(), 
-            category: 'index', 
-            timestamp: Date.now() 
-        },
-        { 
-            symbol: 'S&P 500', 
-            name: 'S&P 500 (Simulado)', 
-            price: 5200 + (Math.random() * 20 - 10), 
-            changePercent: 0.12 + jitter(), 
-            category: 'index', 
-            timestamp: Date.now() 
-        }
-      );
+    } catch (error) {
+      console.error("Erro ao buscar Brapi:", error);
     }
-  } catch (error) {
-    console.error("Erro ao buscar Brapi:", error);
-    // Fallback em caso de erro de rede
-    quotes.push(
-        { symbol: 'IBOV', name: 'Ibovespa', price: 128500, changePercent: 0, category: 'index', timestamp: Date.now() },
-        { symbol: 'S&P 500', name: 'S&P 500', price: 5200, changePercent: 0, category: 'index', timestamp: Date.now() }
-    );
   }
 
-  // 4. Salvar no Cache
+  // --- 4. FALLBACK PARA ÍNDICES (Se API falhar ou não retornar) ---
+  // Isso garante que os cards nunca sumam da tela
+  if (!ibovFound) {
+    quotes.push(createMockIndex('IBOV', 'Ibovespa (Simulado)', 128500, 0.45));
+  }
+  if (!sp500Found) {
+    quotes.push(createMockIndex('S&P 500', 'S&P 500 (Simulado)', 5200, 0.12));
+  }
+
+  // 5. Salvar no Cache
   if (quotes.length > 0) {
     localStorage.setItem(CACHE_KEY, JSON.stringify({
       timestamp: Date.now(),
@@ -179,4 +113,29 @@ export const fetchMarketQuotes = async (forceRefresh = false): Promise<MarketQuo
   }
 
   return quotes;
+};
+
+// --- Helpers ---
+
+const mapAwesomeItem = (symbol: string, name: string, data: any, category: 'currency' | 'crypto'): MarketQuote => ({
+  symbol,
+  name,
+  price: parseFloat(data.bid),
+  changePercent: parseFloat(data.pctChange),
+  category,
+  timestamp: Date.now()
+});
+
+const createMockIndex = (symbol: string, name: string, basePrice: number, baseChange: number): MarketQuote => {
+  const jitter = (Math.random() * 0.5) - 0.25; 
+  const priceJitter = (Math.random() * (basePrice * 0.002)) - (basePrice * 0.001);
+  
+  return {
+    symbol,
+    name,
+    price: basePrice + priceJitter,
+    changePercent: baseChange + jitter,
+    category: 'index',
+    timestamp: Date.now()
+  };
 };
