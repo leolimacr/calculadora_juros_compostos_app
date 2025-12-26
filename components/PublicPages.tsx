@@ -92,9 +92,9 @@ const MarketWidget = () => {
           </div>
           <div className="text-right">
               <div className="text-xs font-bold text-white">
-                  {item.category === 'crypto' || item.category === 'index' 
+                  {item.category === 'index' 
                     ? item.price.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) 
-                    : `R$ ${item.price.toFixed(2)}`}
+                    : `R$ ${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
               </div>
               <div className={`text-[10px] font-bold ${item.changePercent >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                   {item.changePercent >= 0 ? '↑' : '↓'} {Math.abs(item.changePercent).toFixed(2)}%
