@@ -20,7 +20,7 @@ export const sendConfirmationEmail = async (email: string, type: 'register' | 'r
   console.log(`To: ${email}`);
   
   if (type === 'register') {
-    console.log('Subject: Bem-vindo ao FinançasPro! Confirme seu cadastro.');
+    console.log('Subject: Bem-vindo ao Finanças Pro Invest! Confirme seu cadastro.');
     console.log('Body: Olá! Sua conta local foi criada com sucesso. Este e-mail é apenas uma confirmação de segurança.');
   } else {
     console.log('Subject: Aviso de Segurança - Senha Redefinida');

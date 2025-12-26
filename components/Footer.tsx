@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 
 interface FooterProps {
@@ -34,7 +35,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
           <div className="space-y-6">
             <div className="flex items-center gap-2">
                <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center text-white font-bold">FP</div>
-               <h4 className="font-bold text-white text-lg">Finanças<span className="text-emerald-500">Pro</span></h4>
+               <h4 className="font-bold text-white text-lg">Finanças Pro Invest</h4>
             </div>
             <p className="text-sm text-slate-400 leading-relaxed">
               Sua bússola para a liberdade financeira. Ferramentas precisas e educação sem enrolação.

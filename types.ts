@@ -144,3 +144,24 @@ export interface GameEvent {
     effect: (state: GameState) => Partial<GameState>;
   }[];
 }
+
+// Navegação
+export type ToolView = 
+  // Públicas
+  | 'home' 
+  | 'artigos' 
+  | 'guias' 
+  | 'faq' 
+  | 'sobre' 
+  | 'demo' 
+  // Privadas (Ferramentas)
+  | 'compound' 
+  | 'manager' 
+  | 'rent' 
+  | 'debt' 
+  | 'fire' 
+  | 'inflation' 
+  | 'dividend' 
+  | 'roi' 
+  | 'game' 
+  | 'education'; // Mantido como educação/academia interna

@@ -21,33 +21,51 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
+// Configuração de Persistência
+const SESSION_KEY = 'finpro_session';
+const SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 dias em milissegundos
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [hasLocalUser, setHasLocalUser] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Carregar estado inicial
+  // Carregar estado inicial e verificar persistência
   useEffect(() => {
     const storedUser = localStorage.getItem('finpro_auth_user');
-    const activeSession = sessionStorage.getItem('finpro_auth_session');
+    const sessionData = localStorage.getItem(SESSION_KEY);
 
     if (storedUser) {
       setHasLocalUser(true);
-      if (activeSession === 'active') {
+      
+      // Verifica se existe sessão e se ela ainda é válida (dentro dos 7 dias)
+      if (sessionData) {
         try {
-          const parsedUser = JSON.parse(storedUser);
-          setUser({ email: parsedUser.email });
-          setIsAuthenticated(true);
+          const { expiry } = JSON.parse(sessionData);
+          const now = new Date().getTime();
+
+          if (now < expiry) {
+            const parsedUser = JSON.parse(storedUser);
+            setUser({ email: parsedUser.email });
+            setIsAuthenticated(true);
+          } else {
+            // Sessão expirada
+            localStorage.removeItem(SESSION_KEY);
+          }
         } catch (e) {
-          console.error("Erro ao ler dados do usuário", e);
-          localStorage.removeItem('finpro_auth_user');
-          setHasLocalUser(false);
+          console.error("Erro ao validar sessão", e);
+          localStorage.removeItem(SESSION_KEY);
         }
       }
     }
     setIsLoading(false);
   }, []);
+
+  const startSession = () => {
+    const expiry = new Date().getTime() + SESSION_DURATION;
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ expiry }));
+  };
 
   const register = async (email: string, pin: string) => {
     try {
@@ -62,7 +80,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser({ email });
       setIsAuthenticated(true);
       setHasLocalUser(true);
-      sessionStorage.setItem('finpro_auth_session', 'active');
+      
+      // Inicia persistência de 7 dias
+      startSession();
+      
       return true;
     } catch (e) {
       console.error(e);
@@ -81,7 +102,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (email.toLowerCase() === storedEmail.toLowerCase() && await validatePassword(pin, hash, salt)) {
         setUser({ email });
         setIsAuthenticated(true);
-        sessionStorage.setItem('finpro_auth_session', 'active');
+        
+        // Renova/Inicia persistência de 7 dias
+        startSession();
+        
         return true;
       }
     } catch (e) {
@@ -94,8 +118,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     setIsAuthenticated(false);
     setUser(null);
-    sessionStorage.removeItem('finpro_auth_session');
-    // Não removemos 'finpro_auth_user' para não apagar a conta, apenas a sessão
+    // Remove o token de sessão, exigindo novo login
+    localStorage.removeItem(SESSION_KEY);
+    // Não removemos 'finpro_auth_user' para não apagar a conta
   };
 
   const changePassword = async (currentPin: string, newPin: string): Promise<boolean> => {

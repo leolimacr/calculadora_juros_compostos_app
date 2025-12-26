@@ -82,7 +82,7 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({ transactions, currentCalcResult, 
       // Usando Flash para respostas rápidas com Search Grounding
       const model = 'gemini-2.5-flash'; 
       
-      const systemInstruction = `Você é um Consultor Financeiro Sênior do app Finanças Pro.
+      const systemInstruction = `Você é um Consultor Financeiro Sênior do app Finanças Pro Invest.
       Objetivo: Ajudar o usuário a enriquecer com conselhos diretos, matemáticos e realistas.
       
       ${generateContext()}
