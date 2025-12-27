@@ -321,14 +321,11 @@ const App: React.FC = () => {
             <div className="flex items-center gap-3 cursor-pointer z-50 group" onClick={() => navigateTo(isAuthenticated ? 'panel' : 'home')}>
               {/* Money Bag + Bars Icon (SVG Customizado) */}
               <div className="w-10 h-10 flex items-center justify-center transform group-hover:scale-105 transition-transform duration-300">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" className="w-10 h-10 drop-shadow-md">
-                  <path d="M32 58C44 58 52 50 52 38C52 28 44 26 40 24L32 10L24 24C20 26 12 28 12 38C12 50 20 58 32 58Z" fill="#10B981" />
-                  <path d="M26 24L38 24" stroke="#FBBF24" strokeWidth="2" strokeLinecap="round" />
-                  <text x="32" y="48" fontSize="24" textAnchor="middle" fill="#ECFDF5" fontWeight="bold" fontFamily="sans-serif">$</text>
-                  <rect x="48" y="36" width="6" height="20" rx="1" fill="#F59E0B" stroke="#020617" strokeWidth="1" />
-                  <rect x="56" y="24" width="6" height="32" rx="1" fill="#F59E0B" stroke="#020617" strokeWidth="1" />
-                  <path d="M48 20 L60 8 M60 8 L52 8 M60 8 L60 16" stroke="#F59E0B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+                <img
+                  src="/icon-512.png"
+                  alt="Finanças Pro Invest"
+                  className="w-10 h-10 rounded-xl shadow-md"
+                />
               </div>
               <span className="font-bold text-xl tracking-tight text-white hidden sm:block">
                 Finanças Pro Invest
