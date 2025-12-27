@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { calculateCompoundInterest, calculateFire, maskCurrency, formatCurrency } from '../utils/calculations';
@@ -44,6 +43,48 @@ export const NewsWidget = () => {
   );
 };
 
+// --- Componentes Auxiliares do Widget de Mercado ---
+
+const MarketSkeleton = () => (
+  <div className="space-y-3 animate-pulse">
+    {[1, 2, 3].map(i => (
+      <div key={i} className="flex justify-between items-center py-2 border-b border-slate-700/50">
+        <div className="h-3 w-20 bg-slate-700 rounded"></div>
+        <div className="space-y-1">
+          <div className="h-3 w-16 bg-slate-700 rounded ml-auto"></div>
+          <div className="h-2 w-10 bg-slate-700 rounded ml-auto"></div>
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+const ItemRow: React.FC<{ item: MarketQuote }> = ({ item }) => {
+    const isUSD = item.symbol.includes('/USD');
+    return (
+      <div className="flex justify-between items-center py-2 border-b border-slate-700/50 last:border-0 hover:bg-slate-700/20 transition-colors px-2 rounded-lg animate-in fade-in duration-500">
+          <div className="flex flex-col">
+             <span className="text-xs text-slate-300 font-bold">{item.symbol}</span>
+             <span className="text-[9px] text-slate-500 truncate max-w-[120px] hidden sm:block">
+               {item.name}
+             </span>
+          </div>
+          <div className="text-right">
+              <div className="text-xs font-bold text-white">
+                  {item.category === 'index' 
+                    ? `${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} pts`
+                    : isUSD 
+                      ? `$ ${item.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      : `R$ ${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              </div>
+              <div className={`text-[10px] font-bold ${item.changePercent >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {item.changePercent >= 0 ? '↑' : '↓'} {Math.abs(item.changePercent).toFixed(2)}%
+              </div>
+          </div>
+      </div>
+    );
+};
+
 // --- Widget de Cotações (Real-Time) ---
 const MarketWidget = () => {
   const [quotes, setQuotes] = useState<MarketQuote[]>([]);
@@ -71,47 +112,6 @@ const MarketWidget = () => {
     const interval = setInterval(() => refreshData(false), 30000);
     return () => clearInterval(interval);
   }, []);
-
-  // Skeleton Loading Component
-  const MarketSkeleton = () => (
-    <div className="space-y-3 animate-pulse">
-      {[1, 2, 3].map(i => (
-        <div key={i} className="flex justify-between items-center py-2 border-b border-slate-700/50">
-          <div className="h-3 w-20 bg-slate-700 rounded"></div>
-          <div className="space-y-1">
-            <div className="h-3 w-16 bg-slate-700 rounded ml-auto"></div>
-            <div className="h-2 w-10 bg-slate-700 rounded ml-auto"></div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-
-  const ItemRow = ({ item }: { item: MarketQuote }) => {
-      const isUSD = item.symbol.includes('/USD');
-      return (
-        <div className="flex justify-between items-center py-2 border-b border-slate-700/50 last:border-0 hover:bg-slate-700/20 transition-colors px-2 rounded-lg animate-in fade-in duration-500">
-            <div className="flex flex-col">
-               <span className="text-xs text-slate-300 font-bold">{item.symbol}</span>
-               <span className="text-[9px] text-slate-500 truncate max-w-[120px] hidden sm:block">
-                 {item.name}
-               </span>
-            </div>
-            <div className="text-right">
-                <div className="text-xs font-bold text-white">
-                    {item.category === 'index' 
-                      ? `${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} pts`
-                      : isUSD 
-                        ? `$ ${item.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                        : `R$ ${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                </div>
-                <div className={`text-[10px] font-bold ${item.changePercent >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {item.changePercent >= 0 ? '↑' : '↓'} {Math.abs(item.changePercent).toFixed(2)}%
-                </div>
-            </div>
-        </div>
-      );
-  };
 
   return (
     <div className="bg-slate-800/50 rounded-2xl border border-slate-700 p-5 mt-6 relative overflow-hidden">

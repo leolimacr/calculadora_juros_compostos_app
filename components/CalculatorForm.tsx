@@ -1,10 +1,40 @@
-
 import React, { useState } from 'react';
 import { CalculationInput, RateType, PeriodType } from '../types';
 
 interface CalculatorFormProps {
   onCalculate: (data: CalculationInput) => void;
 }
+
+interface InputGroupProps {
+  label: string;
+  icon: string;
+  children: React.ReactNode;
+  tooltip?: string;
+}
+
+const InputGroup: React.FC<InputGroupProps> = ({ label, icon, children, tooltip }) => (
+  <div className="space-y-2">
+    <div className="flex items-center gap-2">
+      <label className="text-sm font-semibold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+        {label}
+      </label>
+      {tooltip && (
+        <div className="group relative cursor-help">
+          <span className="text-slate-500 text-[10px]">?</span>
+          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-900 border border-slate-700 rounded-lg text-[10px] text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 shadow-xl">
+            {tooltip}
+          </div>
+        </div>
+      )}
+    </div>
+    <div className="relative group">
+      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg opacity-50 group-hover:opacity-100 transition-opacity grayscale group-hover:grayscale-0 z-10">
+        {icon}
+      </span>
+      {children}
+    </div>
+  </div>
+);
 
 const CalculatorForm: React.FC<CalculatorFormProps> = ({ onCalculate }) => {
   const [formData, setFormData] = useState<CalculationInput>({
@@ -24,30 +54,6 @@ const CalculatorForm: React.FC<CalculatorFormProps> = ({ onCalculate }) => {
     e.preventDefault();
     onCalculate(formData);
   };
-
-  const InputGroup = ({ label, icon, children, tooltip }: { label: string, icon: string, children: React.ReactNode, tooltip?: string }) => (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <label className="text-sm font-semibold text-slate-200 uppercase tracking-wider flex items-center gap-2">
-          {label}
-        </label>
-        {tooltip && (
-          <div className="group relative cursor-help">
-            <span className="text-slate-500 text-[10px]">?</span>
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-900 border border-slate-700 rounded-lg text-[10px] text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 shadow-xl">
-              {tooltip}
-            </div>
-          </div>
-        )}
-      </div>
-      <div className="relative group">
-        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg opacity-50 group-hover:opacity-100 transition-opacity grayscale group-hover:grayscale-0 z-10">
-          {icon}
-        </span>
-        {children}
-      </div>
-    </div>
-  );
 
   return (
     <div className="bg-slate-800 p-8 rounded-2xl shadow-xl border border-slate-700 animate-in fade-in slide-in-from-bottom-2 duration-500 relative overflow-hidden">
