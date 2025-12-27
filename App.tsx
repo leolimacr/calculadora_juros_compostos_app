@@ -319,7 +319,6 @@ const App: React.FC = () => {
             
             {/* Logo */}
             <div className="flex items-center gap-3 cursor-pointer z-50 group" onClick={() => navigateTo(isAuthenticated ? 'panel' : 'home')}>
-              {/* Money Bag + Bars Icon (SVG Customizado) */}
               <div className="w-10 h-10 flex items-center justify-center transform group-hover:scale-105 transition-transform duration-300">
                 <img
                   src="/icon-512.png"

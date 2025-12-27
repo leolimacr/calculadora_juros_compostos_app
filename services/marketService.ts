@@ -64,24 +64,24 @@ export const fetchMarketQuotes = async (forceRefresh = false): Promise<MarketRes
     const apiRes = await fetch(INDICES_API_URL);
     
     if (apiRes.ok) {
-        const data = await apiRes.json();
+        // Leitura conforme solicitado: const { indices, simulated } = await res.json();
+        const { indices, simulated } = await apiRes.json();
         
-        // A API retorna { indices: [], simulated: boolean }
-        // Se data.simulated for true, significa que o backend usou fallback (rate limit ou erro)
-        if (data.simulated) {
+        // Se simulated for true, significa que o backend usou fallback (rate limit ou erro)
+        if (simulated) {
             isRateLimited = true;
         }
 
-        if (data.indices && Array.isArray(data.indices)) {
-            data.indices.forEach((idx: any) => {
+        if (indices && Array.isArray(indices)) {
+            indices.forEach((idx: any) => {
                 quotes.push({
                     symbol: idx.symbol,
-                    name: idx.name, // "Ibovespa", "S&P 500"
+                    name: idx.name, // "Ibovespa", "S&P 500" - Nome base sem sufixo
                     price: idx.price,
                     changePercent: idx.changePercent,
                     category: 'index',
                     timestamp: Date.now(),
-                    simulated: data.simulated // Propaga o status simulado para o item individual
+                    simulated: simulated // Preenchido com o valor do campo global
                 });
             });
         }
