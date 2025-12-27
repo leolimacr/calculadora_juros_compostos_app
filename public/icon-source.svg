@@ -1,0 +1,66 @@
+
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- Background: Rounded Square (Indigo/Blue Theme) -->
+    <rect width="512" height="512" rx="115" fill="#4F46E5"/>
+    
+    <!-- Decorative Background Glow -->
+    <circle cx="256" cy="256" r="200" fill="white" fill-opacity="0.05"/>
+
+    <!-- Main Group: Financial Elements -->
+    <g transform="translate(36, 36)">
+        
+        <!-- Money Bag (Left Element) -->
+        <g filter="url(#shadow)">
+            <!-- Bag Body -->
+            <path d="M128.5 120C158 120 178 135 188 165C230 185 250 235 250 285C250 365 200 415 128.5 415C57 415 7 365 7 285C7 235 27 185 69 165C79 135 99 120 128.5 120Z" fill="#10B981"/>
+            <path d="M128.5 120C158 120 178 135 188 165C230 185 250 235 250 285C250 365 200 415 128.5 415C57 415 7 365 7 285C7 235 27 185 69 165C79 135 99 120 128.5 120Z" fill="url(#bagGradient)" fill-opacity="0.2"/>
+            
+            <!-- Bag Neck/Ruffle -->
+            <path d="M88.5 110C118.5 90 138.5 90 168.5 110L158.5 130C138.5 120 118.5 120 98.5 130L88.5 110Z" fill="#34D399"/>
+            
+            <!-- Tie (Gold Rope) -->
+            <rect x="98.5" y="155" width="60" height="12" rx="6" fill="#FBBF24"/>
+            
+            <!-- Dollar Symbol -->
+            <text x="128.5" y="325" font-family="Arial, sans-serif" font-weight="900" font-size="140" fill="#ECFDF5" text-anchor="middle" style="filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.1));">$</text>
+        </g>
+
+        <!-- Chart Bars (Right Element) -->
+        <g transform="translate(240, 160)">
+            <!-- Bar 1 -->
+            <rect x="0" y="160" width="45" height="100" rx="8" fill="#FBBF24" stroke="#F59E0B" stroke-width="4"/>
+            <!-- Bar 2 -->
+            <rect x="65" y="100" width="45" height="160" rx="8" fill="#FBBF24" stroke="#F59E0B" stroke-width="4"/>
+            <!-- Bar 3 -->
+            <rect x="130" y="40" width="45" height="220" rx="8" fill="#FBBF24" stroke="#F59E0B" stroke-width="4"/>
+        </g>
+
+        <!-- Growth Arrow (Overlay) -->
+        <g filter="url(#shadow)">
+            <path d="M220 340 L380 140" stroke="#FFFFFF" stroke-width="24" stroke-linecap="round"/>
+            <path d="M380 140 L320 140 M380 140 L380 200" stroke="#FFFFFF" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+            
+            <!-- Inner Color -->
+            <path d="M220 340 L380 140" stroke="#F59E0B" stroke-width="14" stroke-linecap="round"/>
+            <path d="M380 140 L325 140 M380 140 L380 195" stroke="#F59E0B" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+    </g>
+
+    <!-- Definitions for Gradients and Shadows -->
+    <defs>
+        <linearGradient id="bagGradient" x1="7" y1="120" x2="250" y2="415" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#34D399"/>
+            <stop offset="1" stop-color="#059669"/>
+        </linearGradient>
+        <filter id="shadow" x="-20" y="-20" width="600" height="600" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+            <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+            <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+            <feOffset dy="4"/>
+            <feGaussianBlur stdDeviation="6"/>
+            <feComposite in2="hardAlpha" operator="out"/>
+            <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"/>
+            <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow"/>
+            <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow" result="shape"/>
+        </filter>
+    </defs>
+</svg>

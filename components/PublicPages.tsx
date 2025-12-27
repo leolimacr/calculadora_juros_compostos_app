@@ -72,9 +72,6 @@ const MarketWidget = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Verifica se há algum índice simulado para mostrar o aviso
-  const showSimulatedWarning = quotes.some(q => q.category === 'index' && q.simulated);
-
   // Skeleton Loading Component
   const MarketSkeleton = () => (
     <div className="space-y-3 animate-pulse">
@@ -91,24 +88,22 @@ const MarketWidget = () => {
   );
 
   const ItemRow = ({ item }: { item: MarketQuote }) => {
-      // Monta o nome com sufixo se for índice simulado
-      const displayName = item.category === 'index' && item.simulated 
-        ? `${item.name} (Simulado)` 
-        : item.name;
-
+      const isUSD = item.symbol.includes('/USD');
       return (
-        <div className="flex justify-between items-center py-2 border-b border-slate-700/50 last:border-0 hover:bg-slate-700/20 transition-colors px-1 rounded animate-in fade-in duration-500">
+        <div className="flex justify-between items-center py-2 border-b border-slate-700/50 last:border-0 hover:bg-slate-700/20 transition-colors px-2 rounded-lg animate-in fade-in duration-500">
             <div className="flex flex-col">
                <span className="text-xs text-slate-300 font-bold">{item.symbol}</span>
-               <span className="text-[9px] text-slate-500 truncate max-w-[120px] hidden sm:block" title={displayName}>
-                 {displayName}
+               <span className="text-[9px] text-slate-500 truncate max-w-[120px] hidden sm:block">
+                 {item.name}
                </span>
             </div>
             <div className="text-right">
                 <div className="text-xs font-bold text-white">
                     {item.category === 'index' 
                       ? `${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} pts`
-                      : `R$ ${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                      : isUSD 
+                        ? `$ ${item.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        : `R$ ${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                 </div>
                 <div className={`text-[10px] font-bold ${item.changePercent >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                     {item.changePercent >= 0 ? '↑' : '↓'} {Math.abs(item.changePercent).toFixed(2)}%
@@ -133,22 +128,30 @@ const MarketWidget = () => {
         {loading && quotes.length === 0 ? (
           <MarketSkeleton />
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
               {/* Moedas */}
-              <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Moedas</span>
-                  {quotes.filter(q => q.category === 'currency').map(q => <ItemRow key={`${q.symbol}-${lastUpdate.getTime()}`} item={q} />)}
+              <div className="bg-slate-900/30 rounded-xl p-3 border border-slate-700/50">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-wider px-1">Moedas</span>
+                  <div className="space-y-0.5">
+                    {quotes.filter(q => q.category === 'currency').map(q => <ItemRow key={`${q.symbol}-${lastUpdate.getTime()}`} item={q} />)}
+                  </div>
               </div>
+              
               {/* Cripto */}
-              <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Cripto</span>
-                  {quotes.filter(q => q.category === 'crypto').map(q => <ItemRow key={`${q.symbol}-${lastUpdate.getTime()}`} item={q} />)}
+              <div className="bg-slate-900/30 rounded-xl p-3 border border-slate-700/50">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-wider px-1">Cripto</span>
+                  <div className="space-y-0.5">
+                    {quotes.filter(q => q.category === 'crypto').map(q => <ItemRow key={`${q.symbol}-${lastUpdate.getTime()}`} item={q} />)}
+                  </div>
               </div>
+
               {/* Índices (Se houver) */}
               {quotes.some(q => q.category === 'index') && (
-                <div>
-                    <span className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Índices</span>
-                    {quotes.filter(q => q.category === 'index').map(q => <ItemRow key={`${q.symbol}-${lastUpdate.getTime()}`} item={q} />)}
+                <div className="bg-slate-900/30 rounded-xl p-3 border border-slate-700/50">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-wider px-1">Índices</span>
+                    <div className="space-y-0.5">
+                      {quotes.filter(q => q.category === 'index').map(q => <ItemRow key={`${q.symbol}-${lastUpdate.getTime()}`} item={q} />)}
+                    </div>
                 </div>
               )}
           </div>
@@ -168,12 +171,6 @@ const MarketWidget = () => {
                 {loading ? 'Atualizando...' : 'Atualizar ↻'}
               </button>
            </div>
-           
-           {showSimulatedWarning && (
-             <p className="text-[9px] text-orange-400 font-medium mt-2 text-center bg-orange-900/10 py-1 rounded border border-orange-500/20 animate-in fade-in">
-               ⚠️ Muitos acessos. Índices simulados.
-             </p>
-           )}
         </div>
     </div>
   );
