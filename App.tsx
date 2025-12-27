@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect, Suspense, lazy } from 'react';
 import CalculatorForm from './components/CalculatorForm';
 import ResultsDisplay from './components/ResultsDisplay';
@@ -10,6 +11,7 @@ import Footer from './components/Footer';
 import BackToTop from './components/BackToTop';
 import InstallPrompt from './components/InstallPrompt';
 import MobileBottomNav from './components/MobileBottomNav';
+import AppInstallButton from './components/AppInstallButton'; // Novo Componente
 import LockedManager from './components/Auth/LockedManager'; 
 import AuthRegister from './components/Auth/AuthRegister';
 import AuthLogin from './components/Auth/AuthLogin';
@@ -309,6 +311,9 @@ const App: React.FC = () => {
       <InstallPrompt />
       <BackToTop />
       
+      {/* Botão Fixo de Instalação (Renderizado aqui para ficar sempre visível) */}
+      <AppInstallButton />
+
       {showOnboarding && <Onboarding onComplete={handleOnboardingComplete} userName={user?.name || user?.email.split('@')[0]} />}
 
       {/* Navigation Bar */}
@@ -559,10 +564,10 @@ const App: React.FC = () => {
           <Footer onNavigate={(tool) => navigateTo(tool as ToolView)} />
         </main>
 
-        {/* AI FAB (Desktop Only) */}
+        {/* AI FAB (Desktop Only) - Reposicionado para não sobrepor o botão de instalar */}
         <button
           onClick={() => setIsAiChatOpen(true)}
-          className="hidden lg:flex fixed bottom-8 right-8 z-40 w-16 h-16 bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-full shadow-2xl shadow-emerald-900/50 items-center justify-center text-3xl animate-in slide-in-from-bottom-10 hover:scale-110 transition-transform active:scale-95 border-2 border-white/10 group no-print"
+          className="hidden lg:flex fixed bottom-8 right-32 z-40 w-16 h-16 bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-full shadow-2xl shadow-emerald-900/50 items-center justify-center text-3xl animate-in slide-in-from-bottom-10 hover:scale-110 transition-transform active:scale-95 border-2 border-white/10 group no-print"
           aria-label="Abrir Consultor IA"
           title="Consultor IA"
         >
