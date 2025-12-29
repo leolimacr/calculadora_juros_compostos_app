@@ -28,6 +28,7 @@ import { useAuth } from './contexts/AuthContext';
 import { CalculationInput, CalculationResult, Transaction, Goal, ToastMessage, ToastType } from './types';
 import { calculateCompoundInterest } from './utils/calculations';
 import { logEvent, ANALYTICS_EVENTS } from './utils/analytics';
+import { useFirebase } from './hooks/useFirebase';
 
 // Lazy Loading Components
 const Dashboard = lazy(() => import('./components/Dashboard'));
@@ -79,16 +80,8 @@ const App: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
 
   // Data States
-  const [transactions, setTransactions] = useState<Transaction[]>(() => {
-    const saved = localStorage.getItem('finpro_transactions');
-    if (saved) return JSON.parse(saved);
-    const hasLocalAccount = localStorage.getItem('finpro_auth_user');
-    if (hasLocalAccount) return [];
-    return [
-      { id: '1', type: 'income', date: new Date().toISOString().split('T')[0], description: 'Salário Inicial (Exemplo)', category: '💰 Salário', amount: 5000 },
-      { id: '2', type: 'expense', date: new Date().toISOString().split('T')[0], description: 'Exemplo de Despesa', category: '🛒 Supermercado', amount: 450.50 },
-    ];
-  });
+  // Integração Firebase - Substitui o estado local de transactions
+  const { lancamentos: transactions, saveLancamento, deleteLancamento } = useFirebase("uid_teste_leonardo");
 
   const [expenseCategories, setExpenseCategories] = useState<string[]>(() => {
     const saved = localStorage.getItem('finpro_cat_expense');
@@ -128,7 +121,7 @@ const App: React.FC = () => {
     }
   }, [isAuthenticated, isAuthLoading]); // Run once on auth change
 
-  useEffect(() => { localStorage.setItem('finpro_transactions', JSON.stringify(transactions)); }, [transactions]);
+  // transactions persistence removed (handled by firebase)
   useEffect(() => { localStorage.setItem('finpro_cat_expense', JSON.stringify(expenseCategories)); }, [expenseCategories]);
   useEffect(() => { localStorage.setItem('finpro_cat_income', JSON.stringify(incomeCategories)); }, [incomeCategories]);
   useEffect(() => { localStorage.setItem('finpro_goals', JSON.stringify(goals)); }, [goals]);
@@ -146,18 +139,28 @@ const App: React.FC = () => {
     notify("Cálculo de juros realizado!", 'success');
   }, []);
 
-  const handleSaveTransaction = (newT: Omit<Transaction, 'id'>) => {
-    setTransactions(prev => [{ ...newT, id: Math.random().toString(36).substr(2, 9) }, ...prev]);
-    setActiveModal(null);
-    notify("Lançamento salvo com sucesso!", 'success');
-    logEvent(ANALYTICS_EVENTS.ADD_TRANSACTION, { category: newT.category, type: newT.type });
-    if (!localStorage.getItem('finpro_has_used_manager')) localStorage.setItem('finpro_has_used_manager', 'true');
+  const handleSaveTransaction = async (newT: Omit<Transaction, 'id'>) => {
+    try {
+      await saveLancamento(newT);
+      setActiveModal(null);
+      notify("Lançamento salvo com sucesso!", 'success');
+      logEvent(ANALYTICS_EVENTS.ADD_TRANSACTION, { category: newT.category, type: newT.type });
+      if (!localStorage.getItem('finpro_has_used_manager')) localStorage.setItem('finpro_has_used_manager', 'true');
+    } catch (error) {
+      console.error(error);
+      notify("Erro ao salvar lançamento.", 'error');
+    }
   };
 
-  const handleDeleteTransaction = (id: string) => {
+  const handleDeleteTransaction = async (id: string) => {
     if (confirm("Confirmar exclusão permanente?")) {
-      setTransactions(prev => prev.filter(t => t.id !== id));
-      notify("Lançamento excluído.", 'info');
+      try {
+        await deleteLancamento(id);
+        notify("Lançamento excluído.", 'info');
+      } catch (error) {
+        console.error(error);
+        notify("Erro ao excluir lançamento.", 'error');
+      }
     }
   };
 
