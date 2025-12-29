@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { MarketWidget, NewsWidget } from './Widgets';
 
 interface UserPanelProps {
   onNavigate: (tool: string) => void;
@@ -35,46 +36,58 @@ const UserPanel: React.FC<UserPanelProps> = ({ onNavigate }) => {
          <div className="absolute top-0 right-0 p-32 bg-emerald-500/5 blur-[80px] rounded-full pointer-events-none"></div>
       </div>
 
-      {/* Grid de Ferramentas */}
-      <div>
-         <h3 className="text-lg font-bold text-white mb-6 pl-2 border-l-4 border-emerald-500 uppercase tracking-widest text-sm">Suas Ferramentas</h3>
-         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {tools.map(tool => (
-               <div 
-                  key={tool.id} 
-                  onClick={() => onNavigate(tool.id)}
-                  className={`bg-slate-800 p-6 rounded-2xl border border-slate-700 hover:border-slate-500 transition-all cursor-pointer group relative overflow-hidden flex flex-col h-full shadow-lg hover:shadow-xl hover:-translate-y-1`}
-               >
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4 ${tool.bg} ${tool.color} border ${tool.border}`}>
-                     {tool.icon}
-                  </div>
-                  <h4 className="font-bold text-white text-lg mb-2">{tool.name}</h4>
-                  <p className="text-sm text-slate-400 mb-6 flex-grow">{tool.desc}</p>
-                  <button className="text-xs font-bold text-white bg-slate-700 hover:bg-slate-600 py-2 px-4 rounded-lg w-full transition-colors flex items-center justify-center gap-2 group-hover:bg-emerald-600">
-                     Abrir Ferramenta <span>→</span>
-                  </button>
+      {/* Main Grid Layout (Tools + Sidebar) */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] xl:grid-cols-[1fr_400px] gap-8 pb-24 lg:pb-0">
+         
+         {/* Main Column: Ferramentas */}
+         <div className="space-y-8">
+            <div>
+               <h3 className="text-lg font-bold text-white mb-6 pl-2 border-l-4 border-emerald-500 uppercase tracking-widest text-sm">Suas Ferramentas</h3>
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {tools.map(tool => (
+                     <div 
+                        key={tool.id} 
+                        onClick={() => onNavigate(tool.id)}
+                        className={`bg-slate-800 p-6 rounded-2xl border border-slate-700 hover:border-slate-500 transition-all cursor-pointer group relative overflow-hidden flex flex-col h-full shadow-lg hover:shadow-xl hover:-translate-y-1`}
+                     >
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4 ${tool.bg} ${tool.color} border ${tool.border}`}>
+                           {tool.icon}
+                        </div>
+                        <h4 className="font-bold text-white text-lg mb-2">{tool.name}</h4>
+                        <p className="text-sm text-slate-400 mb-6 flex-grow">{tool.desc}</p>
+                        <button className="text-xs font-bold text-white bg-slate-700 hover:bg-slate-600 py-2 px-4 rounded-lg w-full transition-colors flex items-center justify-center gap-2 group-hover:bg-emerald-600">
+                           Abrir Ferramenta <span>→</span>
+                        </button>
+                     </div>
+                  ))}
                </div>
-            ))}
-         </div>
-      </div>
+            </div>
 
-      {/* Dica do Dia / CTA */}
-      <div className="bg-gradient-to-r from-indigo-900/40 to-slate-900 p-6 rounded-2xl border border-indigo-500/20 flex flex-col md:flex-row items-center gap-6">
-         <div className="bg-indigo-500/20 p-4 rounded-full text-3xl">💡</div>
-         <div>
-            <h4 className="font-bold text-white mb-1">Dica do Dia</h4>
-            <p className="text-sm text-slate-300">
-               Já conferiu a <strong className="text-indigo-300">Inflação</strong> hoje? Use a ferramenta "Poder de Compra" para ver quanto seu dinheiro de 2010 vale agora.
-            </p>
+            {/* Dica do Dia / CTA */}
+            <div className="bg-gradient-to-r from-indigo-900/40 to-slate-900 p-6 rounded-2xl border border-indigo-500/20 flex flex-col md:flex-row items-center gap-6">
+               <div className="bg-indigo-500/20 p-4 rounded-full text-3xl">💡</div>
+               <div>
+                  <h4 className="font-bold text-white mb-1">Dica do Dia</h4>
+                  <p className="text-sm text-slate-300">
+                     Já conferiu a <strong className="text-indigo-300">Inflação</strong> hoje? Use a ferramenta "Poder de Compra" para ver quanto seu dinheiro de 2010 vale agora.
+                  </p>
+               </div>
+               <button 
+                  onClick={() => onNavigate('inflation')}
+                  className="md:ml-auto whitespace-nowrap text-sm font-bold text-indigo-400 hover:text-white transition-colors"
+               >
+                  Ver Agora
+               </button>
+            </div>
          </div>
-         <button 
-            onClick={() => onNavigate('inflation')}
-            className="md:ml-auto whitespace-nowrap text-sm font-bold text-indigo-400 hover:text-white transition-colors"
-         >
-            Ver Agora
-         </button>
-      </div>
 
+         {/* Sidebar: Widgets (Market/News) - Visible on Mobile too (stacked) */}
+         <aside className="space-y-6">
+            <MarketWidget />
+            <NewsWidget />
+         </aside>
+
+      </div>
     </div>
   );
 };
