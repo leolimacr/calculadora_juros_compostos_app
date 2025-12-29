@@ -140,6 +140,7 @@ const App: React.FC = () => {
   }, []);
 
   const handleSaveTransaction = async (newT: Omit<Transaction, 'id'>) => {
+    console.log('📱 APP: Salvando:', newT);
     try {
       await saveLancamento(newT);
       setActiveModal(null);
@@ -147,7 +148,7 @@ const App: React.FC = () => {
       logEvent(ANALYTICS_EVENTS.ADD_TRANSACTION, { category: newT.category, type: newT.type });
       if (!localStorage.getItem('finpro_has_used_manager')) localStorage.setItem('finpro_has_used_manager', 'true');
     } catch (error) {
-      console.error(error);
+      console.error('📱 APP ERRO:', error);
       notify("Erro ao salvar lançamento.", 'error');
     }
   };

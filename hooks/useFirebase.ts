@@ -21,9 +21,16 @@ export const useFirebase = (userId: string) => {
   }, [userId]);
 
   const saveLancamento = async (lancamento: any) => {
-    const lancamentosRef = ref(database, `users/${userId}/gerenciadorFinanceiro/lancamentos`);
-    // App uses 'date' field provided in lancamento object
-    await push(lancamentosRef, { ...lancamento, id: uuidv4() });
+    console.log('🔥 TENTANDO SALVAR:', lancamento);
+    try {
+      const lancamentosRef = ref(database, `users/${userId}/gerenciadorFinanceiro/lancamentos`);
+      // App uses 'date' field provided in lancamento object
+      await push(lancamentosRef, { ...lancamento, id: uuidv4() });
+      console.log('✅ SALVOU NO FIREBASE!');
+    } catch (error) {
+      console.error('❌ ERRO SAVE:', error);
+      throw error;
+    }
   };
 
   const deleteLancamento = async (id: string) => {
