@@ -81,13 +81,11 @@ const App: React.FC = () => {
 
   // Data States
   
-  // Integração Firebase - Substitui o estado local de transactions
-  // Nota: Hooks não podem ser condicionais. Usamos um ID placeholder seguro quando não há usuário.
-  const authReady = !isAuthLoading && !!(user as any)?.uid;
-  const firebaseUid = authReady ? (user as any).uid : "guest_placeholder";
-  const firebaseData = useFirebase(firebaseUid);
+  // Integração Firebase - Safe Fallback ID com usuário local
+  const localUserId = (user as any)?.id || (user as any)?.uid || "guest_placeholder";
+  const authReady = !!(user as any) && localUserId !== "guest_placeholder";
+  const firebaseData = useFirebase(localUserId);
 
-  // Filtramos os dados/funções para garantir que só sejam usados se a auth estiver pronta
   const transactions: Transaction[] = authReady ? firebaseData.lancamentos : [];
   const saveLancamento = authReady ? firebaseData.saveLancamento : async () => {};
   const deleteLancamento = authReady ? firebaseData.deleteLancamento : async () => {};
