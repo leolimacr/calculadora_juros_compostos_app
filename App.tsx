@@ -80,9 +80,17 @@ const App: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
 
   // Data States
+  
   // Integração Firebase - Substitui o estado local de transactions
-  const effectiveUid = (user as any)?.uid || "uid_teste_leonardo";
-  const { lancamentos: transactions, saveLancamento, deleteLancamento } = useFirebase(effectiveUid);
+  // Nota: Hooks não podem ser condicionais. Usamos um ID placeholder seguro quando não há usuário.
+  const authReady = !isAuthLoading && !!(user as any)?.uid;
+  const firebaseUid = authReady ? (user as any).uid : "guest_placeholder";
+  const firebaseData = useFirebase(firebaseUid);
+
+  // Filtramos os dados/funções para garantir que só sejam usados se a auth estiver pronta
+  const transactions: Transaction[] = authReady ? firebaseData.lancamentos : [];
+  const saveLancamento = authReady ? firebaseData.saveLancamento : async () => {};
+  const deleteLancamento = authReady ? firebaseData.deleteLancamento : async () => {};
 
   const [expenseCategories, setExpenseCategories] = useState<string[]>(() => {
     const saved = localStorage.getItem('finpro_cat_expense');
