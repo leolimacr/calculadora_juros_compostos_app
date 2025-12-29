@@ -5,6 +5,8 @@ import { database } from '../firebase';
 import { v4 as uuidv4 } from 'uuid';
 
 export const useFirebase = (userId: string) => {
+  console.log('🔥 useFirebase iniciado com userId:', userId);
+
   const [lancamentos, setLancamentos] = useState<any[]>([]);
 
   useEffect(() => {
