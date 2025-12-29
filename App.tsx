@@ -81,7 +81,8 @@ const App: React.FC = () => {
 
   // Data States
   // Integração Firebase - Substitui o estado local de transactions
-  const { lancamentos: transactions, saveLancamento, deleteLancamento } = useFirebase("uid_teste_leonardo");
+  const effectiveUid = (user as any)?.uid || "uid_teste_leonardo";
+  const { lancamentos: transactions, saveLancamento, deleteLancamento } = useFirebase(effectiveUid);
 
   const [expenseCategories, setExpenseCategories] = useState<string[]>(() => {
     const saved = localStorage.getItem('finpro_cat_expense');
