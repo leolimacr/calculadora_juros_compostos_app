@@ -15,82 +15,29 @@
     </script>
 
     <!-- SEO Primário -->
-    <title>Finanças Pro Invest - Gerenciador Financeiro & Calculadora FIRE Grátis</title>
-    <meta name="description" content="Domine suas finanças com 8 ferramentas gratuitas e 100% offline. Gerenciador Financeiro, Calculadora FIRE, Juros Compostos e mais. Sem login, sem anúncios.">
-    <meta name="keywords" content="gerenciador financeiro gratuito, calculadora fire, simulador juros compostos, controle de gastos offline, independência financeira, alugar ou financiar, calculadora dividendos, sair das dívidas">
-    <meta name="robots" content="index, follow">
-    <meta name="author" content="Finanças Pro Invest">
-
-    <!-- PWA & Mobile UX -->
+    <title>Finanças Pro Invest - Gerenciador Financeiro</title>
+    <meta name="description" content="Domine suas finanças com ferramentas gratuitas e offline.">
+    
+    <!-- PWA & Mobile UX (Correção da Tag Depreciada) -->
     <meta name="theme-color" content="#020617">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Finanças Pro">
-    <meta name="mobile-web-app-capable" content="yes">
     
-    <!-- Ícones -->
-    <link rel="icon" type="image/png" href="/icon-514.png">
-    <link rel="apple-touch-icon" href="/icon-514.png">
+    <!-- Ícones (Caminhos absolutos para garantir que o Vite encontre na pasta public) -->
+    <link rel="icon" type="image/svg+xml" href="/icon-514.svg">
+    <link rel="apple-touch-icon" href="/icon-514.svg">
     <link rel="manifest" href="/manifest.json">
 
-    <!-- Open Graph / Facebook / WhatsApp -->
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://financasproinvest.com.br/">
-    <meta property="og:title" content="Finanças Pro Invest - Gerenciador Financeiro & Calculadora FIRE Grátis">
-    <meta property="og:description" content="Ferramentas financeiras profissionais, gratuitas e privadas. Simule investimentos, organize gastos e planeje sua liberdade financeira.">
-    <meta property="og:image" content="https://financasproinvest.com.br/og-image.jpg">
-
-    <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="https://financasproinvest.com.br/">
-    <meta property="twitter:title" content="Finanças Pro Invest - Gerenciador Financeiro & Calculadora FIRE Grátis">
-    <meta property="twitter:description" content="Domine suas finanças com ferramentas 100% offline e gratuitas.">
-    <meta property="twitter:image" content="https://financasproinvest.com.br/og-image.jpg">
-
-    <!-- Google Search Console -->
-    <meta name="google-site-verification" content="Xm5q4K-vv-9ZyMSB9zlHoe8I0hPsuX3R87pgpF5RkRQ" />
-    
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #020617;
-            color: #e2e8f0;
-            overscroll-behavior-y: none;
-        }
-        input, select, textarea {
-            color-scheme: dark;
-        }
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: #0f172a;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #334155;
-            border-radius: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #475569;
-        }
-        .glass {
-            background: rgba(15, 23, 42, 0.7);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-        }
-        @media print {
-            body { background-color: white !important; color: black !important; }
-            nav, aside, .no-print, button, .ai-sidebar { display: none !important; }
-            main { width: 100% !important; margin: 0 !important; padding: 0 !important; display: block !important; }
-            .bg-slate-800, .bg-slate-900 { background-color: white !important; border: 1px solid #ddd !important; color: black !important; box-shadow: none !important; }
-            .text-white, .text-slate-200, .text-slate-300, .text-slate-400 { color: black !important; }
-            .recharts-responsive-container { filter: grayscale(0%) contrast(150%); }
-            .grid { display: block !important; }
-            .grid > div { margin-bottom: 20px; page-break-inside: avoid; }
-        }
+        body { font-family: 'Inter', sans-serif; background-color: #020617; color: #e2e8f0; overscroll-behavior-y: none; }
+        input, select, textarea { color-scheme: dark; }
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #0f172a; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
     </style>
 <script type="importmap">
 {

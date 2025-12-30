@@ -1,12 +1,12 @@
+
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: './', // Garante caminhos relativos para assets
+  publicDir: 'public', // Garante que arquivos em public/ sejam copiados
   server: {
-    host: true, // Necessário para ambientes de container/cloud
+    host: true, 
     port: 5173
   },
   define: {
