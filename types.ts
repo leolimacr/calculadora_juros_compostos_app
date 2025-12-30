@@ -34,7 +34,15 @@ export interface CalculationResult {
   history: MonthlyData[];
 }
 
-// Gerenciador Financeiro
+// Gerenciador Financeiro - Freemium Meta
+export interface UserMeta {
+  plan: 'free' | 'premium';
+  launchLimit: number;
+  launchCount: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export type TransactionType = 'income' | 'expense';
 
 export interface Transaction {

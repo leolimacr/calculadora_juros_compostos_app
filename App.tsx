@@ -166,7 +166,9 @@ const App: React.FC = () => {
       if (!localStorage.getItem('finpro_has_used_manager')) localStorage.setItem('finpro_has_used_manager', 'true');
     } catch (error) {
       console.error('📱 APP ERRO:', error);
-      notify("Erro ao salvar lançamento.", 'error');
+      // Se for erro de conexão do firebase, a mensagem já vem do hook ou mostramos genérica
+      const msg = error instanceof Error ? error.message : "Erro ao salvar lançamento.";
+      notify(msg, 'error');
     }
   };
 
@@ -346,7 +348,7 @@ const App: React.FC = () => {
             <div className="flex items-center gap-3 cursor-pointer z-50 group" onClick={() => navigateTo(isAuthenticated ? 'panel' : 'home')}>
               <div className="w-10 h-10 flex items-center justify-center transform group-hover:scale-105 transition-transform duration-300">
                 <img
-                  src="/icon-514.png"
+                  src="/icon-514.svg"
                   alt="Finanças Pro Invest"
                   className="w-10 h-10 rounded-xl shadow-md"
                 />

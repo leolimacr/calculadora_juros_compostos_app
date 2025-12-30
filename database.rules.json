@@ -3,8 +3,8 @@
   "rules": {
     "users": {
       "$user_id": {
-        // Permite leitura/escrita apenas se o cliente estiver autenticado (mesmo que anonimamente).
-        // Isso impede acesso público total, mas permite que seu app (que faz login anônimo) salve os dados.
+        // Permite que o dono do ID (autenticado anonimamente ou não)
+        // leia e escreva em QUALQUER lugar dentro do seu nó (incluindo 'meta' e 'lancamentos').
         ".read": "auth != null",
         ".write": "auth != null"
       }

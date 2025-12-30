@@ -29,6 +29,11 @@ export const authReadyPromise = new Promise((resolve) => {
       console.log("🔄 Tentando Login Anônimo no Firebase...");
       signInAnonymously(auth).catch((error) => {
         console.error("❌ Erro Auth Anônimo:", error);
+        
+        // ALERTA CRÍTICO DE CONFIGURAÇÃO
+        if (error.code === 'auth/configuration-not-found' || error.code === 'auth/operation-not-allowed' || error.code === 'auth/admin-restricted-operation') {
+             alert("ERRO DE CONFIGURAÇÃO FIREBASE:\n\nA autenticação 'Anônima' não está ativada no Console do Firebase.\n\n1. Acesse console.firebase.google.com\n2. Vá em Build > Authentication > Sign-in method\n3. Ative 'Anonymous'");
+        }
       });
     }
   });
