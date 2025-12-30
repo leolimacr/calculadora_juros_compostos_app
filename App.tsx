@@ -81,9 +81,15 @@ const App: React.FC = () => {
 
   // Data States
   
-  // Integração Firebase - Safe Fallback ID com usuário local
-  const localUserId = (user as any)?.id || (user as any)?.uid || "guest_placeholder";
-  const authReady = !!(user as any) && localUserId !== "guest_placeholder";
+  // Integração Firebase - Safe Fallback com usuário local
+  const hasUser = !!user;
+  const localUserId =
+    (user as any)?.id ||
+    (user as any)?.email ||
+    (user as any)?.username ||
+    "guest_placeholder";
+
+  const authReady = hasUser && localUserId !== "guest_placeholder";
   const firebaseData = useFirebase(localUserId);
 
   const transactions: Transaction[] = authReady ? firebaseData.lancamentos : [];
