@@ -17,7 +17,6 @@ const AuthRegister: React.FC<AuthRegisterProps> = ({ onSuccess, onSwitchToLogin 
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   
-  // Form Errors
   const [errors, setErrors] = useState({
     email: '',
     pin: '',
@@ -67,12 +66,17 @@ const AuthRegister: React.FC<AuthRegisterProps> = ({ onSuccess, onSwitchToLogin 
     if (!validate()) return;
 
     setLoading(true);
-    const success = await register(email, pin, name);
+    // Register retorna o token se for sucesso, ou false
+    const resultToken = await register(email, pin, name);
     
-    if (success) {
-      // Envia e-mail mockado
-      await sendConfirmationEmail(email, 'register');
-      onSuccess();
+    if (resultToken) {
+      // Envia e-mail mockado com token real para testar
+      await sendConfirmationEmail(email, 'register', resultToken as string);
+      
+      // Pequeno delay para UX
+      setTimeout(() => {
+          onSuccess();
+      }, 500);
     } else {
       setErrors(prev => ({ ...prev, general: 'Erro ao criar conta local. Tente novamente.' }));
       setLoading(false);

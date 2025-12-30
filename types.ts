@@ -41,6 +41,8 @@ export interface UserMeta {
   launchCount: number;
   createdAt: number;
   updatedAt: number;
+  emailVerified?: boolean; // Novo campo
+  emailVerificationSentAt?: number; // Novo campo
 }
 
 export type TransactionType = 'income' | 'expense';
@@ -179,8 +181,10 @@ export type ToolView =
   | 'register' 
   | 'termos-de-uso' 
   | 'politica-privacidade' 
-  | 'premium'   // Nova rota
-  | 'changelog' // Nova rota
+  | 'premium'
+  | 'changelog'
+  | 'verify-email' // Nova rota
+  | 'reset-password' // Nova rota
   // Privadas (Gerais)
   | 'panel' 
   | 'settings' 

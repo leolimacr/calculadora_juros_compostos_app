@@ -24,8 +24,8 @@ import Onboarding from './components/Onboarding';
 import { TermsPage, PrivacyPage } from './components/LegalPages';
 import { PublicHome, DemoPage, GuidesPage, FaqPage, AboutPage } from './components/PublicPages';
 import ArticlesPage from './components/ArticlesPage';
-import PremiumPage from './components/PremiumPage'; // Novo Import
-import ChangelogPage from './components/ChangelogPage'; // Novo Import
+import PremiumPage from './components/PremiumPage'; 
+import ChangelogPage from './components/ChangelogPage'; 
 
 import { useAuth } from './contexts/AuthContext';
 import { CalculationInput, CalculationResult, Transaction, Goal, ToastMessage, ToastType } from './types';
@@ -47,7 +47,7 @@ const InflationTool = lazy(() => import('./components/Tools').then(module => ({ 
 
 // Definição de Rotas/Views
 type ToolView = 
-  | 'home' | 'artigos' | 'guias' | 'faq' | 'sobre' | 'demo' | 'login' | 'register' | 'termos-de-uso' | 'politica-privacidade' | 'premium' | 'changelog' // Públicas
+  | 'home' | 'artigos' | 'guias' | 'faq' | 'sobre' | 'demo' | 'login' | 'register' | 'termos-de-uso' | 'politica-privacidade' | 'premium' | 'changelog' | 'verify-email' | 'reset-password' // Públicas
   | 'panel' | 'settings' | 'perfil' // Privadas (Gerais)
   | 'compound' | 'manager' | 'rent' | 'debt' | 'fire' | 'inflation' | 'dividend' | 'roi' | 'game' | 'education'; // Privadas (Ferramentas)
 
@@ -66,16 +66,21 @@ const LoadingFallback = () => (
 );
 
 const App: React.FC = () => {
-  const { isAuthenticated, hasLocalUser, user, logout, isLoading: isAuthLoading } = useAuth();
+  const { isAuthenticated, hasLocalUser, user, logout, isLoading: isAuthLoading, verifyEmail, completePasswordReset } = useAuth();
   
   const [currentTool, setCurrentTool] = useState<ToolView>('home');
   const [result, setResult] = useState<CalculationResult | null>(null);
   const [activeModal, setActiveModal] = useState<string | null>(null); 
   const [isAiChatOpen, setIsAiChatOpen] = useState(false);
   
+  // States for verification/reset flow
+  const [verificationStatus, setVerificationStatus] = useState<'loading' | 'success' | 'invalid'>('loading');
+  const [resetToken, setResetToken] = useState('');
+  const [resetStep, setResetStep] = useState<'input' | 'success'>('input');
+  
   // Navigation State
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // Top Right Menu
-  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false); // Bottom Drawer
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); 
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false); 
   
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [isPrivacyMode, setIsPrivacyMode] = useState(false);
@@ -83,8 +88,6 @@ const App: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
 
   // Data States
-  
-  // Integração Firebase - Safe Fallback com usuário local
   const hasUser = !!user;
   const rawUserId =
     (user as any)?.id ||
@@ -100,7 +103,6 @@ const App: React.FC = () => {
   const transactions: Transaction[] = authReady ? firebaseData.lancamentos : [];
   const saveLancamento = authReady ? firebaseData.saveLancamento : async () => {};
   const deleteLancamento = authReady ? firebaseData.deleteLancamento : async () => {};
-  // Propriedades Freemium
   const { userMeta, isPremium, usagePercentage } = firebaseData;
 
   const [expenseCategories, setExpenseCategories] = useState<string[]>(() => {
@@ -118,6 +120,27 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : [];
   });
 
+  // Handle URL params for verification/reset logic
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const action = params.get('action');
+    const token = params.get('token');
+
+    if (action === 'verify' && token) {
+        setCurrentTool('verify-email');
+        verifyEmail(token).then(status => {
+            setVerificationStatus(status);
+            // Limpa URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        });
+    } else if (action === 'reset' && token) {
+        setCurrentTool('reset-password');
+        setResetToken(token);
+        // Limpa URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
   // Effects & Handlers
   useEffect(() => {
     if (isAuthLoading) return;
@@ -128,13 +151,16 @@ const App: React.FC = () => {
         if (!onboardingDone) {
             setShowOnboarding(true);
         } else {
-            // Check Home Preference logic if landing on login/home
-            if (['home', 'login', 'register'].includes(currentTool)) {
-                const pref = localStorage.getItem('preferredHomeScreen');
-                if (pref && PRIVATE_TOOLS.includes(pref as ToolView)) {
-                    setCurrentTool(pref as ToolView);
-                } else {
-                    setCurrentTool('panel');
+            // Se cair na home/login mas já estiver logado, redireciona
+            if (['home', 'login', 'register', 'verify-email', 'reset-password'].includes(currentTool)) {
+                // Exceção: Se estiver em telas de verify/reset, não redireciona automaticamente
+                if (currentTool !== 'verify-email' && currentTool !== 'reset-password') {
+                    const pref = localStorage.getItem('preferredHomeScreen');
+                    if (pref && PRIVATE_TOOLS.includes(pref as ToolView)) {
+                        setCurrentTool(pref as ToolView);
+                    } else {
+                        setCurrentTool('panel');
+                    }
                 }
             }
         }
@@ -167,13 +193,9 @@ const App: React.FC = () => {
       logEvent(ANALYTICS_EVENTS.ADD_TRANSACTION, { category: newT.category, type: newT.type });
       if (!localStorage.getItem('finpro_has_used_manager')) localStorage.setItem('finpro_has_used_manager', 'true');
     } catch (error) {
-      console.error('📱 APP ERRO:', error);
-      
-      // Tratamento de Erro de Limite Freemium (Paywall)
       if (error instanceof Error && error.message.includes("LIMIT_REACHED")) {
-         setActiveModal('paywall'); // Abre o modal de Paywall
+         setActiveModal('paywall'); 
       } else {
-         // Erro genérico
          const msg = error instanceof Error ? error.message : "Erro ao salvar lançamento.";
          notify(msg, 'error');
       }
@@ -267,9 +289,73 @@ const App: React.FC = () => {
              </div>
           </div>
         );
+      case 'verify-email':
+        return (
+            <div className="flex items-center justify-center min-h-[70vh]">
+                <div className="bg-slate-800 border border-slate-700 p-8 rounded-3xl shadow-2xl max-w-md w-full text-center">
+                    {verificationStatus === 'loading' && <p>Verificando link...</p>}
+                    {verificationStatus === 'success' && (
+                        <div className="animate-in zoom-in">
+                            <div className="text-5xl mb-4">✅</div>
+                            <h2 className="text-2xl font-bold text-white mb-2">E-mail Confirmado!</h2>
+                            <p className="text-slate-400 mb-6">Sua conta está verificada e segura.</p>
+                            <button onClick={() => navigateTo('panel')} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-colors">
+                                Ir para o App
+                            </button>
+                        </div>
+                    )}
+                    {verificationStatus === 'invalid' && (
+                        <div className="animate-in shake">
+                            <div className="text-5xl mb-4">⚠️</div>
+                            <h2 className="text-2xl font-bold text-red-400 mb-2">Link Inválido</h2>
+                            <p className="text-slate-400 mb-6">Este link expirou ou já foi usado.</p>
+                            <button onClick={() => navigateTo('panel')} className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-xl transition-colors">
+                                Voltar
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+      case 'reset-password':
+        return (
+            <div className="flex items-center justify-center min-h-[70vh]">
+                <div className="bg-slate-800 border border-slate-700 p-8 rounded-3xl shadow-2xl max-w-md w-full">
+                    {resetStep === 'input' ? (
+                        <form onSubmit={async (e) => {
+                            e.preventDefault();
+                            const formData = new FormData(e.currentTarget);
+                            const pin = formData.get('pin') as string;
+                            if(pin.length < 4) { alert('Mínimo 4 dígitos'); return; }
+                            
+                            const success = await completePasswordReset(resetToken, pin);
+                            if(success) setResetStep('success');
+                            else alert('Token inválido ou expirado.');
+                        }}>
+                            <h3 className="text-xl font-bold text-white mb-4 text-center">Redefinir Senha</h3>
+                            <p className="text-sm text-slate-400 mb-4 text-center">Crie um novo PIN de acesso.</p>
+                            <input 
+                                name="pin" 
+                                type="password" 
+                                placeholder="Novo PIN" 
+                                className="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-white mb-4 outline-none focus:border-emerald-500" 
+                                autoFocus
+                            />
+                            <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl">Salvar Nova Senha</button>
+                        </form>
+                    ) : (
+                        <div className="text-center animate-in zoom-in">
+                            <h3 className="text-xl font-bold text-white mb-2">Senha Alterada!</h3>
+                            <p className="text-slate-400 mb-4">Você já pode entrar com seu novo PIN.</p>
+                            <button onClick={() => navigateTo('login')} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl">Ir para Login</button>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
       case 'artigos': return <ArticlesPage onReadArticle={() => {}} />;
-      case 'premium': return <PremiumPage onNavigate={navigateTo} />; // Nova Rota
-      case 'changelog': return <ChangelogPage />; // Nova Rota
+      case 'premium': return <PremiumPage onNavigate={navigateTo} />; 
+      case 'changelog': return <ChangelogPage />; 
       case 'demo': return <DemoPage onNavigate={navigateTo} />;
       case 'guias': return <GuidesPage onNavigate={navigateTo} />;
       case 'faq': return <FaqPage />;
@@ -303,7 +389,6 @@ const App: React.FC = () => {
             onDeleteGoal={handleDeleteGoal}
             isPrivacyMode={isPrivacyMode}
             navigateToHome={() => navigateTo('panel')}
-            // Props do Freemium
             userMeta={userMeta}
             usagePercentage={usagePercentage}
             isPremium={isPremium}
@@ -622,7 +707,7 @@ const App: React.FC = () => {
       <PaywallModal 
         isOpen={activeModal === 'paywall'}
         onClose={() => setActiveModal(null)}
-        onNavigate={navigateTo} // Passando navegação
+        onNavigate={navigateTo} 
         userMeta={userMeta}
       />
 

@@ -1,15 +1,29 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { MarketWidget, NewsWidget } from './Widgets';
+import { sendConfirmationEmail } from '../utils/email';
 
 interface UserPanelProps {
   onNavigate: (tool: string) => void;
 }
 
 const UserPanel: React.FC<UserPanelProps> = ({ onNavigate }) => {
-  const { user } = useAuth();
-  const userName = user?.email.split('@')[0] || 'Investidor';
+  const { user, resendVerificationEmail } = useAuth();
+  const userName = user?.name || user?.email.split('@')[0] || 'Investidor';
+  const [resendStatus, setResendStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
+
+  const handleResend = async () => {
+    setResendStatus('sending');
+    const token = await resendVerificationEmail();
+    if (token) {
+        await sendConfirmationEmail(user!.email, 'register', token as string);
+        setResendStatus('sent');
+        setTimeout(() => setResendStatus('idle'), 5000);
+    } else {
+        setResendStatus('idle');
+    }
+  };
 
   const tools = [
     { id: 'manager', name: 'Gerenciador Financeiro', desc: 'Controle receitas, despesas e metas.', icon: '💰', color: 'text-emerald-400', bg: 'bg-emerald-900/20', border: 'border-emerald-500/30' },
@@ -35,6 +49,26 @@ const UserPanel: React.FC<UserPanelProps> = ({ onNavigate }) => {
          </div>
          <div className="absolute top-0 right-0 p-32 bg-emerald-500/5 blur-[80px] rounded-full pointer-events-none"></div>
       </div>
+
+      {/* Alerta de Verificação de E-mail */}
+      {!user?.emailVerified && (
+        <div className="bg-amber-900/20 border border-amber-500/30 p-4 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-in slide-in-from-top-2">
+            <div className="flex items-center gap-3">
+                <span className="text-2xl">⚠️</span>
+                <div>
+                    <p className="text-amber-200 font-bold text-sm">Verifique seu e-mail ({user?.email})</p>
+                    <p className="text-amber-200/70 text-xs">Algumas funções avançadas de backup dependem disso.</p>
+                </div>
+            </div>
+            <button 
+                onClick={handleResend}
+                disabled={resendStatus !== 'idle'}
+                className="text-xs bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold px-4 py-2 rounded-lg transition-colors whitespace-nowrap disabled:opacity-50"
+            >
+                {resendStatus === 'sending' ? 'Enviando...' : resendStatus === 'sent' ? 'E-mail Enviado! ✅' : 'Reenviar E-mail'}
+            </button>
+        </div>
+      )}
 
       {/* Main Grid Layout (Tools + Sidebar) */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] xl:grid-cols-[1fr_400px] gap-8 pb-24 lg:pb-0">

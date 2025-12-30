@@ -3,17 +3,15 @@
   "rules": {
     "users": {
       "$user_id": {
-        // Permite que o dono do ID (autenticado anonimamente ou não)
-        // leia e escreva em QUALQUER lugar dentro do seu nó (incluindo 'meta' e 'lancamentos').
+        // Permite leitura/escrita completa para o dono, incluindo 'meta' e 'lancamentos'
         ".read": "auth != null",
         ".write": "auth != null"
       }
     },
     "newsletter": {
       "subscribers": {
-        // Ninguém lê a lista inteira publicamente (segurança de dados)
+        // Apenas escrita para newsletter, leitura bloqueada
         ".read": "false",
-        // Qualquer usuário logado (mesmo anônimo) pode adicionar seu e-mail
         ".write": "auth != null"
       }
     }
