@@ -8,6 +8,14 @@
         ".read": "auth != null",
         ".write": "auth != null"
       }
+    },
+    "newsletter": {
+      "subscribers": {
+        // Ninguém lê a lista inteira publicamente (segurança de dados)
+        ".read": "false",
+        // Qualquer usuário logado (mesmo anônimo) pode adicionar seu e-mail
+        ".write": "auth != null"
+      }
     }
   }
 }

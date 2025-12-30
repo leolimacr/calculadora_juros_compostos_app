@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { subscribeToNewsletter } from '../services/newsletterService';
 
 interface FooterProps {
   onNavigate?: (tool: string) => void;
@@ -7,14 +8,19 @@ interface FooterProps {
 
 const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
   const [email, setEmail] = useState('');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
-  const handleNewsletterSubmit = (e: React.FormEvent) => {
+  const handleNewsletterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email && email.includes('@')) {
-      alert(`Obrigado por se inscrever! Enviaremos novidades para: ${email}`);
-      setEmail('');
-    } else {
-      alert('Por favor, digite um email válido.');
+    if (!email || !email.includes('@')) return;
+
+    setStatus('loading');
+    try {
+        await subscribeToNewsletter(email, 'footer');
+        setStatus('success');
+        setEmail('');
+    } catch (error) {
+        setStatus('error');
     }
   };
 
@@ -43,19 +49,36 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             
             <div className="pt-4">
               <h5 className="text-white font-bold text-sm mb-3">Fique Atualizado</h5>
-              <p className="text-xs text-slate-500 mb-3">Receba tips de finanças direto na sua caixa de entrada.</p>
-              <form onSubmit={handleNewsletterSubmit} className="flex gap-2">
-                <input 
-                  type="email" 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="seu@email.com" 
-                  className="bg-slate-900 border border-slate-700 text-white text-xs rounded-lg px-3 py-2 w-full focus:ring-1 focus:ring-emerald-500 outline-none transition-all"
-                />
-                <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-2 rounded-lg transition-colors">
-                  Inscrever
-                </button>
-              </form>
+              
+              {status === 'success' ? (
+                  <div className="bg-emerald-900/30 text-emerald-400 p-3 rounded-lg text-xs border border-emerald-500/20 animate-in fade-in">
+                      ✅ Inscrito com sucesso! Obrigado.
+                  </div>
+              ) : (
+                  <>
+                    <p className="text-xs text-slate-500 mb-3">Receba tips de finanças direto na sua caixa de entrada.</p>
+                    <form onSubmit={handleNewsletterSubmit} className="flex gap-2">
+                        <input 
+                        type="email" 
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        disabled={status === 'loading'}
+                        placeholder="seu@email.com" 
+                        className="bg-slate-900 border border-slate-700 text-white text-xs rounded-lg px-3 py-2 w-full focus:ring-1 focus:ring-emerald-500 outline-none transition-all disabled:opacity-50"
+                        />
+                        <button 
+                            type="submit" 
+                            disabled={status === 'loading'}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-w-[80px]"
+                        >
+                        {status === 'loading' ? '...' : 'Inscrever'}
+                        </button>
+                    </form>
+                    {status === 'error' && (
+                        <p className="text-red-400 text-[10px] mt-2">Erro ao salvar. Tente mais tarde.</p>
+                    )}
+                  </>
+              )}
             </div>
           </div>
 
