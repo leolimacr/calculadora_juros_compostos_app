@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { MarketWidget, NewsWidget, MarketTickerBar } from './Widgets';
+import { MarketWidget, NewsWidget } from './Widgets';
 import { sendConfirmationEmail } from '../utils/email';
 
 interface UserPanelProps {
@@ -117,7 +117,6 @@ const UserPanel: React.FC<UserPanelProps> = ({ onNavigate }) => {
 
          {/* Sidebar: Widgets (Market/News) - Visible on Mobile too (stacked) */}
          <aside className="space-y-6">
-            <MarketTickerBar />
             <MarketWidget />
             <NewsWidget />
          </aside>

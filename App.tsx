@@ -21,6 +21,7 @@ import UserPanel from './components/UserPanel';
 import SettingsPage from './components/SettingsPage';
 import ProfilePage from './components/ProfilePage';
 import Onboarding from './components/Onboarding';
+import { MarketTickerBar, MarketStatusBar } from './components/Widgets'; // Importado
 import { TermsPage, PrivacyPage } from './components/LegalPages';
 import { PublicHome, DemoPage, GuidesPage, FaqPage, AboutPage } from './components/PublicPages';
 import ArticlesPage from './components/ArticlesPage';
@@ -523,6 +524,16 @@ const App: React.FC = () => {
           </div>
         </div>
       </nav>
+
+      {/* Market Header: Ticker + Status Bar */}
+      <div className="max-w-[1920px] mx-auto w-full flex flex-col md:flex-row border-b border-slate-800 bg-[#020617] sticky top-16 z-40 no-print shadow-lg">
+          <div className="w-full md:w-1/2 border-r border-slate-800/50">
+              <MarketTickerBar />
+          </div>
+          <div className="w-full md:w-1/2">
+              <MarketStatusBar />
+          </div>
+      </div>
 
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-50 flex justify-end">

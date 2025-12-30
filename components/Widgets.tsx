@@ -84,63 +84,139 @@ const ItemRow: React.FC<{ item: MarketQuote }> = ({ item }) => {
     );
 };
 
-// --- Componente: Market Ticker Bar (Faixa Horizontal) ---
+// --- Componente: Market Ticker Bar (Faixa Horizontal - 50%) ---
 export const MarketTickerBar = () => {
     const [quotes, setQuotes] = useState<MarketQuote[]>([]);
     
     useEffect(() => {
-        // Carrega dados iniciais (usa cache se existir)
         const load = async () => {
             const { quotes: data } = await fetchMarketQuotes(false);
             setQuotes(data);
         };
         load();
-        
-        // Atualiza a cada 60s
         const interval = setInterval(load, 60000);
         return () => clearInterval(interval);
     }, []);
 
-    if (quotes.length === 0) return null;
+    if (quotes.length === 0) return (
+        <div className="h-8 bg-[#020617] flex items-center justify-center border-r border-slate-800">
+            <span className="text-[10px] text-slate-600 animate-pulse">Carregando mercado...</span>
+        </div>
+    );
 
-    // Filtra itens principais para o ticker
     const tickerItems = quotes.filter(q => 
         ['USD', 'EUR', 'IBOV', 'VALE3', 'PETR4', 'ITUB4'].includes(q.symbol) || 
         q.symbol === 'BTC'
     );
 
     return (
-        <div className="w-full bg-slate-900 border-y border-slate-700/50 h-10 overflow-hidden relative flex items-center mb-4 lg:rounded-xl lg:border">
-            {/* Efeito Marquee CSS (Scroll Infinito) */}
+        <div className="w-full h-8 bg-[#020617] overflow-hidden relative flex items-center border-r border-slate-800/50">
             <div className="flex animate-marquee whitespace-nowrap items-center hover:pause-animation">
                 {[...tickerItems, ...tickerItems, ...tickerItems].map((item, idx) => (
-                    <div key={`${item.symbol}-${idx}`} className="flex items-center gap-2 px-4 border-r border-slate-800/50">
-                        <span className="text-xs font-bold text-slate-300">{item.symbol}</span>
-                        <span className="text-xs font-mono text-white">
+                    <div key={`${item.symbol}-${idx}`} className="flex items-center gap-2 px-4 border-r border-slate-800/30 h-full">
+                        <span className="text-[10px] font-bold text-slate-400">{item.symbol}</span>
+                        <span className="text-[10px] font-mono text-white">
                             {item.category === 'index' 
                                 ? item.price.toLocaleString('pt-BR', { maximumFractionDigits: 0 }) 
                                 : item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
-                        <span className={`text-[10px] font-bold ${item.changePercent >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        <span className={`text-[9px] font-bold ${item.changePercent >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
                             {item.changePercent >= 0 ? '▲' : '▼'} {Math.abs(item.changePercent).toFixed(2)}%
                         </span>
                     </div>
                 ))}
             </div>
             
-            {/* Inline Style para animação Marquee customizada */}
             <style>{`
                 @keyframes marquee {
                     0% { transform: translateX(0); }
                     100% { transform: translateX(-50%); }
                 }
                 .animate-marquee {
-                    animation: marquee 30s linear infinite;
+                    animation: marquee 40s linear infinite;
                 }
                 .hover\\:pause-animation:hover {
                     animation-play-state: paused;
                 }
             `}</style>
+        </div>
+    );
+};
+
+// --- Componente: Market Status Bar (Faixa Horizontal Direita - 50%) ---
+export const MarketStatusBar = () => {
+    const [time, setTime] = useState(new Date());
+    const [marketStatus, setMarketStatus] = useState<'open' | 'closed'>('closed');
+    const [ibovTrend, setIbovTrend] = useState<'bull' | 'bear' | 'flat'>('flat');
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            const now = new Date();
+            setTime(now);
+            
+            // Lógica B3 (Simples): Dias úteis 10:00 - 17:00
+            const day = now.getDay();
+            const hour = now.getHours();
+            const isWeekend = day === 0 || day === 6;
+            const isWorkingHours = hour >= 10 && hour < 17;
+            
+            setMarketStatus(!isWeekend && isWorkingHours ? 'open' : 'closed');
+        }, 1000);
+
+        // Verifica tendência IBOV para status visual
+        const checkTrend = async () => {
+            const { quotes } = await fetchMarketQuotes(false);
+            const ibov = quotes.find(q => q.symbol === 'IBOV' || q.symbol === '^BVSP');
+            if (ibov) {
+                if (ibov.changePercent > 0.1) setIbovTrend('bull');
+                else if (ibov.changePercent < -0.1) setIbovTrend('bear');
+                else setIbovTrend('flat');
+            }
+        };
+        checkTrend();
+
+        return () => clearInterval(timer);
+    }, []);
+
+    const formatDate = (date: Date) => {
+        return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }).replace('.', '');
+    };
+
+    const formatTime = (date: Date) => {
+        return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    };
+
+    return (
+        <div className="w-full h-8 bg-[#020617] flex items-center justify-between px-4 text-[10px] sm:text-xs">
+            {/* Status B3 */}
+            <div className="flex items-center gap-2">
+                <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border ${
+                    marketStatus === 'open' 
+                        ? 'bg-emerald-950/30 border-emerald-900/50 text-emerald-400' 
+                        : 'bg-slate-800/50 border-slate-700 text-slate-400'
+                }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${marketStatus === 'open' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'}`}></span>
+                    <span className="font-bold uppercase tracking-wider">{marketStatus === 'open' ? 'B3 ABERTA' : 'B3 FECHADA'}</span>
+                </div>
+                
+                {/* Indicador de Sentimento */}
+                <div className="hidden sm:flex items-center gap-1 text-slate-500 border-l border-slate-800 pl-3 ml-1">
+                    <span>Sentimento:</span>
+                    <span className={`font-bold ${
+                        ibovTrend === 'bull' ? 'text-emerald-400' : ibovTrend === 'bear' ? 'text-red-400' : 'text-slate-300'
+                    }`}>
+                        {ibovTrend === 'bull' ? 'Otimista 🐂' : ibovTrend === 'bear' ? 'Pessimista 🐻' : 'Neutro ⚖️'}
+                    </span>
+                </div>
+            </div>
+
+            {/* Relógio / Data */}
+            <div className="flex items-center gap-3 font-mono text-slate-400">
+                <span className="hidden sm:inline">{formatDate(time)}</span>
+                <span className="text-slate-600 hidden sm:inline">|</span>
+                <span className="text-white font-bold">{formatTime(time)}</span>
+                <span className="text-[9px] bg-slate-800 px-1 rounded text-slate-500">BRT</span>
+            </div>
         </div>
     );
 };
