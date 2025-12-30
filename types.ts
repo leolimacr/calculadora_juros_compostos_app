@@ -87,7 +87,7 @@ export interface ToastMessage {
 }
 
 // Dados de Mercado (API)
-export type MarketCategory = 'currency' | 'crypto' | 'index';
+export type MarketCategory = 'currency' | 'crypto' | 'index' | 'stock';
 
 export interface MarketQuote {
   symbol: string;

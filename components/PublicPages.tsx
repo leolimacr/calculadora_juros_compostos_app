@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { NewsWidget, MarketWidget } from './Widgets';
+import { NewsWidget, MarketWidget, MarketTickerBar } from './Widgets';
 
 // --- Banner Desktop ---
 const DesktopAppBanner = () => {
@@ -134,6 +134,7 @@ export const PublicHome: React.FC<{ onNavigate: (path: any) => void; onStartNow:
       {/* Sidebar News & Market */}
       <aside className="space-y-6">
         <NewsWidget />
+        <MarketTickerBar />
         <MarketWidget />
         <div className="bg-emerald-900/20 border border-emerald-500/30 p-6 rounded-2xl text-center">
            <h4 className="font-bold text-emerald-400 mb-2">Cadastre-se Gratuitamente</h4>
@@ -148,7 +149,7 @@ export const PublicHome: React.FC<{ onNavigate: (path: any) => void; onStartNow:
   );
 };
 
-// --- NOVA DEMO PAGE: TOUR PELAS 8 FERRAMENTAS ---
+// ... Resto dos componentes (DemoPage, GuidesPage, etc) mantidos iguais, apenas a PublicHome foi alterada
 export const DemoPage: React.FC<{ onNavigate: (path: any) => void }> = ({ onNavigate }) => {
   const [activeStep, setActiveStep] = useState(0);
 

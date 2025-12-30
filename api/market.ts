@@ -2,13 +2,23 @@
 /*
   Vercel Serverless Function: /api/market
   
-  Uses Yahoo Finance API (No token required for basic data) to fetch indices.
+  Uses Yahoo Finance API (No token required for basic data) to fetch indices and stocks.
 */
 
 // Cache simples em memória (O escopo global persiste entre invocações "quentes")
 let cachedData: any = null;
 let lastFetchTime = 0;
 const CACHE_DURATION = 60 * 1000; // 60 segundos
+
+const SYMBOLS = [
+  '^BVSP', // Ibovespa
+  '^GSPC', // S&P 500
+  'VALE3.SA',
+  'PETR4.SA',
+  'ITUB4.SA',
+  'BBDC4.SA',
+  'ABEV3.SA'
+];
 
 export default async function handler(req: any, res: any) {
   // 1. Verificar Cache do Servidor
@@ -19,60 +29,57 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    // 2. Buscar no Yahoo Finance (Public Endpoint)
-    // ^BVSP = Ibovespa
-    // ^GSPC = S&P 500
+    // 2. Buscar no Yahoo Finance (Quote Endpoint suporta múltiplos símbolos)
     // Header User-Agent é crucial para não ser bloqueado pelo Yahoo
     const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' };
     
-    const [ibovRes, spxRes] = await Promise.all([
-        fetch('https://query1.finance.yahoo.com/v8/finance/chart/^BVSP?interval=1d&range=1d', { headers }),
-        fetch('https://query1.finance.yahoo.com/v8/finance/chart/^GSPC?interval=1d&range=1d', { headers })
-    ]);
+    const symbolsQuery = SYMBOLS.join(',');
+    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbolsQuery}`;
+    
+    const response = await fetch(url, { headers });
+    
+    const indices: any[] = [];
+    const stocks: any[] = [];
 
-    const indices = [];
+    if (response.ok) {
+        const json = await response.json();
+        const results = json.quoteResponse?.result || [];
 
-    // Processar Ibovespa
-    if (ibovRes.ok) {
-        const data = await ibovRes.json();
-        const result = data.chart?.result?.[0];
-        if (result?.meta) {
-            const { regularMarketPrice, chartPreviousClose } = result.meta;
-            const change = regularMarketPrice - chartPreviousClose;
-            const changePercent = (change / chartPreviousClose) * 100;
-            
-            indices.push({ 
-                symbol: 'IBOV', 
-                name: 'Ibovespa', 
-                price: regularMarketPrice, 
-                changePercent: changePercent 
-            });
-        }
+        results.forEach((item: any) => {
+            const symbolMap: Record<string, {name: string, type: 'index' | 'stock', symbol: string}> = {
+                '^BVSP': { name: 'Ibovespa', type: 'index', symbol: 'IBOV' },
+                '^GSPC': { name: 'S&P 500', type: 'index', symbol: 'S&P 500' },
+                'VALE3.SA': { name: 'Vale', type: 'stock', symbol: 'VALE3' },
+                'PETR4.SA': { name: 'Petrobras', type: 'stock', symbol: 'PETR4' },
+                'ITUB4.SA': { name: 'Itaú Unibanco', type: 'stock', symbol: 'ITUB4' },
+                'BBDC4.SA': { name: 'Bradesco', type: 'stock', symbol: 'BBDC4' },
+                'ABEV3.SA': { name: 'Ambev', type: 'stock', symbol: 'ABEV3' },
+            };
+
+            const info = symbolMap[item.symbol];
+            if (info) {
+                const quote = {
+                    symbol: info.symbol,
+                    name: info.name,
+                    price: item.regularMarketPrice,
+                    changePercent: item.regularMarketChangePercent,
+                    category: info.type
+                };
+
+                if (info.type === 'index') {
+                    indices.push(quote);
+                } else {
+                    stocks.push(quote);
+                }
+            }
+        });
     }
 
-    // Processar S&P 500
-    if (spxRes.ok) {
-        const data = await spxRes.json();
-        const result = data.chart?.result?.[0];
-        if (result?.meta) {
-            const { regularMarketPrice, chartPreviousClose } = result.meta;
-            const change = regularMarketPrice - chartPreviousClose;
-            const changePercent = (change / chartPreviousClose) * 100;
-            
-            indices.push({ 
-                symbol: 'S&P 500', 
-                name: 'S&P 500', 
-                price: regularMarketPrice, 
-                changePercent: changePercent 
-            });
-        }
-    }
-
-    if (indices.length === 0) {
+    if (indices.length === 0 && stocks.length === 0) {
         throw new Error("Nenhum dado real obtido.");
     }
 
-    const responseData = { indices, simulated: false };
+    const responseData = { indices, stocks, simulated: false };
 
     // 3. Atualizar Cache
     cachedData = responseData;
