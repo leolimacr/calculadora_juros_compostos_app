@@ -83,11 +83,15 @@ const App: React.FC = () => {
   
   // Integração Firebase - Safe Fallback com usuário local
   const hasUser = !!user;
-  const localUserId =
+  const rawUserId =
     (user as any)?.id ||
     (user as any)?.email ||
     (user as any)?.username ||
     "guest_placeholder";
+
+  // IMPORTANTE: Firebase não aceita '.' em chaves de caminho. 
+  // Sanitizamos substituindo caracteres inválidos por '_'
+  const localUserId = rawUserId.replace(/[.#$[\]]/g, '_');
 
   const authReady = hasUser && localUserId !== "guest_placeholder";
   const firebaseData = useFirebase(localUserId);
