@@ -1,10 +1,11 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Transaction, FilterPeriod, Goal } from '../types';
+import { Transaction, FilterPeriod, Goal, UserMeta } from '../types';
 import FilterBar from './FilterBar';
 import TransactionHistory from './TransactionHistory';
 import GoalsWidget from './GoalsWidget';
 import Breadcrumb from './Breadcrumb';
+import UsageIndicator from './UsageIndicator'; // Importado
 import { formatCurrency, maskCurrency } from '../utils/calculations';
 import { logEvent, ANALYTICS_EVENTS } from '../utils/analytics';
 import {
@@ -30,6 +31,10 @@ interface DashboardProps {
   onDeleteGoal: (id: string) => void;
   isPrivacyMode?: boolean;
   navigateToHome?: () => void;
+  // Props do Freemium
+  userMeta: UserMeta | null;
+  usagePercentage: number;
+  isPremium: boolean;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
@@ -41,7 +46,10 @@ const Dashboard: React.FC<DashboardProps> = ({
   onUpdateGoal,
   onDeleteGoal,
   isPrivacyMode = false,
-  navigateToHome
+  navigateToHome,
+  userMeta,
+  usagePercentage,
+  isPremium
 }) => {
   const [selectedCategory, setSelectedCategory] = useState('Todas Categorias');
   const [selectedPeriod, setSelectedPeriod] = useState<FilterPeriod>('mes'); 
@@ -139,6 +147,9 @@ const Dashboard: React.FC<DashboardProps> = ({
       >
         <span className="text-2xl font-light leading-none">+</span> NOVO LANÇAMENTO
       </button>
+
+      {/* Indicador de Uso Freemium */}
+      <UsageIndicator userMeta={userMeta} usagePercentage={usagePercentage} isPremium={isPremium} />
 
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
         <div className="xl:col-span-1 space-y-6">

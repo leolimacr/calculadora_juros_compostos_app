@@ -1,6 +1,6 @@
 
 // src/hooks/useFirebase.ts
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { ref, onValue, update, get, serverTimestamp, increment, child, push } from 'firebase/database';
 import { database, authReadyPromise } from '../firebase';
 import { v4 as uuidv4 } from 'uuid';
@@ -18,6 +18,21 @@ export const useFirebase = (userId: string) => {
   const [lancamentos, setLancamentos] = useState<any[]>([]);
   const [userMeta, setUserMeta] = useState<UserMeta | null>(null);
   const [isReady, setIsReady] = useState(false);
+
+  // Propriedades Derivadas (Helpers)
+  const isPremium = useMemo(() => userMeta?.plan === 'premium', [userMeta]);
+  
+  const usagePercentage = useMemo(() => {
+    if (!userMeta) return 0;
+    if (isPremium) return 0; // Premium não tem barra de limite visual
+    return Math.min(100, (userMeta.launchCount / userMeta.launchLimit) * 100);
+  }, [userMeta, isPremium]);
+
+  const isLimitReached = useMemo(() => {
+    if (!userMeta) return false;
+    if (isPremium) return false;
+    return userMeta.launchCount >= userMeta.launchLimit;
+  }, [userMeta, isPremium]);
 
   useEffect(() => {
     let unsubscribeLancamentos: (() => void) | undefined;
@@ -92,11 +107,10 @@ export const useFirebase = (userId: string) => {
       throw new Error("Conexão com o banco de dados ainda não estabelecida. Verifique sua internet.");
     }
 
-    // Validação de Limite Freemium
-    if (userMeta && userMeta.plan === 'free') {
-        if (userMeta.launchCount >= userMeta.launchLimit) {
-            throw new Error(`LIMIT_REACHED: Você atingiu o limite de ${userMeta.launchLimit} lançamentos do plano Grátis.`);
-        }
+    // Validação de Limite Freemium (Check Duplo: Local + Backend logic idealmente)
+    if (isLimitReached) {
+        // Usamos uma string de erro específica para o App.tsx interceptar e abrir o modal
+        throw new Error("LIMIT_REACHED");
     }
 
     try {
@@ -112,7 +126,7 @@ export const useFirebase = (userId: string) => {
       // 1. O Lançamento
       updates[`users/${userId}/gerenciadorFinanceiro/lancamentos/${pushKey}`] = { 
         ...lancamento, 
-        id: newKey // Mantemos o ID local por compatibilidade, mas a chave real é pushKey
+        id: newKey // Mantemos o ID local por compatibilidade
       };
       
       // 2. O Contador (Incremento Atômico no Servidor)
@@ -124,6 +138,8 @@ export const useFirebase = (userId: string) => {
       
     } catch (error: any) {
       console.error('❌ ERRO AO SALVAR:', error);
+      if (error.message === 'LIMIT_REACHED') throw error; // Repassa o erro de limite
+      
       if (error.code === 'PERMISSION_DENIED') {
         alert("Erro de Permissão: Verifique se o 'Anonymous Auth' está ativado no Firebase Console.");
       }
@@ -157,5 +173,14 @@ export const useFirebase = (userId: string) => {
     }
   };
 
-  return { lancamentos, userMeta, saveLancamento, deleteLancamento };
+  return { 
+    lancamentos, 
+    userMeta, 
+    saveLancamento, 
+    deleteLancamento,
+    // Helpers exportados para UI
+    isPremium,
+    isLimitReached,
+    usagePercentage
+  };
 };
