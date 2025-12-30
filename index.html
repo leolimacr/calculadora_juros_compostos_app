@@ -1,8 +1,9 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     
     <!-- Google tag (gtag.js) --> 
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-WR3LFM71L7"></script> 
@@ -23,12 +24,14 @@
     <!-- PWA & Mobile UX -->
     <meta name="theme-color" content="#020617">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Finanças Pro">
+    <meta name="mobile-web-app-capable" content="yes">
     
     <!-- Ícones -->
     <link rel="icon" type="image/png" href="/icon-514.png">
     <link rel="apple-touch-icon" href="/icon-514.png">
+    <link rel="manifest" href="/manifest.json">
 
     <!-- Open Graph / Facebook / WhatsApp -->
     <meta property="og:type" content="website">
@@ -47,7 +50,6 @@
     <!-- Google Search Console -->
     <meta name="google-site-verification" content="Xm5q4K-vv-9ZyMSB9zlHoe8I0hPsuX3R87pgpF5RkRQ" />
     
-    <link rel="manifest" href="/manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
     <style>
@@ -55,7 +57,7 @@
             font-family: 'Inter', sans-serif;
             background-color: #020617;
             color: #e2e8f0;
-            overscroll-behavior-y: none; /* Prevents pull-to-refresh on mobile app feel */
+            overscroll-behavior-y: none;
         }
         input, select, textarea {
             color-scheme: dark;
@@ -74,50 +76,20 @@
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
             background: #475569;
         }
-        
-        /* Glassmorphism Utilities */
         .glass {
             background: rgba(15, 23, 42, 0.7);
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
         }
-
-        /* Print Styles for Report Exporting */
         @media print {
-            body {
-                background-color: white !important;
-                color: black !important;
-            }
-            nav, aside, .no-print, button, .ai-sidebar {
-                display: none !important;
-            }
-            main {
-                width: 100% !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                display: block !important;
-            }
-            .bg-slate-800, .bg-slate-900 {
-                background-color: white !important;
-                border: 1px solid #ddd !important;
-                color: black !important;
-                box-shadow: none !important;
-            }
-            .text-white, .text-slate-200, .text-slate-300, .text-slate-400 {
-                color: black !important;
-            }
-            /* Force High Contrast for Charts */
-            .recharts-responsive-container {
-                filter: grayscale(0%) contrast(150%);
-            }
-            /* Layout Adjustments */
-            .grid {
-                display: block !important;
-            }
-            .grid > div {
-                margin-bottom: 20px;
-                page-break-inside: avoid;
-            }
+            body { background-color: white !important; color: black !important; }
+            nav, aside, .no-print, button, .ai-sidebar { display: none !important; }
+            main { width: 100% !important; margin: 0 !important; padding: 0 !important; display: block !important; }
+            .bg-slate-800, .bg-slate-900 { background-color: white !important; border: 1px solid #ddd !important; color: black !important; box-shadow: none !important; }
+            .text-white, .text-slate-200, .text-slate-300, .text-slate-400 { color: black !important; }
+            .recharts-responsive-container { filter: grayscale(0%) contrast(150%); }
+            .grid { display: block !important; }
+            .grid > div { margin-bottom: 20px; page-break-inside: avoid; }
         }
     </style>
 <script type="importmap">

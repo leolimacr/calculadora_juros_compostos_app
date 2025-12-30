@@ -1,0 +1,13 @@
+
+{
+  "rules": {
+    "users": {
+      "$user_id": {
+        // Permite leitura/escrita apenas se o cliente estiver autenticado (mesmo que anonimamente).
+        // Isso impede acesso público total, mas permite que seu app (que faz login anônimo) salve os dados.
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    }
+  }
+}

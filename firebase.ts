@@ -1,6 +1,7 @@
+
 import { initializeApp } from "firebase/app";
 import { getDatabase } from "firebase/database";
-import { getAnalytics } from "firebase/analytics";
+import { getAuth, signInAnonymously } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBYaPgjhO9Txd1IMCIr9qtirFxs7xgOk-U",
@@ -15,4 +16,13 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const database = getDatabase(app);
+export const auth = getAuth(app);
+
+// Autenticação Silenciosa (Anônima)
+// Isso garante que existe um objeto 'auth' na requisição ao banco de dados,
+// resolvendo o erro PERMISSION_DENIED das regras de segurança padrão.
+signInAnonymously(auth).catch((error) => {
+  console.error("Erro na Autenticação Anônima do Firebase:", error);
+});
+
 export default app;

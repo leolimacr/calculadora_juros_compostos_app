@@ -1,0 +1,42 @@
+
+{
+  "name": "Finanças Pro Invest",
+  "short_name": "Finanças Pro",
+  "start_url": "/?source=pwa",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "orientation": "portrait",
+  "scope": "/",
+  "description": "Seu gerenciador financeiro pessoal 100% offline. Controle gastos, calcule independência financeira (FIRE) e simule investimentos.",
+  "icons": [
+    {
+      "src": "/icon-514.png",
+      "sizes": "514x514",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-514.png",
+      "sizes": "514x514",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/mobile-dashboard.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Dashboard Financeiro Mobile"
+    },
+    {
+      "src": "/screenshots/desktop-overview.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Visão Geral Desktop"
+    }
+  ]
+}
