@@ -179,6 +179,8 @@ export type ToolView =
   | 'register' 
   | 'termos-de-uso' 
   | 'politica-privacidade' 
+  | 'premium'   // Nova rota
+  | 'changelog' // Nova rota
   // Privadas (Gerais)
   | 'panel' 
   | 'settings' 

@@ -3,7 +3,7 @@ import React, { useState, useCallback, useEffect, Suspense, lazy } from 'react';
 import CalculatorForm from './components/CalculatorForm';
 import ResultsDisplay from './components/ResultsDisplay';
 import ContentModal from './components/ContentModal';
-import PaywallModal from './components/PaywallModal'; // Novo Import
+import PaywallModal from './components/PaywallModal'; 
 import AiAdvisor from './components/AiAdvisor';
 import ToastContainer from './components/Toast';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -24,6 +24,8 @@ import Onboarding from './components/Onboarding';
 import { TermsPage, PrivacyPage } from './components/LegalPages';
 import { PublicHome, DemoPage, GuidesPage, FaqPage, AboutPage } from './components/PublicPages';
 import ArticlesPage from './components/ArticlesPage';
+import PremiumPage from './components/PremiumPage'; // Novo Import
+import ChangelogPage from './components/ChangelogPage'; // Novo Import
 
 import { useAuth } from './contexts/AuthContext';
 import { CalculationInput, CalculationResult, Transaction, Goal, ToastMessage, ToastType } from './types';
@@ -45,7 +47,7 @@ const InflationTool = lazy(() => import('./components/Tools').then(module => ({ 
 
 // Definição de Rotas/Views
 type ToolView = 
-  | 'home' | 'artigos' | 'guias' | 'faq' | 'sobre' | 'demo' | 'login' | 'register' | 'termos-de-uso' | 'politica-privacidade' // Públicas
+  | 'home' | 'artigos' | 'guias' | 'faq' | 'sobre' | 'demo' | 'login' | 'register' | 'termos-de-uso' | 'politica-privacidade' | 'premium' | 'changelog' // Públicas
   | 'panel' | 'settings' | 'perfil' // Privadas (Gerais)
   | 'compound' | 'manager' | 'rent' | 'debt' | 'fire' | 'inflation' | 'dividend' | 'roi' | 'game' | 'education'; // Privadas (Ferramentas)
 
@@ -266,6 +268,8 @@ const App: React.FC = () => {
           </div>
         );
       case 'artigos': return <ArticlesPage onReadArticle={() => {}} />;
+      case 'premium': return <PremiumPage onNavigate={navigateTo} />; // Nova Rota
+      case 'changelog': return <ChangelogPage />; // Nova Rota
       case 'demo': return <DemoPage onNavigate={navigateTo} />;
       case 'guias': return <GuidesPage onNavigate={navigateTo} />;
       case 'faq': return <FaqPage />;
@@ -316,7 +320,7 @@ const App: React.FC = () => {
         <div className="space-y-8 animate-in fade-in duration-500">
             <Breadcrumb items={[{ label: 'Painel', action: () => navigateTo('panel') }, { label: 'Academia Financeira' }]} />
             <h2 className="text-3xl font-bold text-white mb-8">Academia Finanças Pro Invest</h2>
-            <EducationalContent onOpenPlans={() => {/* Removed plans modal */}} />
+            <EducationalContent onOpenPlans={() => navigateTo('premium')} />
         </div>
       );
       default: return <PublicHome onNavigate={navigateTo} onStartNow={handleStartNow} />;
@@ -367,8 +371,8 @@ const App: React.FC = () => {
             {/* Desktop Center Links (Public) */}
             <div className="hidden lg:flex items-center space-x-1">
               <button onClick={() => navigateTo('home')} className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentTool === 'home' ? 'text-white bg-slate-800' : 'text-slate-400 hover:text-white'}`}>Início</button>
-              <button onClick={() => navigateTo('artigos')} className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentTool === 'artigos' ? 'text-white bg-slate-800' : 'text-slate-400 hover:text-white'}`}>Artigos</button>
-              <button onClick={() => navigateTo('guias')} className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentTool === 'guias' ? 'text-white bg-slate-800' : 'text-slate-400 hover:text-white'}`}>Guias</button>
+              <button onClick={() => navigateTo('artigos')} className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentTool === 'artigos' ? 'text-white bg-slate-800' : 'text-slate-400 hover:text-white'}`}>Conteúdos</button>
+              <button onClick={() => navigateTo('changelog')} className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentTool === 'changelog' ? 'text-white bg-slate-800' : 'text-slate-400 hover:text-white'}`}>Novidades</button>
               <button onClick={() => navigateTo('demo')} className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentTool === 'demo' ? 'text-white bg-slate-800' : 'text-slate-400 hover:text-white'}`}>Demo</button>
             </div>
 
@@ -448,11 +452,14 @@ const App: React.FC = () => {
                 <button onClick={() => navigateTo(isAuthenticated ? 'panel' : 'home')} className="w-full text-left p-3 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white flex items-center gap-3 transition-colors">
                    <span>🏠</span> Home
                 </button>
+                <button onClick={() => navigateTo('premium')} className="w-full text-left p-3 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white flex items-center gap-3 transition-colors">
+                   <span>✨</span> Premium
+                </button>
+                <button onClick={() => navigateTo('artigos')} className="w-full text-left p-3 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white flex items-center gap-3 transition-colors">
+                   <span>📚</span> Conteúdos
+                </button>
                 <button onClick={() => navigateTo('faq')} className="w-full text-left p-3 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white flex items-center gap-3 transition-colors">
                    <span>❓</span> FAQ
-                </button>
-                <button onClick={() => navigateTo('sobre')} className="w-full text-left p-3 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white flex items-center gap-3 transition-colors">
-                   <span>ℹ️</span> Sobre
                 </button>
                 
                 {isAuthenticated && (
@@ -511,14 +518,20 @@ const App: React.FC = () => {
                       </div>
                    </div>
                    <div className="h-px bg-slate-800"></div>
-                   {/* Links Públicos (Mantidos) */}
+                   
+                   {/* Links Públicos (Atualizados) */}
                    <div>
                       <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 pl-2">📚 Explorar & Aprender</h4>
                       <div className="space-y-2">
-                         <button onClick={() => navigateTo('artigos')} className="w-full text-left p-3 rounded-xl bg-slate-800/50 border border-slate-700 hover:bg-slate-800 flex items-center gap-3">
-                            <span className="text-xl">📄</span> <span className="text-sm font-bold text-slate-300">Artigos & Insights</span>
+                         <button onClick={() => navigateTo('premium')} className="w-full text-left p-3 rounded-xl bg-gradient-to-r from-emerald-900/40 to-slate-800 border border-emerald-500/30 hover:border-emerald-500 flex items-center gap-3 group">
+                            <span className="text-xl">✨</span> <span className="text-sm font-bold text-white group-hover:text-emerald-400">Seja Premium</span>
                          </button>
-                         {/* ...outros links... */}
+                         <button onClick={() => navigateTo('artigos')} className="w-full text-left p-3 rounded-xl bg-slate-800/50 border border-slate-700 hover:bg-slate-800 flex items-center gap-3">
+                            <span className="text-xl">📄</span> <span className="text-sm font-bold text-slate-300">Artigos & IA</span>
+                         </button>
+                         <button onClick={() => navigateTo('changelog')} className="w-full text-left p-3 rounded-xl bg-slate-800/50 border border-slate-700 hover:bg-slate-800 flex items-center gap-3">
+                            <span className="text-xl">📢</span> <span className="text-sm font-bold text-slate-300">Novidades</span>
+                         </button>
                          <button onClick={() => navigateTo('sobre')} className="w-full text-left p-3 rounded-xl bg-slate-800/50 border border-slate-700 hover:bg-slate-800 flex items-center gap-3">
                             <span className="text-xl">ℹ️</span> <span className="text-sm font-bold text-slate-300">Sobre Nós</span>
                          </button>
@@ -605,10 +618,11 @@ const App: React.FC = () => {
         </ContentModal>
       </Suspense>
 
-      {/* MODAL DE PAYWALL (Novo) */}
+      {/* MODAL DE PAYWALL */}
       <PaywallModal 
         isOpen={activeModal === 'paywall'}
         onClose={() => setActiveModal(null)}
+        onNavigate={navigateTo} // Passando navegação
         userMeta={userMeta}
       />
 
