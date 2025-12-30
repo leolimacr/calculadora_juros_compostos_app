@@ -59,7 +59,11 @@ const MarketSkeleton = () => (
 );
 
 const ItemRow: React.FC<{ item: MarketQuote }> = ({ item }) => {
-    const isUSD = item.symbol.includes('/USD') || item.symbol === 'BTC' || item.symbol === 'ETH'; // Ajuste para BTC/ETH poderem ser USD
+    const isUSD = item.symbol.includes('/USD') || item.symbol === 'BTC' || item.symbol === 'ETH'; 
+    // Define se é moeda fiat (USD/EUR) para aplicar 3 casas decimais
+    const isFiatCurrency = item.symbol === 'USD' || item.symbol === 'EUR';
+    const decimals = isFiatCurrency ? 3 : 2;
+
     return (
       <div className="flex justify-between items-center py-2 border-b border-slate-700/50 last:border-0 hover:bg-slate-700/20 transition-colors px-2 rounded-lg animate-in fade-in duration-500">
           <div className="flex flex-col">
@@ -74,7 +78,7 @@ const ItemRow: React.FC<{ item: MarketQuote }> = ({ item }) => {
                     ? `${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} pts`
                     : isUSD && !item.symbol.includes('BRL')
                       ? `$ ${item.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                      : `R$ ${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                      : `R$ ${item.price.toLocaleString('pt-BR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`}
               </div>
               <div className={`text-[10px] font-bold ${item.changePercent >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                   {item.changePercent >= 0 ? '↑' : '↓'} {Math.abs(item.changePercent).toFixed(2)}%
@@ -112,19 +116,24 @@ export const MarketTickerBar = () => {
     return (
         <div className="w-full h-8 bg-[#020617] overflow-hidden relative flex items-center border-r border-slate-800/50">
             <div className="flex animate-marquee whitespace-nowrap items-center hover:pause-animation">
-                {[...tickerItems, ...tickerItems, ...tickerItems].map((item, idx) => (
-                    <div key={`${item.symbol}-${idx}`} className="flex items-center gap-2 px-4 border-r border-slate-800/30 h-full">
-                        <span className="text-[10px] font-bold text-slate-400">{item.symbol}</span>
-                        <span className="text-[10px] font-mono text-white">
-                            {item.category === 'index' 
-                                ? item.price.toLocaleString('pt-BR', { maximumFractionDigits: 0 }) 
-                                : item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                        <span className={`text-[9px] font-bold ${item.changePercent >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                            {item.changePercent >= 0 ? '▲' : '▼'} {Math.abs(item.changePercent).toFixed(2)}%
-                        </span>
-                    </div>
-                ))}
+                {[...tickerItems, ...tickerItems, ...tickerItems].map((item, idx) => {
+                    // Lógica de casas decimais para o Ticker
+                    const decimals = (item.symbol === 'USD' || item.symbol === 'EUR') ? 3 : 2;
+                    
+                    return (
+                        <div key={`${item.symbol}-${idx}`} className="flex items-center gap-2 px-4 border-r border-slate-800/30 h-full">
+                            <span className="text-[10px] font-bold text-slate-400">{item.symbol}</span>
+                            <span className="text-[10px] font-mono text-white">
+                                {item.category === 'index' 
+                                    ? item.price.toLocaleString('pt-BR', { maximumFractionDigits: 0 }) 
+                                    : item.price.toLocaleString('pt-BR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}
+                            </span>
+                            <span className={`text-[9px] font-bold ${item.changePercent >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                                {item.changePercent >= 0 ? '▲' : '▼'} {Math.abs(item.changePercent).toFixed(2)}%
+                            </span>
+                        </div>
+                    );
+                })}
             </div>
             
             <style>{`

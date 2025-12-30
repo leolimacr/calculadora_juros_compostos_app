@@ -117,6 +117,17 @@ const UserPanel: React.FC<UserPanelProps> = ({ onNavigate }) => {
 
          {/* Sidebar: Widgets (Market/News) - Visible on Mobile too (stacked) */}
          <aside className="space-y-6">
+            
+            {/* Contexto do Mercado */}
+            <div className="space-y-2">
+               <h3 className="text-sm font-bold text-white uppercase tracking-widest pl-2 border-l-4 border-emerald-500">
+                  Panorama rápido do mercado
+               </h3>
+               <p className="text-xs text-slate-400 leading-relaxed pl-2">
+                  Veja de relance dólar, euro, bolsa e as ações mais importantes do Ibovespa na faixa de cotações acima. No card abaixo, aprofunde os detalhes para tomar decisões com mais contexto.
+               </p>
+            </div>
+
             <MarketWidget />
             <NewsWidget />
          </aside>
