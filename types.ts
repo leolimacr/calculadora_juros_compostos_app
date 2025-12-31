@@ -173,6 +173,17 @@ export interface GameEvent {
   }[];
 }
 
+// Conteúdo Educativo
+export interface Article {
+  id: number;
+  title: string;
+  desc: string;
+  tag: string;
+  date: string;
+  category: 'ia' | 'carreira' | 'fundamentos';
+  fullContent?: React.ReactNode; // Conteúdo completo do artigo
+}
+
 // Navegação
 export type ToolView = 
   // Públicas

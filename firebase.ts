@@ -18,6 +18,28 @@ const app = initializeApp(firebaseConfig);
 export const database = getDatabase(app);
 export const auth = getAuth(app);
 
+// --- CONFIGURAÇÃO DE IDIOMA (PT-BR) ---
+// Define o idioma para os fluxos de e-mail (verificação, reset de senha) e páginas de ação.
+auth.languageCode = 'pt-BR';
+
+/**
+ * ⚠️ INSTRUÇÕES PARA CUSTOMIZAÇÃO DE TEXTO DO E-MAIL ⚠️
+ * 
+ * O código `auth.languageCode = 'pt-BR'` garante que a página de ação do link seja em português.
+ * Porém, para alterar o TÍTULO e o CORPO do e-mail para os textos exatos que você deseja, 
+ * você deve fazer isso no Console do Firebase, pois o SDK não permite sobrescrever o template por segurança.
+ * 
+ * 1. Acesse: https://console.firebase.google.com/
+ * 2. Vá em: Authentication -> Templates
+ * 3. Edite o template "Verificação de endereço de e-mail" (Email address verification).
+ * 4. Configure os textos:
+ *    - Nome do Remetente: Finanças Pro Invest
+ *    - Assunto: Verificar endereço de e-mail
+ *    - Mensagem: Para proteger sua conta, confirme seu endereço de e-mail clicando no botão abaixo.
+ * 
+ * Faça o mesmo para "Redefinição de senha" (Password reset).
+ */
+
 // Promessa que resolve quando o Auth estiver pronto
 export const authReadyPromise = new Promise((resolve) => {
   const unsubscribe = onAuthStateChanged(auth, (user) => {

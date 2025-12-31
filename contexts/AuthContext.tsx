@@ -39,7 +39,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   
   // Gestão de Senha e E-mail
-  resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
+  resetPassword: (email: string) => Promise<{ success: boolean; error?: string; code?: string }>;
   changePassword: (currentPass: string, newPass: string) => Promise<boolean>;
   resendVerification: () => Promise<{ success: boolean; error?: string }>;
   reloadUser: () => Promise<void>;
@@ -55,19 +55,42 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
-// Tradução de erros do Firebase
+// Helper para mapeamento de erros do Firebase Auth
+// Tratamento detalhado de códigos de erro para feedback do usuário
 const mapAuthError = (code: string): string => {
+  // Lista de códigos tratados:
+  // auth/user-not-found
+  // auth/wrong-password
+  // auth/invalid-email
+  // auth/email-already-in-use
+  // auth/too-many-requests
+  // auth/invalid-credential
+  // auth/weak-password
+  // auth/network-request-failed
+  
   switch (code) {
-    case 'auth/email-already-in-use': return 'Este e-mail já está sendo usado.';
-    case 'auth/invalid-email': return 'E-mail inválido.';
-    case 'auth/weak-password': return 'A senha deve ter pelo menos 6 caracteres.';
-    case 'auth/user-not-found': return 'Usuário não encontrado.';
-    case 'auth/wrong-password': return 'Senha incorreta.';
-    case 'auth/too-many-requests': return 'Muitas tentativas. Tente novamente mais tarde.';
-    case 'auth/network-request-failed': return 'Erro de conexão. Verifique sua internet.';
-    case 'auth/requires-recent-login': return 'Para esta ação, faça login novamente.';
-    case 'auth/invalid-action-code': return 'Link inválido ou expirado.';
-    default: return 'Ocorreu um erro inesperado. Tente novamente.';
+    case 'auth/user-not-found': 
+      return 'E-mail não encontrado. Verifique o endereço ou crie uma conta.';
+    case 'auth/wrong-password': 
+      return 'Senha incorreta. Tente novamente.';
+    case 'auth/invalid-email': 
+      return 'E-mail inválido. Verifique o formato do endereço.';
+    case 'auth/email-already-in-use': 
+      return 'Este e-mail já está cadastrado. Faça login ou recupere sua senha.';
+    case 'auth/too-many-requests': 
+      return 'Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.';
+    case 'auth/invalid-credential':
+      return 'E-mail ou senha incorretos.'; // Proteção contra enumeração
+    case 'auth/weak-password': 
+      return 'A senha deve ter pelo menos 6 caracteres.';
+    case 'auth/network-request-failed': 
+      return 'Erro de conexão. Verifique sua internet.';
+    case 'auth/requires-recent-login': 
+      return 'Para esta ação, faça login novamente.';
+    case 'auth/invalid-action-code': 
+      return 'Link inválido ou expirado.';
+    default: 
+      return 'Ocorreu um erro inesperado. Tente novamente.';
   }
 };
 
@@ -155,8 +178,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: true };
     } catch (error) {
       const err = error as AuthError;
-      // Por segurança, não confirmamos se o e-mail existe em alguns casos, mas aqui retornamos erro amigável
-      return { success: false, error: mapAuthError(err.code) };
+      // Retornamos o código cru também para tratamento específico na UI
+      return { success: false, error: mapAuthError(err.code), code: err.code };
     }
   };
 

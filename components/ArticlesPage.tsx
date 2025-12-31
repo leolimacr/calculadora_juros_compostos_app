@@ -1,6 +1,8 @@
 
 import React, { useState } from 'react';
 import { subscribeToNewsletter } from '../services/newsletterService';
+import { FULL_ARTICLES } from '../data/articlesContent';
+import { Article } from '../types';
 
 interface ArticlesPageProps {
   onReadArticle?: (slug: string) => void;
@@ -8,17 +10,14 @@ interface ArticlesPageProps {
 
 const ArticlesPage: React.FC<ArticlesPageProps> = () => {
   const [activeTab, setActiveTab] = useState<'ia' | 'carreira' | 'fundamentos'>('ia');
+  const [readingArticle, setReadingArticle] = useState<Article | null>(null);
   
   // Newsletter Logic
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   const handleSubscribe = async () => {
-    // Validação simples
-    if (!email || !email.includes('@') || !email.includes('.')) {
-        // Poderíamos setar um erro específico, mas vamos manter simples no 'idle' visualmente ou tratar se quiser
-        return;
-    }
+    if (!email || !email.includes('@') || !email.includes('.')) return;
 
     setStatus('loading');
     try {
@@ -30,59 +29,61 @@ const ArticlesPage: React.FC<ArticlesPageProps> = () => {
     }
   };
 
-  const articles = {
-    ia: [
-      { 
-        id: 101, 
-        title: "A Ilusão do Controle Algorítmico", 
-        desc: "A IA pode categorizar seu passado com precisão cirúrgica, mas o futuro permanece opaco. Use a tecnologia para limpar a neblina dos dados, não para criar uma falsa sensação de segurança sobre o amanhã.", 
-        tag: "Incerteza",
-        date: "Dez 2025"
-      },
-      { 
-        id: 102, 
-        title: "O Limite da Previsão", 
-        desc: "Modelos preditivos falham justamente nos eventos extremos que mais importam. O objetivo do Finanças Pro não é adivinhar o futuro, mas preparar sua robustez financeira para sobreviver ao que a IA não consegue prever.", 
-        tag: "Risco",
-        date: "Nov 2025"
-      },
-      { 
-        id: 103, 
-        title: "Terceirizando o Julgamento", 
-        desc: "A IA é um excelente copiloto, mas um péssimo capitão. Ela não tem 'pele em jogo' (skin in the game). Se ela errar a recomendação, quem perde o patrimônio é você. Mantenha a decisão final.", 
-        tag: "Skin in the Game",
-        date: "Out 2025"
-      },
-    ],
-    carreira: [
-      { 
-        id: 201, 
-        title: "Finanças como Opcionalidade", 
-        desc: "Uma reserva financeira robusta não serve apenas para emergências; ela compra sua liberdade para fazer apostas assimétricas na carreira. O dinheiro organizado é o que permite você dizer 'não' ao medíocre e 'sim' ao risco calculado.", 
-        tag: "Antifragilidade",
-        date: "Dez 2025"
-      },
-      { 
-        id: 202, 
-        title: "Assimetria da Informação", 
-        desc: "Em um mercado ruidoso, quem domina seus próprios dados tem vantagem. Usar ferramentas digitais para ver o que os outros ignoram não é apenas 'organização', é alfa na gestão da sua própria vida profissional.", 
-        tag: "Estratégia",
-        date: "Nov 2025"
-      },
-      { 
-        id: 203, 
-        title: "A Vantagem do Longo Prazo", 
-        desc: "A maioria otimiza para o curto prazo e quebra na primeira crise. A disciplina financeira é a arte chata de sobreviver tempo suficiente para que a sorte (e os juros compostos) encontre você.", 
-        tag: "Tempo",
-        date: "Out 2025"
-      },
-    ],
-    fundamentos: [
-      { id: 301, title: "Evitando a Ruína", desc: "A regra número um não é 'ficar rico', é 'não quebrar'. Antes de buscar multiplicadores de retorno, garanta que seu sistema financeiro aguenta choques. Sobrevivência é pré-requisito para o sucesso.", tag: "Sobrevivência", date: "Jan 2025" },
-      { id: 302, title: "Via Negativa nos Gastos", desc: "Muitas vezes, a riqueza vem do que você *não* faz. Cortar o supérfluo que drena sua energia e capital é mais eficiente do que buscar retornos mirabolantes em investimentos complexos.", tag: "Via Negativa", date: "Fev 2025" },
-      { id: 303, title: "Dívida é Fragilidade", desc: "Toda dívida é uma aposta de que o futuro será melhor que o presente. Quando o futuro surpreende negativamente, a dívida transforma volatilidade em ruína. Mantenha-se leve.", tag: "Fragilidade", date: "Mar 2025" },
-    ]
-  };
+  // Se estiver lendo um artigo, mostra o Reader View
+  if (readingArticle) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-8 animate-in fade-in slide-in-from-right duration-300 pb-24">
+        <button 
+          onClick={() => setReadingArticle(null)}
+          className="flex items-center gap-2 text-slate-400 hover:text-emerald-400 transition-colors mb-8 group"
+        >
+          <span className="group-hover:-translate-x-1 transition-transform">←</span> Voltar para o Hub
+        </button>
+
+        <article>
+          <header className="mb-10 border-b border-slate-800 pb-8">
+            <div className="flex gap-3 mb-4">
+               <span className="text-xs font-bold text-emerald-400 bg-emerald-900/20 px-3 py-1 rounded-full uppercase tracking-wider border border-emerald-500/20">
+                 {readingArticle.tag}
+               </span>
+               <span className="text-xs font-mono text-slate-500 flex items-center">
+                 {readingArticle.date} • Leitura de 3 min
+               </span>
+            </div>
+            <h1 className="text-3xl md:text-5xl font-black text-white leading-tight mb-6">
+              {readingArticle.title}
+            </h1>
+            <p className="text-xl text-slate-400 font-light leading-relaxed border-l-4 border-emerald-500 pl-6 italic">
+              {readingArticle.desc}
+            </p>
+          </header>
+
+          <div className="prose prose-invert prose-lg max-w-none prose-p:text-slate-300 prose-headings:text-white prose-a:text-emerald-400 hover:prose-a:text-emerald-300 prose-strong:text-white">
+             {readingArticle.fullContent}
+          </div>
+
+          <div className="mt-16 pt-8 border-t border-slate-800 text-center">
+             <p className="text-slate-500 mb-4 italic">Gostou da reflexão?</p>
+             <button 
+               onClick={() => setReadingArticle(null)}
+               className="bg-slate-800 hover:bg-slate-700 text-white px-6 py-3 rounded-xl font-bold transition-colors"
+             >
+               Ler outros artigos
+             </button>
+          </div>
+        </article>
+      </div>
+    );
+  }
+
+  // View Principal (Lista)
+  const filteredArticles = FULL_ARTICLES.filter(a => a.category === activeTab);
+
+  // Mock para outras categorias (se não houver no fullArticles)
+  // Mantemos o mock antigo para carreira/fundamentos se não estiverem no FULL_ARTICLES
+  const displayArticles = filteredArticles.length > 0 ? filteredArticles : [
+    { id: 99, title: "Em Breve", desc: "Novos artigos estão sendo escritos.", tag: "Aguarde", date: "---", category: activeTab }
+  ];
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 px-4 pb-20">
@@ -96,7 +97,7 @@ const ArticlesPage: React.FC<ArticlesPageProps> = () => {
         <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-700 overflow-x-auto max-w-full">
           {[
             { id: 'ia', label: '🤖 IA & Risco' },
-            { id: 'carreira', label: '💼 Carreira & Apostas' },
+            { id: 'carreira', label: '💼 Carreira' },
             { id: 'fundamentos', label: '🏛️ Fundamentos' }
           ].map(tab => (
             <button
@@ -115,8 +116,12 @@ const ArticlesPage: React.FC<ArticlesPageProps> = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {articles[activeTab].map(article => (
-          <div key={article.id} className="bg-slate-800 p-6 rounded-2xl border border-slate-700 hover:border-emerald-500/50 transition-all cursor-pointer group hover:-translate-y-1 flex flex-col h-full shadow-lg">
+        {displayArticles.map((article: any) => (
+          <div 
+            key={article.id} 
+            onClick={() => article.fullContent && setReadingArticle(article)}
+            className={`bg-slate-800 p-6 rounded-2xl border border-slate-700 hover:border-emerald-500/50 transition-all group hover:-translate-y-1 flex flex-col h-full shadow-lg ${article.fullContent ? 'cursor-pointer' : 'opacity-70'}`}
+          >
             <div className="flex justify-between items-start mb-4">
                 <span className="text-[10px] font-bold text-emerald-400 bg-emerald-900/20 px-2 py-1 rounded inline-block border border-emerald-500/20 uppercase tracking-wider">
                 {article.tag}
@@ -134,7 +139,8 @@ const ArticlesPage: React.FC<ArticlesPageProps> = () => {
             
             <div className="pt-4 border-t border-slate-700/50 mt-auto">
                 <span className="text-xs text-slate-500 font-bold group-hover:text-white transition-colors flex items-center gap-2">
-                    Ler ensaio completo <span className="group-hover:translate-x-1 transition-transform">→</span>
+                    {article.fullContent ? 'Ler ensaio completo' : 'Em breve'} 
+                    {article.fullContent && <span className="group-hover:translate-x-1 transition-transform">→</span>}
                 </span>
             </div>
           </div>

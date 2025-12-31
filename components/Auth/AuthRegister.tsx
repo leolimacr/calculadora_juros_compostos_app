@@ -68,8 +68,8 @@ const AuthRegister: React.FC<AuthRegisterProps> = ({ onSuccess, onSwitchToLogin 
         </div>
         <h3 className="text-2xl font-bold text-white mb-2">Verifique seu E-mail</h3>
         <p className="text-slate-300 text-sm mb-6 leading-relaxed">
-          Enviamos um link de confirmação para <strong>{email}</strong>.<br/>
-          Por favor, verifique sua caixa de entrada (e spam) para ativar todos os recursos.
+          Enviamos um e-mail de confirmação para <strong>{email}</strong>.<br/><br/>
+          <span className="text-emerald-400 font-bold">Atenção:</span> Se não encontrar na caixa de entrada, <strong>verifique também o lixo eletrônico ou a pasta de spam</strong>.
         </p>
         <button 
           onClick={onSuccess} 

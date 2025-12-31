@@ -22,7 +22,7 @@ const UserPanel: React.FC<UserPanelProps> = ({ onNavigate, onAssetClick }) => {
     const res = await resendVerification();
     if (res.success) {
         setEmailSent(true);
-        setTimeout(() => setEmailSent(false), 5000); // Reset visual após 5s
+        setTimeout(() => setEmailSent(false), 8000); // Aumentado para dar tempo de ler
     } else {
         alert(res.error || "Erro ao enviar e-mail.");
     }
@@ -69,7 +69,7 @@ const UserPanel: React.FC<UserPanelProps> = ({ onNavigate, onAssetClick }) => {
                 <div>
                     <p className="text-amber-200 font-bold text-sm">Verifique seu e-mail ({user?.email})</p>
                     <p className="text-amber-200/70 text-xs">
-                        {emailSent ? 'Novo e-mail enviado! Verifique sua caixa de entrada.' : 'Algumas funções de segurança dependem disso.'}
+                        {emailSent ? 'E-mail enviado! Verifique a caixa de entrada e o SPAM.' : 'Algumas funções de segurança dependem disso.'}
                     </p>
                 </div>
             </div>

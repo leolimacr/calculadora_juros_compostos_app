@@ -22,7 +22,8 @@ const AuthLogin: React.FC<AuthLoginProps> = ({ onSuccess, onSwitchToRegister }) 
   
   // Forgot Password States
   const [forgotEmail, setForgotEmail] = useState('');
-  const [forgotStatus, setForgotStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  // Status agora suporta 'not-found' para feedback específico
+  const [forgotStatus, setForgotStatus] = useState<'idle' | 'success' | 'error' | 'not-found'>('idle');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,9 +53,11 @@ const AuthLogin: React.FC<AuthLoginProps> = ({ onSuccess, onSwitchToRegister }) 
     
     if (res.success) {
       setForgotStatus('success');
+    } else if (res.code === 'auth/user-not-found') {
+      setForgotStatus('not-found');
     } else {
       setForgotStatus('error');
-      setError(res.error || 'Erro ao enviar e-mail.');
+      setError(res.error || 'Não foi possível enviar o e-mail. Tente novamente.');
     }
     setLoading(false);
   };
@@ -73,11 +76,12 @@ const AuthLogin: React.FC<AuthLoginProps> = ({ onSuccess, onSwitchToRegister }) 
         <h3 className="text-xl font-bold text-white mb-2 text-center">Recuperar Senha</h3>
         
         {forgotStatus === 'success' ? (
-            <div className="text-center bg-emerald-900/20 p-6 rounded-2xl border border-emerald-500/20">
+            <div className="text-center bg-emerald-900/20 p-6 rounded-2xl border border-emerald-500/20 animate-in zoom-in">
                 <span className="text-4xl block mb-4">📧</span>
                 <p className="text-emerald-400 font-bold mb-2">E-mail Enviado!</p>
-                <p className="text-slate-300 text-sm">
-                    Se o e-mail <strong>{forgotEmail}</strong> estiver cadastrado, você receberá um link para redefinir sua senha em instantes.
+                <p className="text-slate-300 text-sm leading-relaxed">
+                    Enviamos um e-mail para <strong>{forgotEmail}</strong> com o link de redefinição.<br/><br/>
+                    Se não encontrar na caixa de entrada, <strong>verifique também o lixo eletrônico ou a pasta de spam</strong>.
                 </p>
                 <button 
                     onClick={() => setMode('login')}
@@ -85,6 +89,28 @@ const AuthLogin: React.FC<AuthLoginProps> = ({ onSuccess, onSwitchToRegister }) 
                 >
                     Voltar ao Login
                 </button>
+            </div>
+        ) : forgotStatus === 'not-found' ? (
+            <div className="text-center bg-amber-900/20 p-6 rounded-2xl border border-amber-500/20 animate-in shake">
+                <span className="text-4xl block mb-4">🤔</span>
+                <p className="text-amber-400 font-bold mb-2">E-mail não encontrado</p>
+                <p className="text-slate-300 text-sm mb-4">
+                    Este e-mail não está cadastrado. Verifique se digitou corretamente ou crie uma conta nova.
+                </p>
+                <div className="flex gap-2">
+                    <button 
+                        onClick={() => setForgotStatus('idle')}
+                        className="flex-1 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-2 rounded-xl transition-colors"
+                    >
+                        Tentar Outro
+                    </button>
+                    <button 
+                        onClick={onSwitchToRegister}
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 rounded-xl transition-colors"
+                    >
+                        Criar Conta
+                    </button>
+                </div>
             </div>
         ) : (
             <form onSubmit={handleForgotPassword} className="space-y-4">
@@ -104,7 +130,9 @@ const AuthLogin: React.FC<AuthLoginProps> = ({ onSuccess, onSwitchToRegister }) 
                 </div>
 
                 {forgotStatus === 'error' && error && (
-                    <p className="text-red-400 text-xs text-center">{error}</p>
+                    <div className="bg-red-900/20 border border-red-500/30 p-3 rounded-xl text-center">
+                        <p className="text-red-400 text-xs font-bold">{error}</p>
+                    </div>
                 )}
 
                 <button 
