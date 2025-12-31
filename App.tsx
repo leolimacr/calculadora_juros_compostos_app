@@ -281,7 +281,8 @@ const App: React.FC = () => {
 
     switch(currentTool) {
       // Public Views
-      case 'home': return <PublicHome onNavigate={navigateTo} onStartNow={handleStartNow} />;
+      case 'home': 
+        return <PublicHome onNavigate={navigateTo} onStartNow={handleStartNow} onAssetClick={handleAssetClick} />;
       case 'register': 
         return (
           <div className="flex flex-col items-center justify-center min-h-[70vh]">
@@ -373,9 +374,7 @@ const App: React.FC = () => {
       case 'politica-privacidade': return <PrivacyPage />;
       
       // Private User Views
-      case 'panel': return <UserPanel onNavigate={navigateTo} />; // Note: UserPanel's Widget now handles clicks internally but logic needs to be passed down if possible or injected in widgets. The Widget component is self-contained but we can modify it to use context or similar if needed, but easier is to modify UserPanel to pass the handler or modify Widgets to emit global event? No, let's keep it simple. UserPanel renders widgets directly.
-      // Wait, UserPanel renders MarketWidget. I need to update UserPanel to pass onAssetClick to MarketWidget.
-      // See fix below for UserPanel content.
+      case 'panel': return <UserPanel onNavigate={navigateTo} onAssetClick={handleAssetClick} />; 
       case 'settings': return <SettingsPage onOpenChangePassword={() => setActiveModal('change_password')} />;
       case 'perfil': return <ProfilePage onOpenChangePassword={() => setActiveModal('change_password')} navigateToHome={() => navigateTo('panel')} />;
 
@@ -386,10 +385,10 @@ const App: React.FC = () => {
                     asset={selectedAsset} 
                     onClose={() => navigateTo('panel')}
                     isFullscreen={true}
-                    onToggleFullscreen={() => navigateTo('panel')} // Toggling full screen off goes back to panel with modal open conceptually, or just panel
+                    onToggleFullscreen={() => navigateTo('panel')} 
                 />
             </div>
-        ) : <UserPanel onNavigate={navigateTo} />;
+        ) : <UserPanel onNavigate={navigateTo} onAssetClick={handleAssetClick} />;
 
       // Private Tools
       case 'compound': 
@@ -431,7 +430,7 @@ const App: React.FC = () => {
             <EducationalContent onOpenPlans={() => navigateTo('premium')} />
         </div>
       );
-      default: return <PublicHome onNavigate={navigateTo} onStartNow={handleStartNow} />;
+      default: return <PublicHome onNavigate={navigateTo} onStartNow={handleStartNow} onAssetClick={handleAssetClick} />;
     }
   };
 

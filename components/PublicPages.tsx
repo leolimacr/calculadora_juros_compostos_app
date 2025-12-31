@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { NewsWidget, MarketWidget } from './Widgets';
+import { MarketQuote } from '../types';
 
 // --- Banner Desktop ---
 const DesktopAppBanner = () => {
@@ -45,7 +46,7 @@ const DesktopAppBanner = () => {
 };
 
 // --- Home Pública ---
-export const PublicHome: React.FC<{ onNavigate: (path: any) => void; onStartNow: () => void }> = ({ onNavigate, onStartNow }) => {
+export const PublicHome: React.FC<{ onNavigate: (path: any) => void; onStartNow: () => void; onAssetClick?: (asset: MarketQuote) => void }> = ({ onNavigate, onStartNow, onAssetClick }) => {
   return (
     <>
     <DesktopAppBanner />
@@ -125,7 +126,7 @@ export const PublicHome: React.FC<{ onNavigate: (path: any) => void; onStartNow:
         
         <div className="text-center pb-8">
             <p className="text-slate-500 text-sm mb-6 px-4">+ Aluguel vs Financiamento, ROI, Dividendos e Simulador de Crise.</p>
-            <button onClick={onStartNow} className="text-emerald-400 font-bold hover:text-white transition-colors border-b border-emerald-500/30 pb-1 text-lg">
+            <button onClick={onStartNow} className="text-emerald-400 font-bold hover:text-white transition-colors border-b border-emerald-500/30 hover:border-white transition-all pb-1 text-lg">
                 Criar conta gratuita para acessar tudo →
             </button>
         </div>
@@ -134,7 +135,7 @@ export const PublicHome: React.FC<{ onNavigate: (path: any) => void; onStartNow:
       {/* Sidebar News & Market */}
       <aside className="space-y-6">
         <NewsWidget />
-        <MarketWidget />
+        <MarketWidget onAssetClick={onAssetClick} />
         <div className="bg-emerald-900/20 border border-emerald-500/30 p-6 rounded-2xl text-center">
            <h4 className="font-bold text-emerald-400 mb-2">Cadastre-se Gratuitamente</h4>
            <p className="text-xs text-slate-300 mb-4">Tenha acesso a todas as 8 ferramentas exclusivas.</p>

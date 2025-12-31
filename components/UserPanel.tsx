@@ -7,10 +7,10 @@ import { MarketQuote } from '../types';
 
 interface UserPanelProps {
   onNavigate: (tool: string) => void;
-  onAssetClick?: (asset: MarketQuote) => void; // Prop opcional para passar click se quiser, mas App.tsx controla via modal global
+  onAssetClick?: (asset: MarketQuote) => void;
 }
 
-const UserPanel: React.FC<UserPanelProps> = ({ onNavigate }) => {
+const UserPanel: React.FC<UserPanelProps> = ({ onNavigate, onAssetClick }) => {
   const { user, resendVerificationEmail } = useAuth();
   const userName = user?.name || user?.email.split('@')[0] || 'Investidor';
   const [resendStatus, setResendStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
@@ -38,19 +38,6 @@ const UserPanel: React.FC<UserPanelProps> = ({ onNavigate }) => {
     { id: 'game', name: 'Simulador de Resiliência', desc: 'Teste suas decisões em um cenário de crise.', icon: '🎮', color: 'text-yellow-400', bg: 'bg-yellow-900/20', border: 'border-yellow-500/30' },
   ];
 
-  // Função interna para disparar evento de clique no ativo (gambiarra leve para evitar prop drilling complexo no UserPanel, 
-  // mas o App.tsx controla 'selectedAsset' via MarketWidget que está dentro do UserPanel?
-  // O App.tsx renderiza <UserPanel ... /> e <MarketTickerBar ... />. O Ticker está fora.
-  // O Widget está dentro. Para o Widget funcionar, precisamos passar onAssetClick para UserPanel e depois para MarketWidget.
-  // Mas como App.tsx renderiza o modal baseado em selectedAsset, precisamos de uma forma de setar selectedAsset no App.
-  // Vou usar um EventBus simples ou passar a prop. Vamos passar a prop.
-  // Mas UserPanelProps não tinha onAssetClick. Adicionei na interface acima.
-  // Mas App.tsx não estava passando essa prop.
-  // Solução: Vamos adicionar um EventListener customizado no App.tsx ou passar a prop. 
-  // Passar a prop é o React Way.
-  // Mas espera, o App.tsx renderiza: case 'panel': return <UserPanel onNavigate={navigateTo} />;
-  // Preciso atualizar App.tsx para passar onAssetClick={handleAssetClick}.
-  
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
@@ -143,8 +130,7 @@ const UserPanel: React.FC<UserPanelProps> = ({ onNavigate }) => {
                </p>
             </div>
 
-            {/* Injetando a função de clique global do App se disponível, senão fallback (apenas log ou null) */}
-            <MarketWidget onAssetClick={(window as any).handleAssetClickGlobal} /> 
+            <MarketWidget onAssetClick={onAssetClick} /> 
             <NewsWidget />
          </aside>
 
