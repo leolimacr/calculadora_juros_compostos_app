@@ -4,8 +4,8 @@ import { MarketQuote } from '../types';
 // ============================================================================
 // CONFIGURAÇÃO
 // ============================================================================
-// AwesomeAPI (Moedas/Cripto) continua sendo chamada diretamente (sem chave).
-const AWESOME_API_URL = 'https://economia.awesomeapi.com.br/last/USD-BRL,EUR-BRL,BTC-BRL,ETH-BRL,BTC-USD,ETH-USD';
+// AwesomeAPI (Moedas/Cripto) - Adicionado BNB e SOL
+const AWESOME_API_URL = 'https://economia.awesomeapi.com.br/last/USD-BRL,EUR-BRL,BTC-BRL,ETH-BRL,BNB-BRL,SOL-BRL';
 
 // Rota Serverless para Índices e Ações (Protege a chave da Brapi e faz cache server-side)
 const INDICES_API_URL = '/api/market';
@@ -49,21 +49,26 @@ export const searchAssets = async (query: string): Promise<AssetSearchResult[]> 
 
   try {
     // Usa Proxy para acessar Yahoo Finance Autocomplete
-    // Filtra para região BR para priorizar ativos da B3
-    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v1/finance/search?q=${query}&lang=pt-BR&region=BR&quotesCount=6&newsCount=0`)}`;
+    // Filtra para região BR para priorizar ativos da B3, mas pega Cripto global
+    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v1/finance/search?q=${query}&lang=pt-BR&region=BR&quotesCount=8&newsCount=0`)}`;
     
     const res = await fetch(proxyUrl);
     if (!res.ok) return [];
     
     const data = await res.json();
     
-    // Mapeia e filtra apenas Equity (Ações) e ETF/FIIs
+    // Mapeia e filtra Equity, ETF, FII e CRYPTOCURRENCY
     return (data.quotes || [])
-      .filter((q: any) => q.isYahooFinance && (q.quoteType === 'EQUITY' || q.quoteType === 'ETF' || q.quoteType === 'MUTUALFUND'))
+      .filter((q: any) => q.isYahooFinance && (
+          q.quoteType === 'EQUITY' || 
+          q.quoteType === 'ETF' || 
+          q.quoteType === 'MUTUALFUND' ||
+          q.quoteType === 'CRYPTOCURRENCY'
+      ))
       .map((q: any) => ({
         symbol: q.symbol.replace('.SA', ''), // Remove sufixo .SA para visualização limpa
         name: q.shortname || q.longname,
-        type: q.quoteType
+        type: mapQuoteType(q.quoteType)
       }));
   } catch (error) {
     console.warn("Erro no autocomplete:", error);
@@ -74,9 +79,19 @@ export const searchAssets = async (query: string): Promise<AssetSearchResult[]> 
 // --- Busca Cotação Específica ---
 export const fetchAssetQuote = async (symbol: string): Promise<MarketQuote | null> => {
   try {
-    // Adiciona .SA se não tiver e não for índice conhecido
-    const apiSymbol = symbol.toUpperCase().endsWith('.SA') || symbol.startsWith('^') ? symbol : `${symbol}.SA`;
+    // Tratamento de símbolo para API Yahoo
+    let apiSymbol = symbol;
+    let category: any = 'stock';
+
+    // Se parecer cripto (ex: BTC-USD, ou sem sufixo conhecido e não numérico)
+    // Yahoo usa 'BTC-USD' por padrão. Se o usuário buscou 'BTC', tentamos adivinhar ou usar o que veio da busca.
+    // A busca retorna o symbol correto (ex: 'BTC-USD').
     
+    if (!symbol.includes('.') && !symbol.includes('-') && !symbol.startsWith('^')) {
+        // Assume .SA para ações brasileiras padrão se não tiver sufixo
+        apiSymbol = `${symbol}.SA`; 
+    }
+
     const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${apiSymbol}?interval=1d&range=1d`)}`;
     const res = await fetch(proxyUrl);
     
@@ -90,13 +105,16 @@ export const fetchAssetQuote = async (symbol: string): Promise<MarketQuote | nul
     const price = result.regularMarketPrice;
     const prevClose = result.chartPreviousClose;
     const changePercent = prevClose ? ((price - prevClose) / prevClose) * 100 : 0;
-
+    
+    // Detectar tipo pelo instrumentType se disponível, ou inferir
+    if (result.instrumentType === 'CRYPTOCURRENCY') category = 'crypto';
+    
     return {
       symbol: symbol.replace('.SA', ''),
       name:  data.chart?.result?.[0]?.meta?.shortName || symbol, // Tenta pegar nome curto
       price,
       changePercent,
-      category: 'stock',
+      category,
       timestamp: Date.now(),
       simulated: false
     };
@@ -122,21 +140,21 @@ export const fetchMarketQuotes = async (forceRefresh = false): Promise<MarketRes
   const quotes: MarketQuote[] = [];
   let isRateLimited = false;
 
-  // --- 2. BUSCA MOEDAS (AwesomeAPI) ---
+  // --- 2. BUSCA MOEDAS E CRIPTO (AwesomeAPI) ---
   try {
     const awesomeRes = await fetch(`${AWESOME_API_URL}?t=${Date.now()}`);
     if (awesomeRes.ok) {
       const json = await awesomeRes.json();
       
-      if (json.USDBRL) quotes.push(mapAwesomeItem('USD', 'Dólar Comercial', json.USDBRL, 'currency'));
-      if (json.EURBRL) quotes.push(mapAwesomeItem('EUR', 'Euro Comercial', json.EURBRL, 'currency'));
+      // Moedas Fiat
+      if (json.USDBRL) quotes.push(mapAwesomeItem('USD', 'Dólar', json.USDBRL, 'currency'));
+      if (json.EURBRL) quotes.push(mapAwesomeItem('EUR', 'Euro', json.EURBRL, 'currency'));
       
-      // Cripto em Reais e Dólar (Agrupados para melhor visualização)
-      if (json.BTCBRL) quotes.push(mapAwesomeItem('BTC', 'Bitcoin (R$)', json.BTCBRL, 'crypto'));
-      if (json.BTCUSD) quotes.push(mapAwesomeItem('BTC/USD', 'Bitcoin (USD)', json.BTCUSD, 'crypto'));
-      
-      if (json.ETHBRL) quotes.push(mapAwesomeItem('ETH', 'Ethereum (R$)', json.ETHBRL, 'crypto'));
-      if (json.ETHUSD) quotes.push(mapAwesomeItem('ETH/USD', 'Ethereum (USD)', json.ETHUSD, 'crypto'));
+      // Criptomoedas (Principais)
+      if (json.BTCBRL) quotes.push(mapAwesomeItem('BTC', 'Bitcoin', json.BTCBRL, 'crypto'));
+      if (json.ETHBRL) quotes.push(mapAwesomeItem('ETH', 'Ethereum', json.ETHBRL, 'crypto'));
+      if (json.BNBBRL) quotes.push(mapAwesomeItem('BNB', 'Binance Coin', json.BNBBRL, 'crypto'));
+      if (json.SOLBRL) quotes.push(mapAwesomeItem('SOL', 'Solana', json.SOLBRL, 'crypto'));
     }
   } catch (error) {
     console.error("Erro ao buscar AwesomeAPI:", error);
@@ -244,3 +262,14 @@ const mapAwesomeItem = (symbol: string, name: string, data: any, category: 'curr
   timestamp: Date.now(),
   simulated: false
 });
+
+const mapQuoteType = (yahooType: string): string => {
+    switch (yahooType) {
+        case 'EQUITY': return 'Ação';
+        case 'ETF': return 'ETF';
+        case 'MUTUALFUND': return 'Fundo';
+        case 'CRYPTOCURRENCY': return 'Cripto';
+        case 'INDEX': return 'Índice';
+        default: return 'Ativo';
+    }
+};

@@ -59,9 +59,13 @@ const MarketSkeleton = () => (
 );
 
 const ItemRow: React.FC<{ item: MarketQuote; isHighlight?: boolean }> = ({ item, isHighlight }) => {
-    const isUSD = item.symbol.includes('/USD') || item.symbol === 'BTC' || item.symbol === 'ETH'; 
+    // Identifica se é Cripto para formatação específica
+    const isCrypto = item.category === 'crypto';
+    
     // Define se é moeda fiat (USD/EUR) para aplicar 3 casas decimais
-    const isFiatCurrency = item.symbol === 'USD' || item.symbol === 'EUR';
+    const isFiatCurrency = item.category === 'currency';
+    
+    // Casas decimais: Fiat = 3, Cripto = 2 (BRL grande) ou mais se for pequeno (não implementado complexo aqui, assume majors), Ações = 2
     const decimals = isFiatCurrency ? 3 : 2;
 
     return (
@@ -74,6 +78,7 @@ const ItemRow: React.FC<{ item: MarketQuote; isHighlight?: boolean }> = ({ item,
              <div className="flex items-center gap-2">
                 <span className="text-xs text-slate-300 font-bold">{item.symbol}</span>
                 {isHighlight && <span className="text-[9px] bg-emerald-500 text-slate-900 px-1 rounded font-bold">BUSCA</span>}
+                {isCrypto && !isHighlight && <span className="text-[8px] bg-indigo-500/20 text-indigo-300 px-1 rounded border border-indigo-500/20">Cripto</span>}
              </div>
              <span className="text-[9px] text-slate-500 truncate max-w-[120px] hidden sm:block">
                {item.name}
@@ -83,9 +88,9 @@ const ItemRow: React.FC<{ item: MarketQuote; isHighlight?: boolean }> = ({ item,
               <div className="text-xs font-bold text-white">
                   {item.category === 'index' 
                     ? `${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} pts`
-                    : isUSD && !item.symbol.includes('BRL')
-                      ? `$ ${item.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                      : `R$ ${item.price.toLocaleString('pt-BR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`}
+                    : isFiatCurrency 
+                      ? `R$ ${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}`
+                      : `R$ ${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
               </div>
               <div className={`text-[10px] font-bold ${item.changePercent >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                   {item.changePercent >= 0 ? '↑' : '↓'} {Math.abs(item.changePercent).toFixed(2)}%
@@ -115,17 +120,18 @@ export const MarketTickerBar = () => {
         </div>
     );
 
+    // Filtra ativos principais para o ticker
     const tickerItems = quotes.filter(q => 
         ['USD', 'EUR', 'IBOV', 'VALE3', 'PETR4', 'ITUB4'].includes(q.symbol) || 
-        q.symbol === 'BTC'
+        q.category === 'crypto' // Inclui todas as criptos carregadas
     );
 
     return (
         <div className="w-full h-8 bg-[#020617] overflow-hidden relative flex items-center border-r border-slate-800/50">
             <div className="flex animate-marquee whitespace-nowrap items-center hover:pause-animation">
                 {[...tickerItems, ...tickerItems, ...tickerItems].map((item, idx) => {
-                    // Lógica de casas decimais para o Ticker
-                    const decimals = (item.symbol === 'USD' || item.symbol === 'EUR') ? 3 : 2;
+                    const isFiat = item.category === 'currency';
+                    const decimals = isFiat ? 3 : 2;
                     
                     return (
                         <div key={`${item.symbol}-${idx}`} className="flex items-center gap-2 px-4 border-r border-slate-800/30 h-full">
@@ -338,7 +344,7 @@ export const MarketWidget = () => {
             <div className="relative">
                 <input 
                     type="text" 
-                    placeholder="Buscar ação ou FII (ex: PETR4, KNRI11)"
+                    placeholder="Buscar ação, FII ou cripto (ex: BTC)"
                     className="w-full bg-slate-900 border border-slate-600 rounded-lg py-2 pl-8 pr-4 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -367,7 +373,11 @@ export const MarketWidget = () => {
                                 <span className="font-bold text-white block">{asset.symbol}</span>
                                 <span className="text-slate-500 text-[10px] truncate max-w-[150px] block">{asset.name}</span>
                             </div>
-                            <span className="text-[9px] bg-slate-800 px-1.5 rounded text-slate-400 group-hover:bg-slate-700">{asset.type}</span>
+                            <span className={`text-[9px] px-1.5 rounded ${
+                                asset.type === 'Cripto' ? 'bg-indigo-900/50 text-indigo-300' : 'bg-slate-800 text-slate-400'
+                            } group-hover:bg-opacity-80`}>
+                                {asset.type}
+                            </span>
                         </button>
                     ))}
                 </div>
@@ -411,13 +421,23 @@ export const MarketWidget = () => {
                 </div>
               )}
 
-              {/* Moedas & Cripto */}
+              {/* Moedas (Fiat) */}
               <div>
                   <span className="text-[10px] font-bold text-slate-500 uppercase mb-1 block tracking-wider px-1">Moedas</span>
                   <div className="bg-slate-900/30 rounded-xl p-2 border border-slate-700/50 space-y-0.5">
-                    {quotes.filter(q => q.category === 'currency' || q.category === 'crypto').slice(0, 4).map(q => <ItemRow key={`${q.symbol}`} item={q} />)}
+                    {quotes.filter(q => q.category === 'currency').map(q => <ItemRow key={`${q.symbol}`} item={q} />)}
                   </div>
               </div>
+
+              {/* Criptomoedas (Nova Seção) */}
+              {quotes.some(q => q.category === 'crypto') && (
+                <div>
+                    <span className="text-[10px] font-bold text-indigo-400/80 uppercase mb-1 block tracking-wider px-1">Criptomoedas</span>
+                    <div className="bg-indigo-950/10 rounded-xl p-2 border border-indigo-500/10 space-y-0.5">
+                      {quotes.filter(q => q.category === 'crypto').map(q => <ItemRow key={`${q.symbol}`} item={q} />)}
+                    </div>
+                </div>
+              )}
 
               {/* Ações Ibovespa (Top 5) */}
               {quotes.some(q => q.category === 'stock') && (
