@@ -49,9 +49,10 @@ export const fetchHistoricalData = async (symbol: string, range: '1d' | '5d' | '
   
   try {
     let interval = '1d';
+    // Ajuste de intervalos para evitar erros da API Yahoo via Proxy (5m costuma falhar)
     switch(range) {
-        case '1d': interval = '5m'; break; // Yahoo pode falhar com 5m para alguns ativos, fallback seria 15m
-        case '5d': interval = '15m'; break;
+        case '1d': interval = '15m'; break; // Aumentado de 5m para 15m para estabilidade
+        case '5d': interval = '60m'; break; // Aumentado de 15m para 60m
         case '1mo': interval = '1d'; break;
         case '6mo': interval = '1d'; break;
         case '1y': interval = '1wk'; break;
@@ -75,7 +76,7 @@ export const fetchHistoricalData = async (symbol: string, range: '1d' | '5d' | '
     if (symbolMap[symbol]) {
         apiSymbol = symbolMap[symbol];
     } else if (knownCryptos.includes(symbol) || knownCryptos.some(c => symbol.startsWith(c))) {
-        // Se for cripto, força o par BRL se não tiver sufixo
+        // Se for cripto, força o par BRL se não tiver sufixo e não for par USD já definido
         if (!symbol.includes('-') && !symbol.includes('=')) {
             apiSymbol = `${symbol}-BRL`;
         }
@@ -84,18 +85,40 @@ export const fetchHistoricalData = async (symbol: string, range: '1d' | '5d' | '
         apiSymbol = `${symbol}.SA`;
     }
 
-    console.log(`[MarketService] URL Symbol gerado: ${apiSymbol}`);
+    console.log(`[MarketService] URL Symbol gerado: ${apiSymbol}, Intervalo: ${interval}`);
 
     // Usar Proxy para evitar CORS
-    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${apiSymbol}?range=${range}&interval=${interval}`)}`;
+    const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${apiSymbol}?range=${range}&interval=${interval}`;
+    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
     
     const res = await fetch(proxyUrl);
+    
     if (!res.ok) {
-        console.error(`[MarketService] Erro HTTP: ${res.status}`);
+        console.error(`[MarketService] Erro HTTP: ${res.status} para ${apiSymbol}`);
+        // Tenta fallback para USD se for cripto e falhar no BRL (raro, mas acontece)
+        if (apiSymbol.endsWith('-BRL')) {
+             console.log('[MarketService] Tentando fallback para USD...');
+             const fallbackUrl = `https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}-USD?range=${range}&interval=${interval}`)}`;
+             const resFallback = await fetch(fallbackUrl);
+             if (resFallback.ok) {
+                 const data = await resFallback.json();
+                 return parseYahooChartData(data); // Usa helper para parsing
+             }
+        }
         return [];
     }
     
     const data = await res.json();
+    return parseYahooChartData(data);
+
+  } catch (error) {
+    console.error('[MarketService] Exceção ao buscar histórico:', error);
+    return [];
+  }
+};
+
+// Helper para parsear resposta do Yahoo
+const parseYahooChartData = (data: any): HistoricalDataPoint[] => {
     const result = data.chart?.result?.[0];
     
     if (!result) {
@@ -120,11 +143,6 @@ export const fetchHistoricalData = async (symbol: string, range: '1d' | '5d' | '
 
     console.log(`[MarketService] Histórico carregado: ${history.length} pontos.`);
     return history;
-
-  } catch (error) {
-    console.error('[MarketService] Exceção ao buscar histórico:', error);
-    return [];
-  }
 };
 
 // --- Busca de Sugestões (Autocomplete) ---

@@ -49,7 +49,6 @@ const AssetDetails: React.FC<AssetDetailsProps> = ({ asset, onClose, onToggleFul
     { label: '5A', val: '5y' },
   ];
 
-  // Fallback seguro se changePercent for undefined
   const isPositive = (asset.changePercent || 0) >= 0;
   const color = isPositive ? '#10b981' : '#ef4444'; 
 
@@ -130,10 +129,11 @@ const AssetDetails: React.FC<AssetDetailsProps> = ({ asset, onClose, onToggleFul
 
       {/* Chart Area */}
       {/* 
-          CRITICAL FIX: Em tela cheia, o pai (AssetDetailsPage) pode não estar passando altura explícita.
-          Forçamos uma altura mínima ou fixa no modo tela cheia para garantir que o ResponsiveContainer funcione.
+          CRITICAL FIX: Altura explícita em fullscreen. 
+          min-h-screen no pai não garante altura para o filho flex-grow se não houver conteúdo.
+          h-[60vh] garante espaço para o ResponsiveContainer desenhar.
       */}
-      <div className={`flex-grow p-6 relative ${isFullscreen ? 'min-h-[500px]' : 'min-h-[300px]'}`}>
+      <div className={`p-6 relative w-full ${isFullscreen ? 'h-[60vh] md:h-[70vh]' : 'h-[300px] flex-grow'}`}>
         {loading && (
             <div className="absolute inset-0 flex items-center justify-center bg-slate-900/50 z-10 backdrop-blur-sm">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
@@ -141,7 +141,7 @@ const AssetDetails: React.FC<AssetDetailsProps> = ({ asset, onClose, onToggleFul
         )}
         
         {error ? (
-            <div className="h-full flex items-center justify-center text-slate-500 flex-col gap-2 min-h-[300px]">
+            <div className="h-full flex items-center justify-center text-slate-500 flex-col gap-2 min-h-[200px]">
                 <span className="text-3xl">📉</span>
                 <p>Não foi possível carregar o gráfico histórico.</p>
                 <button onClick={() => setRange('1mo')} className="text-emerald-400 text-sm hover:underline">Tentar Novamente</button>
@@ -190,7 +190,7 @@ const AssetDetails: React.FC<AssetDetailsProps> = ({ asset, onClose, onToggleFul
         )}
       </div>
       
-      <div className="p-6 text-center text-xs text-slate-600 border-t border-slate-800">
+      <div className="p-6 text-center text-xs text-slate-600 border-t border-slate-800 mt-auto">
         Dados fornecidos por Yahoo Finance (atraso de 15min pode ocorrer). <br/>
         Este gráfico é para fins educacionais e não constitui recomendação de investimento.
       </div>
