@@ -16,7 +16,7 @@ const AssetDetailsPage: React.FC<AssetDetailsPageProps> = ({ symbol, initialAsse
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    // If we already have the asset and it matches the requested symbol, no need to fetch
+    // Se já temos o ativo e ele bate com o símbolo pedido (refresh ou navegação direta)
     if (asset && asset.symbol === symbol) {
         setLoading(false);
         return;
@@ -29,24 +29,24 @@ const AssetDetailsPage: React.FC<AssetDetailsPageProps> = ({ symbol, initialAsse
           return;
       }
 
-      console.log(`[AssetDetailsPage] Fetching data for: ${symbol}`);
+      console.log(`[AssetDetailsPage] Buscando dados iniciais para: ${symbol}`);
       setLoading(true);
       setError(false);
       
       const data = await fetchAssetQuote(symbol);
       
       if (data) {
-        console.log('[AssetDetailsPage] Data loaded:', data);
+        console.log('[AssetDetailsPage] Dados carregados:', data);
         setAsset(data);
       } else {
-        console.error('[AssetDetailsPage] Failed to load asset');
+        console.error('[AssetDetailsPage] Falha ao carregar ativo');
         setError(true);
       }
       setLoading(false);
     };
 
     loadAsset();
-  }, [symbol]);
+  }, [symbol]); // Recarrega se o símbolo na URL mudar
 
   if (loading) {
     return (
@@ -79,7 +79,6 @@ const AssetDetailsPage: React.FC<AssetDetailsPageProps> = ({ symbol, initialAsse
         asset={asset} 
         onClose={onBack} 
         isFullscreen={true}
-        // No fullscreen toggle needed here since we are already in fullscreen page
       />
     </div>
   );

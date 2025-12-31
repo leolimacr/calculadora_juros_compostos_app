@@ -19,16 +19,19 @@ const AssetDetails: React.FC<AssetDetailsProps> = ({ asset, onClose, onToggleFul
 
   useEffect(() => {
     const loadHistory = async () => {
+      console.log(`[AssetDetails] Carregando gráfico para ${asset.symbol} no intervalo ${range}`);
       setLoading(true);
       setError(false);
       try {
         const history = await fetchHistoricalData(asset.symbol, range);
-        if (history.length > 0) {
+        if (history && history.length > 0) {
             setData(history);
         } else {
+            console.warn(`[AssetDetails] Sem dados históricos retornados para ${asset.symbol}`);
             setError(true);
         }
       } catch (e) {
+        console.error(`[AssetDetails] Erro fatal ao carregar gráfico:`, e);
         setError(true);
       } finally {
         setLoading(false);
@@ -46,7 +49,8 @@ const AssetDetails: React.FC<AssetDetailsProps> = ({ asset, onClose, onToggleFul
     { label: '5A', val: '5y' },
   ];
 
-  const isPositive = asset.changePercent >= 0;
+  // Fallback seguro se changePercent for undefined
+  const isPositive = (asset.changePercent || 0) >= 0;
   const color = isPositive ? '#10b981' : '#ef4444'; 
 
   const formatDate = (dateStr: string) => {
@@ -63,7 +67,7 @@ const AssetDetails: React.FC<AssetDetailsProps> = ({ asset, onClose, onToggleFul
   };
 
   return (
-    <div className={`bg-slate-900 flex flex-col ${isFullscreen ? 'h-full min-h-screen' : 'h-full'}`}>
+    <div className={`bg-slate-900 flex flex-col ${isFullscreen ? 'min-h-screen w-full' : 'h-full'}`}>
       {/* Header */}
       <div className={`flex justify-between items-start p-6 border-b border-slate-800 ${isFullscreen ? 'pt-8 px-8' : ''}`}>
         <div>
@@ -80,7 +84,7 @@ const AssetDetails: React.FC<AssetDetailsProps> = ({ asset, onClose, onToggleFul
                     {asset.category === 'index' ? '' : 'R$'} {formatPrice(asset.price)}
                 </span>
                 <span className={`text-lg font-bold ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {isPositive ? '▲' : '▼'} {Math.abs(asset.changePercent).toFixed(2)}%
+                    {isPositive ? '▲' : '▼'} {Math.abs(asset.changePercent || 0).toFixed(2)}%
                 </span>
             </div>
         </div>
@@ -125,7 +129,11 @@ const AssetDetails: React.FC<AssetDetailsProps> = ({ asset, onClose, onToggleFul
       </div>
 
       {/* Chart Area */}
-      <div className="flex-grow min-h-[300px] p-6 relative">
+      {/* 
+          CRITICAL FIX: Em tela cheia, o pai (AssetDetailsPage) pode não estar passando altura explícita.
+          Forçamos uma altura mínima ou fixa no modo tela cheia para garantir que o ResponsiveContainer funcione.
+      */}
+      <div className={`flex-grow p-6 relative ${isFullscreen ? 'min-h-[500px]' : 'min-h-[300px]'}`}>
         {loading && (
             <div className="absolute inset-0 flex items-center justify-center bg-slate-900/50 z-10 backdrop-blur-sm">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
@@ -133,7 +141,7 @@ const AssetDetails: React.FC<AssetDetailsProps> = ({ asset, onClose, onToggleFul
         )}
         
         {error ? (
-            <div className="h-full flex items-center justify-center text-slate-500 flex-col gap-2">
+            <div className="h-full flex items-center justify-center text-slate-500 flex-col gap-2 min-h-[300px]">
                 <span className="text-3xl">📉</span>
                 <p>Não foi possível carregar o gráfico histórico.</p>
                 <button onClick={() => setRange('1mo')} className="text-emerald-400 text-sm hover:underline">Tentar Novamente</button>

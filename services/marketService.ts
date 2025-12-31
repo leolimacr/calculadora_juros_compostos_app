@@ -45,10 +45,12 @@ const STOCK_FALLBACK = [
 
 // --- Busca de Histórico (Novo) ---
 export const fetchHistoricalData = async (symbol: string, range: '1d' | '5d' | '1mo' | '6mo' | '1y' | '5y' = '1mo'): Promise<HistoricalDataPoint[]> => {
+  console.log(`[MarketService] Buscando histórico para: ${symbol} (${range})`);
+  
   try {
     let interval = '1d';
     switch(range) {
-        case '1d': interval = '5m'; break;
+        case '1d': interval = '5m'; break; // Yahoo pode falhar com 5m para alguns ativos, fallback seria 15m
         case '5d': interval = '15m'; break;
         case '1mo': interval = '1d'; break;
         case '6mo': interval = '1d'; break;
@@ -59,34 +61,47 @@ export const fetchHistoricalData = async (symbol: string, range: '1d' | '5d' | '
     // Mapeamento de Símbolos para Yahoo Finance
     let apiSymbol = symbol;
     
-    // Mapeamento para Moedas e Criptos (usando pares BRL)
+    // Lista de Criptos conhecidas para garantir formato correto
+    const knownCryptos = ['BTC', 'ETH', 'SOL', 'BNB', 'USDT', 'XRP', 'ADA', 'DOGE'];
+
+    // Mapeamento Explícito
     const symbolMap: Record<string, string> = {
-        'USD': 'BRL=X', // Dólar x Real (Invertido no Yahoo às vezes, mas BRL=X é o par USD/BRL)
+        'USD': 'BRL=X', 
         'EUR': 'EURBRL=X',
-        'BTC': 'BTC-BRL',
-        'ETH': 'ETH-BRL',
-        'SOL': 'SOL-BRL',
-        'BNB': 'BNB-BRL',
-        'IBOV': '^BVSP'
+        'IBOV': '^BVSP',
+        'BVSP': '^BVSP'
     };
 
     if (symbolMap[symbol]) {
         apiSymbol = symbolMap[symbol];
+    } else if (knownCryptos.includes(symbol) || knownCryptos.some(c => symbol.startsWith(c))) {
+        // Se for cripto, força o par BRL se não tiver sufixo
+        if (!symbol.includes('-') && !symbol.includes('=')) {
+            apiSymbol = `${symbol}-BRL`;
+        }
     } else if (!symbol.includes('.') && !symbol.includes('-') && !symbol.startsWith('^') && !symbol.includes('=')) {
-        // Se for ação brasileira sem sufixo, adiciona .SA
+        // Se for ação brasileira padrão (sem ponto, traço ou chapéu), adiciona .SA
         apiSymbol = `${symbol}.SA`;
     }
+
+    console.log(`[MarketService] URL Symbol gerado: ${apiSymbol}`);
 
     // Usar Proxy para evitar CORS
     const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${apiSymbol}?range=${range}&interval=${interval}`)}`;
     
     const res = await fetch(proxyUrl);
-    if (!res.ok) return [];
+    if (!res.ok) {
+        console.error(`[MarketService] Erro HTTP: ${res.status}`);
+        return [];
+    }
     
     const data = await res.json();
     const result = data.chart?.result?.[0];
     
-    if (!result) return [];
+    if (!result) {
+        console.warn('[MarketService] Resultado vazio da API Yahoo.');
+        return [];
+    }
 
     const timestamps = result.timestamp || [];
     const quotes = result.indicators?.quote?.[0]?.close || [];
@@ -94,6 +109,7 @@ export const fetchHistoricalData = async (symbol: string, range: '1d' | '5d' | '
     const history: HistoricalDataPoint[] = [];
     
     timestamps.forEach((ts: number, i: number) => {
+        // Filtra nulls (comuns em feriados ou pré-market)
         if (quotes[i] !== null && quotes[i] !== undefined) {
             history.push({
                 date: new Date(ts * 1000).toISOString(),
@@ -102,10 +118,11 @@ export const fetchHistoricalData = async (symbol: string, range: '1d' | '5d' | '
         }
     });
 
+    console.log(`[MarketService] Histórico carregado: ${history.length} pontos.`);
     return history;
 
   } catch (error) {
-    console.error('Erro ao buscar histórico:', error);
+    console.error('[MarketService] Exceção ao buscar histórico:', error);
     return [];
   }
 };
@@ -115,8 +132,6 @@ export const searchAssets = async (query: string): Promise<AssetSearchResult[]> 
   if (!query || query.length < 2) return [];
 
   try {
-    // Usa Proxy para acessar Yahoo Finance Autocomplete
-    // Filtra para região BR para priorizar ativos da B3, mas pega Cripto global
     const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v1/finance/search?q=${query}&lang=pt-BR&region=BR&quotesCount=8&newsCount=0`)}`;
     
     const res = await fetch(proxyUrl);
@@ -124,7 +139,6 @@ export const searchAssets = async (query: string): Promise<AssetSearchResult[]> 
     
     const data = await res.json();
     
-    // Mapeia e filtra Equity, ETF, FII e CRYPTOCURRENCY
     return (data.quotes || [])
       .filter((q: any) => q.isYahooFinance && (
           q.quoteType === 'EQUITY' || 
@@ -133,7 +147,7 @@ export const searchAssets = async (query: string): Promise<AssetSearchResult[]> 
           q.quoteType === 'CRYPTOCURRENCY'
       ))
       .map((q: any) => ({
-        symbol: q.symbol.replace('.SA', ''), // Remove sufixo .SA para visualização limpa
+        symbol: q.symbol.replace('.SA', ''), 
         name: q.shortname || q.longname,
         type: mapQuoteType(q.quoteType)
       }));
@@ -146,16 +160,14 @@ export const searchAssets = async (query: string): Promise<AssetSearchResult[]> 
 // --- Busca Cotação Específica ---
 export const fetchAssetQuote = async (symbol: string): Promise<MarketQuote | null> => {
   try {
-    // Tratamento de símbolo para API Yahoo
     let apiSymbol = symbol;
     let category: any = 'stock';
+    const knownCryptos = ['BTC', 'ETH', 'SOL', 'BNB', 'USDT', 'XRP', 'ADA', 'DOGE'];
 
-    // Se parecer cripto (ex: BTC-USD, ou sem sufixo conhecido e não numérico)
-    // Yahoo usa 'BTC-USD' por padrão. Se o usuário buscou 'BTC', tentamos adivinhar ou usar o que veio da busca.
-    // A busca retorna o symbol correto (ex: 'BTC-USD').
-    
-    if (!symbol.includes('.') && !symbol.includes('-') && !symbol.startsWith('^')) {
-        // Assume .SA para ações brasileiras padrão se não tiver sufixo
+    if (knownCryptos.includes(symbol)) {
+        apiSymbol = `${symbol}-BRL`;
+        category = 'crypto';
+    } else if (!symbol.includes('.') && !symbol.includes('-') && !symbol.startsWith('^')) {
         apiSymbol = `${symbol}.SA`; 
     }
 
@@ -173,12 +185,11 @@ export const fetchAssetQuote = async (symbol: string): Promise<MarketQuote | nul
     const prevClose = result.chartPreviousClose;
     const changePercent = prevClose ? ((price - prevClose) / prevClose) * 100 : 0;
     
-    // Detectar tipo pelo instrumentType se disponível, ou inferir
     if (result.instrumentType === 'CRYPTOCURRENCY') category = 'crypto';
     
     return {
       symbol: symbol.replace('.SA', ''),
-      name:  data.chart?.result?.[0]?.meta?.shortName || symbol, // Tenta pegar nome curto
+      name:  data.chart?.result?.[0]?.meta?.shortName || symbol,
       price,
       changePercent,
       category,
@@ -193,7 +204,6 @@ export const fetchAssetQuote = async (symbol: string): Promise<MarketQuote | nul
 
 // --- Carga Geral do Painel ---
 export const fetchMarketQuotes = async (forceRefresh = false): Promise<MarketResponse> => {
-  // 1. Verificar Cache Local (Pula se forceRefresh for true)
   if (!forceRefresh) {
     const cached = localStorage.getItem(CACHE_KEY);
     if (cached) {
@@ -213,11 +223,9 @@ export const fetchMarketQuotes = async (forceRefresh = false): Promise<MarketRes
     if (awesomeRes.ok) {
       const json = await awesomeRes.json();
       
-      // Moedas Fiat
       if (json.USDBRL) quotes.push(mapAwesomeItem('USD', 'Dólar', json.USDBRL, 'currency'));
       if (json.EURBRL) quotes.push(mapAwesomeItem('EUR', 'Euro', json.EURBRL, 'currency'));
       
-      // Criptomoedas (Principais)
       if (json.BTCBRL) quotes.push(mapAwesomeItem('BTC', 'Bitcoin', json.BTCBRL, 'crypto'));
       if (json.ETHBRL) quotes.push(mapAwesomeItem('ETH', 'Ethereum', json.ETHBRL, 'crypto'));
       if (json.BNBBRL) quotes.push(mapAwesomeItem('BNB', 'Binance Coin', json.BNBBRL, 'crypto'));
@@ -227,7 +235,7 @@ export const fetchMarketQuotes = async (forceRefresh = false): Promise<MarketRes
     console.error("Erro ao buscar AwesomeAPI:", error);
   }
 
-  // --- 3. BUSCA ÍNDICES E AÇÕES (API Backend ou Mock Fallback) ---
+  // --- 3. BUSCA ÍNDICES E AÇÕES ---
   let backendSuccess = false;
   
   try {
@@ -235,7 +243,6 @@ export const fetchMarketQuotes = async (forceRefresh = false): Promise<MarketRes
     if (apiRes.ok) {
         const data = await apiRes.json();
         
-        // Processar Índices
         if (data.indices && Array.isArray(data.indices)) {
             data.indices.forEach((idx: any) => {
                 quotes.push({
@@ -250,7 +257,6 @@ export const fetchMarketQuotes = async (forceRefresh = false): Promise<MarketRes
             });
         }
 
-        // Processar Ações
         if (data.stocks && Array.isArray(data.stocks)) {
             data.stocks.forEach((stock: any) => {
                 quotes.push({
@@ -270,9 +276,7 @@ export const fetchMarketQuotes = async (forceRefresh = false): Promise<MarketRes
     console.warn('API Backend indisponível, tentando fallback...', error);
   }
 
-  // Fallback para Ações e Índices se o backend falhar
   if (!backendSuccess) {
-      // Tenta IBOV via Proxy Yahoo (Client-Side)
       if (!quotes.some(q => q.symbol === 'IBOV')) {
           try {
             const proxyUrl = `https://corsproxy.io/?${encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/^BVSP?interval=1d&range=1d')}`;
@@ -295,7 +299,6 @@ export const fetchMarketQuotes = async (forceRefresh = false): Promise<MarketRes
           } catch (e) {}
       }
 
-      // Adiciona Ações Mockadas se não vieram do backend
       if (!quotes.some(q => q.category === 'stock')) {
           STOCK_FALLBACK.forEach(s => {
               quotes.push({
@@ -309,7 +312,6 @@ export const fetchMarketQuotes = async (forceRefresh = false): Promise<MarketRes
 
   const result: MarketResponse = { quotes, isRateLimited };
 
-  // 4. Salvar no Cache Local
   localStorage.setItem(CACHE_KEY, JSON.stringify({
     timestamp: Date.now(),
     data: result
