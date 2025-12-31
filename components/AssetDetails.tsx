@@ -85,7 +85,7 @@ const AssetDetails: React.FC<AssetDetailsProps> = ({ asset, onClose, onToggleFul
             
             <div className="flex items-baseline gap-3">
                 <span className="text-4xl font-bold text-white">
-                    {asset.category === 'index' ? '' : 'R$'} {formatPrice(asset.price)}
+                    {asset.category === 'index' ? '' : (asset.symbol.includes('/USD') ? 'US$' : 'R$')} {formatPrice(asset.price)}
                 </span>
                 <span className={`text-lg font-bold ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
                     {isPositive ? '▲' : '▼'} {Math.abs(asset.changePercent || 0).toFixed(2)}%
@@ -175,7 +175,7 @@ const AssetDetails: React.FC<AssetDetailsProps> = ({ asset, onClose, onToggleFul
                     <Tooltip 
                         contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '8px', color: 'white' }}
                         labelFormatter={(label) => new Date(label).toLocaleString('pt-BR')}
-                        formatter={(val: number) => [`R$ ${formatPrice(val)}`, 'Preço']}
+                        formatter={(val: number) => [`${asset.symbol.includes('/USD') ? 'US$' : 'R$'} ${formatPrice(val)}`, 'Preço']}
                     />
                     <Area 
                         type="monotone" 

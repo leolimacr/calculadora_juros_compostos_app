@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect, Suspense, lazy } from 'react';
 import CalculatorForm from './components/CalculatorForm';
 import ResultsDisplay from './components/ResultsDisplay';
@@ -11,7 +12,7 @@ import Footer from './components/Footer';
 import BackToTop from './components/BackToTop';
 import InstallPrompt from './components/InstallPrompt';
 import MobileBottomNav from './components/MobileBottomNav';
-import AppInstallButton from './components/AppInstallButton'; 
+import { HeaderInstallAction } from './components/HeaderInstallAction'; // Novo componente
 import LockedManager from './components/Auth/LockedManager'; 
 import AuthRegister from './components/Auth/AuthRegister';
 import AuthLogin from './components/Auth/AuthLogin';
@@ -27,7 +28,7 @@ import ArticlesPage from './components/ArticlesPage';
 import PremiumPage from './components/PremiumPage'; 
 import ChangelogPage from './components/ChangelogPage'; 
 import AssetDetails from './components/AssetDetails';
-import AssetDetailsPage from './components/AssetDetailsPage'; // Import the new page component
+import AssetDetailsPage from './components/AssetDetailsPage'; 
 
 import { useAuth } from './contexts/AuthContext';
 import { CalculationInput, CalculationResult, Transaction, Goal, ToastMessage, ToastType, MarketQuote } from './types';
@@ -350,7 +351,6 @@ const App: React.FC = () => {
             </div>
         );
       case 'reset-password':
-        // ... (mantido igual)
         return (
             <div className="flex items-center justify-center min-h-[70vh]">
                 <div className="bg-slate-800 border border-slate-700 p-8 rounded-3xl shadow-2xl max-w-md w-full">
@@ -455,16 +455,13 @@ const App: React.FC = () => {
     }
   };
 
-  // ... (Rest of component remains largely same, just checking button click in modal)
-
   return (
     <div className="min-h-screen bg-[#020617] text-slate-200 flex flex-col font-sans selection:bg-emerald-500/30">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       <InstallPrompt />
       <BackToTop />
       
-      {/* Botão Fixo de Instalação */}
-      <AppInstallButton />
+      {/* Botões Flutuantes Removidos conforme solicitado */}
 
       {showOnboarding && <Onboarding onComplete={handleOnboardingComplete} userName={user?.name || user?.email.split('@')[0]} />}
 
@@ -480,13 +477,26 @@ const App: React.FC = () => {
               </div>
               <span className="font-bold text-xl tracking-tight text-white hidden sm:block">Finanças Pro Invest</span>
             </div>
-            {/* ... Rest of Nav ... */}
+            
             <div className="hidden lg:flex items-center space-x-1">
               <button onClick={() => navigateTo('home')} className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentTool === 'home' ? 'text-white bg-slate-800' : 'text-slate-400 hover:text-white'}`}>Início</button>
               <button onClick={() => navigateTo('artigos')} className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentTool === 'artigos' ? 'text-white bg-slate-800' : 'text-slate-400 hover:text-white'}`}>Conteúdos</button>
               <button onClick={() => navigateTo('changelog')} className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentTool === 'changelog' ? 'text-white bg-slate-800' : 'text-slate-400 hover:text-white'}`}>Novidades</button>
               <button onClick={() => navigateTo('demo')} className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentTool === 'demo' ? 'text-white bg-slate-800' : 'text-slate-400 hover:text-white'}`}>Demo</button>
+              
+              {/* Separador e Novos Botões de Ação */}
+              <div className="w-px h-6 bg-slate-800 mx-2"></div>
+              <HeaderInstallAction />
+              <button 
+                onClick={() => setIsAiChatOpen(true)} 
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                title="Abrir Consultor IA"
+              >
+                  <span className="text-lg">🤖</span>
+                  <span className="hidden xl:inline">IA Advisor</span>
+              </button>
             </div>
+
             <div className="hidden lg:flex items-center gap-3">
                {isAuthenticated && (
                  <>
@@ -547,6 +557,7 @@ const App: React.FC = () => {
                 <button onClick={() => navigateTo('premium')} className="w-full text-left p-3 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white flex items-center gap-3 transition-colors"><span>✨</span> Premium</button>
                 <button onClick={() => navigateTo('artigos')} className="w-full text-left p-3 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white flex items-center gap-3 transition-colors"><span>📚</span> Conteúdos</button>
                 <button onClick={() => navigateTo('faq')} className="w-full text-left p-3 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white flex items-center gap-3 transition-colors"><span>❓</span> FAQ</button>
+                <button onClick={() => setIsAiChatOpen(true)} className="w-full text-left p-3 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white flex items-center gap-3 transition-colors"><span>🤖</span> IA Advisor</button>
                 
                 {isAuthenticated && (
                    <>
@@ -630,10 +641,6 @@ const App: React.FC = () => {
           </div>
           {currentTool !== 'asset_details' && <Footer onNavigate={(tool) => navigateTo(tool as ToolView)} />}
         </main>
-
-        <button onClick={() => setIsAiChatOpen(true)} className="hidden lg:flex fixed bottom-8 right-32 z-40 w-16 h-16 bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-full shadow-2xl shadow-emerald-900/50 items-center justify-center text-3xl animate-in slide-in-from-bottom-10 hover:scale-110 transition-transform active:scale-95 border-2 border-white/10 group no-print" title="Consultor IA">
-          <span className="group-hover:animate-pulse">🤖</span>
-        </button>
       </div>
       
       {currentTool !== 'asset_details' && (
@@ -662,10 +669,8 @@ const App: React.FC = () => {
                     onClose={() => setActiveModal(null)} 
                     onToggleFullscreen={() => {
                         setActiveModal(null);
-                        // Update URL with symbol for state persistence
                         const newUrl = window.location.pathname + '?tool=asset_details&symbol=' + selectedAsset.symbol;
                         window.history.pushState({}, '', newUrl);
-                        // Navigate logic will handle view switch
                         setCurrentTool('asset_details');
                     }}
                 />

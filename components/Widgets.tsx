@@ -65,13 +65,9 @@ const MarketSkeleton = () => (
 const ItemRow: React.FC<{ item: MarketQuote; isHighlight?: boolean; onClick?: () => void }> = ({ item, isHighlight, onClick }) => {
     // Identifica se é Cripto para formatação específica
     const isCrypto = item.category === 'crypto';
-    
-    // Define se é moeda fiat (USD/EUR) para aplicar 3 casas decimais
     const isFiatCurrency = item.category === 'currency';
+    const isUSD = item.symbol.includes('/USD');
     
-    // Casas decimais
-    const decimals = isFiatCurrency ? 3 : 2;
-
     return (
       <div 
         onClick={onClick}
@@ -94,9 +90,11 @@ const ItemRow: React.FC<{ item: MarketQuote; isHighlight?: boolean; onClick?: ()
               <div className="text-xs font-bold text-white">
                   {item.category === 'index' 
                     ? `${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} pts`
-                    : isFiatCurrency 
-                      ? `R$ ${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}`
-                      : `R$ ${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                    : isUSD
+                        ? `US$ ${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        : isFiatCurrency 
+                            ? `R$ ${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}`
+                            : `R$ ${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
               </div>
               <div className={`text-[10px] font-bold ${item.changePercent >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                   {item.changePercent >= 0 ? '↑' : '↓'} {Math.abs(item.changePercent).toFixed(2)}%
@@ -138,6 +136,7 @@ export const MarketTickerBar: React.FC<{ onAssetClick?: (asset: MarketQuote) => 
                 {[...tickerItems, ...tickerItems, ...tickerItems].map((item, idx) => {
                     const isFiat = item.category === 'currency';
                     const decimals = isFiat ? 3 : 2;
+                    const isUSD = item.symbol.includes('/USD');
                     
                     return (
                         <button 
@@ -149,7 +148,7 @@ export const MarketTickerBar: React.FC<{ onAssetClick?: (asset: MarketQuote) => 
                             <span className="text-[10px] font-mono text-white">
                                 {item.category === 'index' 
                                     ? item.price.toLocaleString('pt-BR', { maximumFractionDigits: 0 }) 
-                                    : item.price.toLocaleString('pt-BR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}
+                                    : (isUSD ? 'US$ ' : 'R$ ') + item.price.toLocaleString('pt-BR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}
                             </span>
                             <span className={`text-[9px] font-bold ${item.changePercent >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
                                 {item.changePercent >= 0 ? '▲' : '▼'} {Math.abs(item.changePercent).toFixed(2)}%

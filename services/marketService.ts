@@ -4,8 +4,8 @@ import { MarketQuote, HistoricalDataPoint } from '../types';
 // ============================================================================
 // CONFIGURAÇÃO
 // ============================================================================
-// AwesomeAPI (Moedas/Cripto) - Adicionado BNB e SOL
-const AWESOME_API_URL = 'https://economia.awesomeapi.com.br/last/USD-BRL,EUR-BRL,BTC-BRL,ETH-BRL,BNB-BRL,SOL-BRL';
+// AwesomeAPI (Moedas/Cripto) - Adicionado BTC-USD
+const AWESOME_API_URL = 'https://economia.awesomeapi.com.br/last/USD-BRL,EUR-BRL,BTC-BRL,BTC-USD,ETH-BRL,BNB-BRL,SOL-BRL';
 
 // Rota Serverless para Índices e Ações
 const INDICES_API_URL = '/api/market';
@@ -49,7 +49,7 @@ export const fetchHistoricalData = async (symbol: string, range: '1d' | '5d' | '
   
   // 1. Identificar se é Cripto para estratégia de Fallback
   const knownCryptos = ['BTC', 'ETH', 'SOL', 'BNB', 'USDT', 'XRP', 'ADA', 'DOGE'];
-  const isCrypto = knownCryptos.includes(symbol) || knownCryptos.some(c => symbol.startsWith(c + '-'));
+  const isCrypto = knownCryptos.includes(symbol) || knownCryptos.some(c => symbol.startsWith(c + '-')) || symbol === 'BTC/USD';
 
   // 2. Tentar Yahoo Finance primeiro (Melhor para ações)
   try {
@@ -69,13 +69,14 @@ export const fetchHistoricalData = async (symbol: string, range: '1d' | '5d' | '
         'USD': 'BRL=X', 
         'EUR': 'EURBRL=X',
         'IBOV': '^BVSP',
-        'BVSP': '^BVSP'
+        'BVSP': '^BVSP',
+        'BTC/USD': 'BTC-USD'
     };
 
     if (symbolMap[symbol]) {
         apiSymbol = symbolMap[symbol];
     } else if (isCrypto) {
-        if (!symbol.includes('-') && !symbol.includes('=')) {
+        if (!symbol.includes('-') && !symbol.includes('=') && symbol !== 'BTC/USD') {
             apiSymbol = `${symbol}-BRL`;
         }
     } else if (!symbol.includes('.') && !symbol.includes('-') && !symbol.startsWith('^')) {
@@ -111,8 +112,17 @@ export const fetchHistoricalData = async (symbol: string, range: '1d' | '5d' | '
 // --- Fallback CryptoCompare ---
 const fetchCryptoCompareHistory = async (symbol: string, range: string): Promise<HistoricalDataPoint[]> => {
     try {
-        const cleanSymbol = symbol.split('-')[0].toUpperCase(); // BTC-BRL -> BTC
-        console.log(`[MarketService] Tentando CryptoCompare para ${cleanSymbol}`);
+        let cleanSymbol = symbol.split('-')[0].toUpperCase(); 
+        let targetCurrency = 'BRL';
+
+        if (symbol === 'BTC/USD') {
+            cleanSymbol = 'BTC';
+            targetCurrency = 'USD';
+        } else if (symbol.includes('-')) {
+             cleanSymbol = symbol.split('-')[0];
+        }
+
+        console.log(`[MarketService] Tentando CryptoCompare para ${cleanSymbol}/${targetCurrency}`);
         
         let limit = 30;
         let endpoint = 'histoday';
@@ -127,7 +137,7 @@ const fetchCryptoCompareHistory = async (symbol: string, range: string): Promise
             case '5y': endpoint = 'histoday'; limit = 1825; aggregate = 5; break; // Agrupado para não estourar limite
         }
 
-        const url = `https://min-api.cryptocompare.com/data/v2/${endpoint}?fsym=${cleanSymbol}&tsym=BRL&limit=${limit}&aggregate=${aggregate}`;
+        const url = `https://min-api.cryptocompare.com/data/v2/${endpoint}?fsym=${cleanSymbol}&tsym=${targetCurrency}&limit=${limit}&aggregate=${aggregate}`;
         const res = await fetch(url);
         
         if (!res.ok) return [];
@@ -202,7 +212,10 @@ export const fetchAssetQuote = async (symbol: string): Promise<MarketQuote | nul
     let category: any = 'stock';
     const knownCryptos = ['BTC', 'ETH', 'SOL', 'BNB', 'USDT', 'XRP', 'ADA', 'DOGE'];
 
-    if (knownCryptos.includes(symbol)) {
+    if (symbol === 'BTC/USD') {
+        apiSymbol = 'BTC-USD';
+        category = 'crypto';
+    } else if (knownCryptos.includes(symbol)) {
         apiSymbol = `${symbol}-BRL`;
         category = 'crypto';
     } else if (!symbol.includes('.') && !symbol.includes('-') && !symbol.startsWith('^')) {
@@ -226,7 +239,7 @@ export const fetchAssetQuote = async (symbol: string): Promise<MarketQuote | nul
     if (result.instrumentType === 'CRYPTOCURRENCY') category = 'crypto';
     
     return {
-      symbol: symbol.replace('.SA', ''),
+      symbol: symbol === 'BTC-USD' ? 'BTC/USD' : symbol.replace('.SA', ''),
       name:  data.chart?.result?.[0]?.meta?.shortName || symbol,
       price,
       changePercent,
@@ -265,6 +278,7 @@ export const fetchMarketQuotes = async (forceRefresh = false): Promise<MarketRes
       if (json.EURBRL) quotes.push(mapAwesomeItem('EUR', 'Euro', json.EURBRL, 'currency'));
       
       if (json.BTCBRL) quotes.push(mapAwesomeItem('BTC', 'Bitcoin', json.BTCBRL, 'crypto'));
+      if (json.BTCUSD) quotes.push(mapAwesomeItem('BTC/USD', 'Bitcoin (USD)', json.BTCUSD, 'crypto'));
       if (json.ETHBRL) quotes.push(mapAwesomeItem('ETH', 'Ethereum', json.ETHBRL, 'crypto'));
       if (json.BNBBRL) quotes.push(mapAwesomeItem('BNB', 'Binance Coin', json.BNBBRL, 'crypto'));
       if (json.SOLBRL) quotes.push(mapAwesomeItem('SOL', 'Solana', json.SOLBRL, 'crypto'));
