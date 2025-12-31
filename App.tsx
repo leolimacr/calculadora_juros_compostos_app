@@ -21,15 +21,16 @@ import UserPanel from './components/UserPanel';
 import SettingsPage from './components/SettingsPage';
 import ProfilePage from './components/ProfilePage';
 import Onboarding from './components/Onboarding';
-import { MarketTickerBar, MarketStatusBar } from './components/Widgets'; // Importado
+import { MarketTickerBar, MarketStatusBar } from './components/Widgets';
 import { TermsPage, PrivacyPage } from './components/LegalPages';
 import { PublicHome, DemoPage, GuidesPage, FaqPage, AboutPage } from './components/PublicPages';
 import ArticlesPage from './components/ArticlesPage';
 import PremiumPage from './components/PremiumPage'; 
 import ChangelogPage from './components/ChangelogPage'; 
+import AssetDetails from './components/AssetDetails';
 
 import { useAuth } from './contexts/AuthContext';
-import { CalculationInput, CalculationResult, Transaction, Goal, ToastMessage, ToastType } from './types';
+import { CalculationInput, CalculationResult, Transaction, Goal, ToastMessage, ToastType, MarketQuote } from './types';
 import { calculateCompoundInterest } from './utils/calculations';
 import { logEvent, ANALYTICS_EVENTS } from './utils/analytics';
 import { useFirebase } from './hooks/useFirebase';
@@ -50,11 +51,12 @@ const InflationTool = lazy(() => import('./components/Tools').then(module => ({ 
 type ToolView = 
   | 'home' | 'artigos' | 'guias' | 'faq' | 'sobre' | 'demo' | 'login' | 'register' | 'termos-de-uso' | 'politica-privacidade' | 'premium' | 'changelog' | 'verify-email' | 'reset-password' // Públicas
   | 'panel' | 'settings' | 'perfil' // Privadas (Gerais)
-  | 'compound' | 'manager' | 'rent' | 'debt' | 'fire' | 'inflation' | 'dividend' | 'roi' | 'game' | 'education'; // Privadas (Ferramentas)
+  | 'compound' | 'manager' | 'rent' | 'debt' | 'fire' | 'inflation' | 'dividend' | 'roi' | 'game' | 'education'
+  | 'asset_details'; // Privadas (Ferramentas)
 
 // Ferramentas que exigem login
 const PRIVATE_TOOLS: ToolView[] = [
-  'panel', 'settings', 'perfil', 'compound', 'manager', 'rent', 'debt', 'fire', 'inflation', 'dividend', 'roi', 'game'
+  'panel', 'settings', 'perfil', 'compound', 'manager', 'rent', 'debt', 'fire', 'inflation', 'dividend', 'roi', 'game', 'asset_details'
 ];
 
 const LoadingFallback = () => (
@@ -73,6 +75,7 @@ const App: React.FC = () => {
   const [result, setResult] = useState<CalculationResult | null>(null);
   const [activeModal, setActiveModal] = useState<string | null>(null); 
   const [isAiChatOpen, setIsAiChatOpen] = useState(false);
+  const [selectedAsset, setSelectedAsset] = useState<MarketQuote | null>(null);
   
   // States for verification/reset flow
   const [verificationStatus, setVerificationStatus] = useState<'loading' | 'success' | 'invalid'>('loading');
@@ -239,6 +242,11 @@ const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleAssetClick = (asset: MarketQuote) => {
+    setSelectedAsset(asset);
+    setActiveModal('asset_details');
+  };
+
   const handleStartNow = () => {
     if (isAuthenticated) {
       navigateTo('panel');
@@ -365,9 +373,23 @@ const App: React.FC = () => {
       case 'politica-privacidade': return <PrivacyPage />;
       
       // Private User Views
-      case 'panel': return <UserPanel onNavigate={navigateTo} />;
+      case 'panel': return <UserPanel onNavigate={navigateTo} />; // Note: UserPanel's Widget now handles clicks internally but logic needs to be passed down if possible or injected in widgets. The Widget component is self-contained but we can modify it to use context or similar if needed, but easier is to modify UserPanel to pass the handler or modify Widgets to emit global event? No, let's keep it simple. UserPanel renders widgets directly.
+      // Wait, UserPanel renders MarketWidget. I need to update UserPanel to pass onAssetClick to MarketWidget.
+      // See fix below for UserPanel content.
       case 'settings': return <SettingsPage onOpenChangePassword={() => setActiveModal('change_password')} />;
       case 'perfil': return <ProfilePage onOpenChangePassword={() => setActiveModal('change_password')} navigateToHome={() => navigateTo('panel')} />;
+
+      case 'asset_details': 
+        return selectedAsset ? (
+            <div className="animate-in fade-in duration-300 h-full">
+                <AssetDetails 
+                    asset={selectedAsset} 
+                    onClose={() => navigateTo('panel')}
+                    isFullscreen={true}
+                    onToggleFullscreen={() => navigateTo('panel')} // Toggling full screen off goes back to panel with modal open conceptually, or just panel
+                />
+            </div>
+        ) : <UserPanel onNavigate={navigateTo} />;
 
       // Private Tools
       case 'compound': 
@@ -436,6 +458,7 @@ const App: React.FC = () => {
       {showOnboarding && <Onboarding onComplete={handleOnboardingComplete} userName={user?.name || user?.email.split('@')[0]} />}
 
       {/* Navigation Bar */}
+      {currentTool !== 'asset_details' && (
       <nav className="border-b border-slate-800 bg-[#020617]/95 sticky top-0 z-50 backdrop-blur no-print">
         <div className="w-full px-4 sm:px-6 lg:px-8 max-w-[1920px] mx-auto">
           <div className="flex items-center justify-between h-16">
@@ -524,16 +547,19 @@ const App: React.FC = () => {
           </div>
         </div>
       </nav>
+      )}
 
       {/* Market Header: Ticker + Status Bar */}
+      {currentTool !== 'asset_details' && (
       <div className="max-w-[1920px] mx-auto w-full flex flex-col md:flex-row border-b border-slate-800 bg-[#020617] sticky top-16 z-40 no-print shadow-lg">
           <div className="w-full md:w-1/2 border-r border-slate-800/50">
-              <MarketTickerBar />
+              <MarketTickerBar onAssetClick={handleAssetClick} />
           </div>
           <div className="w-full md:w-1/2">
               <MarketStatusBar />
           </div>
       </div>
+      )}
 
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-50 flex justify-end">
@@ -642,7 +668,7 @@ const App: React.FC = () => {
       <div className="flex-grow flex relative w-full px-4 sm:px-6 lg:px-8 py-8 gap-8 lg:gap-12 max-w-[1920px] mx-auto">
         
         {/* Sidebar */}
-        {isAuthenticated && PRIVATE_TOOLS.includes(currentTool) && currentTool !== 'panel' && (
+        {isAuthenticated && PRIVATE_TOOLS.includes(currentTool) && currentTool !== 'panel' && currentTool !== 'asset_details' && (
           <aside className="hidden lg:block w-64 flex-shrink-0 space-y-3 sticky top-28 h-fit no-print">
             <button 
                 onClick={() => navigateTo('panel')}
@@ -669,7 +695,7 @@ const App: React.FC = () => {
         )}
 
         {/* Main Content Area */}
-        <main className="flex-1 min-w-0 flex flex-col">
+        <main className={`flex-1 min-w-0 flex flex-col ${currentTool === 'asset_details' ? 'h-full' : ''}`}>
           <div className="flex-grow">
             <ErrorBoundary>
               <Suspense fallback={<LoadingFallback />}>
@@ -677,7 +703,7 @@ const App: React.FC = () => {
               </Suspense>
             </ErrorBoundary>
           </div>
-          <Footer onNavigate={(tool) => navigateTo(tool as ToolView)} />
+          {currentTool !== 'asset_details' && <Footer onNavigate={(tool) => navigateTo(tool as ToolView)} />}
         </main>
 
         <button
@@ -690,11 +716,13 @@ const App: React.FC = () => {
 
       </div>
       
+      {currentTool !== 'asset_details' && (
       <MobileBottomNav 
           currentTool={currentTool} 
           onNavigate={(tool) => navigateTo(tool as ToolView)} 
           onOpenMore={() => setIsMoreMenuOpen(true)}
       />
+      )}
 
       {/* Modals */}
       <Suspense fallback={null}>
@@ -713,6 +741,25 @@ const App: React.FC = () => {
           />
         </ContentModal>
       </Suspense>
+
+      {/* Asset Details Modal */}
+      {activeModal === 'asset_details' && selectedAsset && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setActiveModal(null)}>
+            <div 
+                className="bg-slate-900 w-full max-w-4xl h-[80vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-300 border border-slate-700"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <AssetDetails 
+                    asset={selectedAsset} 
+                    onClose={() => setActiveModal(null)} 
+                    onToggleFullscreen={() => {
+                        setActiveModal(null);
+                        navigateTo('asset_details');
+                    }}
+                />
+            </div>
+        </div>
+      )}
 
       {/* MODAL DE PAYWALL */}
       <PaywallModal 

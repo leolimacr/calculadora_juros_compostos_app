@@ -1,5 +1,5 @@
 
-import { MarketQuote } from '../types';
+import { MarketQuote, HistoricalDataPoint } from '../types';
 
 // ============================================================================
 // CONFIGURAÇÃO
@@ -42,6 +42,73 @@ const STOCK_FALLBACK = [
 // ============================================================================
 // SERVIÇO
 // ============================================================================
+
+// --- Busca de Histórico (Novo) ---
+export const fetchHistoricalData = async (symbol: string, range: '1d' | '5d' | '1mo' | '6mo' | '1y' | '5y' = '1mo'): Promise<HistoricalDataPoint[]> => {
+  try {
+    let interval = '1d';
+    switch(range) {
+        case '1d': interval = '5m'; break;
+        case '5d': interval = '15m'; break;
+        case '1mo': interval = '1d'; break;
+        case '6mo': interval = '1d'; break;
+        case '1y': interval = '1wk'; break;
+        case '5y': interval = '1mo'; break;
+    }
+
+    // Mapeamento de Símbolos para Yahoo Finance
+    let apiSymbol = symbol;
+    
+    // Mapeamento para Moedas e Criptos (usando pares BRL)
+    const symbolMap: Record<string, string> = {
+        'USD': 'BRL=X', // Dólar x Real (Invertido no Yahoo às vezes, mas BRL=X é o par USD/BRL)
+        'EUR': 'EURBRL=X',
+        'BTC': 'BTC-BRL',
+        'ETH': 'ETH-BRL',
+        'SOL': 'SOL-BRL',
+        'BNB': 'BNB-BRL',
+        'IBOV': '^BVSP'
+    };
+
+    if (symbolMap[symbol]) {
+        apiSymbol = symbolMap[symbol];
+    } else if (!symbol.includes('.') && !symbol.includes('-') && !symbol.startsWith('^') && !symbol.includes('=')) {
+        // Se for ação brasileira sem sufixo, adiciona .SA
+        apiSymbol = `${symbol}.SA`;
+    }
+
+    // Usar Proxy para evitar CORS
+    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${apiSymbol}?range=${range}&interval=${interval}`)}`;
+    
+    const res = await fetch(proxyUrl);
+    if (!res.ok) return [];
+    
+    const data = await res.json();
+    const result = data.chart?.result?.[0];
+    
+    if (!result) return [];
+
+    const timestamps = result.timestamp || [];
+    const quotes = result.indicators?.quote?.[0]?.close || [];
+
+    const history: HistoricalDataPoint[] = [];
+    
+    timestamps.forEach((ts: number, i: number) => {
+        if (quotes[i] !== null && quotes[i] !== undefined) {
+            history.push({
+                date: new Date(ts * 1000).toISOString(),
+                price: quotes[i]
+            });
+        }
+    });
+
+    return history;
+
+  } catch (error) {
+    console.error('Erro ao buscar histórico:', error);
+    return [];
+  }
+};
 
 // --- Busca de Sugestões (Autocomplete) ---
 export const searchAssets = async (query: string): Promise<AssetSearchResult[]> => {

@@ -3,9 +3,11 @@ import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { MarketWidget, NewsWidget } from './Widgets';
 import { sendConfirmationEmail } from '../utils/email';
+import { MarketQuote } from '../types';
 
 interface UserPanelProps {
   onNavigate: (tool: string) => void;
+  onAssetClick?: (asset: MarketQuote) => void; // Prop opcional para passar click se quiser, mas App.tsx controla via modal global
 }
 
 const UserPanel: React.FC<UserPanelProps> = ({ onNavigate }) => {
@@ -36,6 +38,19 @@ const UserPanel: React.FC<UserPanelProps> = ({ onNavigate }) => {
     { id: 'game', name: 'Simulador de Resiliência', desc: 'Teste suas decisões em um cenário de crise.', icon: '🎮', color: 'text-yellow-400', bg: 'bg-yellow-900/20', border: 'border-yellow-500/30' },
   ];
 
+  // Função interna para disparar evento de clique no ativo (gambiarra leve para evitar prop drilling complexo no UserPanel, 
+  // mas o App.tsx controla 'selectedAsset' via MarketWidget que está dentro do UserPanel?
+  // O App.tsx renderiza <UserPanel ... /> e <MarketTickerBar ... />. O Ticker está fora.
+  // O Widget está dentro. Para o Widget funcionar, precisamos passar onAssetClick para UserPanel e depois para MarketWidget.
+  // Mas como App.tsx renderiza o modal baseado em selectedAsset, precisamos de uma forma de setar selectedAsset no App.
+  // Vou usar um EventBus simples ou passar a prop. Vamos passar a prop.
+  // Mas UserPanelProps não tinha onAssetClick. Adicionei na interface acima.
+  // Mas App.tsx não estava passando essa prop.
+  // Solução: Vamos adicionar um EventListener customizado no App.tsx ou passar a prop. 
+  // Passar a prop é o React Way.
+  // Mas espera, o App.tsx renderiza: case 'panel': return <UserPanel onNavigate={navigateTo} />;
+  // Preciso atualizar App.tsx para passar onAssetClick={handleAssetClick}.
+  
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
@@ -124,11 +139,12 @@ const UserPanel: React.FC<UserPanelProps> = ({ onNavigate }) => {
                   Panorama rápido do mercado
                </h3>
                <p className="text-xs text-slate-400 leading-relaxed pl-2">
-                  Veja de relance dólar, euro, bolsa e as ações mais importantes do Ibovespa na faixa de cotações acima. No card abaixo, aprofunde os detalhes para tomar decisões com mais contexto.
+                  Clique em um ativo para ver o gráfico detalhado.
                </p>
             </div>
 
-            <MarketWidget />
+            {/* Injetando a função de clique global do App se disponível, senão fallback (apenas log ou null) */}
+            <MarketWidget onAssetClick={(window as any).handleAssetClickGlobal} /> 
             <NewsWidget />
          </aside>
 

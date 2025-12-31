@@ -99,6 +99,11 @@ export interface MarketQuote {
   simulated?: boolean; // Indica se o dado é simulado (fallback/rate limit)
 }
 
+export interface HistoricalDataPoint {
+  date: string;
+  price: number;
+}
+
 // Novas Ferramentas
 
 export interface RentVsFinanceInput {
@@ -199,4 +204,5 @@ export type ToolView =
   | 'dividend' 
   | 'roi' 
   | 'game' 
-  | 'education';
+  | 'education'
+  | 'asset_details'; // Nova rota para detalhes do ativo

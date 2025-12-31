@@ -3,6 +3,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MarketQuote } from '../types';
 import { fetchMarketQuotes, searchAssets, fetchAssetQuote, AssetSearchResult } from '../services/marketService';
 
+interface MarketWidgetProps {
+    onAssetClick?: (asset: MarketQuote) => void;
+}
+
 // --- Widget de Notícias ---
 export const NewsWidget = () => {
   const news = [
@@ -58,25 +62,27 @@ const MarketSkeleton = () => (
   </div>
 );
 
-const ItemRow: React.FC<{ item: MarketQuote; isHighlight?: boolean }> = ({ item, isHighlight }) => {
+const ItemRow: React.FC<{ item: MarketQuote; isHighlight?: boolean; onClick?: () => void }> = ({ item, isHighlight, onClick }) => {
     // Identifica se é Cripto para formatação específica
     const isCrypto = item.category === 'crypto';
     
     // Define se é moeda fiat (USD/EUR) para aplicar 3 casas decimais
     const isFiatCurrency = item.category === 'currency';
     
-    // Casas decimais: Fiat = 3, Cripto = 2 (BRL grande) ou mais se for pequeno (não implementado complexo aqui, assume majors), Ações = 2
+    // Casas decimais
     const decimals = isFiatCurrency ? 3 : 2;
 
     return (
-      <div className={`flex justify-between items-center py-2 px-2 rounded-lg animate-in fade-in duration-500 ${
+      <div 
+        onClick={onClick}
+        className={`flex justify-between items-center py-2 px-2 rounded-lg animate-in fade-in duration-500 cursor-pointer ${
           isHighlight 
             ? 'bg-emerald-900/20 border border-emerald-500/30 shadow-md mb-2' 
-            : 'border-b border-slate-700/50 last:border-0 hover:bg-slate-700/20 transition-colors'
+            : 'border-b border-slate-700/50 last:border-0 hover:bg-slate-700/40 transition-colors'
       }`}>
           <div className="flex flex-col">
              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-300 font-bold">{item.symbol}</span>
+                <span className="text-xs text-slate-300 font-bold group-hover:text-white transition-colors">{item.symbol}</span>
                 {isHighlight && <span className="text-[9px] bg-emerald-500 text-slate-900 px-1 rounded font-bold">BUSCA</span>}
                 {isCrypto && !isHighlight && <span className="text-[8px] bg-indigo-500/20 text-indigo-300 px-1 rounded border border-indigo-500/20">Cripto</span>}
              </div>
@@ -101,7 +107,7 @@ const ItemRow: React.FC<{ item: MarketQuote; isHighlight?: boolean }> = ({ item,
 };
 
 // --- Componente: Market Ticker Bar (Faixa Horizontal - 50%) ---
-export const MarketTickerBar = () => {
+export const MarketTickerBar: React.FC<{ onAssetClick?: (asset: MarketQuote) => void }> = ({ onAssetClick }) => {
     const [quotes, setQuotes] = useState<MarketQuote[]>([]);
     
     useEffect(() => {
@@ -123,7 +129,7 @@ export const MarketTickerBar = () => {
     // Filtra ativos principais para o ticker
     const tickerItems = quotes.filter(q => 
         ['USD', 'EUR', 'IBOV', 'VALE3', 'PETR4', 'ITUB4'].includes(q.symbol) || 
-        q.category === 'crypto' // Inclui todas as criptos carregadas
+        q.category === 'crypto'
     );
 
     return (
@@ -134,7 +140,11 @@ export const MarketTickerBar = () => {
                     const decimals = isFiat ? 3 : 2;
                     
                     return (
-                        <div key={`${item.symbol}-${idx}`} className="flex items-center gap-2 px-4 border-r border-slate-800/30 h-full">
+                        <button 
+                            key={`${item.symbol}-${idx}`} 
+                            onClick={() => onAssetClick?.(item)}
+                            className="flex items-center gap-2 px-4 border-r border-slate-800/30 h-full hover:bg-slate-800/50 transition-colors focus:outline-none"
+                        >
                             <span className="text-[10px] font-bold text-slate-400">{item.symbol}</span>
                             <span className="text-[10px] font-mono text-white">
                                 {item.category === 'index' 
@@ -144,7 +154,7 @@ export const MarketTickerBar = () => {
                             <span className={`text-[9px] font-bold ${item.changePercent >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
                                 {item.changePercent >= 0 ? '▲' : '▼'} {Math.abs(item.changePercent).toFixed(2)}%
                             </span>
-                        </div>
+                        </button>
                     );
                 })}
             </div>
@@ -244,7 +254,7 @@ export const MarketStatusBar = () => {
 };
 
 // --- Widget de Cotações (Real-Time) ---
-export const MarketWidget = () => {
+export const MarketWidget: React.FC<MarketWidgetProps> = ({ onAssetClick }) => {
   const [quotes, setQuotes] = useState<MarketQuote[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
@@ -401,7 +411,7 @@ export const MarketWidget = () => {
                 >
                     ✕
                 </button>
-                <ItemRow item={searchedAsset} isHighlight />
+                <ItemRow item={searchedAsset} isHighlight onClick={() => onAssetClick?.(searchedAsset)} />
             </div>
         )}
 
@@ -416,7 +426,7 @@ export const MarketWidget = () => {
                 <div>
                     <span className="text-[10px] font-bold text-slate-500 uppercase mb-1 block tracking-wider px-1">Principais Índices</span>
                     <div className="bg-slate-900/30 rounded-xl p-2 border border-slate-700/50 space-y-0.5">
-                      {quotes.filter(q => q.category === 'index').map(q => <ItemRow key={`${q.symbol}`} item={q} />)}
+                      {quotes.filter(q => q.category === 'index').map(q => <ItemRow key={`${q.symbol}`} item={q} onClick={() => onAssetClick?.(q)} />)}
                     </div>
                 </div>
               )}
@@ -425,7 +435,7 @@ export const MarketWidget = () => {
               <div>
                   <span className="text-[10px] font-bold text-slate-500 uppercase mb-1 block tracking-wider px-1">Moedas</span>
                   <div className="bg-slate-900/30 rounded-xl p-2 border border-slate-700/50 space-y-0.5">
-                    {quotes.filter(q => q.category === 'currency').map(q => <ItemRow key={`${q.symbol}`} item={q} />)}
+                    {quotes.filter(q => q.category === 'currency').map(q => <ItemRow key={`${q.symbol}`} item={q} onClick={() => onAssetClick?.(q)} />)}
                   </div>
               </div>
 
@@ -434,7 +444,7 @@ export const MarketWidget = () => {
                 <div>
                     <span className="text-[10px] font-bold text-indigo-400/80 uppercase mb-1 block tracking-wider px-1">Criptomoedas</span>
                     <div className="bg-indigo-950/10 rounded-xl p-2 border border-indigo-500/10 space-y-0.5">
-                      {quotes.filter(q => q.category === 'crypto').map(q => <ItemRow key={`${q.symbol}`} item={q} />)}
+                      {quotes.filter(q => q.category === 'crypto').map(q => <ItemRow key={`${q.symbol}`} item={q} onClick={() => onAssetClick?.(q)} />)}
                     </div>
                 </div>
               )}
@@ -444,7 +454,7 @@ export const MarketWidget = () => {
                 <div>
                     <span className="text-[10px] font-bold text-slate-500 uppercase mb-1 block tracking-wider px-1">Ações Ibovespa (Top 5)</span>
                     <div className="bg-slate-900/30 rounded-xl p-2 border border-slate-700/50 space-y-0.5">
-                      {quotes.filter(q => q.category === 'stock').map(q => <ItemRow key={`${q.symbol}`} item={q} />)}
+                      {quotes.filter(q => q.category === 'stock').map(q => <ItemRow key={`${q.symbol}`} item={q} onClick={() => onAssetClick?.(q)} />)}
                     </div>
                 </div>
               )}
