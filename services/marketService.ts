@@ -24,6 +24,12 @@ interface CachedData {
   data: MarketResponse;
 }
 
+export interface AssetSearchResult {
+  symbol: string;
+  name: string;
+  type: string;
+}
+
 // Mock de Fallback para ações se a API falhar
 const STOCK_FALLBACK = [
     { symbol: 'VALE3', name: 'Vale', price: 62.50, changePercent: 0.5, category: 'stock' as const },
@@ -37,6 +43,70 @@ const STOCK_FALLBACK = [
 // SERVIÇO
 // ============================================================================
 
+// --- Busca de Sugestões (Autocomplete) ---
+export const searchAssets = async (query: string): Promise<AssetSearchResult[]> => {
+  if (!query || query.length < 2) return [];
+
+  try {
+    // Usa Proxy para acessar Yahoo Finance Autocomplete
+    // Filtra para região BR para priorizar ativos da B3
+    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v1/finance/search?q=${query}&lang=pt-BR&region=BR&quotesCount=6&newsCount=0`)}`;
+    
+    const res = await fetch(proxyUrl);
+    if (!res.ok) return [];
+    
+    const data = await res.json();
+    
+    // Mapeia e filtra apenas Equity (Ações) e ETF/FIIs
+    return (data.quotes || [])
+      .filter((q: any) => q.isYahooFinance && (q.quoteType === 'EQUITY' || q.quoteType === 'ETF' || q.quoteType === 'MUTUALFUND'))
+      .map((q: any) => ({
+        symbol: q.symbol.replace('.SA', ''), // Remove sufixo .SA para visualização limpa
+        name: q.shortname || q.longname,
+        type: q.quoteType
+      }));
+  } catch (error) {
+    console.warn("Erro no autocomplete:", error);
+    return [];
+  }
+};
+
+// --- Busca Cotação Específica ---
+export const fetchAssetQuote = async (symbol: string): Promise<MarketQuote | null> => {
+  try {
+    // Adiciona .SA se não tiver e não for índice conhecido
+    const apiSymbol = symbol.toUpperCase().endsWith('.SA') || symbol.startsWith('^') ? symbol : `${symbol}.SA`;
+    
+    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${apiSymbol}?interval=1d&range=1d`)}`;
+    const res = await fetch(proxyUrl);
+    
+    if (!res.ok) return null;
+    
+    const data = await res.json();
+    const result = data.chart?.result?.[0]?.meta;
+    
+    if (!result) return null;
+
+    const price = result.regularMarketPrice;
+    const prevClose = result.chartPreviousClose;
+    const changePercent = prevClose ? ((price - prevClose) / prevClose) * 100 : 0;
+
+    return {
+      symbol: symbol.replace('.SA', ''),
+      name:  data.chart?.result?.[0]?.meta?.shortName || symbol, // Tenta pegar nome curto
+      price,
+      changePercent,
+      category: 'stock',
+      timestamp: Date.now(),
+      simulated: false
+    };
+  } catch (error) {
+    console.error("Erro ao buscar cotação específica:", error);
+    return null;
+  }
+};
+
+// --- Carga Geral do Painel ---
 export const fetchMarketQuotes = async (forceRefresh = false): Promise<MarketResponse> => {
   // 1. Verificar Cache Local (Pula se forceRefresh for true)
   if (!forceRefresh) {

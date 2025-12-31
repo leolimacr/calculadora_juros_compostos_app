@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MarketQuote } from '../types';
-import { fetchMarketQuotes } from '../services/marketService';
+import { fetchMarketQuotes, searchAssets, fetchAssetQuote, AssetSearchResult } from '../services/marketService';
 
 // --- Widget de Notícias ---
 export const NewsWidget = () => {
@@ -58,16 +58,23 @@ const MarketSkeleton = () => (
   </div>
 );
 
-const ItemRow: React.FC<{ item: MarketQuote }> = ({ item }) => {
+const ItemRow: React.FC<{ item: MarketQuote; isHighlight?: boolean }> = ({ item, isHighlight }) => {
     const isUSD = item.symbol.includes('/USD') || item.symbol === 'BTC' || item.symbol === 'ETH'; 
     // Define se é moeda fiat (USD/EUR) para aplicar 3 casas decimais
     const isFiatCurrency = item.symbol === 'USD' || item.symbol === 'EUR';
     const decimals = isFiatCurrency ? 3 : 2;
 
     return (
-      <div className="flex justify-between items-center py-2 border-b border-slate-700/50 last:border-0 hover:bg-slate-700/20 transition-colors px-2 rounded-lg animate-in fade-in duration-500">
+      <div className={`flex justify-between items-center py-2 px-2 rounded-lg animate-in fade-in duration-500 ${
+          isHighlight 
+            ? 'bg-emerald-900/20 border border-emerald-500/30 shadow-md mb-2' 
+            : 'border-b border-slate-700/50 last:border-0 hover:bg-slate-700/20 transition-colors'
+      }`}>
           <div className="flex flex-col">
-             <span className="text-xs text-slate-300 font-bold">{item.symbol}</span>
+             <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-300 font-bold">{item.symbol}</span>
+                {isHighlight && <span className="text-[9px] bg-emerald-500 text-slate-900 px-1 rounded font-bold">BUSCA</span>}
+             </div>
              <span className="text-[9px] text-slate-500 truncate max-w-[120px] hidden sm:block">
                {item.name}
              </span>
@@ -236,6 +243,14 @@ export const MarketWidget = () => {
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   
+  // Search State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [suggestions, setSuggestions] = useState<AssetSearchResult[]>([]);
+  const [searchedAsset, setSearchedAsset] = useState<MarketQuote | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isSearchResultLoading, setIsSearchResultLoading] = useState(false);
+  const searchTimeout = useRef<any>(null);
+
   const refreshData = async (manual = false) => {
     if (manual) setLoading(true);
     
@@ -253,6 +268,37 @@ export const MarketWidget = () => {
     const interval = setInterval(() => refreshData(false), 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // Debounce Search Logic
+  useEffect(() => {
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+
+    if (searchQuery.length >= 2) {
+      setIsSearching(true);
+      searchTimeout.current = setTimeout(async () => {
+        const results = await searchAssets(searchQuery);
+        setSuggestions(results.slice(0, 5)); // Top 5
+        setIsSearching(false);
+      }, 500); // 500ms debounce
+    } else {
+      setSuggestions([]);
+      setIsSearching(false);
+    }
+  }, [searchQuery]);
+
+  const handleSelectAsset = async (symbol: string) => {
+    setSearchQuery(''); // Limpa input
+    setSuggestions([]); // Limpa lista
+    setIsSearchResultLoading(true);
+    
+    const quote = await fetchAssetQuote(symbol);
+    if (quote) {
+      setSearchedAsset(quote);
+    } else {
+      alert('Não foi possível carregar a cotação deste ativo no momento.');
+    }
+    setIsSearchResultLoading(false);
+  };
 
   return (
     <div className="bg-slate-800/50 rounded-2xl border border-slate-700 p-5 relative overflow-hidden shadow-lg h-fit flex flex-col">
@@ -286,6 +332,68 @@ export const MarketWidget = () => {
                 </button>
             </div>
         </div>
+
+        {/* --- Busca de Ativos --- */}
+        <div className="mb-4 relative z-20">
+            <div className="relative">
+                <input 
+                    type="text" 
+                    placeholder="Buscar ação ou FII (ex: PETR4, KNRI11)"
+                    className="w-full bg-slate-900 border border-slate-600 rounded-lg py-2 pl-8 pr-4 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                
+                {isSearching && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <span className="block w-2 h-2 rounded-full border-2 border-slate-500 border-t-emerald-500 animate-spin"></span>
+                    </div>
+                )}
+            </div>
+
+            {/* Lista de Sugestões (Dropdown) */}
+            {suggestions.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar">
+                    {suggestions.map((asset) => (
+                        <button
+                            key={asset.symbol}
+                            onClick={() => handleSelectAsset(asset.symbol)}
+                            className="w-full text-left px-3 py-2 text-xs hover:bg-slate-800 transition-colors flex justify-between items-center group"
+                        >
+                            <div>
+                                <span className="font-bold text-white block">{asset.symbol}</span>
+                                <span className="text-slate-500 text-[10px] truncate max-w-[150px] block">{asset.name}</span>
+                            </div>
+                            <span className="text-[9px] bg-slate-800 px-1.5 rounded text-slate-400 group-hover:bg-slate-700">{asset.type}</span>
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+
+        {/* Loading Result State */}
+        {isSearchResultLoading && (
+            <div className="py-4 text-center">
+                <span className="text-xs text-slate-400 animate-pulse">Buscando cotação atualizada...</span>
+            </div>
+        )}
+
+        {/* Resultado da Busca */}
+        {searchedAsset && !isSearchResultLoading && (
+            <div className="mb-4 relative group">
+                <button 
+                    onClick={() => setSearchedAsset(null)} 
+                    className="absolute -top-2 -right-1 text-slate-500 hover:text-red-400 z-10 bg-slate-900 rounded-full w-4 h-4 flex items-center justify-center text-[10px]" 
+                    title="Fechar busca"
+                >
+                    ✕
+                </button>
+                <ItemRow item={searchedAsset} isHighlight />
+            </div>
+        )}
 
         {/* Content Area */}
         {loading && quotes.length === 0 ? (
