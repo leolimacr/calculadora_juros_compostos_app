@@ -1,7 +1,6 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { sendConfirmationEmail } from '../../utils/email';
 
 interface AuthLoginProps {
   onSuccess: () => void;
@@ -9,220 +8,145 @@ interface AuthLoginProps {
 }
 
 const AuthLogin: React.FC<AuthLoginProps> = ({ onSuccess, onSwitchToRegister }) => {
-  const { login, requestPasswordReset, completePasswordReset } = useAuth();
+  const { login, resetPassword } = useAuth();
   
-  // Modes: 'login', 'forgot_email', 'forgot_code'
-  const [mode, setMode] = useState<'login' | 'forgot_email' | 'forgot_code'>('login');
+  // Modes: 'login', 'forgot'
+  const [mode, setMode] = useState<'login' | 'forgot'>('login');
 
   // Login States
   const [email, setEmail] = useState('');
-  const [pin, setPin] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false); 
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   
-  const [errors, setErrors] = useState({
-    email: '',
-    pin: '',
-    general: ''
-  });
-
   // Forgot Password States
   const [forgotEmail, setForgotEmail] = useState('');
-  const [verificationCode, setVerificationCode] = useState(''); // Código gerado
-  const [inputCode, setInputCode] = useState(''); // Código digitado
-  const [newPin, setNewPin] = useState(''); // Nova senha
-
-  // Tenta preencher email se já existir salvo
-  React.useEffect(() => {
-    const stored = localStorage.getItem('finpro_auth_user');
-    if (stored) {
-        try {
-            const { email } = JSON.parse(stored);
-            setEmail(email);
-        } catch(e) {}
-    }
-  }, []);
+  const [forgotStatus, setForgotStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !pin) return;
+    if (!email || !password) return;
 
     setLoading(true);
-    const success = await login(email, pin);
+    setError('');
     
-    if (success) {
+    const res = await login(email, password);
+    
+    if (res.success) {
       onSuccess();
     } else {
-      setErrors(prev => ({...prev, general: '❌ E-mail ou PIN incorretos.'}));
+      setError(res.error || 'Erro ao fazer login.');
     }
     setLoading(false);
   };
 
-  const handleSendResetCode = async (e: React.FormEvent) => {
+  const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!forgotEmail.includes('@')) return;
+    if (!forgotEmail) return;
 
     setLoading(true);
+    setForgotStatus('idle');
     
-    // Solicita reset. No AuthContext atual, ele retorna um token.
-    // Vamos usar esse token como o "código correto" para simplificar a integração com a lógica existente.
-    // Em um backend real, o código seria validado lá.
+    const res = await resetPassword(forgotEmail);
     
-    // Gerar um código de 6 dígitos numérico para ser user-friendly
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    setVerificationCode(code); // Guarda localmente para validar na próxima etapa
-
-    // O requestPasswordReset do context guarda um token no localStorage.
-    // Para manter a segurança do fluxo, vamos apenas enviar o email aqui e usar nosso código local para validar a UI
-    // e depois chamar o completePasswordReset com o token real gerado pelo context.
-    const token = await requestPasswordReset(forgotEmail);
-    
-    if (token) {
-        await sendConfirmationEmail(forgotEmail, 'reset', code);
-        setMode('forgot_code');
-        // Hack: Guardamos o token "oficial" do sistema em um estado temporário se necessário, 
-        // mas o completePasswordReset pede o token. 
-        // Como o token do context é uma string complexa e queremos 6 dígitos,
-        // vamos adaptar o AuthContext no futuro. Por agora, vamos usar o token retornado como ID da transação.
-        sessionStorage.setItem('reset_token_temp', typeof token === 'string' ? token : '');
+    if (res.success) {
+      setForgotStatus('success');
     } else {
-        setErrors(prev => ({...prev, general: 'E-mail não encontrado.'}));
-    }
-    
-    setLoading(false);
-  };
-
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (inputCode !== verificationCode) {
-        alert('Código incorreto!');
-        return;
-    }
-    if (newPin.length < 4) {
-        alert('O novo PIN deve ter 4 dígitos.');
-        return;
-    }
-
-    setLoading(true);
-    const token = sessionStorage.getItem('reset_token_temp') || '';
-    const success = await completePasswordReset(token, newPin);
-    
-    if (success) {
-        alert('Senha redefinida com sucesso!');
-        setMode('login');
-    } else {
-        alert('Erro ao redefinir. O token pode ter expirado.');
+      setForgotStatus('error');
+      setError(res.error || 'Erro ao enviar e-mail.');
     }
     setLoading(false);
   };
 
-  // --- MODO 2: DIGITAR CÓDIGO E NOVA SENHA ---
-  if (mode === 'forgot_code') {
-      return (
-        <div className="w-full max-w-sm mx-auto animate-in fade-in slide-in-from-right-4">
-            <h3 className="text-xl font-bold text-white mb-2 text-center">Criar Novo PIN</h3>
-            <p className="text-slate-400 text-sm mb-6 text-center">Digite o código enviado para {forgotEmail}</p>
-
-            <form onSubmit={handleResetPassword} className="space-y-4">
-                <div>
-                    <input 
-                        type="text" 
-                        placeholder="Código de 6 dígitos"
-                        value={inputCode}
-                        onChange={e => setInputCode(e.target.value.replace(/\D/g, '').substring(0,6))}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-center text-xl tracking-widest outline-none focus:border-emerald-500"
-                        autoFocus
-                    />
-                </div>
-                <div>
-                    <input 
-                        type="password" 
-                        placeholder="Novo PIN"
-                        value={newPin}
-                        onChange={e => setNewPin(e.target.value)}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white text-center text-xl tracking-widest outline-none focus:border-emerald-500"
-                    />
-                </div>
-                <button 
-                    type="submit" 
-                    disabled={loading || inputCode.length < 6 || newPin.length < 4}
-                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50"
-                >
-                    {loading ? 'Salvando...' : 'Confirmar Alteração'}
-                </button>
-            </form>
-        </div>
-      );
-  }
-
-  // --- MODO 1: ESQUECI SENHA (E-MAIL) ---
-  if (mode === 'forgot_email') {
+  // --- MODO: ESQUECI SENHA ---
+  if (mode === 'forgot') {
     return (
       <div className="w-full max-w-sm mx-auto animate-in fade-in slide-in-from-right-4">
         <button 
-          onClick={() => setMode('login')}
+          onClick={() => { setMode('login'); setForgotStatus('idle'); setError(''); }}
           className="text-xs text-slate-400 hover:text-white mb-4 flex items-center gap-1"
         >
           ← Voltar para Login
         </button>
         
-        <h3 className="text-xl font-bold text-white mb-2 text-center">Recuperar Acesso</h3>
+        <h3 className="text-xl font-bold text-white mb-2 text-center">Recuperar Senha</h3>
         
-        <form onSubmit={handleSendResetCode} className="space-y-4">
-             <p className="text-slate-400 text-sm mb-4 text-center">
-               Digite seu e-mail cadastrado para receber o código.
-             </p>
-             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">E-mail</label>
-              <input 
-                type="email" 
-                required
-                value={forgotEmail}
-                onChange={e => setForgotEmail(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-emerald-500 transition-colors"
-                placeholder="seu@email.com"
-              />
+        {forgotStatus === 'success' ? (
+            <div className="text-center bg-emerald-900/20 p-6 rounded-2xl border border-emerald-500/20">
+                <span className="text-4xl block mb-4">📧</span>
+                <p className="text-emerald-400 font-bold mb-2">E-mail Enviado!</p>
+                <p className="text-slate-300 text-sm">
+                    Se o e-mail <strong>{forgotEmail}</strong> estiver cadastrado, você receberá um link para redefinir sua senha em instantes.
+                </p>
+                <button 
+                    onClick={() => setMode('login')}
+                    className="mt-6 w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 rounded-xl transition-colors"
+                >
+                    Voltar ao Login
+                </button>
             </div>
+        ) : (
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+                <p className="text-slate-400 text-sm mb-2 text-center">
+                Digite seu e-mail para receber o link de redefinição.
+                </p>
+                <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">E-mail</label>
+                    <input 
+                        type="email" 
+                        required
+                        value={forgotEmail}
+                        onChange={e => setForgotEmail(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-emerald-500 transition-colors"
+                        placeholder="seu@email.com"
+                    />
+                </div>
 
-            <button 
-              type="submit" 
-              disabled={loading}
-              className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {loading ? 'Enviando...' : 'Enviar Código'}
-            </button>
-        </form>
+                {forgotStatus === 'error' && error && (
+                    <p className="text-red-400 text-xs text-center">{error}</p>
+                )}
+
+                <button 
+                    type="submit" 
+                    disabled={loading}
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50"
+                >
+                    {loading ? 'Enviando...' : 'Enviar Link de Recuperação'}
+                </button>
+            </form>
+        )}
       </div>
     );
   }
 
-  // --- MODO LOGIN PADRÃO ---
+  // --- MODO: LOGIN ---
   return (
     <div className="w-full max-w-sm mx-auto animate-in fade-in slide-in-from-left-4">
       <h3 className="text-xl font-bold text-white mb-2 text-center">Bem-vindo de volta</h3>
-      <p className="text-slate-400 text-sm mb-6 text-center">Digite seu PIN para desbloquear.</p>
+      <p className="text-slate-400 text-sm mb-6 text-center">Faça login para continuar.</p>
 
       <form onSubmit={handleLogin} className="space-y-4">
         <div>
-           <label className="block text-xs font-bold text-slate-500 uppercase mb-1">E-mail Cadastrado</label>
+           <label className="block text-xs font-bold text-slate-500 uppercase mb-1">E-mail</label>
            <input 
              type="email" 
              value={email}
-             onChange={e => { setEmail(e.target.value); setErrors(prev => ({...prev, email: '', general: ''})); }}
-             className={`w-full bg-slate-900 border rounded-xl px-4 py-3 text-white outline-none transition-colors ${errors.email ? 'border-red-500' : 'border-slate-700 focus:border-emerald-500'}`}
+             onChange={e => setEmail(e.target.value)}
+             className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-emerald-500 transition-colors"
              placeholder="Digite seu e-mail"
            />
         </div>
 
         <div>
-           <label className="block text-xs font-bold text-slate-500 uppercase mb-1">PIN / Senha</label>
+           <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Senha</label>
            <div className="relative">
              <input 
                type={showPassword ? "text" : "password"} 
-               value={pin}
-               onChange={e => { setPin(e.target.value); setErrors(prev => ({...prev, pin: '', general: ''})); }}
-               className={`w-full bg-slate-900 border rounded-xl pl-4 pr-12 py-3 text-white outline-none transition-colors tracking-widest ${errors.pin ? 'border-red-500' : 'border-slate-700 focus:border-emerald-500'}`}
-               placeholder="- - - - - -"
+               value={password}
+               onChange={e => setPassword(e.target.value)}
+               className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-4 pr-12 py-3 text-white outline-none focus:border-emerald-500 transition-colors"
+               placeholder="Sua senha"
              />
              <button
                 type="button"
@@ -235,9 +159,9 @@ const AuthLogin: React.FC<AuthLoginProps> = ({ onSuccess, onSwitchToRegister }) 
            </div>
         </div>
 
-        {errors.general && (
-          <div className="bg-red-900/10 p-2 rounded-lg border border-red-500/20 text-center animate-in shake">
-             <p className="text-red-400 text-sm font-medium">{errors.general}</p>
+        {error && (
+          <div className="bg-red-900/10 p-3 rounded-lg border border-red-500/20 text-center animate-in shake">
+             <p className="text-red-400 text-sm font-medium">{error}</p>
           </div>
         )}
 
@@ -246,12 +170,12 @@ const AuthLogin: React.FC<AuthLoginProps> = ({ onSuccess, onSwitchToRegister }) 
           disabled={loading}
           className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-emerald-900/20 transition-all active:scale-95 disabled:opacity-50"
         >
-          {loading ? 'Verificando...' : 'Entrar'}
+          {loading ? 'Entrando...' : 'Entrar'}
         </button>
 
         <div className="flex justify-center items-center pt-4 border-t border-slate-800">
-             <button type="button" onClick={() => setMode('forgot_email')} className="text-xs text-slate-500 hover:text-emerald-400 transition-colors">
-                 Esqueci meu PIN
+             <button type="button" onClick={() => setMode('forgot')} className="text-xs text-slate-500 hover:text-emerald-400 transition-colors">
+                 Esqueci minha senha
              </button>
         </div>
       </form>

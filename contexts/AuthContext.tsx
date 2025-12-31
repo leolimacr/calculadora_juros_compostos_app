@@ -1,323 +1,258 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { hashPassword, validatePassword, generateSalt } from '../utils/authSecurity';
-import { database } from '../firebase';
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  signOut, 
+  sendEmailVerification, 
+  sendPasswordResetEmail,
+  onAuthStateChanged,
+  updateProfile as updateFirebaseProfile,
+  updatePassword as updateFirebasePassword,
+  User as FirebaseUser,
+  AuthError,
+  applyActionCode,
+  confirmPasswordReset,
+  EmailAuthProvider,
+  reauthenticateWithCredential
+} from 'firebase/auth';
+import { auth, database } from '../firebase';
 import { ref, update } from 'firebase/database';
 
-interface User {
+// Tipagem estendida para compatibilidade com o resto do app
+export interface AppUser {
+  uid: string;
   email: string;
-  name?: string;
+  name: string | null;
   emailVerified: boolean;
+  photoURL: string | null;
 }
 
 interface AuthContextType {
-  user: User | null;
+  user: AppUser | null;
   isAuthenticated: boolean;
-  hasLocalUser: boolean; 
   isLoading: boolean;
-  login: (email: string, pin: string) => Promise<boolean>;
-  register: (email: string, pin: string, name?: string) => Promise<boolean | string>;
-  logout: () => void;
-  changePassword: (currentPin: string, newPin: string) => Promise<boolean>;
   
-  // Novos métodos de fluxo
-  requestPasswordReset: (email: string) => Promise<boolean | string>;
-  completePasswordReset: (token: string, newPin: string) => Promise<boolean>;
-  verifyEmail: (token: string) => Promise<'success' | 'invalid'>;
-  resendVerificationEmail: () => Promise<boolean | string>;
+  // Métodos Principais
+  login: (email: string, pass: string) => Promise<{ success: boolean; error?: string }>;
+  register: (email: string, pass: string, name: string) => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<void>;
   
-  resetAppData: (pin: string) => Promise<boolean>;
-  updateProfile: (data: { name?: string }) => void;
+  // Gestão de Senha e E-mail
+  resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
+  changePassword: (currentPass: string, newPass: string) => Promise<boolean>;
+  resendVerification: () => Promise<{ success: boolean; error?: string }>;
+  reloadUser: () => Promise<void>;
+  
+  verifyEmail: (code: string) => Promise<'success' | 'invalid'>;
+  completePasswordReset: (code: string, newPass: string) => Promise<boolean>;
+
+  // Legado/Compatibilidade
+  hasLocalUser: boolean; // Mantido para compatibilidade de UI
+  updateProfile: (data: { name?: string }) => Promise<void>;
+  resetAppData: (password?: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
-// Configuração de Persistência
-const SESSION_KEY = 'finpro_session';
-const AUTH_USER_KEY = 'finpro_auth_user';
-const SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 dias
+// Tradução de erros do Firebase
+const mapAuthError = (code: string): string => {
+  switch (code) {
+    case 'auth/email-already-in-use': return 'Este e-mail já está sendo usado.';
+    case 'auth/invalid-email': return 'E-mail inválido.';
+    case 'auth/weak-password': return 'A senha deve ter pelo menos 6 caracteres.';
+    case 'auth/user-not-found': return 'Usuário não encontrado.';
+    case 'auth/wrong-password': return 'Senha incorreta.';
+    case 'auth/too-many-requests': return 'Muitas tentativas. Tente novamente mais tarde.';
+    case 'auth/network-request-failed': return 'Erro de conexão. Verifique sua internet.';
+    case 'auth/requires-recent-login': return 'Para esta ação, faça login novamente.';
+    case 'auth/invalid-action-code': return 'Link inválido ou expirado.';
+    default: return 'Ocorreu um erro inesperado. Tente novamente.';
+  }
+};
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [hasLocalUser, setHasLocalUser] = useState(false);
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Carregar estado inicial
   useEffect(() => {
-    const storedUser = localStorage.getItem(AUTH_USER_KEY);
-    const sessionData = localStorage.getItem(SESSION_KEY);
-
-    if (storedUser) {
-      setHasLocalUser(true);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setFirebaseUser(user);
+      setIsLoading(false);
       
-      if (sessionData) {
-        try {
-          const { expiry } = JSON.parse(sessionData);
-          const now = new Date().getTime();
-
-          if (now < expiry) {
-            const parsedUser = JSON.parse(storedUser);
-            setUser({ 
-              email: parsedUser.email, 
-              name: parsedUser.name,
-              emailVerified: !!parsedUser.emailVerified 
-            });
-            setIsAuthenticated(true);
-          } else {
-            localStorage.removeItem(SESSION_KEY);
-          }
-        } catch (e) {
-          localStorage.removeItem(SESSION_KEY);
-        }
+      // Sincroniza meta-dados básicos no Realtime Database se logado
+      if (user) {
+        const userRef = ref(database, `users/${user.uid}/meta`);
+        update(userRef, {
+          email: user.email,
+          emailVerified: user.emailVerified,
+          lastLogin: Date.now()
+        }).catch(err => console.error("Sync Error:", err));
       }
-    }
-    setIsLoading(false);
+    });
+    return () => unsubscribe();
   }, []);
 
-  const startSession = () => {
-    const expiry = new Date().getTime() + SESSION_DURATION;
-    localStorage.setItem(SESSION_KEY, JSON.stringify({ expiry }));
-  };
+  // Adaptador do objeto de usuário para a aplicação
+  const user: AppUser | null = firebaseUser ? {
+    uid: firebaseUser.uid,
+    email: firebaseUser.email || '',
+    name: firebaseUser.displayName,
+    emailVerified: firebaseUser.emailVerified,
+    photoURL: firebaseUser.photoURL
+  } : null;
 
-  // Helper para gerar token simples
-  const generateToken = () => {
-    return Math.random().toString(36).substring(2) + Date.now().toString(36);
-  };
-
-  const register = async (email: string, pin: string, name?: string) => {
+  const login = async (email: string, pass: string) => {
     try {
-      const salt = generateSalt();
-      const hash = await hashPassword(pin, salt);
-      const verifyToken = generateToken();
-      
-      const userPayload = { 
-        email, 
-        hash, 
-        salt, 
-        name,
-        emailVerified: false,
-        verificationToken: verifyToken,
+      await signInWithEmailAndPassword(auth, email, pass);
+      return { success: true };
+    } catch (error) {
+      const err = error as AuthError;
+      console.error("Login Error:", err.code);
+      return { success: false, error: mapAuthError(err.code) };
+    }
+  };
+
+  const register = async (email: string, pass: string, name: string) => {
+    try {
+      // 1. Cria usuário
+      const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+      const user = userCredential.user;
+
+      // 2. Atualiza Nome
+      await updateFirebaseProfile(user, { displayName: name });
+
+      // 3. Envia e-mail de verificação
+      await sendEmailVerification(user);
+
+      // 4. Cria estrutura inicial no DB (opcional, mas bom para garantir)
+      const userRef = ref(database, `users/${user.uid}/meta`);
+      await update(userRef, {
+        plan: 'free',
+        launchLimit: 30,
+        launchCount: 0,
         createdAt: Date.now()
-      };
-      
-      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(userPayload));
-      localStorage.setItem('finpro_has_used_manager', 'true');
-      
-      setUser({ email, name, emailVerified: false });
-      setIsAuthenticated(true);
-      setHasLocalUser(true);
-      startSession();
-      
-      // Retorna o token para que o componente de UI possa chamar o sendEmail
-      // (Em um app real, isso seria server-side, mas aqui passamos para o UI ou chamamos direto)
-      return verifyToken as any; 
-    } catch (e) {
-      console.error(e);
-      return false;
+      });
+
+      // Força refresh local para pegar o displayName
+      await user.reload();
+      setFirebaseUser(auth.currentUser); // Trigger re-render com nome
+
+      return { success: true };
+    } catch (error) {
+      const err = error as AuthError;
+      return { success: false, error: mapAuthError(err.code) };
     }
   };
 
-  const login = async (email: string, pin: string) => {
-    const storedData = localStorage.getItem(AUTH_USER_KEY);
-    if (!storedData) return false;
-
-    try {
-      const { email: storedEmail, hash, salt, name, emailVerified } = JSON.parse(storedData);
-
-      if (email.toLowerCase() === storedEmail.toLowerCase() && await validatePassword(pin, hash, salt)) {
-        setUser({ email, name, emailVerified: !!emailVerified });
-        setIsAuthenticated(true);
-        startSession();
-        return true;
-      }
-    } catch (e) {
-      console.error("Erro no login", e);
-    }
-    return false;
+  const logout = async () => {
+    await signOut(auth);
   };
 
-  const logout = () => {
-    setIsAuthenticated(false);
-    setUser(null);
-    localStorage.removeItem(SESSION_KEY);
-  };
-
-  const updateProfile = (data: { name?: string }) => {
-    const storedData = localStorage.getItem(AUTH_USER_KEY);
-    if (!storedData) return;
-
+  const resetPassword = async (email: string) => {
     try {
-      const userData = JSON.parse(storedData);
-      const updatedUser = { ...userData, ...data };
-      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(updatedUser));
-      setUser(prev => prev ? { ...prev, ...data } : null);
-    } catch (e) {
-      console.error(e);
+      await sendPasswordResetEmail(auth, email);
+      return { success: true };
+    } catch (error) {
+      const err = error as AuthError;
+      // Por segurança, não confirmamos se o e-mail existe em alguns casos, mas aqui retornamos erro amigável
+      return { success: false, error: mapAuthError(err.code) };
     }
   };
 
-  const changePassword = async (currentPin: string, newPin: string): Promise<boolean> => {
-    const storedData = localStorage.getItem(AUTH_USER_KEY);
-    if (!storedData) return false;
-
+  const changePassword = async (currentPass: string, newPass: string) => {
+    if (!auth.currentUser || !auth.currentUser.email) return false;
+    
     try {
-      const userData = JSON.parse(storedData);
-      const isValid = await validatePassword(currentPin, userData.hash, userData.salt);
-      if (!isValid) return false;
-
-      const newSalt = generateSalt();
-      const newHash = await hashPassword(newPin, newSalt);
-
-      const updatedUser = { ...userData, hash: newHash, salt: newSalt };
-      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(updatedUser));
+      // Re-autenticar antes de trocar senha (segurança)
+      const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPass);
+      await reauthenticateWithCredential(auth.currentUser, credential);
+      
+      await updateFirebasePassword(auth.currentUser, newPass);
       return true;
-    } catch (e) {
+    } catch (error) {
+      console.error("Change Password Error:", error);
       return false;
     }
   };
 
-  // --- NOVOS MÉTODOS DE FLUXO ---
-
-  const requestPasswordReset = async (email: string): Promise<boolean | string> => {
-    const storedData = localStorage.getItem(AUTH_USER_KEY);
-    if (!storedData) return true; // Segurança: sempre retorna true para não vazar e-mails
-
+  const resendVerification = async () => {
+    if (!auth.currentUser) return { success: false, error: 'Usuário não logado.' };
     try {
-      const userData = JSON.parse(storedData);
-      if (email.toLowerCase() === userData.email.toLowerCase()) {
-        const resetToken = generateToken();
-        const updatedUser = { 
-          ...userData, 
-          resetToken, 
-          resetTokenExpires: Date.now() + 3600000 // 1 hora
-        };
-        localStorage.setItem(AUTH_USER_KEY, JSON.stringify(updatedUser));
-        
-        // Em um backend real, isso seria interno. Aqui retornamos para simular o envio.
-        // Hack: Usando throw para passar o token para o mock de e-mail na UI (apenas p/ simulação local)
-        // Na prática, AuthContext chamaria sendEmail internamente se tivesse acesso.
-        // Vamos assumir que AuthContext chama a função de email utilitária se importada, 
-        // mas para manter limpo, vamos salvar o token e deixar o componente chamar sendConfirmationEmail
-        return resetToken as any;
-      }
-    } catch (e) { console.error(e); }
+      await sendEmailVerification(auth.currentUser);
+      return { success: true };
+    } catch (error) {
+      const err = error as AuthError;
+      return { success: false, error: mapAuthError(err.code) };
+    }
+  };
+
+  const verifyEmail = async (code: string): Promise<'success' | 'invalid'> => {
+    try {
+      await applyActionCode(auth, code);
+      return 'success';
+    } catch (error) {
+      return 'invalid';
+    }
+  };
+
+  const completePasswordReset = async (code: string, newPass: string): Promise<boolean> => {
+    try {
+      await confirmPasswordReset(auth, code, newPass);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  };
+
+  const reloadUser = async () => {
+    if (auth.currentUser) {
+      await auth.currentUser.reload();
+      setFirebaseUser({ ...auth.currentUser }); // Força atualização do estado
+    }
+  };
+
+  const updateProfile = async (data: { name?: string }) => {
+    if (auth.currentUser && data.name) {
+      await updateFirebaseProfile(auth.currentUser, { displayName: data.name });
+      await reloadUser();
+    }
+  };
+
+  const resetAppData = async (password?: string): Promise<boolean> => {
+    // Se a senha for fornecida, validamos via re-auth
+    if (password && auth.currentUser && auth.currentUser.email) {
+       try {
+         const credential = EmailAuthProvider.credential(auth.currentUser.email, password);
+         await reauthenticateWithCredential(auth.currentUser, credential);
+       } catch (e) {
+         return false; // Senha incorreta
+       }
+    }
+    
+    // Basicamente um logout + limpeza local
+    localStorage.clear();
+    await logout();
     return true;
   };
 
-  const completePasswordReset = async (token: string, newPin: string): Promise<boolean> => {
-    const storedData = localStorage.getItem(AUTH_USER_KEY);
-    if (!storedData) return false;
-
-    try {
-      const userData = JSON.parse(storedData);
-      
-      // Valida token e expiração
-      if (userData.resetToken === token && userData.resetTokenExpires > Date.now()) {
-        const newSalt = generateSalt();
-        const newHash = await hashPassword(newPin, newSalt);
-
-        const updatedUser = { 
-          ...userData, 
-          hash: newHash, 
-          salt: newSalt,
-          resetToken: null,
-          resetTokenExpires: null
-        };
-        localStorage.setItem(AUTH_USER_KEY, JSON.stringify(updatedUser));
-        return true;
-      }
-    } catch (e) { console.error(e); }
-    return false;
-  };
-
-  const verifyEmail = async (token: string): Promise<'success' | 'invalid'> => {
-    const storedData = localStorage.getItem(AUTH_USER_KEY);
-    if (!storedData) return 'invalid';
-
-    try {
-      const userData = JSON.parse(storedData);
-      
-      // Verifica token
-      if (userData.verificationToken === token) {
-        const updatedUser = { 
-          ...userData, 
-          emailVerified: true, 
-          verificationToken: null 
-        };
-        localStorage.setItem(AUTH_USER_KEY, JSON.stringify(updatedUser));
-        
-        // Atualiza estado local se logado
-        if (user) setUser({ ...user, emailVerified: true });
-
-        // Tenta atualizar no Firebase Realtime Database também (para persistência cloud futura)
-        // Usamos userId local sanitizado
-        const localUserId = userData.email.replace(/[.#$[\]]/g, '_');
-        update(ref(database, `users/${localUserId}/meta`), {
-          emailVerified: true,
-          updatedAt: Date.now()
-        }).catch(() => console.log('Sync offline ou não configurado'));
-
-        return 'success';
-      }
-    } catch (e) { console.error(e); }
-    return 'invalid';
-  };
-
-  const resendVerificationEmail = async (): Promise<boolean | string> => {
-    if (!user) return false;
-    const storedData = localStorage.getItem(AUTH_USER_KEY);
-    if (!storedData) return false;
-
-    const userData = JSON.parse(storedData);
-    // Gera novo token se não tiver
-    const verifyToken = userData.verificationToken || generateToken();
-    
-    if (verifyToken !== userData.verificationToken) {
-       const updatedUser = { ...userData, verificationToken: verifyToken };
-       localStorage.setItem(AUTH_USER_KEY, JSON.stringify(updatedUser));
-    }
-    
-    // Retorna token para envio
-    return verifyToken as any;
-  };
-
-  const resetAppData = async (pin: string): Promise<boolean> => {
-    const storedData = localStorage.getItem(AUTH_USER_KEY);
-    if (!storedData) return false;
-
-    try {
-      const userData = JSON.parse(storedData);
-      const isValid = await validatePassword(pin, userData.hash, userData.salt);
-      
-      if (isValid) {
-        localStorage.clear();
-        logout();
-        setHasLocalUser(false);
-        return true;
-      }
-      return false;
-    } catch (e) {
-      return false;
-    }
-  };
-
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      isAuthenticated, 
-      hasLocalUser, 
-      isLoading, 
-      login, 
-      register, 
+    <AuthContext.Provider value={{
+      user,
+      isAuthenticated: !!user,
+      isLoading,
+      hasLocalUser: !!user, // Compatibilidade
+      login,
+      register,
       logout,
+      resetPassword,
       changePassword,
-      requestPasswordReset,
-      completePasswordReset,
-      verifyEmail,
-      resendVerificationEmail,
+      resendVerification,
+      reloadUser,
+      updateProfile,
       resetAppData,
-      updateProfile
+      verifyEmail,
+      completePasswordReset
     }}>
       {children}
     </AuthContext.Provider>
