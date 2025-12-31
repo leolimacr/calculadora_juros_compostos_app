@@ -46,9 +46,8 @@ const AssetDetails: React.FC<AssetDetailsProps> = ({ asset, onClose, onToggleFul
     { label: '5A', val: '5y' },
   ];
 
-  // Cores dinâmicas baseadas na variação do dia (do quote original, para manter consistência no header)
   const isPositive = asset.changePercent >= 0;
-  const color = isPositive ? '#10b981' : '#ef4444'; // Emerald or Red
+  const color = isPositive ? '#10b981' : '#ef4444'; 
 
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -59,7 +58,6 @@ const AssetDetails: React.FC<AssetDetailsProps> = ({ asset, onClose, onToggleFul
   };
 
   const formatPrice = (val: number) => {
-      // Ajuste de casas decimais
       const digits = (asset.category === 'currency' || asset.symbol === 'USD' || asset.symbol === 'EUR') ? 3 : 2;
       return val.toLocaleString('pt-BR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
   };
@@ -88,16 +86,20 @@ const AssetDetails: React.FC<AssetDetailsProps> = ({ asset, onClose, onToggleFul
         </div>
 
         <div className="flex gap-2">
-            {onToggleFullscreen && (
-                <button onClick={onToggleFullscreen} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors" title={isFullscreen ? "Sair da tela cheia" : "Tela cheia"}>
-                    {isFullscreen ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg> // Icon X se full (para fechar view)
-                    ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
-                    )}
+            {!isFullscreen && onToggleFullscreen && (
+                <button onClick={onToggleFullscreen} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors" title="Tela cheia">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
                 </button>
             )}
-            {onClose && (
+            
+            {isFullscreen ? (
+                <button 
+                    onClick={onClose} 
+                    className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors border border-slate-700"
+                >
+                    <span>←</span> Voltar ao Mercado
+                </button>
+            ) : (
                 <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
