@@ -1,39 +1,40 @@
 
 /**
- * Utilitário de E-mail (Mock)
+ * Utilitário de E-mail (Simulação Robusta)
  * 
- * Gera links reais para testar o fluxo de verificação e reset de senha.
- * Em produção, isso chamaria uma API (SendGrid, AWS SES).
+ * Como este é um aplicativo Frontend-only (sem servidor Node.js próprio para envio de e-mail),
+ * utilizamos um alerta visual para simular a chegada do código na caixa de entrada.
+ * 
+ * EM PRODUÇÃO REAL: Substituir este console.log/alert por uma chamada ao EmailJS ou Firebase Functions.
  */
 
-export const sendConfirmationEmail = async (email: string, type: 'register' | 'reset', token?: string): Promise<boolean> => {
+export const sendConfirmationEmail = async (email: string, type: 'register' | 'reset', code: string): Promise<boolean> => {
   // Simula delay de rede
   await new Promise(resolve => setTimeout(resolve, 1500));
 
-  const baseUrl = window.location.origin;
+  console.group('📧 [SERVIÇO DE E-MAIL]');
+  console.log(`Para: ${email}`);
+  console.log(`Código: ${code}`);
   
-  console.group('📧 [MOCK EMAIL SERVICE]');
-  console.log(`To: ${email}`);
-  
+  let subject = '';
+  let body = '';
+
   if (type === 'register') {
-    const link = `${baseUrl}/?action=verify&token=${token}`;
-    console.log('--- E-MAIL DE VERIFICAÇÃO ---');
-    console.log('Assunto: Bem-vindo! Confirme seu e-mail no Finanças Pro Invest');
-    console.log('Olá! Obrigado por criar sua conta.');
-    console.log('Clique no link abaixo para confirmar seu e-mail:');
-    console.log(link); // Link clicável no console
-    console.log('-----------------------------');
+    subject = 'Seu código de verificação - Finanças Pro Invest';
+    body = `Bem-vindo! Seu código de verificação é: ${code}`;
   } else if (type === 'reset') {
-    const link = `${baseUrl}/?action=reset&token=${token}`;
-    console.log('--- REDEFINIÇÃO DE SENHA ---');
-    console.log('Assunto: Instruções para redefinir sua senha');
-    console.log('Recebemos uma solicitação para redefinir seu PIN.');
-    console.log('Clique no link abaixo para criar um novo PIN:');
-    console.log(link); // Link clicável no console
-    console.log('----------------------------');
+    subject = 'Recuperação de Senha';
+    body = `Recebemos um pedido para redefinir sua senha. Seu código é: ${code}`;
   }
   
+  console.log(`Assunto: ${subject}`);
+  console.log(`Mensagem: ${body}`);
   console.groupEnd();
+
+  // FALLBACK VISUAL IMPORTANTE:
+  // Como não temos um servidor SMTP real configurado neste ambiente de demonstração,
+  // exibimos um alerta para o usuário saber o código e prosseguir.
+  alert(`[SIMULAÇÃO DE E-MAIL]\n\nPara: ${email}\n${subject}\n\n${body}`);
   
   return true;
 };

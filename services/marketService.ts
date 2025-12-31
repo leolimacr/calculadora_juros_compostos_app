@@ -7,10 +7,10 @@ import { MarketQuote, HistoricalDataPoint } from '../types';
 // AwesomeAPI (Moedas/Cripto) - Adicionado BNB e SOL
 const AWESOME_API_URL = 'https://economia.awesomeapi.com.br/last/USD-BRL,EUR-BRL,BTC-BRL,ETH-BRL,BNB-BRL,SOL-BRL';
 
-// Rota Serverless para Índices e Ações (Protege a chave da Brapi e faz cache server-side)
+// Rota Serverless para Índices e Ações
 const INDICES_API_URL = '/api/market';
 
-// Cache Cliente (Navegador)
+// Cache Cliente
 const CACHE_KEY = 'finpro_market_cache';
 const CACHE_DURATION = 30 * 1000; // 30 segundos
 
@@ -43,29 +43,28 @@ const STOCK_FALLBACK = [
 // SERVIÇO
 // ============================================================================
 
-// --- Busca de Histórico (Novo) ---
+// --- Busca de Histórico ---
 export const fetchHistoricalData = async (symbol: string, range: '1d' | '5d' | '1mo' | '6mo' | '1y' | '5y' = '1mo'): Promise<HistoricalDataPoint[]> => {
   console.log(`[MarketService] Buscando histórico para: ${symbol} (${range})`);
   
+  // 1. Identificar se é Cripto para estratégia de Fallback
+  const knownCryptos = ['BTC', 'ETH', 'SOL', 'BNB', 'USDT', 'XRP', 'ADA', 'DOGE'];
+  const isCrypto = knownCryptos.includes(symbol) || knownCryptos.some(c => symbol.startsWith(c + '-'));
+
+  // 2. Tentar Yahoo Finance primeiro (Melhor para ações)
   try {
     let interval = '1d';
-    // Ajuste de intervalos para evitar erros da API Yahoo via Proxy (5m costuma falhar)
+    // Intervalos seguros para Yahoo (evitar 1m/5m que bloqueiam proxy)
     switch(range) {
-        case '1d': interval = '15m'; break; // Aumentado de 5m para 15m para estabilidade
-        case '5d': interval = '60m'; break; // Aumentado de 15m para 60m
+        case '1d': interval = '15m'; break; 
+        case '5d': interval = '60m'; break;
         case '1mo': interval = '1d'; break;
         case '6mo': interval = '1d'; break;
         case '1y': interval = '1wk'; break;
         case '5y': interval = '1mo'; break;
     }
 
-    // Mapeamento de Símbolos para Yahoo Finance
     let apiSymbol = symbol;
-    
-    // Lista de Criptos conhecidas para garantir formato correto
-    const knownCryptos = ['BTC', 'ETH', 'SOL', 'BNB', 'USDT', 'XRP', 'ADA', 'DOGE'];
-
-    // Mapeamento Explícito
     const symbolMap: Record<string, string> = {
         'USD': 'BRL=X', 
         'EUR': 'EURBRL=X',
@@ -75,64 +74,87 @@ export const fetchHistoricalData = async (symbol: string, range: '1d' | '5d' | '
 
     if (symbolMap[symbol]) {
         apiSymbol = symbolMap[symbol];
-    } else if (knownCryptos.includes(symbol) || knownCryptos.some(c => symbol.startsWith(c))) {
-        // Se for cripto, força o par BRL se não tiver sufixo e não for par USD já definido
+    } else if (isCrypto) {
         if (!symbol.includes('-') && !symbol.includes('=')) {
             apiSymbol = `${symbol}-BRL`;
         }
-    } else if (!symbol.includes('.') && !symbol.includes('-') && !symbol.startsWith('^') && !symbol.includes('=')) {
-        // Se for ação brasileira padrão (sem ponto, traço ou chapéu), adiciona .SA
+    } else if (!symbol.includes('.') && !symbol.includes('-') && !symbol.startsWith('^')) {
         apiSymbol = `${symbol}.SA`;
     }
 
-    console.log(`[MarketService] URL Symbol gerado: ${apiSymbol}, Intervalo: ${interval}`);
-
-    // Usar Proxy para evitar CORS
     const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${apiSymbol}?range=${range}&interval=${interval}`;
     const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
     
+    console.log(`[MarketService] Tentando Yahoo: ${apiSymbol}`);
     const res = await fetch(proxyUrl);
     
-    if (!res.ok) {
-        console.error(`[MarketService] Erro HTTP: ${res.status} para ${apiSymbol}`);
-        // Tenta fallback para USD se for cripto e falhar no BRL (raro, mas acontece)
-        if (apiSymbol.endsWith('-BRL')) {
-             console.log('[MarketService] Tentando fallback para USD...');
-             const fallbackUrl = `https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}-USD?range=${range}&interval=${interval}`)}`;
-             const resFallback = await fetch(fallbackUrl);
-             if (resFallback.ok) {
-                 const data = await resFallback.json();
-                 return parseYahooChartData(data); // Usa helper para parsing
-             }
-        }
-        return [];
+    if (res.ok) {
+        const data = await res.json();
+        const history = parseYahooChartData(data);
+        if (history.length > 0) return history;
     }
     
-    const data = await res.json();
-    return parseYahooChartData(data);
+    console.warn(`[MarketService] Yahoo falhou ou retornou vazio para ${apiSymbol}.`);
 
   } catch (error) {
-    console.error('[MarketService] Exceção ao buscar histórico:', error);
-    return [];
+    console.error('[MarketService] Erro no Yahoo:', error);
   }
+
+  // 3. Fallback: CryptoCompare (Apenas para Criptos)
+  if (isCrypto) {
+      return await fetchCryptoCompareHistory(symbol, range);
+  }
+
+  return [];
+};
+
+// --- Fallback CryptoCompare ---
+const fetchCryptoCompareHistory = async (symbol: string, range: string): Promise<HistoricalDataPoint[]> => {
+    try {
+        const cleanSymbol = symbol.split('-')[0].toUpperCase(); // BTC-BRL -> BTC
+        console.log(`[MarketService] Tentando CryptoCompare para ${cleanSymbol}`);
+        
+        let limit = 30;
+        let endpoint = 'histoday';
+        let aggregate = 1;
+
+        switch(range) {
+            case '1d': endpoint = 'histominute'; limit = 144; aggregate = 10; break; // ~24h (10min interval)
+            case '5d': endpoint = 'histohour'; limit = 120; break; // 5 dias * 24h
+            case '1mo': endpoint = 'histoday'; limit = 30; break;
+            case '6mo': endpoint = 'histoday'; limit = 180; break;
+            case '1y': endpoint = 'histoday'; limit = 365; break;
+            case '5y': endpoint = 'histoday'; limit = 1825; aggregate = 5; break; // Agrupado para não estourar limite
+        }
+
+        const url = `https://min-api.cryptocompare.com/data/v2/${endpoint}?fsym=${cleanSymbol}&tsym=BRL&limit=${limit}&aggregate=${aggregate}`;
+        const res = await fetch(url);
+        
+        if (!res.ok) return [];
+        const json = await res.json();
+
+        if (json.Response === 'Success' && json.Data?.Data) {
+            return json.Data.Data.map((d: any) => ({
+                date: new Date(d.time * 1000).toISOString(),
+                price: d.close
+            }));
+        }
+    } catch (e) {
+        console.error('[MarketService] Erro CryptoCompare:', e);
+    }
+    return [];
 };
 
 // Helper para parsear resposta do Yahoo
 const parseYahooChartData = (data: any): HistoricalDataPoint[] => {
     const result = data.chart?.result?.[0];
-    
-    if (!result) {
-        console.warn('[MarketService] Resultado vazio da API Yahoo.');
-        return [];
-    }
+    if (!result) return [];
 
     const timestamps = result.timestamp || [];
     const quotes = result.indicators?.quote?.[0]?.close || [];
-
     const history: HistoricalDataPoint[] = [];
     
     timestamps.forEach((ts: number, i: number) => {
-        // Filtra nulls (comuns em feriados ou pré-market)
         if (quotes[i] !== null && quotes[i] !== undefined) {
             history.push({
                 date: new Date(ts * 1000).toISOString(),
@@ -140,8 +162,6 @@ const parseYahooChartData = (data: any): HistoricalDataPoint[] => {
             });
         }
     });
-
-    console.log(`[MarketService] Histórico carregado: ${history.length} pontos.`);
     return history;
 };
 

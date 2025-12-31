@@ -65,6 +65,11 @@ const AssetDetails: React.FC<AssetDetailsProps> = ({ asset, onClose, onToggleFul
       return val.toLocaleString('pt-BR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
   };
 
+  // Altura fixa em Style para garantir que o Recharts renderize mesmo se o Flex falhar
+  const chartContainerStyle = isFullscreen 
+    ? { height: 'calc(100vh - 250px)', minHeight: '400px' } 
+    : { height: '300px' };
+
   return (
     <div className={`bg-slate-900 flex flex-col ${isFullscreen ? 'min-h-screen w-full' : 'h-full'}`}>
       {/* Header */}
@@ -128,12 +133,7 @@ const AssetDetails: React.FC<AssetDetailsProps> = ({ asset, onClose, onToggleFul
       </div>
 
       {/* Chart Area */}
-      {/* 
-          CRITICAL FIX: Altura explícita em fullscreen. 
-          min-h-screen no pai não garante altura para o filho flex-grow se não houver conteúdo.
-          h-[60vh] garante espaço para o ResponsiveContainer desenhar.
-      */}
-      <div className={`p-6 relative w-full ${isFullscreen ? 'h-[60vh] md:h-[70vh]' : 'h-[300px] flex-grow'}`}>
+      <div className="p-6 relative w-full" style={chartContainerStyle}>
         {loading && (
             <div className="absolute inset-0 flex items-center justify-center bg-slate-900/50 z-10 backdrop-blur-sm">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
@@ -191,7 +191,7 @@ const AssetDetails: React.FC<AssetDetailsProps> = ({ asset, onClose, onToggleFul
       </div>
       
       <div className="p-6 text-center text-xs text-slate-600 border-t border-slate-800 mt-auto">
-        Dados fornecidos por Yahoo Finance (atraso de 15min pode ocorrer). <br/>
+        Dados fornecidos por Yahoo Finance e CryptoCompare (atraso de 15min pode ocorrer). <br/>
         Este gráfico é para fins educacionais e não constitui recomendação de investimento.
       </div>
     </div>

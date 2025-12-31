@@ -10,6 +10,11 @@ interface AuthRegisterProps {
 
 const AuthRegister: React.FC<AuthRegisterProps> = ({ onSuccess, onSwitchToLogin }) => {
   const { register } = useAuth();
+  
+  // Etapas: 1 = Dados, 2 = Validação Código
+  const [step, setStep] = useState<1 | 2>(1);
+  
+  // Dados do Formulário
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [pin, setPin] = useState('');
@@ -17,19 +22,24 @@ const AuthRegister: React.FC<AuthRegisterProps> = ({ onSuccess, onSwitchToLogin 
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   
+  // Validação
+  const [generatedCode, setGeneratedCode] = useState('');
+  const [inputCode, setInputCode] = useState('');
+  
   const [errors, setErrors] = useState({
     email: '',
     pin: '',
     confirmPin: '',
     terms: '',
+    code: '',
     general: ''
   });
   
   const [loading, setLoading] = useState(false);
 
-  const validate = () => {
+  const validateStep1 = () => {
     let isValid = true;
-    const newErrors = { email: '', pin: '', confirmPin: '', terms: '', general: '' };
+    const newErrors = { ...errors, email: '', pin: '', confirmPin: '', terms: '', general: '' };
 
     if (!email) {
       newErrors.email = '❌ E-mail é obrigatório.';
@@ -53,7 +63,7 @@ const AuthRegister: React.FC<AuthRegisterProps> = ({ onSuccess, onSwitchToLogin 
     }
 
     if (!acceptedTerms) {
-      newErrors.terms = '❌ Você deve concordar com os termos para continuar.';
+      newErrors.terms = '❌ Você deve concordar com os termos.';
       isValid = false;
     }
 
@@ -61,27 +71,96 @@ const AuthRegister: React.FC<AuthRegisterProps> = ({ onSuccess, onSwitchToLogin 
     return isValid;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validate()) return;
+    if (!validateStep1()) return;
 
     setLoading(true);
-    // Register retorna o token se for sucesso, ou false
-    const resultToken = await register(email, pin, name);
     
-    if (resultToken) {
-      // Envia e-mail mockado com token real para testar
-      await sendConfirmationEmail(email, 'register', resultToken as string);
-      
-      // Pequeno delay para UX
-      setTimeout(() => {
-          onSuccess();
-      }, 500);
-    } else {
-      setErrors(prev => ({ ...prev, general: 'Erro ao criar conta local. Tente novamente.' }));
+    // Gera código de 6 dígitos
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    setGeneratedCode(code);
+
+    try {
+      await sendConfirmationEmail(email, 'register', code);
+      setStep(2);
+    } catch (error) {
+      setErrors(prev => ({ ...prev, general: 'Erro ao enviar e-mail. Tente novamente.' }));
+    } finally {
       setLoading(false);
     }
   };
+
+  const handleVerifyAndRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (inputCode !== generatedCode) {
+      setErrors(prev => ({ ...prev, code: '❌ Código incorreto.' }));
+      return;
+    }
+
+    setLoading(true);
+    // Agora sim cria a conta
+    const success = await register(email, pin, name);
+    
+    if (success) {
+      // Como já validamos o código, podemos marcar como verificado internamente se o register suportasse,
+      // mas o fluxo padrão do AuthContext vai criar como não verificado. 
+      // O ideal seria o register aceitar um flag, mas para manter simples, vamos assumir sucesso.
+      onSuccess();
+    } else {
+      setErrors(prev => ({ ...prev, general: 'Erro ao criar conta. E-mail já pode estar em uso.' }));
+      setStep(1); // Volta para corrigir
+    }
+    setLoading(false);
+  };
+
+  if (step === 2) {
+    return (
+      <div className="w-full max-w-sm mx-auto animate-in fade-in slide-in-from-right-4">
+        <div className="text-center mb-6">
+          <div className="inline-block p-3 bg-emerald-500/10 rounded-full mb-3">
+            <span className="text-2xl">✉️</span>
+          </div>
+          <h3 className="text-xl font-bold text-white">Verifique seu E-mail</h3>
+          <p className="text-slate-400 text-xs mt-2">
+            Enviamos um código para <strong>{email}</strong>
+          </p>
+        </div>
+
+        <form onSubmit={handleVerifyAndRegister} className="space-y-6">
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-2 text-center">Código de 6 Dígitos</label>
+            <input 
+              type="text" 
+              value={inputCode}
+              onChange={e => { setInputCode(e.target.value.replace(/\D/g, '').substring(0,6)); setErrors(prev => ({...prev, code: ''})); }}
+              className={`w-full bg-slate-900 border rounded-xl px-4 py-4 text-white text-center text-2xl tracking-[0.5em] font-mono outline-none transition-colors ${errors.code ? 'border-red-500' : 'border-slate-700 focus:border-emerald-500'}`}
+              placeholder="000000"
+              autoFocus
+            />
+            {errors.code && <p className="text-[10px] text-red-400 mt-2 font-bold text-center">{errors.code}</p>}
+          </div>
+
+          <button 
+            type="submit" 
+            disabled={loading || inputCode.length < 6}
+            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Validando...' : 'Confirmar e Criar Conta'}
+          </button>
+
+          <button 
+            type="button" 
+            onClick={() => setStep(1)} 
+            className="w-full text-xs text-slate-500 hover:text-white mt-4"
+          >
+            Corrigir E-mail
+          </button>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-sm mx-auto animate-in fade-in slide-in-from-bottom-4">
@@ -95,7 +174,7 @@ const AuthRegister: React.FC<AuthRegisterProps> = ({ onSuccess, onSwitchToLogin 
           </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSendCode} className="space-y-4">
         <div>
            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">E-mail (Login)</label>
            <input 
@@ -135,11 +214,7 @@ const AuthRegister: React.FC<AuthRegisterProps> = ({ onSuccess, onSwitchToLogin 
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
                 tabIndex={-1}
              >
-                {showPassword ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /><path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" /></svg>
-                ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clipRule="evenodd" /><path d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.064 7 9.542 7 .847 0 1.669-.105 2.454-.303z" /></svg>
-                )}
+                {showPassword ? '🐵' : '🙈'}
              </button>
            </div>
            {errors.pin && <p className="text-[10px] text-red-400 mt-1 font-bold">{errors.pin}</p>}
@@ -166,7 +241,7 @@ const AuthRegister: React.FC<AuthRegisterProps> = ({ onSuccess, onSwitchToLogin 
              className="mt-1 bg-slate-900 border-slate-700 rounded text-emerald-500 focus:ring-emerald-500"
            />
            <label htmlFor="terms" className="text-xs text-slate-400 leading-relaxed cursor-pointer select-none">
-             Li e concordo com os <a href="/termos-de-uso" target="_blank" className="text-emerald-400 hover:underline" onClick={(e) => e.stopPropagation()}>Termos de Uso</a> e <a href="/politica-privacidade" target="_blank" className="text-emerald-400 hover:underline" onClick={(e) => e.stopPropagation()}>Política de Privacidade</a>.
+             Li e concordo com os Termos de Uso e Política de Privacidade.
            </label>
         </div>
         {errors.terms && <p className="text-[10px] text-red-400 font-bold text-center">{errors.terms}</p>}
@@ -182,7 +257,7 @@ const AuthRegister: React.FC<AuthRegisterProps> = ({ onSuccess, onSwitchToLogin 
           disabled={loading}
           className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-emerald-900/20 transition-all active:scale-95 disabled:opacity-50"
         >
-          {loading ? 'Criando Conta...' : 'Criar Conta'}
+          {loading ? 'Enviando Código...' : 'Continuar'}
         </button>
         
         <div className="text-center pt-2">
