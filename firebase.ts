@@ -1,9 +1,9 @@
 
 import firebase from "firebase/app";
+import "firebase/auth";
 import "firebase/database";
 import "firebase/firestore";
 import "firebase/functions";
-import "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBYaPgjhO9Txd1IMCIr9qtirFxs7xgOk-U",
@@ -16,17 +16,17 @@ const firebaseConfig = {
   measurementId: "G-MJR191X3VB"
 };
 
-// Initialize Firebase
-// Check if apps already initialized to prevent hot-reload errors
-const app = !firebase.apps.length 
-  ? firebase.initializeApp(firebaseConfig) 
-  : firebase.app();
+// Initialize Firebase (Compat / v8 style)
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
 
-export const database = app.database();
-export const firestore = app.firestore();
-export const db = firestore; 
-export const functions = app.functions('us-central1');
-export const auth = app.auth();
+// Export instances
+export const database = firebase.database();
+export const firestore = firebase.firestore();
+export const db = firestore; // Alias
+export const functions = firebase.functions();
+export const auth = firebase.auth();
 
 // --- CONFIGURAÇÃO DE IDIOMA (PT-BR) ---
 auth.languageCode = 'pt-BR';
@@ -39,4 +39,4 @@ export const authReadyPromise = new Promise((resolve) => {
   });
 });
 
-export default app;
+export default firebase;

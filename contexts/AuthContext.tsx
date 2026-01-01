@@ -78,7 +78,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (user) {
         // Sync metadata to Realtime DB
-        database.ref(`users/${user.uid}/meta`).update({
+        const userMetaRef = database.ref(`users/${user.uid}/meta`);
+        userMetaRef.update({
           email: user.email,
           emailVerified: user.emailVerified,
           lastLogin: Date.now()
@@ -120,7 +121,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await user.sendEmailVerification();
 
         // 4. Cria estrutura inicial no DB
-        await database.ref(`users/${user.uid}/meta`).update({
+        const userMetaRef = database.ref(`users/${user.uid}/meta`);
+        await userMetaRef.update({
           plan: 'free',
           launchLimit: 30,
           launchCount: 0,
@@ -197,8 +199,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const reloadUser = async () => {
     if (auth.currentUser) {
       await auth.currentUser.reload();
-      // Force update state (by creating new ref or spreading)
-      setFirebaseUser(auth.currentUser); 
+      // Force update state
+      if (auth.currentUser) {
+        // Clone object to trigger re-render
+        // setFirebaseUser({ ...auth.currentUser } as firebase.User);
+        // Firebase objects are mutable, trigger update by fetching fresh
+        setFirebaseUser(auth.currentUser);
+      }
     }
   };
 

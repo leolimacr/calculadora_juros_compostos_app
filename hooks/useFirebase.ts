@@ -54,7 +54,8 @@ export const useFirebase = (userId: string) => {
       metaRef.once('value').then((snapshot) => {
         if (!snapshot.exists()) {
           console.log('🆕 Novo usuário detectado. Criando perfil Freemium...');
-          database.ref(userRootPath).update({
+          const rootRef = database.ref(userRootPath);
+          rootRef.update({
             meta: {
               ...DEFAULT_META,
               createdAt: firebase.database.ServerValue.TIMESTAMP,
@@ -112,7 +113,9 @@ export const useFirebase = (userId: string) => {
 
     try {
       const newKey = uuidv4();
-      const pushKey = database.ref(`users/${userId}/gerenciadorFinanceiro/lancamentos`).push().key;
+      const listRef = database.ref(`users/${userId}/gerenciadorFinanceiro/lancamentos`);
+      const newRef = listRef.push(); // Generate key
+      const pushKey = newRef.key;
 
       if (!pushKey) throw new Error("Falha ao gerar chave do Firebase");
 
