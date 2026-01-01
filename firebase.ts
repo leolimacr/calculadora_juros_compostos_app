@@ -16,11 +16,15 @@ const firebaseConfig = {
   measurementId: "G-MJR191X3VB"
 };
 
-// Initialize only once
-const app = !firebase.apps.length ? firebase.initializeApp(firebaseConfig) : firebase.app();
+// Initialize Firebase
+// Check if apps already initialized to prevent hot-reload errors
+const app = !firebase.apps.length 
+  ? firebase.initializeApp(firebaseConfig) 
+  : firebase.app();
 
 export const database = app.database();
 export const firestore = app.firestore();
+export const db = firestore; 
 export const functions = app.functions('us-central1');
 export const auth = app.auth();
 
@@ -30,13 +34,9 @@ auth.languageCode = 'pt-BR';
 // Promessa que resolve quando o Auth estiver pronto
 export const authReadyPromise = new Promise((resolve) => {
   const unsubscribe = auth.onAuthStateChanged((user) => {
-    if (user) {
-      resolve(user);
-    } else {
-      resolve(null);
-    }
-    // unsubscribe(); // Keep listening? No, authReadyPromise is one-off
+    resolve(user);
+    unsubscribe();
   });
 });
 
-export default firebase;
+export default app;

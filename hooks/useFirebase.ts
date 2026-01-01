@@ -51,7 +51,7 @@ export const useFirebase = (userId: string) => {
       
       // 1. Verificar e Criar Meta Dados se não existirem
       metaRef = database.ref(metaPath);
-      metaRef.get().then((snapshot) => {
+      metaRef.once('value').then((snapshot) => {
         if (!snapshot.exists()) {
           console.log('🆕 Novo usuário detectado. Criando perfil Freemium...');
           database.ref(userRootPath).update({
@@ -112,8 +112,7 @@ export const useFirebase = (userId: string) => {
 
     try {
       const newKey = uuidv4();
-      const listRef = database.ref(`users/${userId}/gerenciadorFinanceiro/lancamentos`);
-      const pushKey = listRef.push().key;
+      const pushKey = database.ref(`users/${userId}/gerenciadorFinanceiro/lancamentos`).push().key;
 
       if (!pushKey) throw new Error("Falha ao gerar chave do Firebase");
 
@@ -169,7 +168,7 @@ export const useFirebase = (userId: string) => {
     lancamentos, 
     userMeta, 
     saveLancamento, 
-    deleteLancamento,
+    deleteLancamento, 
     isPremium,
     isLimitReached,
     usagePercentage

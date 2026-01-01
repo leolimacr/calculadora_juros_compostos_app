@@ -77,6 +77,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(false);
       
       if (user) {
+        // Sync metadata to Realtime DB
         database.ref(`users/${user.uid}/meta`).update({
           email: user.email,
           emailVerified: user.emailVerified,
@@ -126,7 +127,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           createdAt: Date.now()
         });
 
-        // Força refresh local
+        // Força refresh local para pegar o nome atualizado
         await user.reload();
         setFirebaseUser(auth.currentUser);
       }
@@ -196,7 +197,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const reloadUser = async () => {
     if (auth.currentUser) {
       await auth.currentUser.reload();
-      // Force update state by creating new object ref if needed, or rely on internal state
+      // Force update state (by creating new ref or spreading)
       setFirebaseUser(auth.currentUser); 
     }
   };
