@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 export type PeriodType = 'months' | 'years';
@@ -199,6 +200,7 @@ export type ToolView =
   | 'termos-de-uso' 
   | 'politica-privacidade' 
   | 'premium'
+  | 'upgrade' // Nova rota para assinatura
   | 'changelog'
   | 'verify-email' // Nova rota
   | 'reset-password' // Nova rota

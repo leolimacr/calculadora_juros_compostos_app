@@ -10,9 +10,9 @@ import ErrorBoundary from './components/ErrorBoundary';
 import Breadcrumb from './components/Breadcrumb';
 import Footer from './components/Footer';
 import BackToTop from './components/BackToTop';
-import InstallPrompt from './components/InstallPrompt';
+// import InstallPrompt from './components/InstallPrompt'; // Removido para limpar botões flutuantes
 import MobileBottomNav from './components/MobileBottomNav';
-import { HeaderInstallAction } from './components/HeaderInstallAction'; // Novo componente
+import { HeaderInstallAction } from './components/HeaderInstallAction'; // Novo componente Header
 import LockedManager from './components/Auth/LockedManager'; 
 import AuthRegister from './components/Auth/AuthRegister';
 import AuthLogin from './components/Auth/AuthLogin';
@@ -26,6 +26,7 @@ import { TermsPage, PrivacyPage } from './components/LegalPages';
 import { PublicHome, DemoPage, GuidesPage, FaqPage, AboutPage } from './components/PublicPages';
 import ArticlesPage from './components/ArticlesPage';
 import PremiumPage from './components/PremiumPage'; 
+import UpgradePage from './components/UpgradePage'; // Nova página
 import ChangelogPage from './components/ChangelogPage'; 
 import AssetDetails from './components/AssetDetails';
 import AssetDetailsPage from './components/AssetDetailsPage'; 
@@ -50,7 +51,7 @@ const InflationTool = lazy(() => import('./components/Tools').then(module => ({ 
 
 // Definição de Rotas/Views
 type ToolView = 
-  | 'home' | 'artigos' | 'guias' | 'faq' | 'sobre' | 'demo' | 'login' | 'register' | 'termos-de-uso' | 'politica-privacidade' | 'premium' | 'changelog' | 'verify-email' | 'reset-password' // Públicas
+  | 'home' | 'artigos' | 'guias' | 'faq' | 'sobre' | 'demo' | 'login' | 'register' | 'termos-de-uso' | 'politica-privacidade' | 'premium' | 'upgrade' | 'changelog' | 'verify-email' | 'reset-password' // Públicas
   | 'panel' | 'settings' | 'perfil' // Privadas (Gerais)
   | 'compound' | 'manager' | 'rent' | 'debt' | 'fire' | 'inflation' | 'dividend' | 'roi' | 'game' | 'education'
   | 'asset_details'; // Privadas (Ferramentas)
@@ -388,6 +389,7 @@ const App: React.FC = () => {
         );
       case 'artigos': return <ArticlesPage onReadArticle={() => {}} />;
       case 'premium': return <PremiumPage onNavigate={navigateTo} />; 
+      case 'upgrade': return <UpgradePage onBack={() => navigateTo('premium')} />; // Nova Rota
       case 'changelog': return <ChangelogPage />; 
       case 'demo': return <DemoPage onNavigate={navigateTo} />;
       case 'guias': return <GuidesPage onNavigate={navigateTo} />;
@@ -458,17 +460,14 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#020617] text-slate-200 flex flex-col font-sans selection:bg-emerald-500/30">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
-      <InstallPrompt />
+      {/* <InstallPrompt /> removido */}
       <BackToTop />
       
-      {/* Botões Flutuantes Removidos conforme solicitado */}
-
       {showOnboarding && <Onboarding onComplete={handleOnboardingComplete} userName={user?.name || user?.email.split('@')[0]} />}
 
       {/* Navigation Bar - Hidden on asset details fullscreen */}
       {currentTool !== 'asset_details' && (
       <nav className="border-b border-slate-800 bg-[#020617]/95 sticky top-0 z-50 backdrop-blur no-print">
-        {/* ... (Existing Nav Code) ... */}
         <div className="w-full px-4 sm:px-6 lg:px-8 max-w-[1920px] mx-auto">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3 cursor-pointer z-50 group" onClick={() => navigateTo(isAuthenticated ? 'panel' : 'home')}>
@@ -486,7 +485,9 @@ const App: React.FC = () => {
               
               {/* Separador e Novos Botões de Ação */}
               <div className="w-px h-6 bg-slate-800 mx-2"></div>
+              
               <HeaderInstallAction />
+              
               <button 
                 onClick={() => setIsAiChatOpen(true)} 
                 className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"

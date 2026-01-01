@@ -1,7 +1,7 @@
 
 // src/hooks/useFirebase.ts
 import { useState, useEffect, useMemo } from 'react';
-import { ref, onValue, update, get, serverTimestamp, increment, child, push } from 'firebase/database';
+import firebase from 'firebase/app';
 import { database, authReadyPromise } from '../firebase';
 import { v4 as uuidv4 } from 'uuid';
 import { UserMeta } from '../types';
@@ -35,8 +35,8 @@ export const useFirebase = (userId: string) => {
   }, [userMeta, isPremium]);
 
   useEffect(() => {
-    let unsubscribeLancamentos: (() => void) | undefined;
-    let unsubscribeMeta: (() => void) | undefined;
+    let metaRef: firebase.database.Reference | null = null;
+    let lancamentosRef: firebase.database.Reference | null = null;
 
     const init = async () => {
       // Aguarda o login anônimo completar antes de conectar ao banco
@@ -49,42 +49,41 @@ export const useFirebase = (userId: string) => {
       
       console.log('🔥 Conectando ao Realtime Database para:', userId);
       
-      // 1. Verificar e Criar Meta Dados se não existirem (Onboarding do Banco de Dados)
-      const metaRef = ref(database, metaPath);
-      get(metaRef).then((snapshot) => {
+      // 1. Verificar e Criar Meta Dados se não existirem
+      metaRef = database.ref(metaPath);
+      metaRef.get().then((snapshot) => {
         if (!snapshot.exists()) {
           console.log('🆕 Novo usuário detectado. Criando perfil Freemium...');
-          update(ref(database, userRootPath), {
+          database.ref(userRootPath).update({
             meta: {
               ...DEFAULT_META,
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp()
+              createdAt: firebase.database.ServerValue.TIMESTAMP,
+              updatedAt: firebase.database.ServerValue.TIMESTAMP
             }
           });
         }
       }).catch(err => console.error("Erro ao verificar meta:", err));
 
-      // 2. Listener para Meta Dados (Plano, Limites, Contagem)
-      unsubscribeMeta = onValue(metaRef, (snapshot) => {
+      // 2. Listener para Meta Dados
+      metaRef.on('value', (snapshot) => {
         const data = snapshot.val();
         if (data) {
           setUserMeta(data);
         } else {
-          // Fallback visual enquanto não cria no banco
           setUserMeta(DEFAULT_META);
         }
       });
 
       // 3. Listener para Lançamentos
-      const lancamentosRef = ref(database, lancamentosPath);
-      unsubscribeLancamentos = onValue(lancamentosRef, (snapshot) => {
+      lancamentosRef = database.ref(lancamentosPath);
+      lancamentosRef.on('value', (snapshot) => {
         const data = snapshot.val();
         const loadedLancamentos = data ? Object.entries(data).map(([key, value]: [string, any]) => ({
           ...value,
           _firebaseKey: key
         })) : [];
         setLancamentos(loadedLancamentos.reverse()); 
-      }, (error) => {
+      }, (error: any) => {
         console.error("❌ Erro de Leitura Firebase:", error);
       });
     };
@@ -97,8 +96,8 @@ export const useFirebase = (userId: string) => {
     }
 
     return () => {
-      if (unsubscribeLancamentos) unsubscribeLancamentos();
-      if (unsubscribeMeta) unsubscribeMeta();
+      if (metaRef) metaRef.off();
+      if (lancamentosRef) lancamentosRef.off();
     };
   }, [userId]);
 
@@ -107,38 +106,35 @@ export const useFirebase = (userId: string) => {
       throw new Error("Conexão com o banco de dados ainda não estabelecida. Verifique sua internet.");
     }
 
-    // Validação de Limite Freemium (Check Duplo: Local + Backend logic idealmente)
     if (isLimitReached) {
-        // Usamos uma string de erro específica para o App.tsx interceptar e abrir o modal
         throw new Error("LIMIT_REACHED");
     }
 
     try {
-      const newKey = uuidv4(); // ID local para referência
-      const listRef = ref(database, `users/${userId}/gerenciadorFinanceiro/lancamentos`);
-      const pushKey = push(listRef).key; // ID do Firebase
+      const newKey = uuidv4();
+      const listRef = database.ref(`users/${userId}/gerenciadorFinanceiro/lancamentos`);
+      const pushKey = listRef.push().key;
 
       if (!pushKey) throw new Error("Falha ao gerar chave do Firebase");
 
-      // Atualização Atômica: Salva o lançamento E incrementa o contador ao mesmo tempo
       const updates: any = {};
       
       // 1. O Lançamento
       updates[`users/${userId}/gerenciadorFinanceiro/lancamentos/${pushKey}`] = { 
         ...lancamento, 
-        id: newKey // Mantemos o ID local por compatibilidade
+        id: newKey 
       };
       
-      // 2. O Contador (Incremento Atômico no Servidor)
-      updates[`users/${userId}/meta/launchCount`] = increment(1);
-      updates[`users/${userId}/meta/updatedAt`] = serverTimestamp();
+      // 2. O Contador
+      updates[`users/${userId}/meta/launchCount`] = firebase.database.ServerValue.increment(1);
+      updates[`users/${userId}/meta/updatedAt`] = firebase.database.ServerValue.TIMESTAMP;
 
-      await update(ref(database), updates);
+      await database.ref().update(updates);
       console.log('✅ Lançamento salvo e contador atualizado!');
       
     } catch (error: any) {
       console.error('❌ ERRO AO SALVAR:', error);
-      if (error.message === 'LIMIT_REACHED') throw error; // Repassa o erro de limite
+      if (error.message === 'LIMIT_REACHED') throw error;
       
       if (error.code === 'PERMISSION_DENIED') {
         alert("Erro de Permissão: Verifique se o 'Anonymous Auth' está ativado no Firebase Console.");
@@ -153,17 +149,13 @@ export const useFirebase = (userId: string) => {
     const lancamentoToDelete = lancamentos.find(l => l.id === id);
     if (lancamentoToDelete && lancamentoToDelete._firebaseKey) {
       try {
-        // Atualização Atômica: Remove o lançamento E decrementa o contador
         const updates: any = {};
         
-        // 1. Remove Lançamento (null deleta)
         updates[`users/${userId}/gerenciadorFinanceiro/lancamentos/${lancamentoToDelete._firebaseKey}`] = null;
-        
-        // 2. Decrementa Contador
-        updates[`users/${userId}/meta/launchCount`] = increment(-1);
-        updates[`users/${userId}/meta/updatedAt`] = serverTimestamp();
+        updates[`users/${userId}/meta/launchCount`] = firebase.database.ServerValue.increment(-1);
+        updates[`users/${userId}/meta/updatedAt`] = firebase.database.ServerValue.TIMESTAMP;
 
-        await update(ref(database), updates);
+        await database.ref().update(updates);
         console.log('🗑️ Lançamento removido e contador atualizado.');
 
       } catch (error) {
@@ -178,7 +170,6 @@ export const useFirebase = (userId: string) => {
     userMeta, 
     saveLancamento, 
     deleteLancamento,
-    // Helpers exportados para UI
     isPremium,
     isLimitReached,
     usagePercentage

@@ -11,7 +11,6 @@ export const HeaderInstallAction: React.FC = () => {
   const APP_URL = "https://play.google.com/store/apps/details?id=com.financasproinvest.app";
   
   // Geração do QR Code usando API pública (QRServer)
-  // Documentação: https://goqr.me/api/
   const qrData = encodeURIComponent(APP_URL);
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${qrData}&bgcolor=ffffff&color=000000&margin=10`;
 
@@ -26,7 +25,7 @@ export const HeaderInstallAction: React.FC = () => {
         <span className="hidden xl:inline">Instalar App</span>
         
         {/* Tooltip (Hover) - Visualmente leve e discreto */}
-        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-56 p-3 bg-slate-900 border border-slate-700 rounded-xl text-xs text-slate-300 text-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-2xl">
+        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-64 p-3 bg-slate-900 border border-slate-700 rounded-xl text-xs text-slate-300 text-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-2xl">
           Aponte a câmera do seu celular para o QR Code e faça a instalação.
           {/* Seta do Tooltip */}
           <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-900 border-t border-l border-slate-700 rotate-45"></div>
@@ -49,8 +48,8 @@ export const HeaderInstallAction: React.FC = () => {
                 
                 <div className="mb-6">
                     <span className="text-4xl mb-4 block">📲</span>
-                    <h3 className="text-xl font-bold text-white mb-2">Instale no seu Celular</h3>
-                    <p className="text-sm text-slate-400">Escaneie o código abaixo para baixar a versão oficial.</p>
+                    <h3 className="text-xl font-bold text-white mb-2">Instalar Finanças Pro Invest</h3>
+                    <p className="text-sm text-slate-400">Abra a câmera do seu celular e aponte para o QR Code para instalar o aplicativo.</p>
                 </div>
                 
                 {/* Container do QR Code (Fundo branco para contraste) */}
@@ -58,7 +57,7 @@ export const HeaderInstallAction: React.FC = () => {
                     <img src={qrCodeUrl} alt="QR Code para Download" className="w-48 h-48 object-contain" />
                 </div>
                 
-                <div className="flex justify-center gap-4 opacity-70">
+                <div className="flex justify-center gap-4 opacity-70 mb-6">
                     <span className="text-xs font-bold text-slate-500 border border-slate-700 px-3 py-1 rounded-lg flex items-center gap-1">
                         🤖 Android
                     </span>
@@ -67,9 +66,12 @@ export const HeaderInstallAction: React.FC = () => {
                     </span>
                 </div>
                 
-                <div className="mt-6 pt-4 border-t border-slate-800">
-                    <p className="text-[10px] text-slate-600 truncate">{APP_URL}</p>
-                </div>
+                <button 
+                    onClick={() => setIsOpen(false)}
+                    className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition-colors"
+                >
+                    Fechar
+                </button>
             </div>
         </div>
       )}

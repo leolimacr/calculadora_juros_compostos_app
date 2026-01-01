@@ -1,23 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
-  signOut, 
-  sendEmailVerification, 
-  sendPasswordResetEmail,
-  onAuthStateChanged,
-  updateProfile as updateFirebaseProfile,
-  updatePassword as updateFirebasePassword,
-  User as FirebaseUser,
-  AuthError,
-  applyActionCode,
-  confirmPasswordReset,
-  EmailAuthProvider,
-  reauthenticateWithCredential
-} from 'firebase/auth';
+import firebase from 'firebase/app';
 import { auth, database } from '../firebase';
-import { ref, update } from 'firebase/database';
 
 // Tipagem estendida para compatibilidade com o resto do app
 export interface AppUser {
@@ -56,18 +40,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
 // Helper para mapeamento de erros do Firebase Auth
-// Tratamento detalhado de códigos de erro para feedback do usuário
 const mapAuthError = (code: string): string => {
-  // Lista de códigos tratados:
-  // auth/user-not-found
-  // auth/wrong-password
-  // auth/invalid-email
-  // auth/email-already-in-use
-  // auth/too-many-requests
-  // auth/invalid-credential
-  // auth/weak-password
-  // auth/network-request-failed
-  
   switch (code) {
     case 'auth/user-not-found': 
       return 'E-mail não encontrado. Verifique o endereço ou crie uma conta.';
@@ -80,7 +53,7 @@ const mapAuthError = (code: string): string => {
     case 'auth/too-many-requests': 
       return 'Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.';
     case 'auth/invalid-credential':
-      return 'E-mail ou senha incorretos.'; // Proteção contra enumeração
+      return 'E-mail ou senha incorretos.';
     case 'auth/weak-password': 
       return 'A senha deve ter pelo menos 6 caracteres.';
     case 'auth/network-request-failed': 
@@ -95,18 +68,16 @@ const mapAuthError = (code: string): string => {
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<firebase.User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
       setFirebaseUser(user);
       setIsLoading(false);
       
-      // Sincroniza meta-dados básicos no Realtime Database se logado
       if (user) {
-        const userRef = ref(database, `users/${user.uid}/meta`);
-        update(userRef, {
+        database.ref(`users/${user.uid}/meta`).update({
           email: user.email,
           emailVerified: user.emailVerified,
           lastLogin: Date.now()
@@ -116,7 +87,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, []);
 
-  // Adaptador do objeto de usuário para a aplicação
   const user: AppUser | null = firebaseUser ? {
     uid: firebaseUser.uid,
     email: firebaseUser.email || '',
@@ -127,71 +97,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, pass: string) => {
     try {
-      await signInWithEmailAndPassword(auth, email, pass);
+      await auth.signInWithEmailAndPassword(email, pass);
       return { success: true };
-    } catch (error) {
-      const err = error as AuthError;
-      console.error("Login Error:", err.code);
-      return { success: false, error: mapAuthError(err.code) };
+    } catch (error: any) {
+      console.error("Login Error:", error.code);
+      return { success: false, error: mapAuthError(error.code) };
     }
   };
 
   const register = async (email: string, pass: string, name: string) => {
     try {
       // 1. Cria usuário
-      const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+      const userCredential = await auth.createUserWithEmailAndPassword(email, pass);
       const user = userCredential.user;
 
-      // 2. Atualiza Nome
-      await updateFirebaseProfile(user, { displayName: name });
+      if (user) {
+        // 2. Atualiza Nome
+        await user.updateProfile({ displayName: name });
 
-      // 3. Envia e-mail de verificação
-      await sendEmailVerification(user);
+        // 3. Envia e-mail de verificação
+        await user.sendEmailVerification();
 
-      // 4. Cria estrutura inicial no DB (opcional, mas bom para garantir)
-      const userRef = ref(database, `users/${user.uid}/meta`);
-      await update(userRef, {
-        plan: 'free',
-        launchLimit: 30,
-        launchCount: 0,
-        createdAt: Date.now()
-      });
+        // 4. Cria estrutura inicial no DB
+        await database.ref(`users/${user.uid}/meta`).update({
+          plan: 'free',
+          launchLimit: 30,
+          launchCount: 0,
+          createdAt: Date.now()
+        });
 
-      // Força refresh local para pegar o displayName
-      await user.reload();
-      setFirebaseUser(auth.currentUser); // Trigger re-render com nome
+        // Força refresh local
+        await user.reload();
+        setFirebaseUser(auth.currentUser);
+      }
 
       return { success: true };
-    } catch (error) {
-      const err = error as AuthError;
-      return { success: false, error: mapAuthError(err.code) };
+    } catch (error: any) {
+      return { success: false, error: mapAuthError(error.code) };
     }
   };
 
   const logout = async () => {
-    await signOut(auth);
+    await auth.signOut();
   };
 
   const resetPassword = async (email: string) => {
     try {
-      await sendPasswordResetEmail(auth, email);
+      await auth.sendPasswordResetEmail(email);
       return { success: true };
-    } catch (error) {
-      const err = error as AuthError;
-      // Retornamos o código cru também para tratamento específico na UI
-      return { success: false, error: mapAuthError(err.code), code: err.code };
+    } catch (error: any) {
+      return { success: false, error: mapAuthError(error.code), code: error.code };
     }
   };
 
   const changePassword = async (currentPass: string, newPass: string) => {
-    if (!auth.currentUser || !auth.currentUser.email) return false;
+    const user = auth.currentUser;
+    if (!user || !user.email) return false;
     
     try {
-      // Re-autenticar antes de trocar senha (segurança)
-      const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPass);
-      await reauthenticateWithCredential(auth.currentUser, credential);
-      
-      await updateFirebasePassword(auth.currentUser, newPass);
+      const credential = firebase.auth.EmailAuthProvider.credential(user.email, currentPass);
+      await user.reauthenticateWithCredential(credential);
+      await user.updatePassword(newPass);
       return true;
     } catch (error) {
       console.error("Change Password Error:", error);
@@ -202,17 +168,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const resendVerification = async () => {
     if (!auth.currentUser) return { success: false, error: 'Usuário não logado.' };
     try {
-      await sendEmailVerification(auth.currentUser);
+      await auth.currentUser.sendEmailVerification();
       return { success: true };
-    } catch (error) {
-      const err = error as AuthError;
-      return { success: false, error: mapAuthError(err.code) };
+    } catch (error: any) {
+      return { success: false, error: mapAuthError(error.code) };
     }
   };
 
   const verifyEmail = async (code: string): Promise<'success' | 'invalid'> => {
     try {
-      await applyActionCode(auth, code);
+      await auth.applyActionCode(code);
       return 'success';
     } catch (error) {
       return 'invalid';
@@ -221,7 +186,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const completePasswordReset = async (code: string, newPass: string): Promise<boolean> => {
     try {
-      await confirmPasswordReset(auth, code, newPass);
+      await auth.confirmPasswordReset(code, newPass);
       return true;
     } catch (error) {
       return false;
@@ -231,29 +196,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const reloadUser = async () => {
     if (auth.currentUser) {
       await auth.currentUser.reload();
-      setFirebaseUser({ ...auth.currentUser }); // Força atualização do estado
+      // Force update state by creating new object ref if needed, or rely on internal state
+      setFirebaseUser(auth.currentUser); 
     }
   };
 
   const updateProfile = async (data: { name?: string }) => {
     if (auth.currentUser && data.name) {
-      await updateFirebaseProfile(auth.currentUser, { displayName: data.name });
+      await auth.currentUser.updateProfile({ displayName: data.name });
       await reloadUser();
     }
   };
 
   const resetAppData = async (password?: string): Promise<boolean> => {
-    // Se a senha for fornecida, validamos via re-auth
     if (password && auth.currentUser && auth.currentUser.email) {
        try {
-         const credential = EmailAuthProvider.credential(auth.currentUser.email, password);
-         await reauthenticateWithCredential(auth.currentUser, credential);
+         const credential = firebase.auth.EmailAuthProvider.credential(auth.currentUser.email, password);
+         await auth.currentUser.reauthenticateWithCredential(credential);
        } catch (e) {
-         return false; // Senha incorreta
+         return false; 
        }
     }
-    
-    // Basicamente um logout + limpeza local
     localStorage.clear();
     await logout();
     return true;
@@ -264,7 +227,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       user,
       isAuthenticated: !!user,
       isLoading,
-      hasLocalUser: !!user, // Compatibilidade
+      hasLocalUser: !!user,
       login,
       register,
       logout,
