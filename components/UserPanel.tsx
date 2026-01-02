@@ -98,7 +98,7 @@ const UserPanel: React.FC<UserPanelProps> = ({ onNavigate, onAssetClick }) => {
          {/* Main Column: Ferramentas */}
          <div className="space-y-8">
             <div>
-               <h3 className="text-lg font-bold text-white mb-6 pl-2 border-l-4 border-emerald-500 uppercase tracking-widest text-sm">Suas Ferramentas</h3>
+               <h3 className="text-lg font-bold text-white mb-6 pl-2 border-l-4 border-emerald-500 uppercase tracking-widest text-sm">Nossas Ferramentas</h3>
                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   {tools.map(tool => (
                      <div 

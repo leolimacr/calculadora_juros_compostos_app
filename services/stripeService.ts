@@ -1,33 +1,39 @@
 
+import { httpsCallable } from 'firebase/functions';
 import { functions, auth } from '../firebase';
 import { SubscriptionPlanId } from '../config/stripePlans';
+import { logEvent } from './logger';
+import { trackStartCheckout } from './analyticsService';
 
 interface CheckoutResponse {
   url: string;
 }
 
-/**
- * Inicia o fluxo de checkout chamando a Cloud Function.
- * Redireciona o usuário para o Stripe Checkout.
- */
 export const startCheckout = async (planId: SubscriptionPlanId) => {
   if (!auth.currentUser) {
-    window.location.href = '/?tool=login'; // Redireciona para login se não autenticado
+    logEvent('warn', 'Checkout tentado sem usuário logado');
+    window.location.href = '/?tool=login&redirect=upgrade'; 
     return;
   }
 
   try {
-    const createCheckoutSession = functions.httpsCallable('createCheckoutSession');
+    logEvent('info', 'Iniciando checkout', { planId, uid: auth.currentUser.uid });
+    trackStartCheckout(planId);
 
-    const { data } = await createCheckoutSession({ planId }) as { data: CheckoutResponse };
+    const createCheckoutSession = httpsCallable<{ planId: string }, CheckoutResponse>(
+      functions, 
+      'createCheckoutSession'
+    );
+
+    const { data } = await createCheckoutSession({ planId });
     
     if (data.url) {
       window.location.href = data.url;
     } else {
       throw new Error("URL de checkout não retornada.");
     }
-  } catch (error) {
-    console.error("Erro ao iniciar checkout:", error);
+  } catch (error: any) {
+    logEvent('error', 'Erro ao iniciar checkout', { error: error.message });
     alert("Não foi possível iniciar o pagamento. Tente novamente mais tarde.");
   }
 };

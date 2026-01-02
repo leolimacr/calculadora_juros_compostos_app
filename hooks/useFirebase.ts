@@ -1,14 +1,25 @@
 
-// src/hooks/useFirebase.ts
 import { useState, useEffect, useMemo } from 'react';
-import firebase from 'firebase/app';
-import { database, authReadyPromise } from '../firebase';
+import { 
+  ref, 
+  get, 
+  onValue, 
+  update, 
+  push, 
+  increment, 
+  serverTimestamp as rtdbTimestamp,
+  off,
+  DatabaseReference 
+} from 'firebase/database';
+import { doc, onSnapshot, getFirestore } from 'firebase/firestore'; // Import Firestore
+import { database, authReadyPromise, db } from '../firebase'; // db is firestore alias
 import { v4 as uuidv4 } from 'uuid';
 import { UserMeta } from '../types';
+import { AppUserDoc, isAppPremium } from '../types/user'; // New types
 
 const DEFAULT_META: UserMeta = {
   plan: 'free',
-  launchLimit: 30, // Limite inicial para plano gratuito
+  launchLimit: 30, // Limite para usuários free
   launchCount: 0,
   createdAt: Date.now(),
   updatedAt: Date.now()
@@ -17,76 +28,79 @@ const DEFAULT_META: UserMeta = {
 export const useFirebase = (userId: string) => {
   const [lancamentos, setLancamentos] = useState<any[]>([]);
   const [userMeta, setUserMeta] = useState<UserMeta | null>(null);
+  const [firestoreUser, setFirestoreUser] = useState<AppUserDoc | null>(null); // Estado para dados de assinatura
   const [isReady, setIsReady] = useState(false);
 
-  // Propriedades Derivadas (Helpers)
-  const isPremium = useMemo(() => userMeta?.plan === 'premium', [userMeta]);
+  // Propriedade Derivada: Verifica Premium Real (Firestore)
+  const isPremium = useMemo(() => isAppPremium(firestoreUser), [firestoreUser]);
   
+  // Limite visual e lógico
   const usagePercentage = useMemo(() => {
     if (!userMeta) return 0;
-    if (isPremium) return 0; // Premium não tem barra de limite visual
+    if (isPremium) return 0; // Premium não tem barra de limite
     return Math.min(100, (userMeta.launchCount / userMeta.launchLimit) * 100);
   }, [userMeta, isPremium]);
 
   const isLimitReached = useMemo(() => {
     if (!userMeta) return false;
-    if (isPremium) return false;
+    if (isPremium) return false; // Premium ignora limite
     return userMeta.launchCount >= userMeta.launchLimit;
   }, [userMeta, isPremium]);
 
   useEffect(() => {
-    let metaRef: firebase.database.Reference | null = null;
-    let lancamentosRef: firebase.database.Reference | null = null;
+    let metaRef: DatabaseReference | null = null;
+    let lancamentosRef: DatabaseReference | null = null;
+    let unsubFirestore: (() => void) | null = null;
 
     const init = async () => {
-      // Aguarda o login anônimo completar antes de conectar ao banco
       await authReadyPromise;
       setIsReady(true);
 
+      // --- 1. Realtime DB (Dados de Lançamentos) ---
       const userRootPath = `users/${userId}`;
       const metaPath = `${userRootPath}/meta`;
       const lancamentosPath = `${userRootPath}/gerenciadorFinanceiro/lancamentos`;
       
-      console.log('🔥 Conectando ao Realtime Database para:', userId);
-      
-      // 1. Verificar e Criar Meta Dados se não existirem
-      metaRef = database.ref(metaPath);
-      metaRef.once('value').then((snapshot) => {
+      // Cria Meta Dados se não existirem
+      metaRef = ref(database, metaPath);
+      get(metaRef).then((snapshot) => {
         if (!snapshot.exists()) {
-          console.log('🆕 Novo usuário detectado. Criando perfil Freemium...');
-          const rootRef = database.ref(userRootPath);
-          rootRef.update({
+          const rootRef = ref(database, userRootPath);
+          update(rootRef, {
             meta: {
               ...DEFAULT_META,
-              createdAt: firebase.database.ServerValue.TIMESTAMP,
-              updatedAt: firebase.database.ServerValue.TIMESTAMP
+              createdAt: rtdbTimestamp(),
+              updatedAt: rtdbTimestamp()
             }
           });
         }
-      }).catch(err => console.error("Erro ao verificar meta:", err));
+      }).catch(err => console.error("Erro meta:", err));
 
-      // 2. Listener para Meta Dados
-      metaRef.on('value', (snapshot) => {
+      onValue(metaRef, (snapshot) => {
         const data = snapshot.val();
-        if (data) {
-          setUserMeta(data);
-        } else {
-          setUserMeta(DEFAULT_META);
-        }
+        setUserMeta(data ? data : DEFAULT_META);
       });
 
-      // 3. Listener para Lançamentos
-      lancamentosRef = database.ref(lancamentosPath);
-      lancamentosRef.on('value', (snapshot) => {
+      lancamentosRef = ref(database, lancamentosPath);
+      onValue(lancamentosRef, (snapshot) => {
         const data = snapshot.val();
         const loadedLancamentos = data ? Object.entries(data).map(([key, value]: [string, any]) => ({
           ...value,
           _firebaseKey: key
         })) : [];
         setLancamentos(loadedLancamentos.reverse()); 
-      }, (error: any) => {
-        console.error("❌ Erro de Leitura Firebase:", error);
       });
+
+      // --- 2. Firestore (Assinatura) ---
+      // Apenas se não for usuário guest/placeholder
+      if (userId && userId !== 'guest_placeholder') {
+        const userDocRef = doc(db, 'users', userId);
+        unsubFirestore = onSnapshot(userDocRef, (docSnap) => {
+          if (docSnap.exists()) {
+            setFirestoreUser(docSnap.data() as AppUserDoc);
+          }
+        });
+      }
     };
 
     if (userId && userId !== 'guest_placeholder') {
@@ -94,74 +108,59 @@ export const useFirebase = (userId: string) => {
     } else {
       setLancamentos([]);
       setUserMeta(null);
+      setFirestoreUser(null);
     }
 
     return () => {
-      if (metaRef) metaRef.off();
-      if (lancamentosRef) lancamentosRef.off();
+      if (metaRef) off(metaRef);
+      if (lancamentosRef) off(lancamentosRef);
+      if (unsubFirestore) unsubFirestore();
     };
   }, [userId]);
 
   const saveLancamento = async (lancamento: any) => {
-    if (!isReady) {
-      throw new Error("Conexão com o banco de dados ainda não estabelecida. Verifique sua internet.");
-    }
+    if (!isReady) throw new Error("Conexão pendente.");
 
+    // Bloqueio do Freemium
     if (isLimitReached) {
         throw new Error("LIMIT_REACHED");
     }
 
     try {
       const newKey = uuidv4();
-      const listRef = database.ref(`users/${userId}/gerenciadorFinanceiro/lancamentos`);
-      const newRef = listRef.push(); // Generate key
+      const listRef = ref(database, `users/${userId}/gerenciadorFinanceiro/lancamentos`);
+      const newRef = push(listRef); 
       const pushKey = newRef.key;
 
-      if (!pushKey) throw new Error("Falha ao gerar chave do Firebase");
+      if (!pushKey) throw new Error("Erro chave Firebase");
 
       const updates: any = {};
-      
-      // 1. O Lançamento
-      updates[`users/${userId}/gerenciadorFinanceiro/lancamentos/${pushKey}`] = { 
-        ...lancamento, 
-        id: newKey 
-      };
-      
-      // 2. O Contador
-      updates[`users/${userId}/meta/launchCount`] = firebase.database.ServerValue.increment(1);
-      updates[`users/${userId}/meta/updatedAt`] = firebase.database.ServerValue.TIMESTAMP;
+      updates[`users/${userId}/gerenciadorFinanceiro/lancamentos/${pushKey}`] = { ...lancamento, id: newKey };
+      updates[`users/${userId}/meta/launchCount`] = increment(1);
+      updates[`users/${userId}/meta/updatedAt`] = rtdbTimestamp();
 
-      await database.ref().update(updates);
-      console.log('✅ Lançamento salvo e contador atualizado!');
+      await update(ref(database), updates);
       
     } catch (error: any) {
-      console.error('❌ ERRO AO SALVAR:', error);
+      console.error('Save Error:', error);
       if (error.message === 'LIMIT_REACHED') throw error;
-      
-      if (error.code === 'PERMISSION_DENIED') {
-        alert("Erro de Permissão: Verifique se o 'Anonymous Auth' está ativado no Firebase Console.");
-      }
       throw error;
     }
   };
 
   const deleteLancamento = async (id: string) => {
     if (!isReady) return;
-    
-    const lancamentoToDelete = lancamentos.find(l => l.id === id);
-    if (lancamentoToDelete && lancamentoToDelete._firebaseKey) {
+    const item = lancamentos.find(l => l.id === id);
+    if (item && item._firebaseKey) {
       try {
         const updates: any = {};
-        
-        updates[`users/${userId}/gerenciadorFinanceiro/lancamentos/${lancamentoToDelete._firebaseKey}`] = null;
-        updates[`users/${userId}/meta/launchCount`] = firebase.database.ServerValue.increment(-1);
-        updates[`users/${userId}/meta/updatedAt`] = firebase.database.ServerValue.TIMESTAMP;
-
-        await database.ref().update(updates);
-        console.log('🗑️ Lançamento removido e contador atualizado.');
-
+        updates[`users/${userId}/gerenciadorFinanceiro/lancamentos/${item._firebaseKey}`] = null;
+        // Decrementa contador (opcional, alguns freemiums não devolvem o crédito, mas aqui devolvemos)
+        updates[`users/${userId}/meta/launchCount`] = increment(-1);
+        updates[`users/${userId}/meta/updatedAt`] = rtdbTimestamp();
+        await update(ref(database), updates);
       } catch (error) {
-        console.error("Erro ao excluir:", error);
+        console.error("Delete error:", error);
         throw error;
       }
     }

@@ -1,6 +1,5 @@
 
-import firebase from 'firebase/app';
-import 'firebase/firestore';
+import { Timestamp } from 'firebase/firestore';
 
 export type SubscriptionPlan = 
   | "free" 
@@ -15,8 +14,8 @@ export type SubscriptionStatus = "none" | "active" | "past_due" | "canceled";
 export interface UserSubscription {
   plan: SubscriptionPlan;
   status: SubscriptionStatus;
-  startDate: firebase.firestore.Timestamp;
-  expiryDate: firebase.firestore.Timestamp;
+  startDate?: Timestamp;
+  expiryDate?: Timestamp;
   stripeCustomerId?: string;
   stripeSubscriptionId?: string;
 }
@@ -32,25 +31,27 @@ export interface AppUserDoc {
   email: string;
   subscription: UserSubscription;
   access: UserAccess;
-  createdAt: firebase.firestore.Timestamp;
+  createdAt?: Timestamp;
 }
 
 // --- Helpers ---
 
 export const isAppPremium = (userDoc: AppUserDoc | null): boolean => {
   if (!userDoc) return false;
-  if (!userDoc.access.app_premium) return false;
-  
-  const now = new Date();
-  const expiry = userDoc.subscription.expiryDate.toDate();
-  return expiry > now;
+  if (userDoc.access?.app_premium) {
+    if (!userDoc.subscription?.expiryDate) return true; // Acesso vitalício ou erro favorável
+    const now = new Date();
+    return userDoc.subscription.expiryDate.toDate() > now;
+  }
+  return false;
 };
 
 export const isSitePremium = (userDoc: AppUserDoc | null): boolean => {
   if (!userDoc) return false;
-  if (!userDoc.access.site_premium) return false;
-  
-  const now = new Date();
-  const expiry = userDoc.subscription.expiryDate.toDate();
-  return expiry > now;
+  if (userDoc.access?.site_premium) {
+    if (!userDoc.subscription?.expiryDate) return true;
+    const now = new Date();
+    return userDoc.subscription.expiryDate.toDate() > now;
+  }
+  return false;
 };

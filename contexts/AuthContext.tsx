@@ -1,6 +1,21 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import firebase from 'firebase/app';
+import { 
+  User, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut, 
+  sendPasswordResetEmail, 
+  updateProfile as updateProfileAuth, 
+  sendEmailVerification as sendEmailVerificationAuth,
+  onAuthStateChanged,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  updatePassword,
+  applyActionCode,
+  confirmPasswordReset
+} from 'firebase/auth';
+import { ref, update } from 'firebase/database';
 import { auth, database } from '../firebase';
 
 // Tipagem estendida para compatibilidade com o resto do app
@@ -68,18 +83,18 @@ const mapAuthError = (code: string): string => {
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [firebaseUser, setFirebaseUser] = useState<firebase.User | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
       setFirebaseUser(user);
       setIsLoading(false);
       
       if (user) {
         // Sync metadata to Realtime DB
-        const userMetaRef = database.ref(`users/${user.uid}/meta`);
-        userMetaRef.update({
+        const userMetaRef = ref(database, `users/${user.uid}/meta`);
+        update(userMetaRef, {
           email: user.email,
           emailVerified: user.emailVerified,
           lastLogin: Date.now()
@@ -99,7 +114,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, pass: string) => {
     try {
-      await auth.signInWithEmailAndPassword(email, pass);
+      await signInWithEmailAndPassword(auth, email, pass);
       return { success: true };
     } catch (error: any) {
       console.error("Login Error:", error.code);
@@ -110,28 +125,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (email: string, pass: string, name: string) => {
     try {
       // 1. Cria usuário
-      const userCredential = await auth.createUserWithEmailAndPassword(email, pass);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
       const user = userCredential.user;
 
       if (user) {
         // 2. Atualiza Nome
-        await user.updateProfile({ displayName: name });
+        await updateProfileAuth(user, { displayName: name });
 
         // 3. Envia e-mail de verificação
-        await user.sendEmailVerification();
+        await sendEmailVerificationAuth(user);
 
         // 4. Cria estrutura inicial no DB
-        const userMetaRef = database.ref(`users/${user.uid}/meta`);
-        await userMetaRef.update({
+        const userMetaRef = ref(database, `users/${user.uid}/meta`);
+        await update(userMetaRef, {
           plan: 'free',
           launchLimit: 30,
           launchCount: 0,
           createdAt: Date.now()
         });
 
-        // Força refresh local para pegar o nome atualizado
+        // Força refresh local
         await user.reload();
-        setFirebaseUser(auth.currentUser);
+        if (auth.currentUser) setFirebaseUser({ ...auth.currentUser });
       }
 
       return { success: true };
@@ -141,12 +156,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
-    await auth.signOut();
+    await signOut(auth);
   };
 
   const resetPassword = async (email: string) => {
     try {
-      await auth.sendPasswordResetEmail(email);
+      await sendPasswordResetEmail(auth, email);
       return { success: true };
     } catch (error: any) {
       return { success: false, error: mapAuthError(error.code), code: error.code };
@@ -158,9 +173,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user || !user.email) return false;
     
     try {
-      const credential = firebase.auth.EmailAuthProvider.credential(user.email, currentPass);
-      await user.reauthenticateWithCredential(credential);
-      await user.updatePassword(newPass);
+      const credential = EmailAuthProvider.credential(user.email, currentPass);
+      await reauthenticateWithCredential(user, credential);
+      await updatePassword(user, newPass);
       return true;
     } catch (error) {
       console.error("Change Password Error:", error);
@@ -171,7 +186,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const resendVerification = async () => {
     if (!auth.currentUser) return { success: false, error: 'Usuário não logado.' };
     try {
-      await auth.currentUser.sendEmailVerification();
+      await sendEmailVerificationAuth(auth.currentUser);
       return { success: true };
     } catch (error: any) {
       return { success: false, error: mapAuthError(error.code) };
@@ -180,7 +195,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const verifyEmail = async (code: string): Promise<'success' | 'invalid'> => {
     try {
-      await auth.applyActionCode(code);
+      await applyActionCode(auth, code);
       return 'success';
     } catch (error) {
       return 'invalid';
@@ -189,7 +204,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const completePasswordReset = async (code: string, newPass: string): Promise<boolean> => {
     try {
-      await auth.confirmPasswordReset(code, newPass);
+      await confirmPasswordReset(auth, code, newPass);
       return true;
     } catch (error) {
       return false;
@@ -199,19 +214,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const reloadUser = async () => {
     if (auth.currentUser) {
       await auth.currentUser.reload();
-      // Force update state
-      if (auth.currentUser) {
-        // Clone object to trigger re-render
-        // setFirebaseUser({ ...auth.currentUser } as firebase.User);
-        // Firebase objects are mutable, trigger update by fetching fresh
-        setFirebaseUser(auth.currentUser);
-      }
+      setFirebaseUser({ ...auth.currentUser }); 
     }
   };
 
   const updateProfile = async (data: { name?: string }) => {
     if (auth.currentUser && data.name) {
-      await auth.currentUser.updateProfile({ displayName: data.name });
+      await updateProfileAuth(auth.currentUser, { displayName: data.name });
       await reloadUser();
     }
   };
@@ -219,8 +228,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const resetAppData = async (password?: string): Promise<boolean> => {
     if (password && auth.currentUser && auth.currentUser.email) {
        try {
-         const credential = firebase.auth.EmailAuthProvider.credential(auth.currentUser.email, password);
-         await auth.currentUser.reauthenticateWithCredential(credential);
+         const credential = EmailAuthProvider.credential(auth.currentUser.email, password);
+         await reauthenticateWithCredential(auth.currentUser, credential);
        } catch (e) {
          return false; 
        }

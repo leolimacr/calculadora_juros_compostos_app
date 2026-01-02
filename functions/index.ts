@@ -1,12 +1,4 @@
 
-/* 
-  INSTRUÇÕES PARA BACKEND (Firebase Functions)
-  
-  Copie este código para o arquivo index.ts da sua pasta 'functions'.
-  Instale as dependências na pasta functions:
-  npm install firebase-admin firebase-functions stripe
-*/
-
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import Stripe from "stripe";
@@ -14,79 +6,83 @@ import Stripe from "stripe";
 admin.initializeApp();
 const db = admin.firestore();
 
-// Configure sua chave secreta do Stripe aqui ou use variaveis de ambiente
+// --- CONFIGURAÇÃO ---
+// Use variáveis de ambiente em produção: functions.config().stripe.secret
 const stripe = new Stripe("sk_test_PLACEHOLDER_KEY", {
-  apiVersion: "2023-10-16", // Use a versão mais recente
+  apiVersion: "2023-10-16",
 });
-
-// Endpoint Secret do Webhook (Obtido no Dashboard do Stripe)
 const STRIPE_WEBHOOK_SECRET = "whsec_PLACEHOLDER_SECRET";
 
-// Mapeamento de Planos (Deve estar sincronizado com o frontend)
-const STRIPE_PLANS = {
-  app_monthly: { priceId: "price_app_monthly_PLACEHOLDER", access: { app: true, site: false } },
-  app_annual: { priceId: "price_app_annual_PLACEHOLDER", access: { app: true, site: false } },
-  site_monthly: { priceId: "price_site_monthly_PLACEHOLDER", access: { app: false, site: true } },
-  site_annual: { priceId: "price_site_annual_PLACEHOLDER", access: { app: false, site: true } },
-  combo_annual: { priceId: "price_combo_annual_PLACEHOLDER", access: { app: true, site: true } },
+// Deve bater com src/config/stripePlans.ts
+const STRIPE_PLANS_MAP: Record<string, string> = {
+  "app_monthly": "price_app_monthly_PLACEHOLDER",
+  "app_annual": "price_app_annual_PLACEHOLDER",
+  "site_monthly": "price_site_monthly_PLACEHOLDER",
+  "site_annual": "price_site_annual_PLACEHOLDER",
+  "combo_annual": "price_combo_annual_PLACEHOLDER",
 };
 
 /**
- * Cria uma Sessão de Checkout do Stripe
+ * Cria Sessão de Checkout
  */
 export const createCheckoutSession = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "Usuário deve estar logado.");
+    throw new functions.https.HttpsError("unauthenticated", "Usuário não autenticado.");
   }
 
   const { planId } = data;
   const uid = context.auth.uid;
-  const plan = STRIPE_PLANS[planId as keyof typeof STRIPE_PLANS];
+  const stripePriceId = STRIPE_PLANS_MAP[planId];
 
-  if (!plan) {
+  if (!stripePriceId) {
     throw new functions.https.HttpsError("invalid-argument", "Plano inválido.");
   }
 
-  // Busca ou cria cliente Stripe
-  const userRef = db.collection("users").doc(uid);
-  const userDoc = await userRef.get();
-  let customerId = userDoc.data()?.subscription?.stripeCustomerId;
+  try {
+    // 1. Busca/Cria Customer
+    const userRef = db.collection("users").doc(uid);
+    const userDoc = await userRef.get();
+    let customerId = userDoc.data()?.subscription?.stripeCustomerId;
 
-  if (!customerId) {
-    const customer = await stripe.customers.create({
-      email: context.auth.token.email,
-      metadata: { firebaseUid: uid },
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: context.auth.token.email,
+        metadata: { firebaseUid: uid },
+      });
+      customerId = customer.id;
+      await userRef.set({ subscription: { stripeCustomerId: customerId } }, { merge: true });
+    }
+
+    // 2. Cria Sessão
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      payment_method_types: ["card"],
+      customer: customerId,
+      line_items: [{ price: stripePriceId, quantity: 1 }],
+      // Ajuste o domínio conforme ambiente (dev/prod)
+      success_url: "https://financasproinvest.com.br/checkout-success?session_id={CHECKOUT_SESSION_ID}",
+      cancel_url: "https://financasproinvest.com.br/upgrade?cancel=true",
+      metadata: { firebaseUid: uid, planId: planId },
     });
-    customerId = customer.id;
-    await userRef.set({ subscription: { stripeCustomerId: customerId } }, { merge: true });
+
+    return { url: session.url };
+  } catch (error: any) {
+    console.error("Erro checkout:", error);
+    throw new functions.https.HttpsError("internal", error.message);
   }
-
-  // Cria Sessão
-  const session = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    payment_method_types: ["card"],
-    customer: customerId,
-    line_items: [{ price: plan.priceId, quantity: 1 }],
-    success_url: "https://financasproinvest.com.br/panel?success=true", // Ajuste seu domínio
-    cancel_url: "https://financasproinvest.com.br/upgrade?cancel=true",
-    metadata: { firebaseUid: uid, planId: planId },
-  });
-
-  return { url: session.url };
 });
 
 /**
- * Webhook para atualizar Firestore após pagamento
+ * Webhook Stripe
  */
 export const stripeWebhook = functions.https.onRequest(async (req, res) => {
   const sig = req.headers["stripe-signature"];
 
   let event;
-
   try {
     event = stripe.webhooks.constructEvent(req.rawBody, sig as string, STRIPE_WEBHOOK_SECRET);
   } catch (err: any) {
-    console.error(`Webhook Error: ${err.message}`);
+    console.error(`Webhook Signature Error: ${err.message}`);
     res.status(400).send(`Webhook Error: ${err.message}`);
     return;
   }
@@ -97,32 +93,42 @@ export const stripeWebhook = functions.https.onRequest(async (req, res) => {
     const planId = session.metadata?.planId;
 
     if (uid && planId) {
-      const planConfig = STRIPE_PLANS[planId as keyof typeof STRIPE_PLANS];
-      
-      // Calcular validade
-      const now = admin.firestore.Timestamp.now();
-      const isAnnual = planId.includes("annual");
-      const expiryDate = new Date();
-      expiryDate.setFullYear(expiryDate.getFullYear() + (isAnnual ? 1 : 0));
-      expiryDate.setMonth(expiryDate.getMonth() + (isAnnual ? 0 : 1));
+      try {
+        const now = admin.firestore.Timestamp.now();
+        const isAnnual = planId.includes("annual");
+        
+        // Calcula validade (simplificado)
+        const expiryDate = new Date();
+        expiryDate.setFullYear(expiryDate.getFullYear() + (isAnnual ? 1 : 0));
+        expiryDate.setMonth(expiryDate.getMonth() + (isAnnual ? 0 : 1));
+        // Dá 1 dia de graça pra evitar expiração prematura por fuso
+        expiryDate.setDate(expiryDate.getDate() + 1);
 
-      // Atualizar Firestore
-      await db.collection("users").doc(uid).set({
-        subscription: {
-          plan: planId,
-          status: "active",
-          startDate: now,
-          expiryDate: admin.firestore.Timestamp.fromDate(expiryDate),
-          stripeCustomerId: session.customer,
-          stripeSubscriptionId: session.subscription,
-        },
-        access: {
-          app_premium: planConfig.access.app,
-          site_premium: planConfig.access.site,
-        }
-      }, { merge: true });
-      
-      console.log(`✅ Assinatura ativada para ${uid}: ${planId}`);
+        const isApp = planId.includes("app") || planId === "combo_annual";
+        const isSite = planId.includes("site") || planId === "combo_annual";
+
+        await db.collection("users").doc(uid).set({
+          subscription: {
+            plan: planId,
+            status: "active",
+            startDate: now,
+            expiryDate: admin.firestore.Timestamp.fromDate(expiryDate),
+            stripeCustomerId: session.customer,
+            stripeSubscriptionId: session.subscription,
+          },
+          access: {
+            app_premium: isApp,
+            site_premium: isSite,
+            // Mantém emailVerified se já existir
+          }
+        }, { merge: true });
+
+        console.log(`✅ [Webhook] Assinatura ativada user=${uid} plan=${planId}`);
+      } catch (e) {
+        console.error("❌ [Webhook] Erro ao atualizar Firestore", e);
+        res.status(500).send("Database update failed");
+        return;
+      }
     }
   }
 
