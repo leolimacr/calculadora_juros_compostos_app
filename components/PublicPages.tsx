@@ -78,7 +78,7 @@ export const PublicHome: React.FC<{ onNavigate: (path: any) => void; onStartNow:
             </button>
             <button 
               onClick={() => onNavigate('demo')} 
-              className="w-full sm:w-auto bg-slate-800 hover:bg-slate-700 text-white text-lg font-bold px-8 py-4 rounded-xl border border-slate-600 transition-all hover:scale-105 flex items-center justify-center gap-2"
+              className="w-full sm:w-auto bg-emerald-800 hover:bg-emerald-700 text-white text-lg font-bold px-8 py-4 rounded-xl border border-emerald-700 transition-all hover:scale-105 flex items-center justify-center gap-2"
             >
               <span>👁️</span> Ver Demonstração
             </button>
