@@ -19,21 +19,24 @@ const UpgradePage: React.FC<UpgradePageProps> = ({ onBack }) => {
 
   const handleSubscribe = async (planId: SubscriptionPlanId) => {
     if (!isAuthenticated) {
-        // Armazena intenção para depois do login (implementação futura)
         alert("Faça login ou crie uma conta para assinar.");
+        // Idealmente redirecionaria para login preservando a intenção
         return;
     }
     setLoadingPlan(planId);
-    await startCheckout(planId);
-    setLoadingPlan(null);
+    try {
+        await startCheckout(planId);
+    } catch (error) {
+        console.error("Erro no checkout UI:", error);
+    }
+    // Não removemos o loading imediatamente para evitar flash antes do redirect
+    setTimeout(() => setLoadingPlan(null), 3000); 
   };
 
   const plans = Object.values(STRIPE_PLANS);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 animate-in fade-in slide-in-from-bottom-4 pb-24">
-      
-      {/* Header */}
       <div className="text-center mb-12">
         <button onClick={onBack} className="text-slate-500 hover:text-white mb-6 text-sm font-bold flex items-center justify-center gap-2 mx-auto">
             <span>←</span> Voltar
@@ -49,7 +52,6 @@ const UpgradePage: React.FC<UpgradePageProps> = ({ onBack }) => {
         </p>
       </div>
 
-      {/* Plans Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         {plans.map((plan) => (
           <div 
@@ -79,11 +81,6 @@ const UpgradePage: React.FC<UpgradePageProps> = ({ onBack }) => {
                 <span className="text-slate-500 font-bold text-xs uppercase tracking-wider">
                     {plan.billingPeriod === 'monthly' ? '/mês' : '/ano'}
                 </span>
-                {plan.billingPeriod === 'annual' && !plan.recommended && (
-                    <p className="text-[10px] text-emerald-400 font-bold mt-2">
-                        {plan.subLabel}
-                    </p>
-                )}
             </div>
 
             <ul className="space-y-4 mb-8 flex-grow">
@@ -112,19 +109,6 @@ const UpgradePage: React.FC<UpgradePageProps> = ({ onBack }) => {
             </button>
           </div>
         ))}
-      </div>
-
-      <div className="mt-16 text-center border-t border-slate-800 pt-8 max-w-2xl mx-auto">
-        <div className="flex justify-center gap-4 mb-4 text-2xl opacity-50 grayscale hover:grayscale-0 transition-all">
-            <span>💳</span><span>🔒</span><span>🛡️</span>
-        </div>
-        <p className="text-sm text-slate-500 mb-2">
-            Pagamento processado com segurança bancária pelo <strong>Stripe</strong>. 
-            Seus dados de cartão nunca tocam nossos servidores.
-        </p>
-        <p className="text-xs text-slate-600">
-            Precisa de ajuda? suporte@financasproinvest.com.br
-        </p>
       </div>
     </div>
   );
