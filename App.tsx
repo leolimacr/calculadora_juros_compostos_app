@@ -1,4 +1,3 @@
-/// <reference types="vite/client" />
 import React, { useState, useCallback, useEffect, Suspense, lazy } from 'react';
 import CalculatorForm from './components/CalculatorForm';
 import ResultsDisplay from './components/ResultsDisplay';
@@ -338,7 +337,7 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-[#020617] text-slate-200 flex flex-col font-sans selection:bg-emerald-500/30">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       <BackToTop />
-      {import.meta.env.DEV && <Suspense fallback={null}><DevSubscriptionDebug /></Suspense>}
+      {(import.meta as any).env.DEV && <Suspense fallback={null}><DevSubscriptionDebug /></Suspense>}
       
       {showOnboarding && <Onboarding onComplete={handleOnboardingComplete} userName={user?.name || user?.email.split('@')[0]} />}
 

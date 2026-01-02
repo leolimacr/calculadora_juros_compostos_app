@@ -56,29 +56,46 @@ const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
 // Helper para mapeamento de erros do Firebase Auth
 const mapAuthError = (code: string): string => {
+  if (!code) return 'Ocorreu um erro desconhecido. Tente novamente.';
+
   switch (code) {
+    // Erros de Credenciais (Unificados)
     case 'auth/user-not-found': 
-      return 'E-mail não encontrado. Verifique o endereço ou crie uma conta.';
     case 'auth/wrong-password': 
-      return 'Senha incorreta. Tente novamente.';
+    case 'auth/invalid-credential':
+    case 'auth/invalid-login-credentials':
+      return 'E-mail ou senha incorretos.';
+      
     case 'auth/invalid-email': 
       return 'E-mail inválido. Verifique o formato do endereço.';
+      
     case 'auth/email-already-in-use': 
       return 'Este e-mail já está cadastrado. Faça login ou recupere sua senha.';
+      
     case 'auth/too-many-requests': 
-      return 'Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.';
-    case 'auth/invalid-credential':
-      return 'E-mail ou senha incorretos.';
+      return 'Muitas tentativas falhas. Aguarde alguns minutos ou redefina sua senha.';
+      
     case 'auth/weak-password': 
       return 'A senha deve ter pelo menos 6 caracteres.';
+      
     case 'auth/network-request-failed': 
       return 'Erro de conexão. Verifique sua internet.';
+      
+    case 'auth/user-disabled':
+      return 'Esta conta foi desativada.';
+      
+    case 'auth/operation-not-allowed':
+      return 'O login por e-mail/senha não está ativado no Firebase.';
+      
     case 'auth/requires-recent-login': 
       return 'Para esta ação, faça login novamente.';
+      
     case 'auth/invalid-action-code': 
       return 'Link inválido ou expirado.';
+      
     default: 
-      return 'Ocorreu um erro inesperado. Tente novamente.';
+      // Retorna o código para facilitar o debug
+      return `Ocorreu um erro inesperado (${code}). Tente novamente.`;
   }
 };
 
@@ -117,7 +134,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await signInWithEmailAndPassword(auth, email, pass);
       return { success: true };
     } catch (error: any) {
-      console.error("Login Error:", error.code);
+      console.error("Login Error:", error.code, error.message);
       return { success: false, error: mapAuthError(error.code) };
     }
   };

@@ -1,4 +1,3 @@
-/// <reference types="vite/client" />
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { doc, getDoc } from 'firebase/firestore';
@@ -21,7 +20,7 @@ const DevSubscriptionDebug: React.FC = () => {
     fetchUser();
   }, [user, isVisible]);
 
-  if (!import.meta.env.DEV) return null;
+  if (!(import.meta as any).env.DEV) return null;
 
   if (!isVisible) {
     return (
