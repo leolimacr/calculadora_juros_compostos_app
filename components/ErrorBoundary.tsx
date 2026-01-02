@@ -11,7 +11,8 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState = {
+  // Inicialização direta do estado sem 'public' para evitar conflitos de tipo estrito
+  state: ErrorBoundaryState = {
     hasError: false
   };
 
