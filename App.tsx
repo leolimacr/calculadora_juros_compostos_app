@@ -3,6 +3,7 @@ import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { useAuth } from './contexts/AuthContext';
 import { useFirebase } from './hooks/useFirebase';
 import { useSubscriptionAccess } from './hooks/useSubscriptionAccess';
+import { useGamification } from './hooks/useGamification'; // Gamificação
 import { CalculationInput, CalculationResult, Goal, MarketQuote, ToolView, ToastMessage } from './types';
 import { calculateCompoundInterest } from './utils/calculations';
 
@@ -31,7 +32,7 @@ import MobileBottomNav from './components/MobileBottomNav';
 import PaywallModal from './components/PaywallModal';
 import UserMenu from './components/UserMenu';
 import Paywall from './components/Paywall';
-import MarketTicker from './components/MarketTicker'; // NOVO
+import MarketTicker from './components/MarketTicker';
 
 import AuthLogin from './components/Auth/AuthLogin';
 import AuthRegister from './components/Auth/AuthRegister';
@@ -56,6 +57,7 @@ const App: React.FC = () => {
   const { user, isAuthenticated, verifyEmail, logout } = useAuth();
   const { lancamentos: transactions, saveLancamento, deleteLancamento, userMeta, usagePercentage, isLimitReached } = useFirebase(user?.uid || 'guest_placeholder');
   const { isPro, isPremium, loadingSubscription } = useSubscriptionAccess();
+  const { trackAction } = useGamification(); // Hook de Gamificação
 
   const [currentTool, setCurrentTool] = useState<ToolView>('home');
   const [result, setResult] = useState<CalculationResult | null>(null);
@@ -109,6 +111,7 @@ const App: React.FC = () => {
   const handleCalculate = (data: CalculationInput) => {
     const res = calculateCompoundInterest(data);
     setResult(res);
+    trackAction('use_tool', 'compound'); // Gamificação
   };
 
   const handleAddTransaction = async (t: any) => {
@@ -116,6 +119,7 @@ const App: React.FC = () => {
       await saveLancamento(t);
       addToast('Lançamento salvo!', 'success');
       setActiveModal(null);
+      trackAction('add_transaction'); // Gamificação: + Pontos
     } catch (e: any) {
       if (e.message === 'LIMIT_REACHED') {
         setActiveModal('paywall');

@@ -1,5 +1,6 @@
 
 import { Timestamp } from 'firebase/firestore';
+import { UserStats } from './gamification';
 
 export type SubscriptionPlan = 'free' | 'pro' | 'premium';
 
@@ -32,7 +33,6 @@ export interface UserSubscription {
 }
 
 export interface UserAccess {
-  // Legacy flags compatibility
   app_premium: boolean;
   site_premium: boolean;
   emailVerified: boolean;
@@ -48,10 +48,8 @@ export interface AppUserDoc {
   subscription?: UserSubscription;
   toolsAccess?: UserToolsAccess;
   
-  // Referral
-  referralCode?: string;
-  referralCount?: number;
-  referralEarnings?: number;
+  // Gamificação
+  gamification?: UserStats;
 
   // Metadata
   access?: UserAccess; 

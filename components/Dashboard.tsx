@@ -5,7 +5,9 @@ import FilterBar from './FilterBar';
 import TransactionHistory from './TransactionHistory';
 import GoalsWidget from './GoalsWidget';
 import Breadcrumb from './Breadcrumb';
-import UsageIndicator from './UsageIndicator'; // Importado
+import UsageIndicator from './UsageIndicator';
+import GamificationWidget from './GamificationWidget'; // Novo Widget
+import { useGamification } from '../hooks/useGamification'; // Novo Hook
 import { formatCurrency, maskCurrency } from '../utils/calculations';
 import { logEvent, ANALYTICS_EVENTS } from '../utils/analytics';
 import {
@@ -31,7 +33,6 @@ interface DashboardProps {
   onDeleteGoal: (id: string) => void;
   isPrivacyMode?: boolean;
   navigateToHome?: () => void;
-  // Props do Freemium
   userMeta: UserMeta | null;
   usagePercentage: number;
   isPremium: boolean;
@@ -53,12 +54,11 @@ const Dashboard: React.FC<DashboardProps> = ({
 }) => {
   const [selectedCategory, setSelectedCategory] = useState('Todas Categorias');
   const [selectedPeriod, setSelectedPeriod] = useState<FilterPeriod>('mes'); 
+  
+  // Gamification Hook Integration
+  const { trackAction } = useGamification();
 
-  // Analytics
-  useEffect(() => {
-    logEvent(ANALYTICS_EVENTS.VIEW_DAILY_SUMMARY);
-  }, []);
-
+  // Monitorar se uma meta foi completada para dar pontos
   useEffect(() => {
     goals.forEach(goal => {
       if (goal.targetAmount > 0 && goal.currentAmount >= goal.targetAmount) {
@@ -69,11 +69,18 @@ const Dashboard: React.FC<DashboardProps> = ({
             goal_name: goal.name,
             value: goal.targetAmount 
           });
+          trackAction('complete_goal'); // +Pontos
           sessionStorage.setItem(sessionKey, 'true');
         }
       }
     });
   }, [goals]);
+
+  // Analytics View Event
+  useEffect(() => {
+    logEvent(ANALYTICS_EVENTS.VIEW_DAILY_SUMMARY);
+    trackAction('use_tool', 'dashboard'); // Pontos por usar a ferramenta
+  }, []);
 
   // Data Logic
   const filteredTransactions = useMemo(() => {
@@ -140,7 +147,8 @@ const Dashboard: React.FC<DashboardProps> = ({
     <div className="space-y-6 pb-20 lg:pb-0 animate-in fade-in duration-500">
       {navigateToHome && <Breadcrumb items={[{ label: 'Home', action: navigateToHome }, { label: 'Dashboard Financeiro' }]} />}
 
-      {/* Botão Novo Lançamento (TOPO) */}
+      <GamificationWidget />
+
       <button 
         onClick={onOpenForm}
         className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-emerald-900/30 transition-all flex items-center justify-center gap-3 active:scale-[0.98] transform hover:-translate-y-1 mb-4 border border-emerald-500/20"
@@ -148,12 +156,10 @@ const Dashboard: React.FC<DashboardProps> = ({
         <span className="text-2xl font-light leading-none">+</span> NOVO LANÇAMENTO
       </button>
 
-      {/* Indicador de Uso Freemium */}
       <UsageIndicator userMeta={userMeta} usagePercentage={usagePercentage} isPremium={isPremium} />
 
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
         <div className="xl:col-span-1 space-y-6">
-          
           <div className="space-y-4">
             <div className="bg-slate-800 p-6 rounded-2xl border-l-4 border-emerald-500 shadow-lg border-y border-r border-slate-700 flex justify-between items-center">
               <div>
@@ -198,7 +204,6 @@ const Dashboard: React.FC<DashboardProps> = ({
 
         <div className="xl:col-span-3 space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Pie Chart */}
             <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg flex flex-col">
               <h3 className="text-sm font-bold text-white mb-4">Despesas por Categoria</h3>
               <div className="h-[200px] w-full flex-grow">
@@ -220,7 +225,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                         </Pie>
                         <Tooltip 
                           formatter={(value: number) => isPrivacyMode ? '••••••' : formatCurrency(value)}
-                          contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px', color: 'white', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }} 
+                          contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px', color: 'white' }} 
                           itemStyle={{ color: '#fff' }}
                         />
                       </PieChart>
@@ -231,7 +236,6 @@ const Dashboard: React.FC<DashboardProps> = ({
               </div>
             </div>
 
-            {/* Bar Chart (Fluxo) */}
              <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg flex flex-col">
                <div className="flex justify-between items-center mb-4">
                   <h3 className="text-sm font-bold text-white">Fluxo de Caixa</h3>
@@ -249,7 +253,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                       <Tooltip 
                         formatter={(value: number) => isPrivacyMode ? '••••••' : formatCurrency(value)}
                         cursor={{fill: 'rgba(255,255,255,0.05)'}}
-                        contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px', color: 'white', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }} 
+                        contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px', color: 'white' }} 
                       />
                       <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                          { [0,1,2].map((entry, index) => <Cell key={index} fill={['#10b981', '#f97316', '#6366f1'][index]} />) }
