@@ -1,6 +1,6 @@
+
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { AppUserDoc } from '../types/user';
 
@@ -12,8 +12,8 @@ const DevSubscriptionDebug: React.FC = () => {
   useEffect(() => {
     if (!user) return;
     const fetchUser = async () => {
-      const snap = await getDoc(doc(db, 'users', user.uid));
-      if (snap.exists()) {
+      const snap = await db.collection('users').doc(user.uid).get();
+      if (snap.exists) {
         setUserData(snap.data() as AppUserDoc);
       }
     };

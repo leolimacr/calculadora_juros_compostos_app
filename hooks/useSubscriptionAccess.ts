@@ -1,7 +1,6 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { AppUserDoc, hasProAccess, hasPremiumAccess, SubscriptionPlan } from '../types/user';
 
@@ -32,8 +31,9 @@ export function useSubscriptionAccess() {
       return;
     }
 
-    const unsubscribe = onSnapshot(doc(db, "users", user.uid), (docSnap) => {
-      if (docSnap.exists()) {
+    const userRef = db.collection("users").doc(user.uid);
+    const unsubscribe = userRef.onSnapshot((docSnap) => {
+      if (docSnap.exists) {
         const userData = docSnap.data() as AppUserDoc;
         let plan = userData.plan || 'free';
         const sub = userData.subscription;

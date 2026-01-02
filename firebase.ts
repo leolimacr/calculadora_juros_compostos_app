@@ -1,9 +1,9 @@
 
-import { initializeApp } from "firebase/app";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { getDatabase } from "firebase/database";
-import { getFirestore } from "firebase/firestore";
-import { getFunctions } from "firebase/functions";
+import firebase from "firebase/app";
+import "firebase/auth";
+import "firebase/database";
+import "firebase/firestore";
+import "firebase/functions";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBYaPgjhO9Txd1IMCIr9qtirFxs7xgOk-U",
@@ -16,22 +16,22 @@ const firebaseConfig = {
   measurementId: "G-MJR191X3VB"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase (Check for existing apps to avoid errors in hot-reload)
+const app = !firebase.apps.length ? firebase.initializeApp(firebaseConfig) : firebase.app();
 
-// Export Modular Instances
-export const auth = getAuth(app);
-export const database = getDatabase(app);
-export const firestore = getFirestore(app);
+// Export Namespace Instances
+export const auth = app.auth();
+export const database = app.database();
+export const firestore = app.firestore();
 export const db = firestore; // Alias
-export const functions = getFunctions(app, 'us-central1');
+export const functions = app.functions('us-central1');
 
 // Configuração de idioma
 auth.languageCode = 'pt-BR';
 
 // Promessa que resolve quando o Auth estiver pronto (Listener único)
 export const authReadyPromise = new Promise((resolve) => {
-  const unsubscribe = onAuthStateChanged(auth, (user) => {
+  const unsubscribe = auth.onAuthStateChanged((user) => {
     resolve(user);
     unsubscribe();
   });

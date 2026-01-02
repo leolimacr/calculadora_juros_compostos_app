@@ -1,21 +1,10 @@
 
 import { useState, useEffect, useMemo } from 'react';
-import { 
-  ref, 
-  get, 
-  onValue, 
-  update, 
-  push, 
-  increment, 
-  serverTimestamp as rtdbTimestamp,
-  off,
-  DatabaseReference 
-} from 'firebase/database';
-import { doc, onSnapshot, getFirestore } from 'firebase/firestore'; // Import Firestore
-import { database, authReadyPromise, db } from '../firebase'; // db is firestore alias
+import firebase from 'firebase/app';
+import { database, authReadyPromise, db } from '../firebase';
 import { v4 as uuidv4 } from 'uuid';
 import { UserMeta } from '../types';
-import { AppUserDoc, isAppPremium } from '../types/user'; // New types
+import { AppUserDoc, isAppPremium } from '../types/user';
 
 const DEFAULT_META: UserMeta = {
   plan: 'free',
@@ -28,7 +17,7 @@ const DEFAULT_META: UserMeta = {
 export const useFirebase = (userId: string) => {
   const [lancamentos, setLancamentos] = useState<any[]>([]);
   const [userMeta, setUserMeta] = useState<UserMeta | null>(null);
-  const [firestoreUser, setFirestoreUser] = useState<AppUserDoc | null>(null); // Estado para dados de assinatura
+  const [firestoreUser, setFirestoreUser] = useState<AppUserDoc | null>(null);
   const [isReady, setIsReady] = useState(false);
 
   // Propriedade Derivada: Verifica Premium Real (Firestore)
@@ -48,8 +37,8 @@ export const useFirebase = (userId: string) => {
   }, [userMeta, isPremium]);
 
   useEffect(() => {
-    let metaRef: DatabaseReference | null = null;
-    let lancamentosRef: DatabaseReference | null = null;
+    let metaRef: firebase.database.Reference | null = null;
+    let lancamentosRef: firebase.database.Reference | null = null;
     let unsubFirestore: (() => void) | null = null;
 
     const init = async () => {
@@ -62,27 +51,27 @@ export const useFirebase = (userId: string) => {
       const lancamentosPath = `${userRootPath}/gerenciadorFinanceiro/lancamentos`;
       
       // Cria Meta Dados se não existirem
-      metaRef = ref(database, metaPath);
-      get(metaRef).then((snapshot) => {
+      metaRef = database.ref(metaPath);
+      metaRef.once('value').then((snapshot) => {
         if (!snapshot.exists()) {
-          const rootRef = ref(database, userRootPath);
-          update(rootRef, {
+          const rootRef = database.ref(userRootPath);
+          rootRef.update({
             meta: {
               ...DEFAULT_META,
-              createdAt: rtdbTimestamp(),
-              updatedAt: rtdbTimestamp()
+              createdAt: firebase.database.ServerValue.TIMESTAMP,
+              updatedAt: firebase.database.ServerValue.TIMESTAMP
             }
           });
         }
       }).catch(err => console.error("Erro meta:", err));
 
-      onValue(metaRef, (snapshot) => {
+      metaRef.on('value', (snapshot) => {
         const data = snapshot.val();
         setUserMeta(data ? data : DEFAULT_META);
       });
 
-      lancamentosRef = ref(database, lancamentosPath);
-      onValue(lancamentosRef, (snapshot) => {
+      lancamentosRef = database.ref(lancamentosPath);
+      lancamentosRef.on('value', (snapshot) => {
         const data = snapshot.val();
         const loadedLancamentos = data ? Object.entries(data).map(([key, value]: [string, any]) => ({
           ...value,
@@ -94,9 +83,9 @@ export const useFirebase = (userId: string) => {
       // --- 2. Firestore (Assinatura) ---
       // Apenas se não for usuário guest/placeholder
       if (userId && userId !== 'guest_placeholder') {
-        const userDocRef = doc(db, 'users', userId);
-        unsubFirestore = onSnapshot(userDocRef, (docSnap) => {
-          if (docSnap.exists()) {
+        const userDocRef = db.collection('users').doc(userId);
+        unsubFirestore = userDocRef.onSnapshot((docSnap) => {
+          if (docSnap.exists) {
             setFirestoreUser(docSnap.data() as AppUserDoc);
           }
         });
@@ -112,8 +101,8 @@ export const useFirebase = (userId: string) => {
     }
 
     return () => {
-      if (metaRef) off(metaRef);
-      if (lancamentosRef) off(lancamentosRef);
+      if (metaRef) metaRef.off();
+      if (lancamentosRef) lancamentosRef.off();
       if (unsubFirestore) unsubFirestore();
     };
   }, [userId]);
@@ -128,18 +117,18 @@ export const useFirebase = (userId: string) => {
 
     try {
       const newKey = uuidv4();
-      const listRef = ref(database, `users/${userId}/gerenciadorFinanceiro/lancamentos`);
-      const newRef = push(listRef); 
+      const listRef = database.ref(`users/${userId}/gerenciadorFinanceiro/lancamentos`);
+      const newRef = listRef.push(); 
       const pushKey = newRef.key;
 
       if (!pushKey) throw new Error("Erro chave Firebase");
 
       const updates: any = {};
       updates[`users/${userId}/gerenciadorFinanceiro/lancamentos/${pushKey}`] = { ...lancamento, id: newKey };
-      updates[`users/${userId}/meta/launchCount`] = increment(1);
-      updates[`users/${userId}/meta/updatedAt`] = rtdbTimestamp();
+      updates[`users/${userId}/meta/launchCount`] = firebase.database.ServerValue.increment(1);
+      updates[`users/${userId}/meta/updatedAt`] = firebase.database.ServerValue.TIMESTAMP;
 
-      await update(ref(database), updates);
+      await database.ref().update(updates);
       
     } catch (error: any) {
       console.error('Save Error:', error);
@@ -156,9 +145,9 @@ export const useFirebase = (userId: string) => {
         const updates: any = {};
         updates[`users/${userId}/gerenciadorFinanceiro/lancamentos/${item._firebaseKey}`] = null;
         // Decrementa contador (opcional, alguns freemiums não devolvem o crédito, mas aqui devolvemos)
-        updates[`users/${userId}/meta/launchCount`] = increment(-1);
-        updates[`users/${userId}/meta/updatedAt`] = rtdbTimestamp();
-        await update(ref(database), updates);
+        updates[`users/${userId}/meta/launchCount`] = firebase.database.ServerValue.increment(-1);
+        updates[`users/${userId}/meta/updatedAt`] = firebase.database.ServerValue.TIMESTAMP;
+        await database.ref().update(updates);
       } catch (error) {
         console.error("Delete error:", error);
         throw error;

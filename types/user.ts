@@ -1,5 +1,5 @@
 
-import { Timestamp } from 'firebase/firestore';
+import firebase from 'firebase/app';
 import { UserStats } from './gamification';
 
 export type SubscriptionPlan = 'free' | 'pro' | 'premium';
@@ -24,12 +24,12 @@ export interface UserSubscription {
   status: SubscriptionStatus;
   stripeCustomerId?: string;
   stripeSubscriptionId?: string;
-  startDate?: Timestamp;
-  currentPeriodStart?: Timestamp;
-  currentPeriodEnd?: Timestamp;
-  trialEndDate?: Timestamp;
+  startDate?: firebase.firestore.Timestamp;
+  currentPeriodStart?: firebase.firestore.Timestamp;
+  currentPeriodEnd?: firebase.firestore.Timestamp;
+  trialEndDate?: firebase.firestore.Timestamp;
   cancelAtPeriodEnd?: boolean;
-  expiryDate?: Timestamp;
+  expiryDate?: firebase.firestore.Timestamp;
 }
 
 export interface UserAccess {
@@ -53,8 +53,8 @@ export interface AppUserDoc {
 
   // Metadata
   access?: UserAccess; 
-  createdAt?: Timestamp;
-  updatedAt?: Timestamp;
+  createdAt?: firebase.firestore.Timestamp;
+  updatedAt?: firebase.firestore.Timestamp;
 }
 
 // --- Helpers ---

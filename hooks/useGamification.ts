@@ -1,7 +1,6 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { UserStats, BADGES, LEVELS, AchievementId } from '../types/gamification';
 
@@ -33,12 +32,12 @@ export function useGamification() {
 
     const loadStats = async () => {
       try {
-        const userRef = doc(db, 'users', user.uid);
-        const snap = await getDoc(userRef);
+        const userRef = db.collection('users').doc(user.uid);
+        const snap = await userRef.get();
         
-        if (snap.exists()) {
+        if (snap.exists) {
           const data = snap.data();
-          const remoteStats = data.gamification || DEFAULT_STATS;
+          const remoteStats = data?.gamification || DEFAULT_STATS;
           
           // Check Streak Logic
           const today = new Date().toISOString().split('T')[0];
@@ -65,7 +64,7 @@ export function useGamification() {
                 lastLoginDate: today
             };
             setStats(updatedStats);
-            await updateDoc(userRef, { gamification: updatedStats });
+            await userRef.update({ gamification: updatedStats });
           } else {
             setStats(remoteStats);
           }
@@ -74,7 +73,7 @@ export function useGamification() {
             const today = new Date().toISOString().split('T')[0];
             const initialStats = { ...DEFAULT_STATS, lastLoginDate: today, currentStreak: 1, longestStreak: 1 };
             setStats(initialStats);
-            await setDoc(userRef, { gamification: initialStats }, { merge: true });
+            await userRef.set({ gamification: initialStats }, { merge: true });
         }
       } catch (e) {
         console.error("Gamification Load Error:", e);
@@ -138,8 +137,8 @@ export function useGamification() {
 
     // Persist debounce
     try {
-      const userRef = doc(db, 'users', user.uid);
-      await updateDoc(userRef, { gamification: newStats });
+      const userRef = db.collection('users').doc(user.uid);
+      await userRef.update({ gamification: newStats });
     } catch (e) {
       console.error("Failed to sync stats", e);
     }

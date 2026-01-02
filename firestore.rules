@@ -1,0 +1,42 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Regra Global: Apenas usuários autenticados
+    // match /{document=**} {
+    //   allow read, write: if request.auth != null;
+    // }
+
+    // --- USUÁRIOS ---
+    match /users/{userId} {
+      // Dono lê e escreve tudo
+      allow read, write: if request.auth.uid == userId;
+    }
+
+    // --- PAGAMENTOS & ASSINATURAS ---
+    // Apenas leitura para o usuário (Stripe escreve via Cloud Function)
+    match /payments/{paymentId} {
+      allow read: if request.auth.uid == resource.data.userId;
+      allow write: if false; 
+    }
+    match /subscriptions/{subId} {
+      allow read: if request.auth.uid == resource.data.userId;
+      allow write: if false; 
+    }
+
+    // --- SUPORTE ---
+    // Usuário pode criar ticket, mas apenas admin poderia ler todos (não implementado aqui)
+    match /support_tickets/{ticketId} {
+      allow create: if request.auth != null;
+      allow read: if request.auth.uid == resource.data.userId;
+    }
+
+    // --- BLOG (Público) ---
+    // Qualquer um lê, ninguém escreve direto (CMS futuro ou admin manual)
+    match /blogPosts/{postId} {
+      allow read: if true;
+      allow write: if false; 
+    }
+  }
+}

@@ -1,5 +1,5 @@
 
-import { Timestamp } from 'firebase/firestore';
+import firebase from 'firebase/app';
 
 export type AchievementId = 'first_step' | 'organizer' | 'saver' | 'investor' | 'fire_starter' | 'streak_master';
 

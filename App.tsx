@@ -3,7 +3,7 @@ import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { useAuth } from './contexts/AuthContext';
 import { useFirebase } from './hooks/useFirebase';
 import { useSubscriptionAccess } from './hooks/useSubscriptionAccess';
-import { useGamification } from './hooks/useGamification'; // Gamificação
+import { useGamification } from './hooks/useGamification';
 import { CalculationInput, CalculationResult, Goal, MarketQuote, ToolView, ToastMessage } from './types';
 import { calculateCompoundInterest } from './utils/calculations';
 
@@ -22,7 +22,6 @@ import ContentModal from './components/ContentModal';
 import AiAdvisor from './components/AiAdvisor';
 import ToastContainer from './components/Toast';
 import Breadcrumb from './components/Breadcrumb';
-import EducationalContent from './components/EducationalContent';
 import AppInstallButton from './components/AppInstallButton';
 import InstallPrompt from './components/InstallPrompt';
 import BackToTop from './components/BackToTop';
@@ -39,8 +38,11 @@ import AuthRegister from './components/Auth/AuthRegister';
 import LockedManager from './components/Auth/LockedManager';
 import UpgradePage from './components/UpgradePage';
 import CheckoutSuccessPage from './components/CheckoutSuccessPage';
-import ArticlesPage from './components/ArticlesPage';
 import ChangelogPage from './components/ChangelogPage';
+
+// Nova Importação: Blog & Suporte
+import BlogPage from './components/Blog/BlogPage';
+import SupportWidget from './components/Support/SupportWidget';
 
 // Lazy Loaded Tools
 const RentVsFinanceTool = lazy(() => import('./components/Tools').then(module => ({ default: module.RentVsFinanceTool }))); 
@@ -51,15 +53,15 @@ const DividendSimulator = lazy(() => import('./components/DividendSimulator'));
 const RoiCalculator = lazy(() => import('./components/RoiCalculator'));
 const MiniGame = lazy(() => import('./components/MiniGame'));
 
-const PRIVATE_TOOLS = ['manager', 'compound', 'rent', 'debt', 'fire', 'dividend', 'roi', 'game', 'panel', 'settings', 'perfil', 'asset_details'];
+const PRIVATE_TOOLS = ['manager', 'compound', 'rent', 'debt', 'fire', 'dividend', 'roi', 'game', 'panel', 'settings', 'perfil', 'asset_details', 'support'];
 
 const App: React.FC = () => {
   const { user, isAuthenticated, verifyEmail, logout } = useAuth();
   const { lancamentos: transactions, saveLancamento, deleteLancamento, userMeta, usagePercentage, isLimitReached } = useFirebase(user?.uid || 'guest_placeholder');
   const { isPro, isPremium, loadingSubscription } = useSubscriptionAccess();
-  const { trackAction } = useGamification(); // Hook de Gamificação
+  const { trackAction } = useGamification();
 
-  const [currentTool, setCurrentTool] = useState<ToolView>('home');
+  const [currentTool, setCurrentTool] = useState<ToolView | 'blog' | 'support'>('home');
   const [result, setResult] = useState<CalculationResult | null>(null);
   const [isPrivacyMode, setIsPrivacyMode] = useState(false);
   const [activeModal, setActiveModal] = useState<string | null>(null);
@@ -71,7 +73,6 @@ const App: React.FC = () => {
   const [urlSymbol, setUrlSymbol] = useState<string | null>(null);
   const [verificationStatus, setVerificationStatus] = useState<'loading' | 'success' | 'error'>('loading');
 
-  // Persistence for goals
   useEffect(() => {
     const savedGoals = localStorage.getItem('finpro_goals');
     if (savedGoals) setGoals(JSON.parse(savedGoals));
@@ -81,7 +82,6 @@ const App: React.FC = () => {
     localStorage.setItem('finpro_goals', JSON.stringify(goals));
   }, [goals]);
 
-  // Handle URL Params
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const tool = params.get('tool');
@@ -103,7 +103,7 @@ const App: React.FC = () => {
   }, []);
 
   const navigateTo = (tool: string) => {
-    setCurrentTool(tool as ToolView);
+    setCurrentTool(tool as any);
     window.history.pushState({}, '', `?tool=${tool}`);
     window.scrollTo(0, 0);
   };
@@ -111,7 +111,7 @@ const App: React.FC = () => {
   const handleCalculate = (data: CalculationInput) => {
     const res = calculateCompoundInterest(data);
     setResult(res);
-    trackAction('use_tool', 'compound'); // Gamificação
+    trackAction('use_tool', 'compound');
   };
 
   const handleAddTransaction = async (t: any) => {
@@ -119,7 +119,7 @@ const App: React.FC = () => {
       await saveLancamento(t);
       addToast('Lançamento salvo!', 'success');
       setActiveModal(null);
-      trackAction('add_transaction'); // Gamificação: + Pontos
+      trackAction('add_transaction');
     } catch (e: any) {
       if (e.message === 'LIMIT_REACHED') {
         setActiveModal('paywall');
@@ -183,21 +183,31 @@ const App: React.FC = () => {
   };
 
   const renderContent = () => {
-    if (PRIVATE_TOOLS.includes(currentTool) && !isAuthenticated) {
+    if (PRIVATE_TOOLS.includes(currentTool as string) && !isAuthenticated) {
       return <LockedManager onAuthSuccess={() => navigateTo('panel')} />;
     }
     const navProps = { onNavigate: navigateTo };
 
     switch(currentTool) {
+      // Públicas
       case 'home': return <PublicHome onNavigate={navigateTo} onStartNow={handleStartNow} onAssetClick={handleAssetClick} />;
       case 'register': return (<div className="flex flex-col items-center justify-center min-h-[70vh]"><div className="bg-slate-800 border border-slate-700 p-8 rounded-3xl shadow-2xl w-full max-w-md"><AuthRegister onSuccess={() => setCurrentTool('panel')} onSwitchToLogin={() => setCurrentTool('login')} /></div></div>);
       case 'login': return (<div className="flex flex-col items-center justify-center min-h-[70vh]"><div className="bg-slate-800 border border-slate-700 p-8 rounded-3xl shadow-2xl w-full max-w-md"><AuthLogin onSuccess={() => setCurrentTool('panel')} onSwitchToRegister={() => setCurrentTool('register')} /></div></div>);
       case 'upgrade': return <UpgradePage onBack={() => navigateTo('panel')} />;
       case 'checkout-success': return <CheckoutSuccessPage onNavigate={navigateTo} />;
+      
+      // Nova Rota: Blog (Pública)
+      case 'blog': return <BlogPage onNavigate={navigateTo} />;
+      case 'artigos': return <BlogPage onNavigate={navigateTo} />; // Alias para blog
+
+      // Privadas (Gerais)
       case 'panel': return <UserPanel onNavigate={navigateTo} onAssetClick={handleAssetClick} />; 
       case 'settings': return <SettingsPage onOpenChangePassword={() => setActiveModal('change_password')} />;
       case 'asset_details': return (<AssetDetailsPage symbol={selectedAsset?.symbol || urlSymbol || ''} initialAsset={selectedAsset} onBack={() => navigateTo('panel')} />);
       
+      // Nova Rota: Suporte (Privada)
+      case 'support': return (<div className="space-y-8 animate-in fade-in duration-500"><Breadcrumb items={[{ label: 'Painel', action: () => navigateTo('panel') }, { label: 'Suporte' }]} /><SupportWidget /></div>);
+
       // Ferramentas Free
       case 'manager': return (<Dashboard transactions={transactions} onDeleteTransaction={handleDeleteTransaction} onOpenForm={() => setActiveModal('transaction')} goals={goals} onAddGoal={handleAddGoal} onUpdateGoal={handleUpdateGoal} onDeleteGoal={handleDeleteGoal} isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('panel')} userMeta={userMeta} usagePercentage={usagePercentage} isPremium={isPro} />); 
       case 'compound': return (<div className="space-y-8 animate-in fade-in duration-500"><Breadcrumb items={[{ label: 'Painel', action: () => navigateTo('panel') }, { label: 'Juros Compostos' }]} /><CalculatorForm onCalculate={handleCalculate} />{result ? <ResultsDisplay result={result} isPrivacyMode={isPrivacyMode} /> : <div className="text-center text-slate-600 py-12 bg-slate-800/50 rounded-2xl border border-slate-800">Preencha os dados acima para simular.</div>}</div>);
@@ -211,7 +221,7 @@ const App: React.FC = () => {
       case 'roi': return <ProtectedTool requiredTier="pro"><Suspense fallback={<div>Carregando...</div>}><RoiCalculator {...navProps} isPrivacyMode={isPrivacyMode} /></Suspense></ProtectedTool>;
       case 'game': return <ProtectedTool requiredTier="pro"><Suspense fallback={<div>Carregando...</div>}><MiniGame {...navProps} isPrivacyMode={isPrivacyMode} /></Suspense></ProtectedTool>;
 
-      // Default (Outros)
+      // Default
       default: return <PublicHome onNavigate={navigateTo} onStartNow={handleStartNow} onAssetClick={handleAssetClick} />;
     }
   };
@@ -226,6 +236,9 @@ const App: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-3">
+            {/* Atalhos Rápidos */}
+            <button onClick={() => navigateTo('blog')} className="hidden md:block text-sm font-medium text-slate-400 hover:text-white transition-colors">Blog</button>
+            
             <button onClick={() => setIsPrivacyMode(!isPrivacyMode)} className="p-2 text-slate-400 hover:text-white transition-colors" title="Modo Privacidade">
               {isPrivacyMode ? '👁️' : '🙈'}
             </button>
@@ -250,7 +263,7 @@ const App: React.FC = () => {
         <MarketTicker onAssetClick={handleAssetClick} />
       </div>
 
-      {isAuthenticated && <MobileBottomNav currentTool={currentTool} onNavigate={navigateTo} onOpenMore={() => setActiveModal('menu_mobile')} />}
+      {isAuthenticated && <MobileBottomNav currentTool={currentTool as string} onNavigate={navigateTo} onOpenMore={() => setActiveModal('menu_mobile')} />}
       <AppInstallButton />
       <InstallPrompt />
       <BackToTop />
@@ -258,7 +271,7 @@ const App: React.FC = () => {
 
       <ContentModal isOpen={isAiChatOpen} onClose={() => setIsAiChatOpen(false)} title="Consultor Virtual IA">
          {isPremium ? (
-            <div className="h-[70vh] md:h-[600px]"><AiAdvisor transactions={transactions} currentCalcResult={result} goals={goals} currentTool={currentTool} /></div>
+            <div className="h-[70vh] md:h-[600px]"><AiAdvisor transactions={transactions} currentCalcResult={result} goals={goals} currentTool={currentTool as string} /></div>
          ) : (
             <div className="p-4">
                <Paywall source="ai_advisor_modal" title="Consultor IA Premium" description="Desbloqueie a análise avançada com Inteligência Artificial no plano Premium." highlights={["Análise de carteira", "Recomendações personalizadas"]} onUpgrade={() => { setIsAiChatOpen(false); navigateTo('upgrade'); }} />
