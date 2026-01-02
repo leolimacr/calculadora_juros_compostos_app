@@ -12,7 +12,7 @@ interface DividendSimulatorProps {
 }
 
 const DividendSimulator: React.FC<DividendSimulatorProps> = ({ isPrivacyMode = false, onNavigate }) => {
-  const { hasSitePremium, loadingSubscription } = useSubscriptionAccess();
+  const { isPro, loadingSubscription } = useSubscriptionAccess();
   
   const [input, setInput] = useState({
     initialInvestment: 1000,
@@ -43,7 +43,7 @@ const DividendSimulator: React.FC<DividendSimulatorProps> = ({ isPrivacyMode = f
     return <div className="w-full h-96 flex items-center justify-center text-slate-500">Verificando acesso...</div>;
   }
 
-  if (!hasSitePremium) {
+  if (!isPro) {
     return (
       <div className="space-y-6">
         <Breadcrumb items={[{ label: 'Home', action: () => onNavigate('panel') }, { label: 'Simulador de Dividendos' }]} />

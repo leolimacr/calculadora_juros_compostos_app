@@ -12,7 +12,7 @@ interface RoiCalculatorProps {
 }
 
 const RoiCalculator: React.FC<RoiCalculatorProps> = ({ isPrivacyMode = false, onNavigate }) => {
-  const { hasSitePremium, loadingSubscription } = useSubscriptionAccess();
+  const { isPro, loadingSubscription } = useSubscriptionAccess();
   
   const [input, setInput] = useState({
     initialInvestment: 50000,
@@ -40,7 +40,7 @@ const RoiCalculator: React.FC<RoiCalculatorProps> = ({ isPrivacyMode = false, on
 
   if (loadingSubscription) return <div className="w-full h-96 flex items-center justify-center text-slate-500">Verificando acesso...</div>;
 
-  if (!hasSitePremium) {
+  if (!isPro) {
     return (
       <div className="space-y-6">
         <Breadcrumb items={[{ label: 'Home', action: () => onNavigate('panel') }, { label: 'Calculadora ROI' }]} />

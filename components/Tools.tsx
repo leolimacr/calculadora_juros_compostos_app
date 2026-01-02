@@ -41,7 +41,7 @@ const ToolLoading = () => (
 // RENT VS FINANCE
 // =======================
 export const RentVsFinanceTool: React.FC<ToolProps> = ({ isPrivacyMode = false, onNavigate }) => {
-  const { hasSitePremium, loadingSubscription } = useSubscriptionAccess();
+  const { isPro, loadingSubscription } = useSubscriptionAccess();
   
   const [input, setInput] = useState({
     propertyValue: 500000,
@@ -56,7 +56,7 @@ export const RentVsFinanceTool: React.FC<ToolProps> = ({ isPrivacyMode = false, 
 
   if (loadingSubscription) return <ToolLoading />;
 
-  if (!hasSitePremium) {
+  if (!isPro) {
     return (
       <div className="space-y-6">
         <Breadcrumb items={[{ label: 'Home', action: () => onNavigate('panel') }, { label: 'Alugar vs Financiar' }]} />
@@ -134,7 +134,7 @@ export const RentVsFinanceTool: React.FC<ToolProps> = ({ isPrivacyMode = false, 
 // DEBT OPTIMIZER
 // =======================
 export const DebtOptimizerTool: React.FC<ToolProps> = ({ isPrivacyMode = false, onNavigate }) => {
-  const { hasSitePremium, loadingSubscription } = useSubscriptionAccess();
+  const { isPro, loadingSubscription } = useSubscriptionAccess();
   
   const [debts, setDebts] = useState<DebtItem[]>(() => {
     const saved = localStorage.getItem('finpro_debts');
@@ -154,7 +154,7 @@ export const DebtOptimizerTool: React.FC<ToolProps> = ({ isPrivacyMode = false, 
 
   if (loadingSubscription) return <ToolLoading />;
 
-  if (!hasSitePremium) {
+  if (!isPro) {
     return (
       <div className="space-y-6">
         <Breadcrumb items={[{ label: 'Home', action: () => onNavigate('panel') }, { label: 'Otimizador de Dívidas' }]} />
@@ -217,26 +217,13 @@ export const DebtOptimizerTool: React.FC<ToolProps> = ({ isPrivacyMode = false, 
 // FIRE CALCULATOR
 // =======================
 export const FireCalculatorTool: React.FC<ToolProps> = ({ isPrivacyMode = false, onNavigate }) => {
-  const { hasSitePremium, loadingSubscription } = useSubscriptionAccess();
+  const { loadingSubscription } = useSubscriptionAccess();
   const [expenses, setExpenses] = useState(5000);
   const [result, setResult] = useState<number>(0);
 
   if (loadingSubscription) return <ToolLoading />;
 
-  if (!hasSitePremium) {
-    return (
-      <div className="space-y-6">
-        <Breadcrumb items={[{ label: 'Home', action: () => onNavigate('panel') }, { label: 'Calculadora FIRE' }]} />
-        <Paywall 
-          source="fire_calculator" 
-          title="Planeje sua Independência Financeira"
-          description="Descubra o seu 'Número Mágico' para parar de trabalhar e viver de renda passiva."
-          highlights={["Regra dos 4% Automatizada", "Cálculo de Patrimônio Necessário", "Planejamento de Longo Prazo"]}
-          onUpgrade={() => onNavigate('upgrade')}
-        />
-      </div>
-    );
-  }
+  // Calculadora FIRE é gratuita, removido check de plano
 
   return (
     <div className="space-y-6">
@@ -267,16 +254,14 @@ export const FireCalculatorTool: React.FC<ToolProps> = ({ isPrivacyMode = false,
 // INFLATION TOOL
 // =======================
 export const InflationTool: React.FC<ToolProps> = ({ isPrivacyMode = false, onNavigate }) => {
-  const { hasSitePremium, loadingSubscription } = useSubscriptionAccess();
+  const { loadingSubscription } = useSubscriptionAccess();
   const [val, setVal] = useState(100);
   const [year, setYear] = useState(2010);
   const [res, setRes] = useState<any>(null);
 
   if (loadingSubscription) return <ToolLoading />;
 
-  // Inflation Tool é gratuito (Freemium Hook - Exemplo de feature liberada)
-  // Mas vamos bloquear para testar o hook se necessário. 
-  // Decisão: Manter Inflation Tool gratuita como "Isca", bloqueando as outras.
+  // Inflation Tool é gratuito
   
   return (
     <div className="space-y-6">

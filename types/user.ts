@@ -3,20 +3,36 @@ import { Timestamp } from 'firebase/firestore';
 
 export type SubscriptionPlan = 'free' | 'pro' | 'premium';
 
-export type SubscriptionStatus = "none" | "active" | "past_due" | "canceled" | "trialing";
+export type SubscriptionStatus = "active" | "canceled" | "past_due" | "trialing" | "incomplete" | "incomplete_expired" | "unpaid" | "paused";
+
+export interface UserToolsAccess {
+  gerenciador: boolean;
+  jurosCompostos: boolean;
+  calculadoraFire: boolean;
+  otimizadorDividas: boolean;
+  aluguelVsFinanciamento: boolean;
+  calculadoraRoi: boolean;
+  simuladorDividendos: boolean;
+  simuladorResiliencia: boolean;
+  iaAdvisor: boolean;
+  exportacao: boolean;
+}
 
 export interface UserSubscription {
   plan: SubscriptionPlan;
   status: SubscriptionStatus;
-  startDate?: Timestamp;
-  expiryDate?: Timestamp;
   stripeCustomerId?: string;
   stripeSubscriptionId?: string;
+  startDate?: Timestamp;
+  currentPeriodStart?: Timestamp;
+  currentPeriodEnd?: Timestamp;
   trialEndDate?: Timestamp;
+  cancelAtPeriodEnd?: boolean;
+  expiryDate?: Timestamp;
 }
 
 export interface UserAccess {
-  // Legacy flags compatibility (mapped from plan)
+  // Legacy flags compatibility
   app_premium: boolean;
   site_premium: boolean;
   emailVerified: boolean;
@@ -26,10 +42,21 @@ export interface AppUserDoc {
   uid: string;
   email: string;
   displayName?: string;
-  plan: SubscriptionPlan; // Main source of truth
+  
+  // Monetização
+  plan: SubscriptionPlan;
   subscription?: UserSubscription;
-  access?: UserAccess; // Optional/Derived
+  toolsAccess?: UserToolsAccess;
+  
+  // Referral
+  referralCode?: string;
+  referralCount?: number;
+  referralEarnings?: number;
+
+  // Metadata
+  access?: UserAccess; 
   createdAt?: Timestamp;
+  updatedAt?: Timestamp;
 }
 
 // --- Helpers ---
@@ -48,7 +75,5 @@ export const hasPremiumAccess = (plan: SubscriptionPlan): boolean => {
 
 export const isAppPremium = (user: AppUserDoc | null): boolean => {
   if (!user) return false;
-  // Returns true if user has Pro or Premium plan (Unlimited Access)
-  // Also checks legacy flags
   return hasProAccess(user.plan || 'free') || !!user.access?.app_premium || !!user.access?.site_premium;
 };

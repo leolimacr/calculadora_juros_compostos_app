@@ -17,7 +17,7 @@ const EVENTS: GameEvent[] = [
 ];
 
 const MiniGame: React.FC<MiniGameProps> = ({ isPrivacyMode = false, onNavigate }) => {
-  const { hasSitePremium, loadingSubscription } = useSubscriptionAccess();
+  const { isPro, loadingSubscription } = useSubscriptionAccess();
   
   const [game, setGame] = useState<GameState>({
     month: 1, balance: 3000, investments: 0, happiness: 80, incomeRate: 1.0, logs: [], gameOver: false, victory: false, score: 0, badges: []
@@ -30,7 +30,7 @@ const MiniGame: React.FC<MiniGameProps> = ({ isPrivacyMode = false, onNavigate }
 
   if (loadingSubscription) return <div className="w-full h-96 flex items-center justify-center text-slate-500">Verificando acesso...</div>;
 
-  if (!hasSitePremium) {
+  if (!isPro) {
     return (
       <div className="space-y-6">
         <Breadcrumb items={[{ label: 'Home', action: () => onNavigate('panel') }, { label: 'Simulador de Resiliência' }]} />
