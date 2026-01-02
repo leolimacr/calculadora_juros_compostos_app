@@ -3,26 +3,29 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
-import { AppUserDoc, isSitePremium, isAppPremium } from '../types/user';
+import { AppUserDoc, hasProAccess, hasPremiumAccess, SubscriptionPlan } from '../types/user';
 
 export function useSubscriptionAccess() {
   const { user } = useAuth();
   const [data, setData] = useState<{
-    hasSitePremium: boolean;
-    hasAppPremium: boolean;
+    plan: SubscriptionPlan;
+    isPro: boolean;
+    isPremium: boolean;
     loadingSubscription: boolean;
     expiryDate?: Date;
   }>({
-    hasSitePremium: false,
-    hasAppPremium: false,
+    plan: 'free',
+    isPro: false,
+    isPremium: false,
     loadingSubscription: true,
   });
 
   useEffect(() => {
     if (!user) {
       setData({
-        hasSitePremium: false,
-        hasAppPremium: false,
+        plan: 'free',
+        isPro: false,
+        isPremium: false,
         loadingSubscription: false,
       });
       return;
@@ -32,22 +35,35 @@ export function useSubscriptionAccess() {
     const unsubscribe = onSnapshot(doc(db, "users", user.uid), (docSnap) => {
       if (docSnap.exists()) {
         const userData = docSnap.data() as AppUserDoc;
+        const plan = userData.plan || 'free';
         
-        const siteAccess = isSitePremium(userData);
-        const appAccess = isAppPremium(userData);
-        const expiryDate = userData.subscription?.expiryDate?.toDate();
+        // Verifica validade (se existir data de expiração)
+        let isValid = true;
+        let expiryDate: Date | undefined;
+        
+        if (userData.subscription?.expiryDate) {
+          expiryDate = userData.subscription.expiryDate.toDate();
+          if (expiryDate < new Date()) {
+            isValid = false;
+          }
+        }
+
+        // Se expirou, fallback para free
+        const activePlan = isValid ? plan : 'free';
 
         setData({
-          hasSitePremium: siteAccess,
-          hasAppPremium: appAccess,
+          plan: activePlan,
+          isPro: hasProAccess(activePlan),
+          isPremium: hasPremiumAccess(activePlan),
           loadingSubscription: false,
           expiryDate: expiryDate,
         });
       } else {
-        // Usuário existe no Auth mas não tem doc no Firestore ainda (recém criado)
+        // Usuário novo sem doc ainda
         setData({
-          hasSitePremium: false,
-          hasAppPremium: false,
+          plan: 'free',
+          isPro: false,
+          isPremium: false,
           loadingSubscription: false,
         });
       }

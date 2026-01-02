@@ -3,12 +3,12 @@ import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { useAuth } from './contexts/AuthContext';
 import { useFirebase } from './hooks/useFirebase';
 import { useSubscriptionAccess } from './hooks/useSubscriptionAccess';
-import { CalculationInput, CalculationResult, Transaction, Goal, MarketQuote, ToolView, ToastMessage } from './types';
+import { CalculationInput, CalculationResult, Goal, MarketQuote, ToolView, ToastMessage } from './types';
 import { calculateCompoundInterest } from './utils/calculations';
 
 // Components
 import { PublicHome, DemoPage, GuidesPage, FaqPage, AboutPage } from './components/PublicPages';
-import { TermsPage, PrivacyPage } from './components/LegalPages'; // Importação corrigida
+import { TermsPage, PrivacyPage } from './components/LegalPages';
 import UserPanel from './components/UserPanel';
 import SettingsPage from './components/SettingsPage';
 import ProfilePage from './components/ProfilePage';
@@ -30,6 +30,7 @@ import { HeaderInstallAction } from './components/HeaderInstallAction';
 import MobileBottomNav from './components/MobileBottomNav';
 import PaywallModal from './components/PaywallModal';
 import UserMenu from './components/UserMenu';
+import Paywall from './components/Paywall'; // Used for protected routes
 
 import AuthLogin from './components/Auth/AuthLogin';
 import AuthRegister from './components/Auth/AuthRegister';
@@ -52,8 +53,8 @@ const PRIVATE_TOOLS = ['manager', 'compound', 'rent', 'debt', 'fire', 'dividend'
 
 const App: React.FC = () => {
   const { user, isAuthenticated, verifyEmail, logout } = useAuth();
-  const { lancamentos: transactions, saveLancamento, deleteLancamento, userMeta, usagePercentage, isLimitReached, isPremium } = useFirebase(user?.uid || 'guest_placeholder');
-  const { hasSitePremium } = useSubscriptionAccess();
+  const { lancamentos: transactions, saveLancamento, deleteLancamento, userMeta, usagePercentage, isLimitReached } = useFirebase(user?.uid || 'guest_placeholder');
+  const { isPro, isPremium, loadingSubscription } = useSubscriptionAccess(); // New Hook Data
 
   const [currentTool, setCurrentTool] = useState<ToolView>('home');
   const [result, setResult] = useState<CalculationResult | null>(null);
@@ -67,7 +68,7 @@ const App: React.FC = () => {
   const [urlSymbol, setUrlSymbol] = useState<string | null>(null);
   const [verificationStatus, setVerificationStatus] = useState<'loading' | 'success' | 'error'>('loading');
 
-  // Persistence for goals (Local Storage for simplicity in this version)
+  // Persistence for goals
   useEffect(() => {
     const savedGoals = localStorage.getItem('finpro_goals');
     if (savedGoals) setGoals(JSON.parse(savedGoals));
@@ -77,7 +78,7 @@ const App: React.FC = () => {
     localStorage.setItem('finpro_goals', JSON.stringify(goals));
   }, [goals]);
 
-  // Handle URL Params (Routing & Verification)
+  // Handle URL Params
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const tool = params.get('tool');
@@ -92,12 +93,9 @@ const App: React.FC = () => {
       });
     } else if (mode === 'resetPassword' && oobCode) {
       setCurrentTool('reset-password');
-      // In a real app, you would pass the code to the reset password component
     } else {
       if (tool) setCurrentTool(tool as ToolView);
-      if (symbol) {
-        setUrlSymbol(symbol);
-      }
+      if (symbol) setUrlSymbol(symbol);
     }
   }, []);
 
@@ -151,13 +149,39 @@ const App: React.FC = () => {
     else navigateTo('register');
   };
 
-  // Goals Handlers
   const handleAddGoal = (g: any) => setGoals([...goals, { ...g, id: Math.random().toString() }]);
   const handleUpdateGoal = (id: string, amount: number) => setGoals(goals.map(g => g.id === id ? { ...g, currentAmount: amount } : g));
   const handleDeleteGoal = (id: string) => setGoals(goals.filter(g => g.id !== id));
 
   const [expenseCategories, setExpenseCategories] = useState(['Alimentação', 'Moradia', 'Transporte', 'Lazer', 'Saúde']);
   const [incomeCategories, setIncomeCategories] = useState(['Salário', 'Freelance', 'Investimentos', 'Outros']);
+
+  // --- ACCESS CONTROL HELPER ---
+  const ProtectedTool: React.FC<React.PropsWithChildren<{ requiredTier?: 'pro' | 'premium' }>> = ({ children, requiredTier = 'pro' }) => {
+    if (loadingSubscription) return <div className="p-8 text-center text-slate-500">Carregando permissões...</div>;
+    
+    const hasAccess = requiredTier === 'premium' ? isPremium : isPro;
+
+    if (!hasAccess) {
+      return (
+        <div className="space-y-6">
+          <Breadcrumb items={[{ label: 'Painel', action: () => navigateTo('panel') }, { label: 'Recurso Bloqueado' }]} />
+          <Paywall 
+            source={`blocked_tool_${currentTool}`}
+            title={`Ferramenta ${requiredTier === 'premium' ? 'Premium' : 'Pro'}`}
+            description={`Esta ferramenta está disponível exclusivamente no plano ${requiredTier === 'premium' ? 'Premium' : 'Pro'}. Faça o upgrade para desbloquear.`}
+            highlights={[
+              "Acesso total às ferramentas",
+              "Lançamentos ilimitados",
+              "Análise avançada"
+            ]}
+            onUpgrade={() => navigateTo('upgrade')}
+          />
+        </div>
+      );
+    }
+    return <>{children}</>;
+  };
 
   const renderContent = () => {
     if (PRIVATE_TOOLS.includes(currentTool) && !isAuthenticated) {
@@ -167,6 +191,7 @@ const App: React.FC = () => {
     const navProps = { onNavigate: navigateTo };
 
     switch(currentTool) {
+      // Rotas Públicas
       case 'home': return <PublicHome onNavigate={navigateTo} onStartNow={handleStartNow} onAssetClick={handleAssetClick} />;
       case 'register': return (<div className="flex flex-col items-center justify-center min-h-[70vh]"><div className="bg-slate-800 border border-slate-700 p-8 rounded-3xl shadow-2xl w-full max-w-md"><AuthRegister onSuccess={() => setCurrentTool('panel')} onSwitchToLogin={() => setCurrentTool('login')} /></div></div>);
       case 'login': return (<div className="flex flex-col items-center justify-center min-h-[70vh]"><div className="bg-slate-800 border border-slate-700 p-8 rounded-3xl shadow-2xl w-full max-w-md"><AuthLogin onSuccess={() => setCurrentTool('panel')} onSwitchToRegister={() => setCurrentTool('register')} /></div></div>);
@@ -180,28 +205,28 @@ const App: React.FC = () => {
       case 'sobre': return <AboutPage onNavigate={navigateTo} />;
       case 'termos-de-uso': return <TermsPage />;
       case 'politica-privacidade': return <PrivacyPage />;
-      
+      case 'verify-email': return (<div className="flex items-center justify-center min-h-[70vh]"><div className="bg-slate-800 border border-slate-700 p-8 rounded-3xl shadow-2xl max-w-md w-full text-center">{verificationStatus === 'loading' ? 'Verificando...' : (verificationStatus === 'success' ? 'E-mail verificado com sucesso! Pode fazer login.' : 'Link inválido ou expirado.')}</div></div>);
+      case 'reset-password': return (<div className="flex items-center justify-center min-h-[70vh]"><div className="bg-slate-800 border border-slate-700 p-8 rounded-3xl shadow-2xl max-w-md w-full"><p className="text-white text-center">Redefinição de Senha<br/><span className="text-slate-400 text-sm">Verifique seu e-mail para o link.</span></p></div></div>);
+
+      // Rotas Privadas (Gerais/Free)
       case 'panel': return <UserPanel onNavigate={navigateTo} onAssetClick={handleAssetClick} />; 
       case 'settings': return <SettingsPage onOpenChangePassword={() => setActiveModal('change_password')} />;
       case 'perfil': return <ProfilePage onOpenChangePassword={() => setActiveModal('change_password')} navigateToHome={() => navigateTo('panel')} />;
-
       case 'asset_details': return (<AssetDetailsPage symbol={selectedAsset?.symbol || urlSymbol || ''} initialAsset={selectedAsset} onBack={() => navigateTo('panel')} />);
-
-      case 'compound': return (<div className="space-y-8 animate-in fade-in duration-500"><Breadcrumb items={[{ label: 'Painel', action: () => navigateTo('panel') }, { label: 'Juros Compostos' }]} /><CalculatorForm onCalculate={handleCalculate} />{result ? <ResultsDisplay result={result} isPrivacyMode={isPrivacyMode} /> : <div className="text-center text-slate-600 py-12 bg-slate-800/50 rounded-2xl border border-slate-800">Preencha os dados acima para simular.</div>}</div>);
-      case 'manager': return (<Dashboard transactions={transactions} onDeleteTransaction={handleDeleteTransaction} onOpenForm={() => setActiveModal('transaction')} goals={goals} onAddGoal={handleAddGoal} onUpdateGoal={handleUpdateGoal} onDeleteGoal={handleDeleteGoal} isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('panel')} userMeta={userMeta} usagePercentage={usagePercentage} isPremium={isPremium} />);
-      
-      case 'rent': return <Suspense fallback={<div>Carregando...</div>}><RentVsFinanceTool {...navProps} isPrivacyMode={isPrivacyMode} /></Suspense>;
-      case 'debt': return <Suspense fallback={<div>Carregando...</div>}><DebtOptimizerTool {...navProps} isPrivacyMode={isPrivacyMode} /></Suspense>;
-      case 'fire': return <Suspense fallback={<div>Carregando...</div>}><FireCalculatorTool {...navProps} isPrivacyMode={isPrivacyMode} /></Suspense>;
-      case 'inflation': return <Suspense fallback={<div>Carregando...</div>}><InflationTool {...navProps} isPrivacyMode={isPrivacyMode} /></Suspense>;
-      case 'dividend': return <Suspense fallback={<div>Carregando...</div>}><DividendSimulator {...navProps} isPrivacyMode={isPrivacyMode} /></Suspense>;
-      case 'roi': return <Suspense fallback={<div>Carregando...</div>}><RoiCalculator {...navProps} isPrivacyMode={isPrivacyMode} /></Suspense>;
-      case 'game': return <Suspense fallback={<div>Carregando...</div>}><MiniGame {...navProps} isPrivacyMode={isPrivacyMode} /></Suspense>;
-      
       case 'education': return (<div className="space-y-8 animate-in fade-in duration-500"><Breadcrumb items={[{ label: 'Painel', action: () => navigateTo('panel') }, { label: 'Academia Financeira' }]} /><h2 className="text-3xl font-bold text-white mb-8">Academia Finanças Pro Invest</h2><EducationalContent onOpenPlans={() => navigateTo('upgrade')} /></div>);
       
-      case 'verify-email': return (<div className="flex items-center justify-center min-h-[70vh]"><div className="bg-slate-800 border border-slate-700 p-8 rounded-3xl shadow-2xl max-w-md w-full text-center">{verificationStatus === 'loading' ? 'Verificando...' : (verificationStatus === 'success' ? 'E-mail verificado com sucesso! Pode fazer login.' : 'Link inválido ou expirado.')}</div></div>);
-      case 'reset-password': return (<div className="flex items-center justify-center min-h-[70vh]"><div className="bg-slate-800 border border-slate-700 p-8 rounded-3xl shadow-2xl max-w-md w-full"><p className="text-white text-center">Redefinição de Senha<br/><span className="text-slate-400 text-sm">Verifique seu e-mail para o link.</span></p></div></div>);
+      // Ferramentas Free (Core)
+      case 'manager': return (<Dashboard transactions={transactions} onDeleteTransaction={handleDeleteTransaction} onOpenForm={() => setActiveModal('transaction')} goals={goals} onAddGoal={handleAddGoal} onUpdateGoal={handleUpdateGoal} onDeleteGoal={handleDeleteGoal} isPrivacyMode={isPrivacyMode} navigateToHome={() => navigateTo('panel')} userMeta={userMeta} usagePercentage={usagePercentage} isPremium={isPro} />); // isPro remove ads/bar
+      case 'compound': return (<div className="space-y-8 animate-in fade-in duration-500"><Breadcrumb items={[{ label: 'Painel', action: () => navigateTo('panel') }, { label: 'Juros Compostos' }]} /><CalculatorForm onCalculate={handleCalculate} />{result ? <ResultsDisplay result={result} isPrivacyMode={isPrivacyMode} /> : <div className="text-center text-slate-600 py-12 bg-slate-800/50 rounded-2xl border border-slate-800">Preencha os dados acima para simular.</div>}</div>);
+      case 'fire': return <Suspense fallback={<div>Carregando...</div>}><FireCalculatorTool {...navProps} isPrivacyMode={isPrivacyMode} /></Suspense>;
+      
+      // Ferramentas PRO (Requer Assinatura)
+      case 'rent': return <ProtectedTool requiredTier="pro"><Suspense fallback={<div>Carregando...</div>}><RentVsFinanceTool {...navProps} isPrivacyMode={isPrivacyMode} /></Suspense></ProtectedTool>;
+      case 'debt': return <ProtectedTool requiredTier="pro"><Suspense fallback={<div>Carregando...</div>}><DebtOptimizerTool {...navProps} isPrivacyMode={isPrivacyMode} /></Suspense></ProtectedTool>;
+      case 'inflation': return <ProtectedTool requiredTier="pro"><Suspense fallback={<div>Carregando...</div>}><InflationTool {...navProps} isPrivacyMode={isPrivacyMode} /></Suspense></ProtectedTool>;
+      case 'dividend': return <ProtectedTool requiredTier="pro"><Suspense fallback={<div>Carregando...</div>}><DividendSimulator {...navProps} isPrivacyMode={isPrivacyMode} /></Suspense></ProtectedTool>;
+      case 'roi': return <ProtectedTool requiredTier="pro"><Suspense fallback={<div>Carregando...</div>}><RoiCalculator {...navProps} isPrivacyMode={isPrivacyMode} /></Suspense></ProtectedTool>;
+      case 'game': return <ProtectedTool requiredTier="pro"><Suspense fallback={<div>Carregando...</div>}><MiniGame {...navProps} isPrivacyMode={isPrivacyMode} /></Suspense></ProtectedTool>;
 
       default: return <PublicHome onNavigate={navigateTo} onStartNow={handleStartNow} onAssetClick={handleAssetClick} />;
     }
@@ -209,7 +234,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-200 flex flex-col font-sans selection:bg-emerald-500/30">
-      {/* Header */}
       <header className="sticky top-0 z-40 bg-[#020617]/80 backdrop-blur-lg border-b border-slate-800 no-print">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigateTo('home')}>
@@ -251,22 +275,34 @@ const App: React.FC = () => {
       <BackToTop />
       <ToastContainer toasts={toasts} removeToast={removeToast} />
 
+      {/* IA Modal - Protected by Premium Tier */}
       <ContentModal isOpen={isAiChatOpen} onClose={() => setIsAiChatOpen(false)} title="Consultor Virtual IA">
-         <div className="h-[70vh] md:h-[600px]"><AiAdvisor transactions={transactions} currentCalcResult={result} goals={goals} currentTool={currentTool} /></div>
+         {isPremium ? (
+            <div className="h-[70vh] md:h-[600px]"><AiAdvisor transactions={transactions} currentCalcResult={result} goals={goals} currentTool={currentTool} /></div>
+         ) : (
+            <div className="p-4">
+               <Paywall 
+                  source="ai_advisor_modal"
+                  title="Consultor IA Premium" 
+                  description="Desbloqueie a análise avançada com Inteligência Artificial no plano Premium."
+                  highlights={["Análise de carteira", "Recomendações personalizadas", "Tira-dúvidas 24/7"]}
+                  onUpgrade={() => { setIsAiChatOpen(false); navigateTo('upgrade'); }}
+               />
+            </div>
+         )}
       </ContentModal>
 
       {/* Floating Action Button for IA */}
       {isAuthenticated && !isAiChatOpen && (
         <button 
           onClick={() => setIsAiChatOpen(true)}
-          className="fixed bottom-24 left-6 lg:bottom-12 lg:left-12 z-30 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg transition-transform hover:scale-110 no-print"
+          className={`fixed bottom-24 left-6 lg:bottom-12 lg:left-12 z-30 text-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg transition-transform hover:scale-110 no-print ${isPremium ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-slate-700 hover:bg-slate-600 grayscale'}`}
           title="Consultor IA"
         >
-          🤖
+          {isPremium ? '🤖' : '🔒'}
         </button>
       )}
 
-      {/* Modals */}
       <ContentModal isOpen={activeModal === 'transaction'} onClose={() => setActiveModal(null)} title="Novo Lançamento">
          <TransactionForm 
             onSave={handleAddTransaction} 
