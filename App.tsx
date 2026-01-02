@@ -7,7 +7,8 @@ import { CalculationInput, CalculationResult, Transaction, Goal, MarketQuote, To
 import { calculateCompoundInterest } from './utils/calculations';
 
 // Components
-import { PublicHome, DemoPage, GuidesPage, FaqPage, AboutPage, TermsPage, PrivacyPage } from './components/PublicPages';
+import { PublicHome, DemoPage, GuidesPage, FaqPage, AboutPage } from './components/PublicPages';
+import { TermsPage, PrivacyPage } from './components/LegalPages'; // Importação corrigida
 import UserPanel from './components/UserPanel';
 import SettingsPage from './components/SettingsPage';
 import ProfilePage from './components/ProfilePage';
