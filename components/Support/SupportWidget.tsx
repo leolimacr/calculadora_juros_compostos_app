@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import firebase from 'firebase/app';
+import firebase from 'firebase/compat/app';
 import { db } from '../../firebase';
 
 const SupportWidget: React.FC = () => {

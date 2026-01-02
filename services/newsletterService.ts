@@ -1,5 +1,5 @@
 
-import firebase from 'firebase/app';
+import firebase from 'firebase/compat/app';
 import { database, authReadyPromise } from '../firebase';
 
 /**

@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import firebase from 'firebase/app';
+import firebase from 'firebase/compat/app';
 import { auth, database } from '../firebase';
 
 // Tipagem estendida para compatibilidade com o resto do app

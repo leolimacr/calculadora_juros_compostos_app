@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useMemo } from 'react';
-import firebase from 'firebase/app';
+import firebase from 'firebase/compat/app';
 import { database, authReadyPromise, db } from '../firebase';
 import { v4 as uuidv4 } from 'uuid';
 import { UserMeta } from '../types';
