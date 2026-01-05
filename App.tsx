@@ -192,7 +192,7 @@ const App: React.FC = () => {
       case 'home': return <PublicHome onNavigate={navigateTo} onStartNow={handleStartNow} onAssetClick={handleAssetClick} />;
       case 'demo': return <DemoPage onNavigate={navigateTo} />;
       case 'guias': return <GuidesPage onNavigate={navigateTo} />;
-      case 'faq': return <FaqPage onNavigate={navigateTo} />;
+      case 'faq': return <FaqPage />;
       case 'sobre': return <AboutPage onNavigate={navigateTo} />;
       case 'termos-de-uso': return <TermsPage />;
       case 'politica-privacidade': return <PrivacyPage />;
@@ -253,52 +253,4 @@ const App: React.FC = () => {
             {isAuthenticated ? (
                <UserMenu onOpenChangePassword={() => setActiveModal('change_password')} onNavigateSettings={() => navigateTo('settings')} onLogout={() => { logout(); navigateTo('home'); }} />
             ) : (
-               <button onClick={() => navigateTo('login')} className="text-sm font-bold text-white hover:text-emerald-400 transition-colors">Entrar</button>
-            )}
-          </div>
-        </div>
-      </header>
-
-      <main className="flex-grow container mx-auto px-4 py-8 relative z-10 pb-20">
-        {renderContent()}
-      </main>
-
-      <Footer onNavigate={navigateTo} />
-      
-      {/* Ticker Global (Sticky Bottom) */}
-      <div className="no-print">
-        <MarketTicker onAssetClick={handleAssetClick} />
-      </div>
-
-      {isAuthenticated && <MobileBottomNav currentTool={currentTool as string} onNavigate={navigateTo} onOpenMore={() => setActiveModal('menu_mobile')} />}
-      <AppInstallButton />
-      <InstallPrompt />
-      <BackToTop />
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
-
-      <ContentModal isOpen={isAiChatOpen} onClose={() => setIsAiChatOpen(false)} title="Consultor Virtual IA">
-         {isPremium ? (
-            <div className="h-[70vh] md:h-[600px]"><AiAdvisor transactions={transactions} currentCalcResult={result} goals={goals} currentTool={currentTool as string} /></div>
-         ) : (
-            <div className="p-4">
-               <Paywall source="ai_advisor_modal" title="Consultor IA Premium" description="Desbloqueie a análise avançada com Inteligência Artificial no plano Premium." highlights={["Análise de carteira", "Recomendações personalizadas"]} onUpgrade={() => { setIsAiChatOpen(false); navigateTo('upgrade'); }} />
-            </div>
-         )}
-      </ContentModal>
-
-      {isAuthenticated && !isAiChatOpen && (
-        <button onClick={() => setIsAiChatOpen(true)} className={`fixed bottom-24 left-6 lg:bottom-12 lg:left-12 z-30 text-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg transition-transform hover:scale-110 no-print ${isPremium ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-slate-700 hover:bg-slate-600 grayscale'}`} title="Consultor IA">
-          {isPremium ? '🤖' : '🔒'}
-        </button>
-      )}
-
-      <ContentModal isOpen={activeModal === 'transaction'} onClose={() => setActiveModal(null)} title="Novo Lançamento">
-         <TransactionForm onSave={handleAddTransaction} onCancel={() => setActiveModal(null)} expenseCategories={expenseCategories} incomeCategories={incomeCategories} onUpdateExpenseCategories={setExpenseCategories} onUpdateIncomeCategories={setIncomeCategories} />
-      </ContentModal>
-
-      <PaywallModal isOpen={activeModal === 'paywall'} onClose={() => setActiveModal(null)} onNavigate={navigateTo} userMeta={userMeta} />
-    </div>
-  );
-}
-
-export default App;
+               <button
