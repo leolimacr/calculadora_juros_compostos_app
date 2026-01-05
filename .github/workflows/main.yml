@@ -1,0 +1,60 @@
+name: Sync Main to Staging (Auto) + Promote to Production (Manual)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync-to-staging:
+    name: Sync Main → Staging (Automatic)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Merge main into staging
+        run: |
+          git config --global user.name 'github-actions'
+          git config --global user.email 'github-actions@github.com'
+          git checkout staging
+          git merge --no-ff main -m "Auto-merge main into staging for testing"
+          git push origin staging
+
+  create-promotion-pr:
+    name: Create Manual Promotion PR (Staging → Main)
+    needs: sync-to-staging
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check for open promotion PR
+        id: check-pr
+        run: |
+          PR_COUNT=$(gh pr list --head staging --base main --state open --json number -q 'length' || echo 0)
+          echo "open_pr_count=$PR_COUNT" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create or comment on promotion PR
+        if: steps.check-pr.outputs.open_pr_count == '0'
+        run: |
+          gh pr create \
+            --base main \
+            --head staging \
+            --title "[MANUAL REVIEW] Promote staging → production" \
+            --body "## Promotion Request\n\n✅ **Staging is ready for testing**\n\n- Automatic merge from main → staging completed\n- Preview URL: https://calculadora-juros-compostos-amixdgc7.vercel.app\n- **ACTION REQUIRED**: Review changes in preview and approve this PR to deploy to production\n\n### Testing Checklist\n- [ ] Tested all features in preview\n- [ ] No console errors\n- [ ] No visual regressions\n- [ ] Performance acceptable\n\n**Once approved by maintainer, this PR will merge and deploy to production.**"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
