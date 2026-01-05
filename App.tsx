@@ -192,7 +192,7 @@ const App: React.FC = () => {
       case 'home': return <PublicHome onNavigate={navigateTo} onStartNow={handleStartNow} onAssetClick={handleAssetClick} />;
       case 'demo': return <DemoPage onNavigate={navigateTo} />;
       case 'guias': return <GuidesPage onNavigate={navigateTo} />;
-      case 'faq': return <FaqPage onNavigate={navigateTo} />;
+      case 'faq': return <FaqPage />;
       case 'sobre': return <AboutPage onNavigate={navigateTo} />;
       case 'termos-de-uso': return <TermsPage />;
       case 'politica-privacidade': return <PrivacyPage />;
@@ -210,6 +210,7 @@ const App: React.FC = () => {
       // Privadas (Gerais)
       case 'panel': return <UserPanel onNavigate={navigateTo} onAssetClick={handleAssetClick} />; 
       case 'settings': return <SettingsPage onOpenChangePassword={() => setActiveModal('change_password')} />;
+      case 'perfil': return <ProfilePage onOpenChangePassword={() => setActiveModal('change_password')} navigateToHome={() => navigateTo('panel')} />;
       case 'asset_details': return (<AssetDetailsPage symbol={selectedAsset?.symbol || urlSymbol || ''} initialAsset={selectedAsset} onBack={() => navigateTo('panel')} />);
       
       // Nova Rota: Suporte (Privada)
