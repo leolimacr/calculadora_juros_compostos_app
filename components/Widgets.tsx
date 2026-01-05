@@ -20,7 +20,7 @@ export const NewsWidget = () => {
     <div className="bg-slate-800/50 rounded-2xl border border-slate-700 p-5 h-fit shadow-lg">
       <div className="flex items-center gap-2 mb-4 border-b border-slate-700 pb-2">
         <span className="text-xl">📰</span>
-        <h3 className="font-bold text-white text-sm uppercase tracking-wide">Em Destaque</h3>
+        <h3 className="font-bold text-yellow-400 text-sm uppercase tracking-wide">Em Destaque</h3>
       </div>
       <div className="space-y-4">
         {news.map(item => (
@@ -124,7 +124,7 @@ export const MarketTickerBar: React.FC<{ onAssetClick?: (asset: MarketQuote) => 
         </div>
     );
 
-    // Filtra ativos principais para o ticker
+    // Filtra ativos relevantes para o ticker
     const tickerItems = quotes.filter(q => 
         ['USD', 'EUR', 'IBOV', 'VALE3', 'PETR4', 'ITUB4'].includes(q.symbol) || 
         q.category === 'crypto'
