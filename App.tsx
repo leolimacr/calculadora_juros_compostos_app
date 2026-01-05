@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { useAuth } from './contexts/AuthContext';
 import { useFirebase } from './hooks/useFirebase';
@@ -191,6 +190,14 @@ const App: React.FC = () => {
     switch(currentTool) {
       // Públicas
       case 'home': return <PublicHome onNavigate={navigateTo} onStartNow={handleStartNow} onAssetClick={handleAssetClick} />;
+      case 'demo': return <DemoPage onNavigate={navigateTo} />;
+      case 'guias': return <GuidesPage onNavigate={navigateTo} />;
+      case 'faq': return <FaqPage onNavigate={navigateTo} />;
+      case 'sobre': return <AboutPage onNavigate={navigateTo} />;
+      case 'termos-de-uso': return <TermsPage />;
+      case 'politica-privacidade': return <PrivacyPage />;
+      case 'changelog': return <ChangelogPage />;
+      
       case 'register': return (<div className="flex flex-col items-center justify-center min-h-[70vh]"><div className="bg-slate-800 border border-slate-700 p-8 rounded-3xl shadow-2xl w-full max-w-md"><AuthRegister onSuccess={() => setCurrentTool('panel')} onSwitchToLogin={() => setCurrentTool('login')} /></div></div>);
       case 'login': return (<div className="flex flex-col items-center justify-center min-h-[70vh]"><div className="bg-slate-800 border border-slate-700 p-8 rounded-3xl shadow-2xl w-full max-w-md"><AuthLogin onSuccess={() => setCurrentTool('panel')} onSwitchToRegister={() => setCurrentTool('register')} /></div></div>);
       case 'upgrade': return <UpgradePage onBack={() => navigateTo('panel')} />;
