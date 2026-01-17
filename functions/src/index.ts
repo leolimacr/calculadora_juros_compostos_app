@@ -6,7 +6,7 @@ if (!admin.apps.length) {
 }
 
 // 🔴 MANTENHA SUA CHAVE DA GROQ AQUI 🔴
-const GROQ_API_KEY = "CHAVE_CONFIGURADA_NO_ENV";
+const GROQ_API_KEY = "CHAVE_PROTEGIDA_PELO_DESENVOLVEDOR";
 
 export const getAiAdvice = functions.https.onCall(async (data, context) => {
   if (!context.auth) {

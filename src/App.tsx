@@ -46,7 +46,16 @@ const App: React.FC = () => {
   const { isPro, isPremium } = useSubscriptionAccess();
   
   const isNative = Capacitor.isNativePlatform();
-  const [currentTool, setCurrentTool] = useState<string>('manager');
+  const [currentTool, setCurrentTool] = useState<string>(() => {
+    if (Capacitor.isNativePlatform()) return 'manager';
+    
+    // Verifica a URL do navegador
+    const path = window.location.pathname;
+    if (path.includes('pricing')) return 'pricing';
+    if (path.includes('simulador')) return 'compound';
+    
+    return 'home';
+  });
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [isPrivacyMode, setIsPrivacyMode] = useState(false);
