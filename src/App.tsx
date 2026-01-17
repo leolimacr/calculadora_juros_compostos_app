@@ -224,3 +224,4 @@ const App: React.FC = () => {
   );
 }
 export default App;
+// Versão Final 1.0.0
