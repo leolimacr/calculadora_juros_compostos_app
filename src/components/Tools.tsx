@@ -1,0 +1,1 @@
+import React from 'react'; export const RentVsFinanceTool = () => <div>Rent</div>; export const DebtOptimizerTool = () => <div>Debt</div>; export const FireCalculatorTool = () => <div>FIRE</div>; export const InflationTool = () => <div>Inflation</div>;

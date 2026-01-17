@@ -1,0 +1,1 @@
+import React from 'react'; export const PublicHome = () => <div>Home</div>; export const DemoPage = () => null; export const GuidesPage = () => null; export const FaqPage = () => null; export const AboutPage = () => null;

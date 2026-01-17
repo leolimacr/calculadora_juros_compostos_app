@@ -1,49 +1,27 @@
-
 import React from 'react';
-import { UserMeta } from '../types';
 
-interface UsageIndicatorProps {
-  userMeta: UserMeta | null;
-  usagePercentage: number;
-  isPremium: boolean;
-}
+const UsageIndicator: React.FC<any> = ({ userMeta, usagePercentage, isPremium }) => {
+  // Se for Premium ou se os dados ainda não carregaram, não mostra nada
+  if (isPremium || !userMeta || typeof userMeta.launchCount !== 'number') return null;
 
-const UsageIndicator: React.FC<UsageIndicatorProps> = ({ userMeta, usagePercentage, isPremium }) => {
-  if (!userMeta || isPremium) return null;
-
-  const count = userMeta.launchCount;
-  const limit = userMeta.launchLimit;
-  
-  // Cores baseadas no uso
-  let colorClass = 'bg-emerald-500';
-  let textClass = 'text-emerald-400';
-  
-  if (usagePercentage > 70) { colorClass = 'bg-yellow-500'; textClass = 'text-yellow-400'; }
-  if (usagePercentage >= 100) { colorClass = 'bg-red-500'; textClass = 'text-red-400'; }
+  // Garante que a porcentagem é um número válido entre 0 e 100
+  const safePercent = Math.min(100, Math.max(0, Number(usagePercentage) || 0));
 
   return (
-    <div className="bg-slate-900/50 rounded-xl p-3 border border-slate-700/50 mb-4 animate-in fade-in">
-      <div className="flex justify-between items-center mb-1.5">
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Plano Grátis</span>
-        <span className={`text-[10px] font-bold ${textClass}`}>
-          {count} / {limit} lançamentos
+    <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50 backdrop-blur-sm">
+      <div className="flex justify-between text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-wider">
+        <span>Uso Gratuito</span>
+        <span className={safePercent >= 100 ? 'text-red-400' : 'text-emerald-400'}>
+          {userMeta.launchCount} / {userMeta.launchLimit}
         </span>
       </div>
-      
-      <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+      <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-800">
         <div 
-          className={`h-full ${colorClass} transition-all duration-700 ease-out`}
-          style={{ width: `${usagePercentage}%` }}
+          className={`h-full transition-all duration-1000 ease-out ${safePercent >= 100 ? 'bg-red-500' : 'bg-emerald-500'}`} 
+          style={{ width: `${safePercent}%` }}
         ></div>
       </div>
-      
-      {usagePercentage >= 90 && (
-        <p className="text-[9px] text-center mt-2 text-slate-500">
-          Você está quase sem espaço. <span className="text-emerald-400 font-bold cursor-pointer hover:underline">Seja Premium ✨</span>
-        </p>
-      )}
     </div>
   );
 };
-
 export default UsageIndicator;

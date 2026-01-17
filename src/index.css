@@ -1,0 +1,12 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Garante fundo escuro em tudo */
+body, html {
+  background-color: #020617;
+  color: white;
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
