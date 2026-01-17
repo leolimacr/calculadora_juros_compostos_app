@@ -51,19 +51,17 @@ const App: React.FC = () => {
 
   // --- CORREÇÃO DA NAVEGAÇÃO (A BÚSSOLA CORRIGIDA) ---
   const [currentTool, setCurrentTool] = useState<string>(() => {
-    // 1. Se for APP, sempre começa no Gerenciador
+    // 1. Se for App, prioridade total ao Gerenciador
     if (Capacitor.isNativePlatform()) return 'manager';
     
-    // 2. Se for SITE, verifica a URL
+    // 2. Se for Site, verifica a URL com precisão
     const path = window.location.pathname;
     
-    // Prioridades de Rota
     if (path.includes('/pricing')) return 'pricing';
     if (path.includes('/simulador')) return 'compound';
     if (path.includes('/blog')) return 'blog';
-    if (path.includes('/login')) return 'login';
     
-    // 3. O padrão ABSOLUTO do site é a HOME
+    // 3. Se a URL for limpa (/) ou qualquer outra coisa, abre a HOME
     return 'home';
   });
 
