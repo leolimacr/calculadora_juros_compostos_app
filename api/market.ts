@@ -1,4 +1,3 @@
-
 /*
   Vercel Serverless Function: /api/market
   
@@ -20,7 +19,7 @@ const SYMBOLS = [
   'ABEV3.SA'
 ];
 
-export default async function handler(req: any, res: any) {
+export default async function handler(_req: any, res: any) {
   // 1. Verificar Cache do Servidor
   const now = Date.now();
   if (cachedData && (now - lastFetchTime < CACHE_DURATION)) {
