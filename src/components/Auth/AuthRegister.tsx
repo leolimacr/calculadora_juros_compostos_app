@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendEmailVerification, signOut } from 'firebase/auth';
 import { auth, database } from '../../firebase';
 import { ref, set } from 'firebase/database';
 
@@ -10,6 +10,7 @@ const AuthRegister: React.FC<{ onSuccess: () => void, onSwitchToLogin: () => voi
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [emailSent, setEmailSent] = useState(false); // Novo estado para controlar a tela de sucesso
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,9 +18,12 @@ const AuthRegister: React.FC<{ onSuccess: () => void, onSwitchToLogin: () => voi
     setError('');
     setLoading(true);
     try {
+      // 1. Cria o usuário
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      // Inicializa os dados do usuário no banco de dados
-      await set(ref(database, 'users/' + userCredential.user.uid), {
+      const user = userCredential.user;
+
+      // 2. Salva dados iniciais no Banco
+      await set(ref(database, 'users/' + user.uid), {
         meta: { 
             plan: 'free', 
             launchLimit: 30, 
@@ -28,29 +32,62 @@ const AuthRegister: React.FC<{ onSuccess: () => void, onSwitchToLogin: () => voi
             updatedAt: Date.now()
         }
       });
-      onSuccess();
+
+      // 3. Envia E-mail de Verificação
+      await sendEmailVerification(user);
+
+      // 4. Desloga imediatamente para forçar o login apenas após verificar
+      await signOut(auth);
+
+      // 5. Mostra a tela de "Verifique seu e-mail"
+      setEmailSent(true);
+
     } catch (err: any) {
       if (err.code === 'auth/email-already-in-use') setError('E-mail já cadastrado.');
       else if (err.code === 'auth/weak-password') setError('Senha fraca (mínimo 6 caracteres).');
-      else setError('Erro ao criar conta. Tente novamente.');
+      else setError('Erro ao criar conta: ' + err.message);
     } finally {
       setLoading(false);
     }
   };
 
+  // --- TELA DE SUCESSO (ENVIADO) ---
+  if (emailSent) {
+    return (
+        <div className="w-full max-w-sm mx-auto p-6 flex flex-col justify-center min-h-screen animate-in fade-in zoom-in duration-500">
+            <div className="bg-slate-900/50 p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl text-center">
+                <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <span className="text-3xl">📧</span>
+                </div>
+                <h2 className="text-2xl font-black text-white mb-2">Verifique seu E-mail</h2>
+                <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+                    Enviamos um link de confirmação para <br/> 
+                    <span className="text-sky-400 font-bold">{email}</span>.
+                </p>
+                <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800 mb-6">
+                    <p className="text-xs text-slate-500">Clique no link enviado para ativar sua conta e acessar o sistema.</p>
+                </div>
+                <button 
+                    onClick={onSwitchToLogin} 
+                    className="w-full bg-sky-500 hover:bg-sky-400 text-white font-bold py-4 rounded-2xl shadow-lg transition-all active:scale-95"
+                >
+                    Fazer Login
+                </button>
+            </div>
+        </div>
+    );
+  }
+
+  // --- TELA DE FORMULÁRIO (PADRÃO) ---
   return (
     <div className="w-full max-w-sm mx-auto p-6 animate-in fade-in flex flex-col justify-center min-h-screen">
       
-      {/* IDENTIDADE VISUAL UNIFICADA: ECOSSISTEMA FINANÇAS PRO INVEST */}
+      {/* IDENTIDADE VISUAL */}
       <div className="flex flex-col items-center justify-center mb-10">
         <div className="flex items-center gap-3">
-            {/* Ícone alinhado ao texto principal */}
             <img src="/icon.png" alt="Logo" className="w-11 h-11 rounded-xl shadow-lg shadow-sky-500/20" />
-            
             <div className="flex flex-col">
-                {/* Prefixo Verde */}
                 <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.3em] leading-none mb-1">Ecossistema</p>
-                {/* Nome Principal Azul */}
                 <h1 className="text-2xl font-black text-sky-400 tracking-tight leading-none">Finanças Pro Invest</h1>
             </div>
         </div>

@@ -155,6 +155,10 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     switch(currentTool) {
+       // --- ROTAS DE AUTENTICAÇÃO (ADICIONADAS PARA O SITE WEB) ---
+       case 'login': return <div className="pt-24 px-4 flex justify-center"><div className="w-full max-w-md"><AuthLogin onSuccess={() => setCurrentTool('manager')} onSwitchToRegister={() => navigateTo('register')} /></div></div>;
+       case 'register': return <div className="pt-24 px-4 flex justify-center"><div className="w-full max-w-md"><AuthRegister onSuccess={() => setCurrentTool('manager')} onSwitchToLogin={() => navigateTo('login')} /></div></div>;
+
        // --- APP & SITE LOGADO ---
        case 'manager': return <Dashboard transactions={lancamentos} onDeleteTransaction={deleteLancamento} onOpenForm={() => setActiveModal('transaction')} userMeta={userMeta} usagePercentage={usagePercentage} isPremium={isPro} isLimitReached={isLimitReached} onShowPaywall={() => setActiveModal('paywall')} onOpenSite={handleOpenSite} isPrivacyMode={isPrivacyMode} />;
        case 'settings': return <SettingsPage onBack={() => navigateTo(isNative ? 'manager' : 'home')} />;

@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { Browser } from '@capacitor/browser'; // ADICIONADO IMPORT
 import UsageIndicator from './UsageIndicator';
 import TransactionHistory from './TransactionHistory';
 import FilterBar from './FilterBar';
@@ -13,7 +14,6 @@ const Dashboard: React.FC<any> = (props) => {
     isPremium, 
     isLimitReached, 
     onShowPaywall, 
-    onOpenSite, 
     isPrivacyMode 
   } = props;
 
@@ -69,6 +69,11 @@ const Dashboard: React.FC<any> = (props) => {
     try { return val.toLocaleString('pt-BR', { minimumFractionDigits: 2 }); } catch { return val.toFixed(2); }
   };
 
+  // FUNÇÃO SEGURA PARA ABRIR O SITE
+  const handleOpenWebsite = async () => {
+    await Browser.open({ url: 'https://www.financasproinvest.com.br' });
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-32">
       
@@ -85,11 +90,9 @@ const Dashboard: React.FC<any> = (props) => {
         </div>
       </div>
 
-      {/* 2. BANNER ECOSSISTEMA - LOCAL DA ALTERAÇÃO SOLICITADA */}
-      <button onClick={onOpenSite} className="w-full bg-slate-800 border border-sky-500/20 p-5 rounded-[2rem] flex items-center gap-4 active:scale-95 transition-all shadow-lg group">
-        {/* Ícone à esquerda junto ao letreiro */}
+      {/* 2. BANNER ECOSSISTEMA (LINK CORRIGIDO) */}
+      <button onClick={handleOpenWebsite} className="w-full bg-slate-800 border border-sky-500/20 p-5 rounded-[2rem] flex items-center gap-4 active:scale-95 transition-all shadow-lg group">
         <img src="/icon.png" alt="Logo" className="w-10 h-10 rounded-xl shadow-lg shadow-sky-500/20" />
-        
         <div className="text-left">
           <p className="text-emerald-500 text-[10px] font-black uppercase tracking-[0.2em] mb-0.5">Ecossistema</p>
           <p className="text-sky-400 font-black text-lg leading-tight group-hover:text-sky-300 transition-colors">Finanças Pro Invest</p>
