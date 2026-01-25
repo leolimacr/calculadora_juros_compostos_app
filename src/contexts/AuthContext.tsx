@@ -1,13 +1,12 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth } from '../firebase';
-import { onAuthStateChanged, signOut, User, applyActionCode } from 'firebase/auth';
+import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   loading: boolean;
   logout: () => Promise<void>;
-  verifyEmail: (oobCode: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -15,7 +14,6 @@ const AuthContext = createContext<AuthContextType>({
   isAuthenticated: false,
   loading: true,
   logout: async () => {},
-  verifyEmail: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -26,22 +24,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      console.log('Auth state changed:', currentUser?.email);
       setUser(currentUser);
       setLoading(false);
     });
+
     return () => unsubscribe();
   }, []);
 
   const logout = async () => {
-    await signOut(auth);
-  };
-
-  const verifyEmail = async (oobCode: string) => {
     try {
-      await applyActionCode(auth, oobCode);
+      await signOut(auth);
     } catch (error) {
-      console.error('Erro verificação email:', error);
-      throw error;
+      console.error('Erro ao fazer logout:', error);
     }
   };
 
@@ -49,8 +44,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     user,
     isAuthenticated: !!user,
     loading,
-    logout,
-    verifyEmail
+    logout
   };
 
   return (

@@ -1,11 +1,19 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { App as CapacitorApp } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
+import { Preferences } from '@capacitor/preferences';
 import { useAuth } from './contexts/AuthContext';
 import { useFirebase } from './hooks/useFirebase';
 import { useSubscriptionAccess } from './hooks/useSubscriptionAccess';
 import { ToastMessage } from './types';
+import { 
+  LayoutDashboard, 
+  LogOut,
+  X,
+  ExternalLink,
+  Settings,
+  CreditCard
+} from 'lucide-react';
 
 // Components
 import Dashboard from './components/Dashboard';
@@ -14,217 +22,255 @@ import ContentModal from './components/ContentModal';
 import ToastContainer from './components/Toast';
 import MobileBottomNav from './components/MobileBottomNav';
 import PaywallModal from './components/PaywallModal';
-import MobileMenu from './components/MobileMenu';
 import AuthLogin from './components/Auth/AuthLogin';
 import AuthRegister from './components/Auth/AuthRegister';
 import PricingPage from './components/PricingPage';
 import ProfilePage from './components/ProfilePage';
 import SettingsPage from './components/SettingsPage';
-import GoalsPage from './components/GoalsPage';
-import AiAdvisor from './components/AiAdvisor';
 import { PublicHome } from './components/PublicPages';
-import BlogPage from './components/Blog/BlogPage';
-import CalculatorForm from './components/CalculatorForm';
-import ResultsDisplay from './components/ResultsDisplay';
-import { calculateCompoundInterest } from './utils/calculations';
-
-// Tela de Boas-vindas do APP (Só aparece no celular)
-const AppWelcomeScreen: React.FC<{ onLogin: () => void, onRegister: () => void }> = ({ onLogin, onRegister }) => (
-  <div className="flex flex-col items-center justify-center min-h-screen bg-[#0f172a] p-6 text-center animate-in fade-in">
-    <div className="flex items-center gap-3 mb-2">
-       <img src="/icon.png" alt="Logo" className="w-12 h-12 rounded-xl shadow-lg shadow-sky-500/20" />
-       <h1 className="text-2xl font-black text-sky-400 tracking-tight">Finanças Pro Invest</h1>
-    </div>
-    <p className="text-emerald-500 text-sm font-bold uppercase tracking-widest mb-12">Gerenciador Financeiro</p>
-    <div className="w-full space-y-4 max-w-sm">
-      <button onClick={onLogin} className="w-full py-4 bg-sky-500 text-white rounded-2xl font-bold text-lg shadow-lg">Entrar</button>
-      <button onClick={onRegister} className="w-full py-4 bg-slate-800 border border-slate-700 text-white rounded-2xl font-bold text-lg">Criar conta</button>
-    </div>
-  </div>
-);
+import AiChatPage from './components/AiChatPage';
+import SecurityLock from './components/SecurityLock';
+import { 
+  RentVsFinanceTool, 
+  DebtOptimizerTool, 
+  FireCalculatorTool, 
+  InflationTool, 
+  DividendsTool,
+  CompoundInterestTool 
+} from './components/Tools';
 
 const App: React.FC = () => {
-  const { user, isAuthenticated, loading: authLoading } = useAuth();
-  const { lancamentos, saveLancamento, deleteLancamento, userMeta, usagePercentage, isLimitReached } = useFirebase(user?.uid || 'guest');
+  const { user, isAuthenticated, loading: authLoading, logout } = useAuth();
+  
+  const { 
+    lancamentos, 
+    categories, 
+    saveLancamento, 
+    deleteLancamento, 
+    saveCategory, 
+    deleteCategory, 
+    userMeta, 
+    usagePercentage, 
+    isLimitReached 
+  } = useFirebase(user?.uid);
+
   const { isPro, isPremium } = useSubscriptionAccess();
   const isNative = Capacitor.isNativePlatform();
 
-  // --- CORREÇÃO DA NAVEGAÇÃO (A BÚSSOLA CORRIGIDA) ---
   const [currentTool, setCurrentTool] = useState<string>(() => {
-    // 1. Se for APP, sempre começa no Gerenciador
     if (Capacitor.isNativePlatform()) return 'manager';
-    
-    // 2. Se for SITE, verifica a URL
-    const path = window.location.pathname;
-    
-    // Prioridades de Rota
-    if (path.includes('/pricing')) return 'pricing';
-    if (path.includes('/simulador')) return 'compound';
-    if (path.includes('/blog')) return 'blog';
-    if (path.includes('/login')) return 'login';
-    
-    // 3. O padrão ABSOLUTO do site é a HOME
-    return 'home';
+    const path = window.location.pathname.replace('/', '');
+    return path || 'home';
   });
 
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const [isPrivacyMode, setIsPrivacyMode] = useState(false);
-  const [goals, setGoals] = useState<any[]>([]);
-  const [calcResult, setCalcResult] = useState<any>(null);
-  const [expenseCategories, setExpenseCategories] = useState(['Alimentação', 'Moradia', 'Transporte', 'Lazer', 'Saúde']);
-  const [incomeCategories, setIncomeCategories] = useState(['Salário', 'Investimentos', 'Freelance']);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Listener para URL no navegador (Voltar/Avançar no Browser)
+  // Estados de Segurança
+  const [isAppLocked, setIsAppLocked] = useState(false);
+  const [storedPin, setStoredPin] = useState<string | null>(null);
+  const [biometricsEnabled, setBiometricsEnabled] = useState(false);
+
+  // 1. Lógica de Segurança (CORRIGIDA)
   useEffect(() => {
-    if (!isNative) {
-        const handlePopState = () => {
-            const path = window.location.pathname;
-            if (path.includes('pricing')) setCurrentTool('pricing');
-            else if (path.includes('simulador')) setCurrentTool('compound');
-            else setCurrentTool('home');
-        };
-        window.addEventListener('popstate', handlePopState);
-        return () => window.removeEventListener('popstate', handlePopState);
+    if (isAuthenticated && user?.uid && isNative) {
+      checkSecurity();
+    } else {
+      setIsAppLocked(false);
     }
-  }, [isNative]);
+  }, [isAuthenticated, user]); // Removi currentTool para não revalidar na navegação interna
 
-  // Listener do botão voltar físico (Android)
-  useEffect(() => {
-    if (isNative) {
-      CapacitorApp.addListener('backButton', ({ canGoBack }) => {
-        if (!canGoBack && currentTool === 'manager') {
-          if(window.confirm('Deseja sair do Finanças Pro Invest?')) CapacitorApp.exitApp();
-        } else if (currentTool !== 'manager') {
-          setCurrentTool('manager');
-        } else {
-          window.history.back();
+  async function checkSecurity() {
+    try {
+      const { value: pin } = await Preferences.get({ key: `pin_${user?.uid}` });
+      const { value: lastAuth } = await Preferences.get({ key: `last_auth_${user?.uid}` });
+      const { value: alwaysAskVal } = await Preferences.get({ key: `always_ask_${user?.uid}` });
+      const { value: bioVal } = await Preferences.get({ key: `use_biometrics_${user?.uid}` });
+      
+      const shouldAlwaysAsk = alwaysAskVal === 'true';
+      setBiometricsEnabled(bioVal === 'true');
+
+      if (pin) {
+        setStoredPin(pin);
+        
+        const now = Date.now();
+        const sevenDaysInMs = 7 * 24 * 60 * 60 * 1000;
+        // Se não tiver lastAuth, considera expirado
+        const timeSinceLastAuth = lastAuth ? now - parseInt(lastAuth) : sevenDaysInMs + 1;
+
+        // LÓGICA DE BLOQUEIO RIGOROSA
+        if (shouldAlwaysAsk || timeSinceLastAuth > sevenDaysInMs) {
+          console.log("🔒 App Bloqueado por Segurança");
+          setIsAppLocked(true);
         }
-      });
+      }
+    } catch (error) {
+      console.error("Erro na verificação de segurança:", error);
     }
-  }, [isNative, currentTool]);
+  }
 
-  const addToast = (msg: string, type: 'success' | 'error') => {
-    setToasts(prev => [...prev, { id: Math.random().toString(), message: msg, type }]);
+  const handleUnlockSuccess = async () => {
+    await Preferences.set({ key: `last_auth_${user?.uid}`, value: Date.now().toString() });
+    setIsAppLocked(false);
   };
-  const removeToast = (id: string) => setToasts(prev => prev.filter(t => t.id !== id));
 
-  // Navegação Inteligente
   const navigateTo = (tool: string) => {
     setCurrentTool(tool);
+    setMobileMenuOpen(false);
     window.scrollTo(0, 0);
-    // Atualiza a URL no navegador sem recarregar a página
     if (!isNative) {
         const path = tool === 'home' ? '/' : `/${tool}`;
         window.history.pushState({}, '', path);
     }
   };
 
-  const handleOpenSite = async () => {
+  const handleOpenWebsite = async (path = '') => {
+    await Browser.open({ url: `https://www.financasproinvest.com.br${path}` });
+  };
+
+  const handleLogout = async () => {
+      await logout();
+      navigateTo('home');
+  };
+
+  // Redirecionamento Pós-Login Inteligente
+  const handleLoginSuccess = () => {
     if (isNative) {
-        await Browser.open({ url: 'https://www.financasproinvest.com.br/pricing' });
+      navigateTo('manager'); // Celular: Vai direto pro Painel (evita Home)
     } else {
-        navigateTo('pricing');
+      navigateTo('home'); // PC: Vai pra Home
     }
   };
 
-  const handleAddTransaction = async (t: any) => {
-    try {
-      await saveLancamento(t);
-      addToast('Salvo com sucesso!', 'success');
-      setActiveModal(null);
-    } catch (e: any) {
-      if (e.message === 'LIMIT_REACHED') setActiveModal('paywall');
-      else addToast('Erro ao salvar.', 'error');
-    }
-  };
-
-  const handleCalculate = (values: any) => {
-    const res = calculateCompoundInterest(values);
-    setCalcResult(res);
-  };
-
-  if (authLoading) return <div className="min-h-screen bg-[#020617] flex items-center justify-center text-sky-500 font-bold">Carregando...</div>;
-
-  // Lógica de Login: No App bloqueia, no Site libera a Home
-  if (isNative && !isAuthenticated) {
-     if (currentTool === 'register') return <AuthRegister onSuccess={() => setCurrentTool('manager')} onSwitchToLogin={() => setCurrentTool('login')} />;
-     if (currentTool === 'login') return <AuthLogin onSuccess={() => setCurrentTool('manager')} onSwitchToRegister={() => setCurrentTool('register')} />;
-     return <AppWelcomeScreen onLogin={() => setCurrentTool('login')} onRegister={() => setCurrentTool('register')} />;
+  if (authLoading) {
+    return <div className="min-h-screen bg-[#020617] flex items-center justify-center text-sky-500 font-bold tracking-widest animate-pulse">CARREGANDO...</div>;
   }
 
   const renderContent = () => {
+    // BLOQUEIO DE SEGURANÇA (Sobrepõe tudo se estiver travado)
+    if (isAppLocked && isAuthenticated && storedPin) {
+      return <SecurityLock storedPin={storedPin} useBiometrics={biometricsEnabled} onSuccess={handleUnlockSuccess} />;
+    }
+
+    const wrap = (comp: React.ReactNode) => <div className="pt-16 pb-24 animate-in fade-in duration-300 min-h-screen">{comp}</div>;
+
     switch(currentTool) {
-       // --- ROTAS DE AUTENTICAÇÃO (ADICIONADAS PARA O SITE WEB) ---
-       case 'login': return <div className="pt-24 px-4 flex justify-center"><div className="w-full max-w-md"><AuthLogin onSuccess={() => setCurrentTool('manager')} onSwitchToRegister={() => navigateTo('register')} /></div></div>;
-       case 'register': return <div className="pt-24 px-4 flex justify-center"><div className="w-full max-w-md"><AuthRegister onSuccess={() => setCurrentTool('manager')} onSwitchToLogin={() => navigateTo('login')} /></div></div>;
-
-       // --- APP & SITE LOGADO ---
-       case 'manager': return <Dashboard transactions={lancamentos} onDeleteTransaction={deleteLancamento} onOpenForm={() => setActiveModal('transaction')} userMeta={userMeta} usagePercentage={usagePercentage} isPremium={isPro} isLimitReached={isLimitReached} onShowPaywall={() => setActiveModal('paywall')} onOpenSite={handleOpenSite} isPrivacyMode={isPrivacyMode} />;
-       case 'settings': return <SettingsPage onBack={() => navigateTo(isNative ? 'manager' : 'home')} />;
-       case 'perfil': return <ProfilePage onNavigateHome={() => navigateTo(isNative ? 'manager' : 'home')} />;
-       case 'pricing': return <PricingPage onNavigate={setCurrentTool} currentPlan={isPremium ? 'premium' : isPro ? 'pro' : 'free'} onBack={() => navigateTo(isNative ? 'manager' : 'home')} onCheckout={() => window.open('https://buy.stripe.com/test_...', '_blank')} />;
-       case 'goals': return <GoalsPage onBack={() => navigateTo('manager')} goals={goals} onAddGoal={(g: any) => setGoals([...goals, { ...g, id: Math.random().toString() }])} onDeleteGoal={(id: string) => setGoals(goals.filter(g => g.id !== id))} onUpdateGoal={(id: string, amount: number) => setGoals(goals.map(g => g.id === id ? { ...g, currentAmount: amount } : g))} />;
-       case 'ai_chat': return <div className="pt-20"><AiAdvisor transactions={lancamentos} currentCalcResult={null} goals={goals} currentTool="manager" /></div>;
+       // AQUI APLICAMOS A CORREÇÃO DE NAVEGAÇÃO
+       case 'login': return wrap(<AuthLogin onSuccess={handleLoginSuccess} onSwitchToRegister={() => navigateTo('register')} />);
+       case 'register': return wrap(<AuthRegister onSuccess={handleLoginSuccess} onSwitchToLogin={() => navigateTo('login')} />);
        
-       // --- PÁGINAS DO SITE (WEB) ---
-       case 'home': return <PublicHome onNavigate={(t: string) => navigateTo(t)} onStartNow={() => navigateTo('register')} onAssetClick={() => {}} />;
-       case 'compound': return <div className="pt-20"><CalculatorForm onCalculate={handleCalculate} />{calcResult && <ResultsDisplay result={calcResult} isPrivacyMode={false} />}</div>;
-       case 'blog': return <BlogPage onNavigate={navigateTo} />;
-
-       // Fallback de segurança
-       default: return isNative ? <Dashboard transactions={lancamentos} onDeleteTransaction={deleteLancamento} onOpenForm={() => setActiveModal('transaction')} userMeta={userMeta} usagePercentage={usagePercentage} isPremium={isPro} isLimitReached={isLimitReached} onShowPaywall={() => setActiveModal('paywall')} onOpenSite={handleOpenSite} isPrivacyMode={isPrivacyMode} /> : <PublicHome onNavigate={navigateTo} onStartNow={() => navigateTo('register')} onAssetClick={() => {}} />;
+       case 'manager': 
+          if (!isAuthenticated) { navigateTo('login'); return null; }
+          return wrap(<Dashboard transactions={lancamentos} categories={categories} onDeleteTransaction={deleteLancamento} onOpenForm={() => setActiveModal('transaction')} onSaveCategory={saveCategory} onDeleteCategory={deleteCategory} userMeta={userMeta} usagePercentage={usagePercentage} isPremium={isPro || isPremium} isLimitReached={isLimitReached} onShowPaywall={() => setActiveModal('paywall')} isPrivacyMode={false} />);
+       
+       case 'settings': 
+          if (!isAuthenticated) { navigateTo('login'); return null; }
+          return wrap(<SettingsPage onBack={() => navigateTo('manager')} />);
+       
+       case 'pricing': return wrap(<PricingPage onNavigate={navigateTo} currentPlan={isPremium ? 'premium' : isPro ? 'pro' : 'free'} onBack={() => navigateTo(isNative ? 'manager' : 'home')} />);
+       
+       case 'chat': return <AiChatPage onNavigate={navigateTo} />;
+       
+       case 'home': 
+       default: 
+         // Se estiver logado no celular e cair aqui, joga pro manager
+         if (isNative && isAuthenticated) {
+            // Pequeno timeout para evitar loop de renderização
+            setTimeout(() => navigateTo('manager'), 0);
+            return null;
+         }
+         return <PublicHome onNavigate={navigateTo} onStartNow={() => navigateTo(isAuthenticated ? 'manager' : 'register')} isAuthenticated={isAuthenticated} userEmail={user?.email} />;
     }
   };
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-200 flex flex-col font-sans">
+       
        {/* HEADER */}
-       <header className={`sticky top-0 z-40 bg-[#020617]/95 backdrop-blur border-b border-slate-800 px-4 flex items-center justify-center shadow-lg relative ${isNative ? 'h-24' : 'h-16'}`}>
-          <div className="flex flex-col items-center justify-center cursor-pointer" onClick={() => !isNative && navigateTo('home')}>
-            <div className="flex items-center gap-2 mb-0.5">
-              <img src="/icon.png" alt="Logo" className="w-8 h-8 rounded-lg shadow-lg shadow-sky-500/20" />
-              <h1 className="text-lg font-black text-sky-400 tracking-tight leading-none">Finanças Pro Invest</h1>
-            </div>
-            {isNative && <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-[0.2em]">Gerenciador Financeiro</p>}
+       <header className="fixed top-0 left-0 w-full z-[50] bg-[#020617]/95 backdrop-blur-md border-b border-slate-800 h-16 flex items-center justify-between px-4 lg:px-8 shadow-2xl transition-all">
+          <div className="flex items-center gap-2.5 shrink-0">
+              <img src="/icon.png" alt="Logo" className="w-9 h-9 rounded-lg shadow-lg" />
+              <div className="flex flex-col leading-tight">
+                <h1 className="text-sm sm:text-base md:text-xl font-black text-sky-400 tracking-tight">Finanças Pro Invest</h1>
+                {currentTool === 'manager' && <span className="text-[10px] font-black text-yellow-400 uppercase tracking-widest">Gerenciador Financeiro</span>}
+              </div>
           </div>
-          
-          {/* Menu Desktop do Site */}
-          {!isNative && (
-            <div className="absolute right-4 flex gap-4 text-sm font-bold items-center">
-               <button onClick={() => navigateTo('compound')} className="text-slate-400 hover:text-white">Simulador</button>
-               <button onClick={() => navigateTo('pricing')} className="text-slate-400 hover:text-white">Planos</button>
-               {isAuthenticated ? (
-                 <button onClick={() => navigateTo('manager')} className="text-emerald-400 border border-emerald-500/30 px-3 py-1 rounded-lg hover:bg-emerald-500/10">Painel</button>
-               ) : (
-                 <button onClick={() => navigateTo('login')} className="bg-sky-600 px-4 py-1.5 rounded-lg text-white shadow-lg hover:bg-sky-500">Entrar</button>
-               )}
-            </div>
-          )}
 
-          {isNative && (
-             <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                <button onClick={() => setIsPrivacyMode(!isPrivacyMode)} className="bg-slate-800 p-3 rounded-xl active:scale-95 transition-transform text-lg text-sky-400">
-                    {isPrivacyMode ? '👁️' : '🙈'}
-                </button>
-            </div>
-          )}
+          <div className="flex-1 flex justify-center px-2">
+              <button onClick={() => handleOpenWebsite()} className="flex items-center gap-2 px-4 py-2 bg-sky-500/10 border border-sky-500/40 rounded-full text-sky-400 transition-all active:scale-90">
+                <span className="text-[10px] font-black uppercase">Acesse o site</span>
+                <ExternalLink size={14} />
+              </button>
+          </div>
+          <div className="w-10 md:hidden"></div>
+
+          <div className="hidden md:flex items-center gap-6 font-bold text-sm shrink-0">
+               <button onClick={() => navigateTo('pricing')} className="text-slate-400 hover:text-white transition-colors">Planos</button>
+               {isAuthenticated ? (
+                 <div className="flex items-center gap-4 ml-4 pl-4 border-l border-slate-700">
+                     <button onClick={() => navigateTo('manager')} className={`flex items-center gap-2 px-4 py-2 rounded-full border ${currentTool === 'manager' ? 'bg-emerald-600 border-emerald-500' : 'bg-slate-800 border-slate-700 hover:bg-slate-700'}`}>
+                        <LayoutDashboard size={16}/> Painel
+                     </button>
+                     <button onClick={handleLogout} className="text-slate-500 hover:text-red-400" title="Sair"><LogOut size={18} /></button>
+                 </div>
+               ) : (
+                 <button onClick={() => navigateTo('login')} className="bg-sky-600 text-white px-5 py-2 rounded-full">Entrar</button>
+               )}
+          </div>
        </header>
 
-       <main className="flex-grow container mx-auto px-4 py-6 pb-32">
-          {renderContent()}
-       </main>
+       {/* MENU MOBILE */}
+       {mobileMenuOpen && (
+           <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md md:hidden" onClick={() => setMobileMenuOpen(false)}>
+               <div className="absolute bottom-0 left-0 right-0 bg-[#0f172a] rounded-t-[3rem] border-t border-slate-800 p-10 flex flex-col gap-6 animate-in slide-in-from-bottom duration-300 shadow-2xl" onClick={e => e.stopPropagation()}>
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-2xl font-black text-white">Menu</h2>
+                        <button onClick={() => setMobileMenuOpen(false)} className="p-2.5 bg-slate-800 rounded-full text-slate-400"><X size={24}/></button>
+                    </div>
 
-       {isNative && <MobileBottomNav currentTool={currentTool} onNavigate={setCurrentTool} onOpenMore={() => setActiveModal('menu_mobile')} onAdd={() => setActiveModal('transaction')} />}
-       <ToastContainer toasts={toasts} removeToast={removeToast} />
+                    {isAuthenticated ? (
+                        <div className="flex flex-col gap-4">
+                            <div className="flex items-center gap-5 bg-slate-900/50 p-5 rounded-3xl border border-slate-800 shadow-inner">
+                                <div className="w-14 h-14 bg-emerald-500/20 rounded-2xl flex items-center justify-center text-emerald-400 font-black text-2xl">
+                                    {user?.email?.[0].toUpperCase()}
+                                </div>
+                                <div className="flex flex-col overflow-hidden">
+                                    <span className="text-base font-bold text-white truncate w-48">{user?.email}</span>
+                                    <span className="text-[11px] text-emerald-400 font-black uppercase tracking-[0.2em] mt-1">{isPremium ? 'PREMIUM 👑' : isPro ? 'PRO ⭐' : 'PLANO FREE'}</span>
+                                </div>
+                            </div>
+                            <nav className="flex flex-col gap-3">
+                                <button onClick={() => navigateTo('settings')} className="w-full text-left py-4 px-6 bg-slate-800/50 rounded-2xl font-black uppercase text-xs tracking-widest flex items-center gap-3 border border-slate-800/50">
+                                    <Settings size={18} className="text-slate-400" /> Configurações
+                                </button>
+                                <button onClick={() => handleOpenWebsite('/pricing')} className="w-full text-left py-4 px-6 bg-slate-800/50 rounded-2xl font-black uppercase text-xs tracking-widest flex items-center gap-3 border border-slate-800/50 text-sky-400">
+                                    <CreditCard size={18} /> Assinatura e Planos <ExternalLink size={14} className="ml-auto opacity-50" />
+                                </button>
+                                <button onClick={handleLogout} className="w-full text-center py-4 px-6 text-red-500 font-black uppercase text-xs tracking-[0.2em] mt-2">Sair da Conta</button>
+                            </nav>
+                        </div>
+                    ) : (
+                        <button onClick={() => navigateTo('login')} className="w-full bg-sky-600 text-white py-5 rounded-2xl font-black text-xs tracking-widest shadow-xl">Entrar</button>
+                    )}
+               </div>
+           </div>
+       )}
+
+       <main className="flex-grow">{renderContent()}</main>
+
+       {/* Bottom Nav: Só aparece se estiver logado, no celular e DESBLOQUEADO */}
+       {isNative && isAuthenticated && !isAppLocked && (
+            <MobileBottomNav currentTool={currentTool} onNavigate={navigateTo} onOpenMore={() => setMobileMenuOpen(true)} onAdd={() => setActiveModal('transaction')} />
+       )}
        
        <ContentModal isOpen={activeModal === 'transaction'} onClose={() => setActiveModal(null)} title="Novo Lançamento">
-          <TransactionForm onSave={handleAddTransaction} onCancel={() => setActiveModal(null)} expenseCategories={expenseCategories} incomeCategories={incomeCategories} onUpdateExpenseCategories={setExpenseCategories} onUpdateIncomeCategories={setIncomeCategories} />
+          <TransactionForm onSave={async (t: any) => { await saveLancamento(t); setActiveModal(null); }} onCancel={() => setActiveModal(null)} expenseCategories={categories.filter(c => c.type === 'expense').map(c => c.name)} incomeCategories={categories.filter(c => c.type === 'income').map(c => c.name)} onUpdateExpenseCategories={()=>{}} onUpdateIncomeCategories={()=>{}} />
        </ContentModal>
-
-       <PaywallModal open={activeModal === 'paywall'} onClose={() => setActiveModal(null)} onUpgrade={handleOpenSite} />
-       <MobileMenu isOpen={activeModal === 'menu_mobile'} onClose={() => setActiveModal(null)} onNavigate={(t) => { setActiveModal(null); setCurrentTool(t); }} onUpgrade={handleOpenSite} isPro={isPro} />
+       <PaywallModal open={activeModal === 'paywall'} onClose={() => setActiveModal(null)} onUpgrade={() => handleOpenWebsite('/pricing')} />
+       <ToastContainer toasts={toasts} removeToast={() => {}} />
     </div>
   );
-}
+};
+
 export default App;

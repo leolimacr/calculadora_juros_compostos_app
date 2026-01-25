@@ -1,124 +1,286 @@
-import React, { useState } from 'react';
-import { sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '../firebase';
+import React, { useState, useEffect } from 'react';
+import { 
+  User, ShieldCheck, Fingerprint, CreditCard, FileText, 
+  LogOut, Pencil, Check, ChevronRight, ExternalLink, ArrowLeft, Lock, X, 
+  VolumeX, Volume2
+} from 'lucide-react';
+import { auth, db } from '../firebase';
+import { ref, update, onValue } from 'firebase/database';
+import { Browser } from '@capacitor/browser';
+import { Preferences } from '@capacitor/preferences';
+import { NativeBiometric } from 'capacitor-native-biometric';
+import { useAuth } from '../contexts/AuthContext';
+import { useSubscriptionAccess } from '../hooks/useSubscriptionAccess';
 
 const SettingsPage: React.FC<any> = ({ onBack }) => {
+  const { user, logout } = useAuth();
+  const { isPro, isPremium } = useSubscriptionAccess();
+
+  // --- ESTADOS ---
+  const [nickname, setNickname] = useState('');
+  const [isEditingNickname, setIsEditingNickname] = useState(false);
+  const [tempNickname, setTempNickname] = useState('');
+  
+  // Segurança Local
+  const [hasPin, setHasPin] = useState(false);
+  const [alwaysAsk, setAlwaysAsk] = useState(false);
+  const [useBiometrics, setUseBiometrics] = useState(false);
+  
+  // Preferências
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [activeModal, setActiveModal] = useState<string | null>(null);
 
-  // FUNÇÃO DE SOM MODERNO (Sintetizador Nativo)
-  const playSuccessSound = () => {
-    if (!soundEnabled) return;
-    try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
+  // Modais
+  const [activeModal, setActiveModal] = useState<string | null>(null); // 'pin', 'termos'
+  const [pinInput, setPinInput] = useState('');
 
-      oscillator.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // Nota Lá (A5)
-      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-
-      oscillator.start();
-      oscillator.stop(audioCtx.currentTime + 0.1);
-    } catch (e) {
-      console.error("Erro ao reproduzir som:", e);
-    }
-  };
-
-  const handleResetPassword = async () => {
-    if (auth.currentUser?.email) {
-      try {
-        await sendPasswordResetEmail(auth, auth.currentUser.email);
-        alert(`📧 E-mail Enviado!\n\nUm link de redefinição de senha foi enviado para: ${auth.currentUser.email}`);
-      } catch (e) {
-        alert("Erro ao solicitar redefinição. Tente novamente mais tarde.");
+  // 1. Carregar Perfil do Firebase
+  useEffect(() => {
+    if (!user?.uid) return;
+    const settingsRef = ref(db, `users/${user.uid}/settings`);
+    const unsubscribe = onValue(settingsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setNickname(data.nickname || '');
       }
+    });
+    return () => unsubscribe();
+  }, [user]);
+
+  // 2. Carregar Segurança do Dispositivo (Preferences)
+  useEffect(() => {
+    const loadLocalSettings = async () => {
+      if (!user?.uid) return;
+      
+      const { value: pin } = await Preferences.get({ key: `pin_${user.uid}` });
+      const { value: ask } = await Preferences.get({ key: `always_ask_${user.uid}` });
+      const { value: bio } = await Preferences.get({ key: `use_biometrics_${user.uid}` });
+      const { value: sound } = await Preferences.get({ key: `sound_enabled_${user.uid}` });
+
+      setHasPin(!!pin);
+      setAlwaysAsk(ask === 'true');
+      setUseBiometrics(bio === 'true');
+      setSoundEnabled(sound !== 'false'); // Padrão é true, só false se o usuário desativou
+    };
+    loadLocalSettings();
+  }, [user]);
+
+  // --- FUNÇÕES DE AÇÃO ---
+
+  const handleSaveNickname = () => {
+    if (!user?.uid) return;
+    update(ref(db, `users/${user.uid}/settings`), { nickname: tempNickname });
+    setNickname(tempNickname);
+    setIsEditingNickname(false);
+  };
+
+  const handleOpenExternal = async (path: string) => {
+    await Browser.open({ url: `https://www.financasproinvest.com.br${path}` });
+  };
+
+  const handleToggleAlwaysAsk = async () => {
+    if (!hasPin) {
+      alert("Crie um PIN de acesso primeiro.");
+      setActiveModal('pin');
+      return;
+    }
+    const newVal = !alwaysAsk;
+    setAlwaysAsk(newVal);
+    await Preferences.set({ key: `always_ask_${user?.uid}`, value: String(newVal) });
+  };
+
+  const handleToggleBiometrics = async () => {
+    if (!hasPin) {
+        alert("Crie um PIN de acesso primeiro para habilitar biometria.");
+        setActiveModal('pin');
+        return;
+    }
+
+    if (!useBiometrics) {
+      try {
+        const result = await NativeBiometric.isAvailable();
+        if (result.isAvailable) {
+            setUseBiometrics(true);
+            await Preferences.set({ key: `use_biometrics_${user?.uid}`, value: 'true' });
+        } else {
+            alert("Biometria não disponível neste aparelho.");
+        }
+      } catch (e) {
+        alert("Erro ao acessar biometria.");
+      }
+    } else {
+      setUseBiometrics(false);
+      await Preferences.set({ key: `use_biometrics_${user?.uid}`, value: 'false' });
     }
   };
 
-  const Modal: React.FC<{ title: string, content: string, onClose: () => void }> = ({ title, content, onClose }) => (
-    <div className="fixed inset-0 bg-black/95 z-[60] flex items-center justify-center p-4 animate-in fade-in">
-      <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 w-full max-w-lg max-h-[80vh] flex flex-col shadow-2xl">
-        <h3 className="text-2xl font-black text-white mb-6 border-b border-slate-800 pb-4">{title}</h3>
-        <div className="flex-grow overflow-y-auto text-slate-400 text-sm leading-relaxed mb-6 pr-2 custom-scrollbar">
-          {content}
-        </div>
-        <button onClick={onClose} className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-bold shadow-lg shadow-emerald-900/20 transition-all">Entendido</button>
-      </div>
+  const handleToggleSound = async () => {
+    const newVal = !soundEnabled;
+    setSoundEnabled(newVal);
+    // Salva localmente
+    await Preferences.set({ key: `sound_enabled_${user?.uid}`, value: String(newVal) });
+  };
+
+  // Salvar o PIN
+  const handleSavePin = async () => {
+    if (pinInput.length !== 4) return;
+    await Preferences.set({ key: `pin_${user?.uid}`, value: pinInput });
+    setHasPin(true);
+    setPinInput('');
+    setActiveModal(null);
+    alert("PIN configurado com sucesso! O App agora está protegido.");
+  };
+
+  const handlePinKeyPress = (num: string) => {
+    if (pinInput.length < 4) setPinInput(prev => prev + num);
+  };
+
+  const Toggle = ({ active, onClick }: { active: boolean, onClick: () => void }) => (
+    <div onClick={onClick} className={`w-12 h-7 rounded-full flex items-center px-1 transition-colors duration-300 cursor-pointer ${active ? 'bg-emerald-600' : 'bg-slate-700'}`}>
+      <div className={`w-5 h-5 bg-white rounded-full shadow-lg transform transition-transform duration-300 ${active ? 'translate-x-5' : 'translate-x-0'}`}></div>
     </div>
   );
 
   return (
-    <div className="space-y-6 animate-in fade-in pt-4 pb-20">
-      <div className="flex items-center gap-4 px-2">
-        <button onClick={onBack} className="bg-slate-800 p-3 rounded-2xl text-white active:scale-90 transition-transform">←</button>
-        <h2 className="text-2xl font-black text-white tracking-tight">Configurações</h2>
+    <div className="max-w-2xl mx-auto px-4 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      
+      {/* HEADER */}
+      <div className="flex items-center gap-4 mb-8">
+        <button onClick={onBack} className="p-3 bg-slate-800/50 hover:bg-slate-800 rounded-2xl text-slate-400 hover:text-white transition-all">
+          <ArrowLeft size={24} />
+        </button>
+        <div>
+          <h2 className="text-2xl font-black text-white tracking-tight">Configurações</h2>
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Personalize sua experiência</p>
+        </div>
       </div>
 
-      <div className="bg-slate-800/50 rounded-[2.5rem] overflow-hidden border border-slate-800 shadow-xl">
-        <div 
-          className="p-6 border-b border-slate-800 flex justify-between items-center cursor-pointer active:bg-slate-800/80 transition-colors"
-          onClick={() => {
-            setSoundEnabled(!soundEnabled);
-            if (!soundEnabled) playSuccessSound();
-          }}
-        >
-          <div className="flex items-center gap-3">
-            <span className="text-xl">🔔</span>
-            <span className="text-white font-bold">Sons de Confirmação</span>
+      <div className="space-y-6">
+        
+        {/* SEÇÃO 1: PERFIL */}
+        <div className="bg-slate-800/40 border border-slate-800 rounded-[2rem] p-6 shadow-xl">
+          <div className="flex items-center gap-4 mb-6">
+             <div className="w-16 h-16 bg-gradient-to-tr from-sky-600 to-emerald-500 rounded-2xl flex items-center justify-center text-white text-2xl font-black shadow-lg">
+                {nickname ? nickname[0].toUpperCase() : user?.email?.[0].toUpperCase()}
+             </div>
+             <div className="flex-1">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Apelido</p>
+                {isEditingNickname ? (
+                  <div className="flex gap-2">
+                    <input type="text" value={tempNickname} onChange={(e) => setTempNickname(e.target.value)} className="bg-slate-900 border border-emerald-500/50 rounded-lg px-3 py-1 text-white text-sm w-full" autoFocus />
+                    <button onClick={handleSaveNickname} className="bg-emerald-600 p-2 rounded-lg text-white"><Check size={16}/></button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 group cursor-pointer" onClick={() => { setTempNickname(nickname); setIsEditingNickname(true); }}>
+                    <h3 className="text-xl font-bold text-white">{nickname || 'Definir apelido...'}</h3>
+                    <Pencil size={14} className="text-slate-600 group-hover:text-emerald-400 transition-colors" />
+                  </div>
+                )}
+                <p className="text-xs text-slate-600 mt-1 truncate">{user?.email}</p>
+             </div>
           </div>
-          <div className={`w-12 h-7 rounded-full flex items-center px-1 transition-colors duration-300 ${soundEnabled ? 'bg-emerald-600' : 'bg-slate-600'}`}>
-            <div className={`w-5 h-5 bg-white rounded-full shadow-lg transform transition-transform duration-300 ${soundEnabled ? 'translate-x-5' : 'translate-x-0'}`}></div>
+
+          <div className="bg-slate-900/50 border border-slate-700/50 rounded-2xl p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <CreditCard className="text-emerald-500" size={20} />
+              <div>
+                <p className="text-[10px] font-black text-slate-500 uppercase">Seu Plano Atual</p>
+                <p className="text-sm font-bold text-white">{isPremium ? 'Premium 👑' : isPro ? 'Pro ⭐' : 'Gratuito'}</p>
+              </div>
+            </div>
+            <button onClick={() => handleOpenExternal('/pricing')} className="text-[10px] font-black text-sky-400 bg-sky-400/10 px-3 py-2 rounded-xl uppercase tracking-widest flex items-center gap-2">
+              Mudar Plano <ExternalLink size={12}/>
+            </button>
           </div>
         </div>
 
-        <button 
-          onClick={handleResetPassword}
-          className="w-full p-6 text-left text-white hover:bg-slate-800 transition-colors flex justify-between items-center group"
-        >
-          <div className="flex items-center gap-3">
-            <span className="text-xl">🔐</span>
-            <span className="font-bold">Segurança da Conta</span>
+        {/* SEÇÃO 2: SEGURANÇA */}
+        <div className="bg-slate-800/40 border border-slate-800 rounded-[2rem] overflow-hidden shadow-xl">
+          <div className="p-6 border-b border-slate-800/50">
+             <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <ShieldCheck size={16} className="text-emerald-500" /> Segurança
+             </h4>
           </div>
-          <span className="text-[10px] font-black text-emerald-400 bg-emerald-400/10 px-3 py-1.5 rounded-lg uppercase tracking-widest group-active:scale-95 transition-all">Alterar Senha</span>
+
+          <button onClick={() => setActiveModal('pin')} className="w-full p-6 text-left hover:bg-slate-800 transition-colors flex justify-between items-center group border-b border-slate-800/50">
+            <div>
+                <span className="text-sm font-bold text-white block">{hasPin ? 'Alterar PIN de Acesso' : 'Criar PIN de Acesso'}</span>
+                {!hasPin && <span className="text-xs text-emerald-400">Recomendado</span>}
+            </div>
+            <ChevronRight size={18} className="text-slate-600 group-hover:text-white" />
+          </button>
+
+          <div className="p-6 border-b border-slate-800/50 flex justify-between items-center">
+            <div>
+              <p className="text-white font-bold text-sm">Sempre pedir PIN ao abrir</p>
+              <p className="text-xs text-slate-500">Exigir código toda vez que iniciar (regra de 7 dias se desativado)</p>
+            </div>
+            <Toggle active={alwaysAsk} onClick={handleToggleAlwaysAsk} />
+          </div>
+
+          <div className="p-6 flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <Fingerprint size={20} className="text-slate-400" />
+              <div>
+                <p className="text-white font-bold text-sm">Usar Biometria</p>
+                <p className="text-xs text-slate-500">Digital ou FaceID</p>
+              </div>
+            </div>
+            <Toggle active={useBiometrics} onClick={handleToggleBiometrics} />
+          </div>
+        </div>
+
+        {/* SEÇÃO 3: PREFERÊNCIAS E TERMOS */}
+        <div className="bg-slate-800/40 border border-slate-800 rounded-[2rem] overflow-hidden shadow-xl">
+          {/* REMOVEMOS O TOOGLE DE SOM AQUI */}
+          <button onClick={() => setActiveModal('termos')} className="w-full p-6 text-left hover:bg-slate-800 flex justify-between items-center text-slate-400">
+            <div className="flex items-center gap-3"><FileText size={18} /><span className="text-sm font-medium">Termos de Uso (Site)</span></div>
+            <ChevronRight size={18} />
+          </button>
+        </div>
+
+        <button onClick={logout} className="w-full py-5 flex items-center justify-center gap-3 text-red-500 font-black uppercase text-xs tracking-widest bg-red-500/5 border border-red-500/20 rounded-3xl active:scale-95">
+          <LogOut size={18} /> Sair da Conta
         </button>
       </div>
 
-      <div className="bg-slate-800/50 rounded-[2.5rem] overflow-hidden border border-slate-800 shadow-xl">
-        <button onClick={() => setActiveModal('termos')} className="w-full p-6 text-left text-slate-300 border-b border-slate-800 hover:bg-slate-800 flex justify-between items-center">
-          <span className="font-medium text-sm">Termos de Uso</span>
-          <span className="text-slate-600">›</span>
-        </button>
-        <button onClick={() => setActiveModal('privacidade')} className="w-full p-6 text-left text-slate-300 hover:bg-slate-800 flex justify-between items-center">
-          <span className="font-medium text-sm">Política de Privacidade</span>
-          <span className="text-slate-600">›</span>
-        </button>
-      </div>
+      {/* MODAL CONFIGURAR PIN (Sem alteração) */}
+      {activeModal === 'pin' && (
+        <div className="fixed inset-0 bg-black/95 z-[9999] flex items-center justify-center p-4">
+            <div className="bg-slate-900 border border-slate-700 rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl text-center">
+                <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-4 text-emerald-500"><Lock size={32}/></div>
+                <h3 className="text-xl font-black text-white mb-2">{hasPin ? 'Alterar PIN' : 'Definir PIN'}</h3>
+                <p className="text-slate-400 text-sm mb-8">Digite 4 números para proteger seu app.</p>
+                
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                    {[1,2,3,4,5,6,7,8,9].map(n => (
+                        <button key={n} onClick={() => handlePinKeyPress(String(n))} className="h-14 rounded-xl bg-slate-800 text-white font-bold text-xl active:bg-slate-700">{n}</button>
+                    ))}
+                    <div/>
+                    <button onClick={() => handlePinKeyPress('0')} className="h-14 rounded-xl bg-slate-800 text-white font-bold text-xl active:bg-slate-700">0</button>
+                    <button onClick={() => setPinInput(prev => prev.slice(0, -1))} className="h-14 rounded-xl text-red-400 flex items-center justify-center active:bg-slate-800"><X size={24}/></button>
+                </div>
 
-      <div className="p-4 text-center">
-        <p className="text-slate-600 text-[10px] font-black uppercase tracking-[0.3em]">Finanças Pro Invest v1.8.0</p>
-      </div>
+                <div className="flex gap-3">
+                    <button onClick={() => { setActiveModal(null); setPinInput(''); }} className="flex-1 py-3 text-slate-400 font-bold">Cancelar</button>
+                    <button onClick={handleSavePin} disabled={pinInput.length !== 4} className="flex-1 py-3 bg-emerald-600 disabled:opacity-50 text-white rounded-xl font-bold">Salvar</button>
+                </div>
+            </div>
+        </div>
+      )}
 
+      {/* MODAL PRIVACIDADE (Agora é só um aviso) */}
       {activeModal === 'termos' && (
-        <Modal 
-          onClose={() => setActiveModal(null)} 
-          title="Termos de Uso" 
-          content={`Bem-vindo ao Finanças Pro Invest.\n\n1. USO DO SERVIÇO: Este aplicativo fornece ferramentas de gestão financeira pessoal. As informações aqui contidas não constituem recomendação de investimento.\n\n2. RESPONSABILIDADE: O usuário é o único responsável pela precisão dos dados inseridos e pelas decisões tomadas com base nestas ferramentas.\n\n3. ASSINATURAS: O acesso aos recursos PRO e PREMIUM depende de pagamento recorrente. O cancelamento pode ser feito a qualquer momento através do nosso portal web.`} 
-        />
+        <div className="fixed inset-0 bg-black/95 z-[9999] flex items-center justify-center p-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 w-full max-w-lg shadow-2xl">
+                <h3 className="text-xl font-black text-white mb-4">Privacidade</h3>
+                <p className="text-slate-400 text-sm leading-relaxed mb-6">Seus dados são criptografados. O PIN e Biometria são salvos apenas no seu dispositivo. Para documentos completos, acesse o link abaixo.</p>
+                <button onClick={() => handleOpenExternal('/termos')} className="w-full py-4 bg-sky-600 text-white rounded-2xl font-bold">Ver Termos no Site</button>
+            </div>
+        </div>
       )}
 
-      {activeModal === 'privacidade' && (
-        <Modal 
-          onClose={() => setActiveModal(null)} 
-          title="Política de Privacidade" 
-          content={`Sua privacidade é nossa prioridade.\n\n1. COLETA DE DADOS: Coletamos seu e-mail para autenticação e os dados financeiros inseridos para permitir o funcionamento das calculadoras e gráficos.\n\n2. SEGURANÇA: Seus dados são armazenados nos servidores do Google Firebase com criptografia de ponta.\n\n3. COMPARTILHAMENTO: O Finanças Pro Invest não vende ou compartilha seus dados pessoais com terceiros para fins publicitários.`} 
-        />
-      )}
     </div>
   );
 };
+
 export default SettingsPage;

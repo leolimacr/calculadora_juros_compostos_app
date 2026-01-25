@@ -1,337 +1,392 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  ArrowRight, 
+  Search,
+  X,
+  Maximize2
+} from 'lucide-react';
 
-// --- DADOS INICIAIS ---
-const INITIAL_MARKET_DATA = {
-    indices: [
-        { symbol: 'IBOV', name: 'Ibovespa', price: 'Carregando...', change: '0.00%', up: true },
-        { symbol: 'S&P 500', name: 'S&P 500', price: '...', change: '0.00%', up: true },
-    ],
-    currencies: [
-        { symbol: 'USD', name: 'Dólar', price: '...', change: '0.00%', up: false },
-        { symbol: 'EUR', name: 'Euro', price: '...', change: '0.00%', up: true },
-    ],
-    indicators: [
-        { symbol: 'CDI', name: 'Taxa CDI', price: '10,65%', change: 'a.a.', up: true },
-        { symbol: 'IPCA', name: 'IPCA 12m', price: '4,50%', change: 'a.a.', up: false },
-    ],
-    crypto: [
-        { symbol: 'BTC', name: 'Bitcoin', price: '...', change: '0.00%', up: true },
-    ],
-    stocks: [
-        { symbol: 'VALE3', name: 'Vale', price: '...', change: '0.00%', up: true },
-        { symbol: 'PETR4', name: 'Petrobras', price: '...', change: '0.00%', up: false },
-        { symbol: 'ITUB4', name: 'Itaú', price: '...', change: '0.00%', up: true },
-        { symbol: 'BBDC4', name: 'Bradesco', price: '...', change: '0.00%', up: false },
-        { symbol: 'BBAS3', name: 'Banco do Brasil', price: '...', change: '0.00%', up: true },
-    ]
-};
+// === CONFIGURAÇÕES ===
+const CLOUD_API_URL = 'https://getmarketdata-5auxvdzm3q-uc.a.run.app';
+const AWESOME_API_URL = 'https://economia.awesomeapi.com.br/last/USD-BRL,EUR-BRL,BTC-BRL,ETH-BRL,BNB-BRL,SOL-BRL,BTC-USD,ETH-USD,SOL-USD';
 
-// --- COMPONENTE TICKER (CORRIGIDO) ---
-const TopTicker = ({ data }: { data: any }) => {
-    const allAssets = [
-        ...data.indices, ...data.currencies, ...data.indicators,
-        ...data.crypto, ...data.stocks
-    ];
+// === COMPONENTE MODAL DE GRÁFICO (Corrigido: Botões dentro da barra) ===
+const AssetModal = ({ symbol, onClose }: { symbol: string, onClose: () => void }) => {
+  const [isFull, setIsFull] = useState(false);
 
-    return (
-        <div className="w-full h-10 bg-[#0f172a] border-b border-slate-800 flex items-center overflow-hidden relative z-50 shadow-md">
-            <div className="absolute left-0 top-0 h-full w-8 bg-gradient-to-r from-[#0f172a] to-transparent z-40"></div>
-            <div className="absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-[#0f172a] to-transparent z-40"></div>
+  const getTradingViewSymbol = (s: string) => {
+    if (s === 'IBOV') return 'BMFBOVESPA:IBOV';
+    if (s === 'S&P 500') return 'SP:SPX';
+    if (s.includes('USD') && s.includes('BRL')) return `FX_IDC:${s.replace('-','')}`;
+    if (s === 'BTC' || s === 'BTC-USD') return 'BINANCE:BTCUSD';
+    if (s === 'ETH' || s === 'ETH-USD') return 'BINANCE:ETHUSD';
+    return `BMFBOVESPA:${s}`;
+  };
 
-            <div className="animate-marquee flex whitespace-nowrap items-center h-full">
-                {[...allAssets, ...allAssets].map((asset: any, idx: number) => (
-                    <div key={idx} className="flex items-center gap-2 mx-6 text-[11px] font-mono font-bold tracking-wide">
-                        <span className="text-slate-400">{asset.symbol}</span>
-                        <span className={asset.up === false ? 'text-red-400' : 'text-emerald-400'}>
-                            {asset.price} <span className="opacity-80 text-[10px]">({asset.change})</span>
-                        </span>
-                        <span className="w-1 h-1 rounded-full bg-slate-700 ml-4"></span>
-                    </div>
-                ))}
-            </div>
-            <style>{`
-                @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-                .animate-marquee { animation: marquee 80s linear infinite; }
-                .animate-marquee:hover { animation-play-state: paused; }
-            `}</style>
-        </div>
-    );
-};
-
-export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow }) => {
-  const [marketData, setMarketData] = useState(INITIAL_MARKET_DATA);
-
-  useEffect(() => {
-    const fetchMarketData = async () => {
-        try {
-            const response = await fetch('/api/market'); 
-            if (!response.ok) throw new Error('Falha na API');
-            const realData = await response.json();
-            setMarketData(prev => ({ ...prev, ...realData }));
-        } catch (error) { console.error("Reconectando API...", error); }
-    };
-    fetchMarketData();
-    const interval = setInterval(fetchMarketData, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  const widgetSymbol = getTradingViewSymbol(symbol);
 
   return (
-    <div className="min-h-screen bg-[#020617] animate-in fade-in duration-700 overflow-x-hidden flex flex-col">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/95 backdrop-blur-sm p-4">
       
-      <TopTicker data={marketData} />
-      
-      {/* 
-         HERO SECTION CORRIGIDA:
-         - Removido "fixed height"
-         - Adicionado "pb-24" (Padding Bottom) grande para empurrar o conteúdo
-         - Layout flexível que cresce com o conteúdo
-      */}
-      <section className="relative py-12 px-4 lg:px-6 w-full flex flex-col justify-center">
-        <div className="w-full max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-start relative z-10">
+      {/* Container do Modal */}
+      <div className={`bg-[#0f172a] border border-slate-700 rounded-2xl flex flex-col overflow-hidden transition-all duration-300 relative ${isFull ? 'fixed inset-0 w-full h-full rounded-none z-[10000]' : 'w-full max-w-5xl h-[600px]'}`}>
+        
+        {/* Header do Modal (Agora contém os botões para alinhamento perfeito) */}
+        <div className="flex justify-between items-center p-4 border-b border-slate-800 bg-[#020617]">
+            
+            {/* Título (Lado Esquerdo) */}
+            <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                <span className="text-emerald-400">📊</span> Análise Técnica: {symbol}
+            </h3>
 
-            {/* --- COLUNA ESQUERDA: MERCADO (Altura Controlada) --- */}
-            <div className="hidden lg:flex lg:col-span-3 flex-col gap-4">
-                <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-4 shadow-lg backdrop-blur-sm h-[550px] flex flex-col">
-                    <div className="flex items-center justify-between mb-4 border-b border-slate-800 pb-2 flex-shrink-0">
-                        <h3 className="text-emerald-400 font-bold text-sm flex items-center gap-2">
-                            <span className="animate-pulse text-red-500">●</span> MERCADO REAL
-                        </h3>
-                        <span className="text-[10px] text-slate-500 font-mono opacity-70">30S UPDATE</span>
-                    </div>
-
-                    {/* Scrollbar interna impede que o card cresça sobre o site */}
-                    <div className="space-y-4 overflow-y-auto pr-1 custom-scrollbar flex-grow">
-                        <MarketSection title="ÍNDICES GLOBAIS" items={marketData.indices} />
-                        <MarketSection title="INDICADORES" items={marketData.indicators} />
-                        <MarketSection title="MOEDAS" items={marketData.currencies} />
-                        <MarketSection title="CRIPTOMOEDAS" items={marketData.crypto} />
-                        <MarketSection title="AÇÕES IBOVESPA" items={marketData.stocks} />
-                    </div>
-                </div>
-            </div>
-
-            {/* --- COLUNA CENTRAL --- */}
-            <div className="lg:col-span-6 flex flex-col justify-center text-center relative py-4">
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-sky-500/10 blur-[100px] rounded-full -z-10"></div>
-
-                <div className="mb-8">
-                    <div className="inline-block bg-slate-800/80 border border-slate-700 px-4 py-1.5 rounded-full text-sky-400 text-[10px] font-black uppercase tracking-[0.2em] mb-6 shadow-lg">
-                        Ecossistema Financeiro Completo
-                    </div>
-                    <h1 className="text-5xl lg:text-7xl font-black text-white leading-[0.9] tracking-tight mb-6">
-                        Domine o Jogo <br/>
-                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-sky-400">do Dinheiro</span>
-                    </h1>
-                    <p className="text-slate-400 text-lg lg:text-xl max-w-2xl mx-auto leading-relaxed">
-                        Simuladores profissionais, gerenciamento de caixa e educação financeira em um só lugar.
-                    </p>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-10">
-                    <button onClick={onStartNow} className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-white px-10 py-5 rounded-xl font-bold text-lg shadow-[0_0_30px_rgba(16,185,129,0.3)] transition-all active:scale-95 border-b-4 border-emerald-700">
-                        Começar Agora
+            {/* Botões de Controle (Lado Direito - Dentro da barra) */}
+            <div className="flex items-center gap-2">
+                {!isFull && (
+                    <button 
+                        onClick={() => setIsFull(true)} 
+                        className="bg-slate-800 p-2 hover:bg-slate-700 rounded-full text-white transition shadow-sm border border-slate-600 group" 
+                        title="Tela Cheia"
+                    >
+                        <Maximize2 size={18} className="group-hover:scale-110 transition-transform"/>
                     </button>
-                    <button onClick={() => onNavigate('compound')} className="w-full sm:w-auto bg-slate-800 text-white px-8 py-5 rounded-xl font-bold text-lg border border-slate-700 hover:bg-slate-700 transition-all flex items-center justify-center gap-2">
-                        <span>👁️</span> Ver Demonstração
-                    </button>
-                </div>
-
-                <div className="grid grid-cols-4 gap-2 max-w-lg mx-auto w-full opacity-80">
-                     <MiniTool icon="💰" label="Gestão" />
-                     <MiniTool icon="📈" label="Juros" />
-                     <MiniTool icon="🔥" label="FIRE" />
-                     <MiniTool icon="🤖" label="IA" />
-                </div>
-            </div>
-
-            {/* --- COLUNA DIREITA (Altura Controlada) --- */}
-            <div className="hidden lg:flex lg:col-span-3 flex-col gap-6 h-[550px]">
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 hover:border-emerald-500/30 transition-all cursor-pointer group flex-1 flex flex-col justify-center" onClick={() => onNavigate('blog')}>
-                    <span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-bold px-2 py-1 rounded uppercase mb-3 inline-block w-fit">Em Destaque</span>
-                    <h3 className="text-white font-bold text-lg leading-tight mb-2 group-hover:text-emerald-400 transition-colors">
-                        Nova Calculadora FIRE disponível!
-                    </h3>
-                    <p className="text-slate-400 text-xs mb-0">Planeje sua independência financeira com precisão matemática.</p>
-                </div>
-
-                <div className="bg-gradient-to-br from-indigo-900/40 to-slate-900 border border-indigo-500/20 rounded-2xl p-5 hover:border-indigo-500/50 transition-all cursor-pointer group flex-1 flex flex-col justify-center" onClick={() => onNavigate('blog')}>
-                     <div className="flex justify-between items-start mb-2">
-                        <span className="text-3xl">🎓</span>
-                        <span className="bg-indigo-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">Grátis</span>
-                     </div>
-                    <h3 className="text-white font-bold text-lg leading-tight mb-2 group-hover:text-indigo-400 transition-colors">
-                        Como negociar salário em 2026
-                    </h3>
-                </div>
-
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 hover:border-sky-500/30 transition-all cursor-pointer flex-1 flex flex-col justify-center" onClick={() => onNavigate('blog')}>
-                    <span className="bg-sky-500/10 text-sky-400 text-[10px] font-bold px-2 py-1 rounded uppercase mb-3 inline-block w-fit">Mercado</span>
-                    <h3 className="text-white font-bold text-lg leading-tight mb-2">
-                        Inflação acumula alta de 0,5% no mês
-                    </h3>
-                </div>
-            </div>
-        </div>
-      </section>
-
-      {/* 
-         SEÇÃO DE CONTEÚDO (ISOLADA)
-         - Adicionado border-t (linha divisória)
-         - Adicionado margin-top para garantir separação física
-         - z-index garante que fique na camada correta
-      */}
-      <section className="relative z-20 px-4 py-20 max-w-7xl mx-auto border-t border-slate-800 bg-[#020617] mt-8">
-        <div className="flex items-center justify-between mb-10">
-            <h2 className="text-2xl font-black text-white flex items-center gap-3">
-                <span className="bg-sky-500/10 text-sky-500 p-2 rounded-lg">🎓</span> 
-                Academia & Insights
-            </h2>
-            <button onClick={() => onNavigate('blog')} className="text-xs font-bold text-slate-400 hover:text-white uppercase tracking-widest border-b border-transparent hover:border-white transition-all pb-1">
-                Ver todo o conteúdo
-            </button>
-        </div>
-
-        <div className="grid md:grid-cols-12 gap-8">
-            <div className="col-span-1 md:col-span-7 bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 rounded-[2.5rem] overflow-hidden group cursor-pointer hover:shadow-[0_0_30px_rgba(14,165,233,0.1)] transition-all" onClick={() => onNavigate('blog')}>
-                <div className="h-full flex flex-col md:flex-row">
-                    <div className="md:w-2/5 bg-slate-800 relative overflow-hidden">
-                        <div className="absolute inset-0 bg-sky-600/20 mix-blend-overlay"></div>
-                        <div className="absolute inset-0 flex items-center justify-center text-7xl group-hover:scale-110 transition-transform duration-500">🚀</div>
-                        <div className="absolute top-4 left-4 bg-sky-500 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase shadow-lg">Curso Grátis</div>
-                    </div>
-                    <div className="p-8 md:w-3/5 flex flex-col justify-center">
-                        <h3 className="text-2xl font-bold text-white mb-3 group-hover:text-sky-400 transition-colors">Liberdade Financeira (FIRE)</h3>
-                        <p className="text-slate-400 text-sm mb-6 leading-relaxed">
-                            Um roadmap completo de 10 passos para sair das dívidas e construir uma carteira de investimentos que paga seus boletos.
-                        </p>
-                        <div className="flex items-center gap-6 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                            <span className="flex items-center gap-1">📚 10 Aulas</span>
-                            <span className="flex items-center gap-1">⏱️ 45 min</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div className="col-span-1 md:col-span-5 bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 flex flex-col justify-between hover:border-emerald-500/30 transition-all cursor-pointer group" onClick={() => onNavigate('blog')}>
-                <div>
-                    <div className="flex items-center gap-2 mb-4">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        <span className="text-emerald-400 font-mono text-[10px] uppercase">Mercado Agora</span>
-                    </div>
-                    <h3 className="text-xl font-bold text-white mb-4 leading-tight group-hover:text-emerald-400 transition-colors">
-                        "O Fim da Poupança": Por que a inflação de 2026 exige novos ativos.
-                    </h3>
-                    <p className="text-slate-400 text-sm leading-relaxed line-clamp-3">
-                        Analistas do JP Morgan e da XP alertam para a mudança na curva de juros. Veja onde alocar sua reserva de emergência.
-                    </p>
-                </div>
-                <div className="mt-6 flex items-center justify-between border-t border-slate-800 pt-4">
-                    <span className="text-slate-500 text-xs">Leitura: 3 min</span>
-                    <span className="text-white text-lg group-hover:translate-x-1 transition-transform">→</span>
-                </div>
-            </div>
-        </div>
-      </section>
-
-      {/* 4. SEÇÃO FERRAMENTAS */}
-      <section className="py-20 px-4 border-t border-white/5 bg-slate-950">
-        <div className="max-w-6xl mx-auto">
-             <div className="text-center mb-16">
-                 <h2 className="text-3xl font-black text-white mb-4">Ferramentas Profissionais</h2>
-                 <p className="text-slate-400">Tudo o que você precisa em um único lugar.</p>
-             </div>
-             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <ToolCard icon="💰" title="Gerenciador" desc="Fluxo de Caixa" onClick={onStartNow} />
-                <ToolCard icon="📈" title="Juros Compostos" desc="Simulador Pro" onClick={() => onNavigate('compound')} />
-                <ToolCard icon="🔥" title="Calculadora FIRE" desc="Independência" onClick={() => onNavigate('pricing')} highlight />
-                <ToolCard icon="🤖" title="Consultor IA" desc="Análise 24h" onClick={() => onNavigate('pricing')} highlight />
-                <ToolCard icon="📉" title="Inflação" desc="Poder de Compra" onClick={() => onNavigate('compound')} />
-                <ToolCard icon="🏠" title="Imóveis" desc="Aluguel vs Compra" onClick={() => onNavigate('pricing')} />
-                <ToolCard icon="💳" title="Dívidas" desc="Método Snowball" onClick={() => onNavigate('pricing')} />
-                <ToolCard icon="📊" title="Dividendos" desc="Magic Number" onClick={() => onNavigate('pricing')} />
-             </div>
-        </div>
-      </section>
-
-      {/* 5. BANNER FINAL APP */}
-      <section className="max-w-6xl mx-auto px-4 mt-10 mb-20">
-        <div className="bg-indigo-900 rounded-[3rem] p-10 md:p-16 text-center relative overflow-hidden shadow-2xl group">
-            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-            <div className="absolute -top-24 -left-24 w-64 h-64 bg-sky-500 rounded-full blur-[100px] opacity-50"></div>
-            <div className="relative z-10 max-w-2xl mx-auto">
-                <h2 className="text-3xl md:text-5xl font-black text-white mb-6 tracking-tight">Pare de perder dinheiro.</h2>
-                <p className="text-indigo-200 text-lg mb-10">
-                    Instale o app agora e descubra para onde seu salário está indo. A IA do Finanças Pro já ajudou mais de 10.000 pessoas a saírem do vermelho.
-                </p>
-                <button onClick={onStartNow} className="bg-white text-indigo-950 px-10 py-5 rounded-2xl font-black text-lg shadow-xl hover:scale-105 transition-transform">
-                    CRIAR MINHA CONTA AGORA
+                )}
+                <button 
+                    onClick={onClose} 
+                    className="bg-red-600 p-2 hover:bg-red-500 rounded-full text-white transition shadow-sm border border-red-400 group" 
+                    title="Fechar"
+                >
+                    <X size={18} className="group-hover:scale-110 transition-transform" />
                 </button>
-                <p className="mt-6 text-indigo-300 text-xs font-bold uppercase tracking-widest">Disponível para Android & Web</p>
             </div>
         </div>
-      </section>
 
-      <style>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #0f172a; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #475569; }
-      `}</style>
+        {/* Conteúdo (TradingView Widget) */}
+        <div className="flex-1 bg-black relative">
+            <iframe 
+                src={`https://s.tradingview.com/widgetembed/?frameElementId=tradingview_widget&symbol=${widgetSymbol}&interval=D&hidesidetoolbar=1&symboledit=1&saveimage=1&toolbarbg=f1f3f6&studies=[]&theme=dark&style=1&timezone=America%2FSao_Paulo`}
+                className="w-full h-full absolute inset-0 border-0"
+                allowTransparency={true}
+                scrolling="no"
+                allowFullScreen
+            ></iframe>
+        </div>
+      </div>
     </div>
   );
 };
 
-// --- SUB-COMPONENTES ---
+// === UTILS: FORMATAÇÃO ===
+const formatNumber = (val: string | number, decimals: number = 2) => {
+    let num = typeof val === 'string' ? parseFloat(val) : val;
+    if (isNaN(num)) return '---';
+    return new Intl.NumberFormat('pt-BR', {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+    }).format(num);
+};
 
-const MarketSection = ({ title, items }: any) => {
-    if (!items || items.length === 0) return null;
+const formatChange = (val: string | number) => {
+    let num = typeof val === 'string' ? parseFloat(val) : val;
+    if (isNaN(num)) return '0.00%';
+    return (num >= 0 ? '+' : '') + num.toFixed(2).replace('.', ',') + '%';
+};
+
+const getDisplayPrice = (type: string, symbol: string, rawPrice: any) => {
+    if (rawPrice === '---' || rawPrice === undefined) return '---';
+    const decimals = (type === 'currency' || symbol.includes('BTC') || symbol.includes('ETH')) ? 3 : 2;
+    const formatted = formatNumber(rawPrice, decimals);
+
+    if (type === 'index') return `${formatted} Pts`;
+    if (type === 'currency') return `R$ ${formatted}`;
+    if (type === 'crypto' && symbol.includes('USD')) return `US$ ${formatted}`;
+    if (type === 'crypto') return `R$ ${formatted}`;
+    if (type === 'stock') return `R$ ${formatted}`;
+    
+    return formatted;
+};
+
+// === PÁGINA PRINCIPAL ===
+export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow }) => {
+  const [marketData, setMarketData] = useState({
+    indices: [],
+    stocks: [],
+    currencies: [],
+    cryptos: []
+  });
+  
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedAsset, setSelectedAsset] = useState<string | null>(null);
+
+  const allAssets = useMemo(() => {
+    return [
+        ...marketData.indices,
+        ...marketData.stocks,
+        ...marketData.currencies,
+        ...marketData.cryptos
+    ];
+  }, [marketData]);
+
+  const searchResults = useMemo(() => {
+      if (!searchTerm) return [];
+      return allAssets.filter((asset: any) => 
+          asset.symbol.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+  }, [searchTerm, allAssets]);
+
+  const formatCoin = (symbol: string, rawData: any, type: 'currency' | 'crypto') => {
+      if (!rawData) return { symbol, price: 0, change: 0, up: true, type };
+      return {
+          symbol,
+          price: parseFloat(rawData.bid),
+          change: parseFloat(rawData.pctChange),
+          up: parseFloat(rawData.pctChange) >= 0,
+          type
+      };
+  };
+
+  const fetchMarketData = async () => {
+    try {
+      const [cloudResponse, awesomeResponse] = await Promise.all([
+          fetch(`${CLOUD_API_URL}/?t=${Date.now()}`),
+          fetch(AWESOME_API_URL)
+      ]);
+
+      const cloudData = await cloudResponse.json();
+      const awesomeData = await awesomeResponse.json();
+
+      const currencies = [
+          formatCoin('USD', awesomeData.USDBRL, 'currency'),
+          formatCoin('EUR', awesomeData.EURBRL, 'currency')
+      ];
+
+      const cryptos = [
+          formatCoin('BTC', awesomeData.BTCBRL, 'crypto'),
+          formatCoin('BTC-USD', awesomeData.BTCUSD, 'crypto'),
+          formatCoin('ETH', awesomeData.ETHBRL, 'crypto'),
+          formatCoin('ETH-USD', awesomeData.ETHUSD, 'crypto'),
+          formatCoin('SOL', awesomeData.SOLBRL, 'crypto'),
+          formatCoin('SOL-USD', awesomeData.SOLUSD, 'crypto'),
+      ];
+
+      const indices = (cloudData.indices || []).map((i: any) => ({...i, type: 'index'}));
+      const stocks = (cloudData.stocks || []).map((i: any) => ({...i, type: 'stock'}));
+
+      setMarketData({ indices, stocks, currencies, cryptos });
+
+    } catch (error) {
+      console.error('Erro ao buscar dados:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchMarketData();
+    const intervalId = setInterval(fetchMarketData, 60000);
+    return () => clearInterval(intervalId);
+  }, []);
+
+  return (
+    <div className="flex flex-col bg-[#020617] min-h-screen text-white font-sans">
+      
+      {/* Modal de Gráfico */}
+      {selectedAsset && (
+          <AssetModal symbol={selectedAsset} onClose={() => setSelectedAsset(null)} />
+      )}
+
+      {/* Ticker (Topo) */}
+      <div className="pt-16">
+        <InfiniteTicker data={marketData} />
+      </div>
+
+      {/* === COLUNA LATERAL DE MERCADO === */}
+      <section className="px-4 lg:px-12 py-12 lg:py-20 max-w-[1600px] mx-auto w-full grid lg:grid-cols-12 gap-8 items-start">
+        
+        <div className="hidden lg:flex lg:col-span-3 bg-slate-900/50 border border-slate-800 rounded-2xl p-4 flex-col gap-4 shadow-2xl h-[700px] overflow-y-auto custom-scrollbar">
+            
+            <div className="relative mb-2">
+                <div className="relative">
+                    <input 
+                        type="text" 
+                        placeholder="Buscar ativo (ex: VALE3)" 
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg py-3 pl-10 pr-4 text-sm font-bold text-white focus:outline-none focus:border-emerald-500 transition-colors uppercase placeholder:text-slate-500"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                    <Search className="absolute left-3 top-3 text-slate-500" size={16} />
+                </div>
+                
+                {searchTerm && (
+                    <div className="mt-2 bg-slate-800 border border-slate-700 rounded-lg overflow-hidden animate-fade-in">
+                        <p className="text-[10px] text-slate-400 uppercase font-bold px-3 py-2 bg-slate-900/50">Resultados</p>
+                        {searchResults.length > 0 ? (
+                            searchResults.map((item: any, i: number) => (
+                                <div key={i} className="p-2 hover:bg-slate-700 cursor-pointer border-t border-slate-700/50" onClick={() => setSelectedAsset(item.symbol)}>
+                                    <MarketItemRow item={item} isSearchResult={true} />
+                                </div>
+                            ))
+                        ) : (
+                            <div className="p-3 text-center text-xs text-slate-500">
+                                Nenhum ativo encontrado na lista.
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            <h3 className="text-emerald-400 font-black text-xs uppercase tracking-widest border-b border-slate-800 pb-2 mt-2">Mercado ao Vivo</h3>
+            
+            <MarketGroup title="Índices Globais" items={marketData.indices} onClickItem={setSelectedAsset} />
+            <MarketGroup title="Câmbio" items={marketData.currencies} onClickItem={setSelectedAsset} />
+            <MarketGroup title="Criptomoedas" items={marketData.cryptos} onClickItem={setSelectedAsset} />
+            <MarketGroup title="Destaques B3" items={marketData.stocks} onClickItem={setSelectedAsset} />
+            
+        </div>
+
+        {/* === CONTEÚDO CENTRAL === */}
+        <div className="lg:col-span-6 text-center space-y-8 py-10">
+            <h1 className="text-5xl lg:text-8xl font-black text-white leading-none tracking-tight">
+                Domine o Jogo <br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-sky-400">do Dinheiro</span>
+            </h1>
+            <p className="text-slate-400 text-lg lg:text-xl max-w-xl mx-auto">
+                Tudo o que você precisa para gerenciar, simular e investir melhor.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
+                <button onClick={onStartNow} className="bg-emerald-500 hover:bg-emerald-400 text-white px-10 py-5 rounded-2xl font-black text-xl shadow-2xl shadow-emerald-500/20 active:scale-95 transition-all">
+                    COMEÇAR AGORA
+                </button>
+                <button onClick={() => onNavigate && onNavigate('compound')} className="bg-slate-800 text-white px-8 py-5 rounded-2xl font-bold text-xl border border-slate-700 hover:bg-slate-700 transition-all">
+                    DEMONSTRAÇÃO
+                </button>
+            </div>
+            
+            <div className="grid grid-cols-4 gap-2 opacity-50 grayscale pt-10 max-w-md mx-auto">
+                <div className="text-center"><span className="text-2xl block">💰</span><span className="text-[10px] font-bold">GESTÃO</span></div>
+                <div className="text-center"><span className="text-2xl block">📈</span><span className="text-[10px] font-bold">JUROS</span></div>
+                <div className="text-center"><span className="text-2xl block">🔥</span><span className="text-[10px] font-bold">FIRE</span></div>
+                <div className="text-center"><span className="text-2xl block">🤖</span><span className="text-[10px] font-bold">IA</span></div>
+            </div>
+        </div>
+
+        {/* === COLUNA DIREITA: INSIGHTS === */}
+        <div className="hidden lg:flex lg:col-span-3 flex-col gap-6">
+            <InsightCard title="Calculadora FIRE" desc="Nova ferramenta de independência financeira liberada." tag="NOVO" onClick={() => onNavigate && onNavigate('fire')} />
+            <InsightCard title="Como investir em 2026" desc="O guia completo sobre a nova economia." tag="CURSO" onClick={() => onNavigate && onNavigate('blog')} />
+            <InsightCard title="Inflação no Brasil" desc="O IPCA acumulado exige cautela na renda fixa." tag="NOTÍCIA" onClick={() => onNavigate && onNavigate('blog')} />
+        </div>
+      </section>
+
+      {/* FERRAMENTAS */}
+      <section className="bg-slate-900/30 py-20 border-t border-slate-800">
+        <div className="max-w-6xl mx-auto px-4">
+            <h2 className="text-center text-slate-500 font-bold uppercase tracking-widest mb-12">8 Ferramentas Poderosas</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <ToolItem icon="💰" name="Gerenciador" desc="Fluxo de Caixa" onClick={onStartNow} />
+                <ToolItem icon="📈" name="Juros Compostos" desc="Simulador" onClick={() => onNavigate && onNavigate('compound')} />
+                <ToolItem icon="🔥" name="Calculadora FIRE" desc="Independência" onClick={() => onNavigate && onNavigate('fire')} />
+                <ToolItem icon="🤖" name="Consultor IA" desc="Análise 24h" onClick={() => onNavigate && onNavigate('ai_chat')} />
+                <ToolItem icon="📉" name="Inflação" desc="Poder de Compra" onClick={() => onNavigate && onNavigate('inflation')} />
+                <ToolItem icon="🏠" name="Imóveis" desc="Alugar vs Comprar" onClick={() => onNavigate && onNavigate('rent_vs_buy')} />
+                <ToolItem icon="💳" name="Dívidas" desc="Otimizador" onClick={() => onNavigate && onNavigate('debt')} />
+                <ToolItem icon="📊" name="Dividendos" desc="Renda Passiva" onClick={() => onNavigate && onNavigate('dividends')} />
+            </div>
+        </div>
+      </section>
+    </div>
+  );
+};
+
+// === COMPONENTES AUXILIARES ===
+
+const InfiniteTicker = ({ data }: any) => {
+    const all = [ ...data.indices, ...(data.currencies || []), ...data.stocks, ...(data.cryptos || []) ];
+    
+    const formatItem = (item: any) => {
+        const val = getDisplayPrice(item.type, item.symbol, item.price);
+        const change = formatChange(item.change);
+        return { val, change };
+    };
+
     return (
-        <div className="mb-4 last:mb-0 animate-in fade-in duration-500">
-            <h4 className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-2 border-b border-slate-800/50 pb-1">{title}</h4>
-            <div className="space-y-2">
-                {items.map((item: any, idx: number) => (
-                    <div key={idx} className="flex justify-between items-center text-xs group hover:bg-slate-800/50 p-1 rounded transition-colors">
-                        <div>
-                            <span className="font-bold text-slate-200 block">{item.symbol}</span>
-                            <span className="text-[10px] text-slate-500">{item.name}</span>
-                        </div>
-                        <div className="text-right">
-                            <span className="font-mono text-slate-200 block">{item.price}</span>
-                            <span className={`font-mono text-[10px] ${item.up === false ? 'text-red-400' : 'text-emerald-400'}`}>
-                                {item.up === false ? '▼' : '▲'} {item.change}
+        <div className="w-full bg-[#0f172a] border-b border-slate-800 h-12 flex items-center overflow-hidden z-40">
+            <div className="animate-marquee flex whitespace-nowrap items-center">
+                {[...all, ...all].map((item, i) => {
+                    const { val, change } = formatItem(item);
+                    return (
+                        <div key={`${item.symbol}-${i}`} className="flex items-center gap-2 mx-8 text-sm font-mono font-bold">
+                            <span className="text-slate-400">{item.symbol}</span>
+                            <span className={item.up ? 'text-emerald-400' : 'text-red-400'}>{val}</span>
+                            <span className={`text-xs ${item.up ? 'text-emerald-500' : 'text-red-500'} opacity-80 flex items-center`}>
+                               {item.up ? <TrendingUp size={12} strokeWidth={3} className="mr-1"/> : <TrendingDown size={12} strokeWidth={3} className="mr-1"/>}
+                               {change}
                             </span>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
+            <style>{` @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } } .animate-marquee { animation: marquee 80s linear infinite; } `}</style>
         </div>
     );
 };
 
-const MiniTool = ({ icon, label }: any) => (
-    <div className="bg-slate-900 border border-slate-800 rounded-lg p-2 flex flex-col items-center justify-center gap-1">
-        <span className="text-xl">{icon}</span>
-        <span className="text-[10px] font-bold text-slate-400 uppercase">{label}</span>
-    </div>
-);
-
-const ToolCard = ({ icon, title, desc, onClick, highlight }: any) => (
-    <div 
-        onClick={onClick}
-        className={`p-6 rounded-3xl border transition-all cursor-pointer hover:-translate-y-1 active:scale-95 flex flex-col items-center text-center gap-3 group
-        ${highlight 
-            ? 'bg-gradient-to-b from-slate-800 to-slate-900 border-emerald-500/30 hover:border-emerald-500 shadow-lg shadow-emerald-900/10' 
-            : 'bg-slate-900/50 border-slate-800 hover:border-sky-500/30 hover:bg-slate-800'}`}
-    >
-        <span className="text-4xl mb-2 group-hover:scale-110 transition-transform duration-300">{icon}</span>
-        <div>
-            <h3 className="text-white font-bold text-sm mb-1">{title}</h3>
-            <p className={`text-[10px] uppercase font-bold tracking-wider ${highlight ? 'text-emerald-400' : 'text-slate-500 group-hover:text-sky-400'}`}>{desc}</p>
+const MarketGroup = ({ title, items, onClickItem }: any) => (
+    <div className="mb-4">
+        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 border-b border-slate-800 pb-1">{title}</p>
+        <div className="flex flex-col gap-1">
+            {items.map((item: any, i: number) => (
+                <MarketItemRow key={i} item={item} onClick={() => onClickItem(item.symbol)} />
+            ))}
         </div>
     </div>
 );
 
-export const DemoPage = () => <div className="text-white p-20 text-center">Demonstração Interativa em Breve</div>;
-export const GuidesPage = () => <div className="text-white p-20 text-center">Guias Financeiros</div>;
-export const FaqPage = () => <div className="text-white p-20 text-center">FAQ</div>;
-export const AboutPage = () => <div className="text-white p-20 text-center">Sobre Nós</div>;
+const MarketItemRow = ({ item, onClick, isSearchResult }: any) => {
+    const displayPrice = getDisplayPrice(item.type, item.symbol, item.price);
+    const displayChange = formatChange(item.change);
+
+    return (
+        <div 
+            onClick={onClick} 
+            className={`
+                flex items-center justify-between 
+                bg-slate-800/40 border border-slate-800/60 rounded-lg p-2 
+                hover:bg-slate-700/60 hover:border-slate-600 transition-all cursor-pointer group
+                ${isSearchResult ? 'border-none bg-transparent' : ''}
+            `}
+        >
+            <div className="flex items-center gap-3">
+                <span className="text-xs font-bold text-slate-300 group-hover:text-white transition-colors min-w-[60px]">
+                    {item.symbol}
+                </span>
+                <span className="text-xs font-bold text-white tracking-wide">
+                    {displayPrice}
+                </span>
+            </div>
+
+            <span className={`text-[10px] font-bold flex items-center ${item.up ? 'text-emerald-500' : 'text-red-500'}`}>
+                {item.up ? <TrendingUp size={12} strokeWidth={3} className="mr-1"/> : <TrendingDown size={12} strokeWidth={3} className="mr-1"/>}
+                {displayChange}
+            </span>
+        </div>
+    );
+};
+
+const InsightCard = ({ title, desc, tag, onClick }: any) => (
+    <div onClick={onClick} className="bg-slate-900 border border-slate-800 p-6 rounded-2xl hover:border-sky-500/30 transition-all cursor-pointer group">
+        <span className="text-[10px] bg-sky-500/10 text-sky-400 px-2 py-1 rounded font-black uppercase mb-3 inline-block">{tag}</span>
+        <h4 className="text-white font-bold mb-2 group-hover:text-sky-300 transition-colors">{title}</h4>
+        <p className="text-slate-400 text-xs leading-relaxed">{desc}</p>
+    </div>
+);
+
+const ToolItem = ({ icon, name, desc, onClick }: any) => (
+    <div onClick={onClick} className="bg-slate-900 border border-slate-800 p-6 rounded-3xl flex flex-col items-center text-center gap-3 hover:border-emerald-500/40 transition-all cursor-pointer active:scale-95">
+        <span className="text-4xl">{icon}</span>
+        <div>
+            <h5 className="text-white font-bold text-sm">{name}</h5>
+            <p className="text-slate-500 text-[10px] font-bold uppercase mt-1">{desc}</p>
+        </div>
+    </div>
+);
+
+export default PublicHome;
