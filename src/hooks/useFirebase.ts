@@ -1,116 +1,169 @@
-import { useState, useEffect, useMemo } from 'react';
-import { db, firestore, auth } from '../firebase';
-import { ref, onValue, push, update, serverTimestamp, query, limitToLast, remove } from 'firebase/database';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
-import { UserMeta } from '../types';
-import { AppUserDoc, isAppPremium } from '../types/user';
+import { useState, useEffect } from 'react';
+import { 
+  ref, 
+  push, 
+  onValue, 
+  remove, 
+  update 
+} from 'firebase/database';
+import { 
+  doc, 
+  setDoc, 
+  onSnapshot, 
+  updateDoc,
+  deleteDoc // Novo import
+} from 'firebase/firestore';
+import { db, firestore } from '../firebase';
+import { Transaction, Category, UserMeta } from '../types';
 
-const DEFAULT_CATEGORIES = [
-  { name: 'Alimentação', type: 'expense' },
-  { name: 'Moradia', type: 'expense' },
-  { name: 'Transporte', type: 'expense' },
-  { name: 'Lazer', type: 'expense' },
-  { name: 'Saúde', type: 'expense' },
-  { name: 'Educação', type: 'expense' },
-  { name: 'Salário', type: 'income' },
-  { name: 'Investimentos', type: 'income' },
-  { name: 'Freelance', type: 'income' },
+// Categorias Padrão (Seed)
+const DEFAULT_CATEGORIES: Omit<Category, 'id' | 'userId'>[] = [
+  { name: 'Moradia', type: 'expense', color: '#EF4444', icon: 'home' },
+  { name: 'Alimentação', type: 'expense', color: '#F59E0B', icon: 'shopping-cart' },
+  { name: 'Transporte', type: 'expense', color: '#3B82F6', icon: 'truck' },
+  { name: 'Lazer', type: 'expense', color: '#10B981', icon: 'smile' },
+  { name: 'Saúde', type: 'expense', color: '#EC4899', icon: 'heart' },
+  { name: 'Educação', type: 'expense', color: '#8B5CF6', icon: 'book' },
+  { name: 'Salário', type: 'income', color: '#10B981', icon: 'dollar-sign' },
+  { name: 'Investimentos', type: 'income', color: '#3B82F6', icon: 'trending-up' },
+  { name: 'Extras', type: 'income', color: '#F59E0B', icon: 'plus' }
 ];
 
-const DEFAULT_META: UserMeta = {
-  plan: 'free', launchLimit: 30, launchCount: 0, createdAt: Date.now(), updatedAt: Date.now()
-};
+export const useFirebase = (userId?: string) => {
+  const [lancamentos, setLancamentos] = useState<Transaction[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [userMeta, setUserMeta] = useState<UserMeta | null>(null);
+  const [loading, setLoading] = useState(true);
 
-export const useFirebase = (userId: string | undefined | null) => {
-  const [lancamentos, setLancamentos] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [userMeta, setUserMeta] = useState<UserMeta>(DEFAULT_META);
-  const [firestoreUser, setFirestoreUser] = useState<AppUserDoc | null>(null);
-  const [isLoadingData, setIsLoadingData] = useState(true);
-  const [authReady, setAuthReady] = useState(false);
-
+  // Carrega Dados
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, () => setAuthReady(true));
-    return () => unsubscribe();
-  }, []);
-
-  const isPremium = useMemo(() => isAppPremium(firestoreUser), [firestoreUser]);
-  const isPro = useMemo(() => firestoreUser?.subscription?.planId?.includes('pro'), [firestoreUser]);
-  const usagePercentage = useMemo(() => (!userMeta?.launchLimit || isPremium || isPro) ? 0 : Math.min(100, (userMeta.launchCount / userMeta.launchLimit) * 100), [userMeta, isPremium, isPro]);
-  const isLimitReached = useMemo(() => (!userMeta || isPremium || isPro) ? false : userMeta.launchCount >= userMeta.launchLimit, [userMeta, isPremium, isPro]);
-
-  useEffect(() => {
-    if (!authReady || !userId || userId === 'guest') {
-      if (authReady) setIsLoadingData(false);
+    if (!userId) {
+      setLancamentos([]);
+      setCategories([]);
+      setUserMeta(null);
+      setLoading(false);
       return;
     }
 
-    const metaRef = ref(db, `users/${userId}/meta`);
-    onValue(metaRef, (snapshot) => setUserMeta(snapshot.val() || DEFAULT_META));
-
-    const lancamentosRef = query(ref(db, `users/${userId}/gerenciadorFinanceiro/lancamentos`), limitToLast(100));
-    onValue(lancamentosRef, (snapshot) => {
+    // 1. Transações (Realtime DB)
+    const transactionsRef = ref(db, `transactions/${userId}`);
+    const unsubscribeTransactions = onValue(transactionsRef, (snapshot) => {
       const data = snapshot.val();
+      const loadedTransactions: Transaction[] = [];
       if (data) {
-        const arr = Object.entries(data).map(([key, value]: [string, any]) => ({ ...value, id: key }));
-        setLancamentos(arr.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-      } else setLancamentos([]);
-      setIsLoadingData(false);
+        Object.entries(data).forEach(([id, value]: [string, any]) => {
+          loadedTransactions.push({ id, ...value });
+        });
+        // Ordena por data (mais recente primeiro)
+        loadedTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      }
+      setLancamentos(loadedTransactions);
     });
 
-    // LISTENER DE CATEGORIAS COM AUTO-SEED
-    const categoriesRef = ref(db, `users/${userId}/gerenciadorFinanceiro/categories`);
-    onValue(categoriesRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const arr = Object.entries(data).map(([key, value]: [string, any]) => ({ ...value, id: key }));
-        setCategories(arr);
-      } else {
-        // Se o banco estiver vazio, "planta" as categorias padrão no banco do usuário
-        const updates: any = {};
-        DEFAULT_CATEGORIES.forEach(cat => {
-          const newKey = push(ref(db, `users/${userId}/gerenciadorFinanceiro/categories`)).key;
-          updates[`users/${userId}/gerenciadorFinanceiro/categories/${newKey}`] = { ...cat, id: newKey };
-        });
-        update(ref(db), updates);
+    // 2. Metadados e Plano (Firestore)
+    const userDocRef = doc(firestore, 'users', userId);
+    const unsubscribeMeta = onSnapshot(userDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setUserMeta(docSnap.data() as UserMeta);
       }
     });
 
-    if (firestore) {
-      onSnapshot(doc(firestore, 'users', userId), (docSnap) => {
-        if (docSnap.exists()) setFirestoreUser(docSnap.data() as AppUserDoc);
-      });
-    }
-  }, [userId, authReady]);
-
-  const saveLancamento = async (t: any) => {
-    if (!userId) return;
-    const newRef = push(ref(db, `users/${userId}/gerenciadorFinanceiro/lancamentos`));
-    await update(ref(db), {
-      [`users/${userId}/gerenciadorFinanceiro/lancamentos/${newRef.key}`]: { ...t, id: newRef.key, createdAt: serverTimestamp() },
-      [`users/${userId}/meta/launchCount`]: (userMeta.launchCount || 0) + 1
+    // 3. Categorias (Firestore)
+    const categoriesRef = doc(firestore, 'categories', userId);
+    const unsubscribeCategories = onSnapshot(categoriesRef, async (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data && data.list) {
+          setCategories(data.list);
+        }
+      } else {
+        // Auto-seed: Cria categorias padrão se não existirem
+        const initialCategories = DEFAULT_CATEGORIES.map(cat => ({ ...cat, userId, id: crypto.randomUUID() }));
+        await setDoc(categoriesRef, { list: initialCategories });
+        setCategories(initialCategories as Category[]);
+      }
+      setLoading(false);
     });
+
+    return () => {
+      unsubscribeTransactions();
+      unsubscribeMeta();
+      unsubscribeCategories();
+    };
+  }, [userId]);
+
+  // --- AÇÕES ---
+
+  const saveLancamento = async (transaction: Omit<Transaction, 'id' | 'userId'>) => {
+    if (!userId) return;
+    const transactionsRef = ref(db, `transactions/${userId}`);
+    await push(transactionsRef, { ...transaction, userId });
   };
 
   const deleteLancamento = async (id: string) => {
     if (!userId) return;
-    await update(ref(db), {
-      [`users/${userId}/gerenciadorFinanceiro/lancamentos/${id}`]: null,
-      [`users/${userId}/meta/launchCount`]: Math.max(0, (userMeta.launchCount || 1) - 1)
-    });
+    const transactionRef = ref(db, `transactions/${userId}/${id}`);
+    await remove(transactionRef);
   };
 
-  const saveCategory = async (cat: any) => {
+  const saveCategory = async (category: Omit<Category, 'userId'>) => {
     if (!userId) return;
-    const id = cat.id || push(ref(db, `users/${userId}/gerenciadorFinanceiro/categories`)).key;
-    await update(ref(db, `users/${userId}/gerenciadorFinanceiro/categories/${id}`), { ...cat, id, updatedAt: serverTimestamp() });
+    const categoriesRef = doc(firestore, 'categories', userId);
+    const newCategory = { ...category, userId };
+    
+    // Se tem ID, é edição. Se não, cria novo.
+    let newList;
+    if (category.id) {
+      newList = categories.map(c => c.id === category.id ? newCategory : c);
+    } else {
+      newCategory.id = crypto.randomUUID();
+      newList = [...categories, newCategory];
+    }
+    
+    await setDoc(categoriesRef, { list: newList }, { merge: true });
   };
 
-  const deleteCategory = async (id: string) => {
+  const deleteCategory = async (categoryId: string) => {
     if (!userId) return;
-    await remove(ref(db, `users/${userId}/gerenciadorFinanceiro/categories/${id}`));
+    const categoriesRef = doc(firestore, 'categories', userId);
+    const newList = categories.filter(c => c.id !== categoryId);
+    await setDoc(categoriesRef, { list: newList }, { merge: true });
   };
 
-  return { lancamentos, categories, userMeta, isPremium, isPro, isLimitReached, usagePercentage, isLoadingData, saveLancamento, deleteLancamento, saveCategory, deleteCategory };
+  // ✅ NOVA FUNÇÃO: APAGAR TUDO (LIXEIRO)
+  const wipeUserData = async () => {
+    if (!userId) return;
+    try {
+      // 1. Apaga Transações (Realtime)
+      await remove(ref(db, `transactions/${userId}`));
+      // 2. Apaga Metadados (Firestore)
+      await deleteDoc(doc(firestore, 'users', userId));
+      // 3. Apaga Categorias (Firestore)
+      await deleteDoc(doc(firestore, 'categories', userId));
+      // 4. Apaga Histórico do Chat (Firestore - Coleção chatHistory)
+      // Nota: Isso exigiria listar e deletar subcoleções, mas por hora apagamos o principal
+      console.log('Dados do usuário apagados com sucesso.');
+    } catch (error) {
+      console.error('Erro ao apagar dados:', error);
+      throw error;
+    }
+  };
+
+  // Lógica de Limite (Free Plan)
+  const isLimitReached = !userMeta?.subscription?.active && lancamentos.length >= 25;
+  const usagePercentage = userMeta?.subscription?.active ? 0 : Math.min((lancamentos.length / 25) * 100, 100);
+
+  return {
+    lancamentos,
+    categories,
+    userMeta,
+    loading,
+    saveLancamento,
+    deleteLancamento,
+    saveCategory,
+    deleteCategory,
+    wipeUserData, // Exportando a função nova
+    isLimitReached,
+    usagePercentage
+  };
 };

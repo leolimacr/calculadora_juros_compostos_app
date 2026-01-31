@@ -5,28 +5,25 @@ import * as logger from "firebase-functions/logger";
 const ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'https://financasproinvest.com',
-    'https://financasproinvest.com.br'
+    'https://financasproinvest.com.br',
 ];
-
-// Dados locais de fallback (Números puros, sem strings formatadas)
-const FALLBACK_DATA = {
-    indices: [
-        { symbol: 'IBOV', price: 128450, change: 0.85, up: true },
-        { symbol: 'S&P 500', price: 5120, change: 1.10, up: true },
-    ],
-    stocks: [
-        { symbol: 'VALE3', price: 62.50, change: 0.50, up: true },
-        { symbol: 'PETR4', price: 38.20, change: -1.20, up: false },
-    ],
-    currencies: [],
-    cryptos: []
-};
 
 export const getMarketData = onRequest(async (request, response) => {
     const origin = request.headers.origin;
-    if (origin && ALLOWED_ORIGINS.includes(origin)) {
-        response.setHeader('Access-Control-Allow-Origin', origin);
+    
+    // --- LÓGICA DE CORS ATUALIZADA ---
+    let finalOrigin = origin;
+
+    // Se a origem for do Vercel Preview/Staging, permitimos, pois a URL é dinâmica.
+    if (origin && origin.includes('.vercel.app')) {
+        finalOrigin = origin; // Permite a URL completa do Preview
+    } else if (origin && ALLOWED_ORIGINS.includes(origin)) {
+        finalOrigin = origin; // Permite as origens fixas (localhost, produção)
+    } else {
+        finalOrigin = ALLOWED_ORIGINS[0]; // Padrão de segurança: retorna o localhost se for inválida
     }
+    
+    response.setHeader('Access-Control-Allow-Origin', finalOrigin);
     response.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
@@ -53,13 +50,11 @@ export const getMarketData = onRequest(async (request, response) => {
 
                 return {
                     symbol: name,
-                    price: meta.regularMarketPrice, // Item 2: Número puro
-                    change: changePercent,          // Item 2: Número puro
+                    price: meta.regularMarketPrice, // Número puro
+                    change: changePercent,          // Número puro
                     up: changePercent >= 0
                 };
-            } catch (e) {
-                return null;
-            }
+            } catch (e) { return null; }
         });
 
         const indexResults = await Promise.all(indexPromises);
@@ -81,22 +76,20 @@ export const getMarketData = onRequest(async (request, response) => {
 
                 return {
                     symbol: ticker.replace('.SA', ''),
-                    price: meta.regularMarketPrice, // Item 2: Número puro
-                    change: changePercent,          // Item 2: Número puro
+                    price: meta.regularMarketPrice, // Número puro
+                    change: changePercent,          // Número puro
                     up: changePercent >= 0
                 };
-            } catch (error) {
-                return null;
-            }
+            } catch (error) { return null; }
         });
 
         const stockResults = await Promise.all(stockPromises);
         const stocks = stockResults.filter((stock) => stock !== null);
 
-        // ===== 3. RESPOSTA FINAL (Item 1: Sem Indicators) =====
+        // ===== 3. RESPOSTA FINAL =====
         const formattedData = {
-            indices: indices.length > 0 ? indices : FALLBACK_DATA.indices,
-            stocks: stocks.length > 0 ? stocks : FALLBACK_DATA.stocks,
+            indices: indices.length > 0 ? indices : [],
+            stocks: stocks.length > 0 ? stocks : [],
             currencies: [], 
             cryptos: []
         };
@@ -106,6 +99,12 @@ export const getMarketData = onRequest(async (request, response) => {
 
     } catch (error) {
         logger.error("Erro CRÍTICO", error);
-        response.json(FALLBACK_DATA);
+        // Em caso de erro, usamos o fallback
+        response.json({
+            indices: [],
+            stocks: [],
+            currencies: [], 
+            cryptos: []
+        });
     }
 });

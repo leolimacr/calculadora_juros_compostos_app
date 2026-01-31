@@ -1,13 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { Browser } from '@capacitor/browser';
 import { 
-  TrendingUp, 
-  TrendingDown, 
   Wallet, 
   Plus, 
   PieChart, 
   BarChart3, 
-  Lock
+  Lock,
+  ArrowRight
 } from 'lucide-react';
 import UsageIndicator from './UsageIndicator';
 import TransactionHistory from './TransactionHistory';
@@ -28,7 +27,7 @@ const Dashboard: React.FC<any> = (props) => {
     isPremium, 
     isLimitReached, 
     onShowPaywall, 
-    isPrivacyMode 
+    isPrivacyMode // ✅ Recebe o estado de privacidade
   } = props;
 
   const [selectedCategory, setSelectedCategory] = useState('Todas Categorias');
@@ -120,15 +119,32 @@ const Dashboard: React.FC<any> = (props) => {
     generateFinancialReport(filtered, `${selectedCategory} - ${periodLabel}`, userMeta?.email || 'Investidor');
   };
 
-  // === LÓGICA DE CATEGORIAS CORRIGIDA (Híbrida) ===
   const categoryNames = useMemo(() => {
-    // 1. Pega nomes da lista oficial do banco (pastinha)
     const fromDb = categories.map((c: any) => c.name);
-    // 2. Pega nomes que já existem nos lançamentos (retrocompatibilidade)
     const fromTransactions = safeTransactions.map((t: any) => t?.category).filter(Boolean);
-    // 3. Une tudo em uma lista única e sem repetições
     return Array.from(new Set([...fromDb, ...fromTransactions])).sort();
   }, [categories, safeTransactions]);
+
+  // ✅ ESTADO VAZIO (ONBOARDING)
+  if (safeTransactions.length === 0) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6 animate-in fade-in zoom-in-95 duration-500">
+        <div className="w-24 h-24 bg-gradient-to-br from-emerald-500/20 to-sky-500/20 rounded-full flex items-center justify-center mb-4">
+            <Wallet size={48} className="text-emerald-400" />
+        </div>
+        <h2 className="text-3xl font-black text-white">Bem-vindo ao <span className="text-emerald-400">Finanças Pro</span></h2>
+        <p className="text-slate-400 max-w-md mx-auto">
+          Seu painel está vazio. Que tal adicionar seu saldo inicial ou sua primeira despesa para começar a mágica?
+        </p>
+        <button 
+            onClick={onOpenForm}
+            className="flex items-center gap-3 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-bold shadow-lg shadow-emerald-500/20 transition-all active:scale-95"
+        >
+            <Plus size={20}/> Adicionar Lançamento
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 space-y-6 animate-in fade-in duration-500 pb-32">
@@ -136,10 +152,10 @@ const Dashboard: React.FC<any> = (props) => {
 
       <div className="flex justify-between items-center">
          <div className="hidden md:block">
-            <h2 className="text-3xl font-black text-white tracking-tight">Painel</h2>
+            <h2 className="text-3xl font-black text-white tracking-tight">Gerenciador Financeiro</h2>
             <p className="text-slate-400">Gerencie seu patrimônio com inteligência.</p>
          </div>
-         <h2 className="md:hidden text-2xl font-black text-white tracking-tight">Painel</h2>
+         <h2 className="md:hidden text-2xl font-black text-white tracking-tight">Gerenciador Financeiro</h2>
          <button onClick={isLimitReached && !isPremium ? onShowPaywall : onOpenForm} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold shadow-lg transition-transform active:scale-95 ${isLimitReached && !isPremium ? 'bg-slate-800 text-slate-400' : 'bg-emerald-500 text-white hover:bg-emerald-400'}`}>
             {isLimitReached && !isPremium ? <Lock size={18}/> : <Plus size={18} />}
             <span>{isLimitReached && !isPremium ? 'Limite' : 'Novo'}</span>
@@ -150,17 +166,23 @@ const Dashboard: React.FC<any> = (props) => {
           <div className="bg-gradient-to-br from-emerald-600 to-teal-800 p-6 rounded-3xl text-white shadow-xl relative overflow-hidden border border-white/10 group">
              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><Wallet size={64} /></div>
              <p className="text-emerald-100 text-[10px] font-black uppercase tracking-widest mb-1 opacity-80">Saldo no Período</p>
-             <h2 className="text-3xl font-black tracking-tight">{isPrivacyMode ? 'R$ •••' : `R$ ${stats.balance.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`}</h2>
+             <h2 className="text-3xl font-black tracking-tight">
+                {isPrivacyMode ? '••••••' : `R$ ${stats.balance.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`}
+             </h2>
              <p className="text-[10px] text-emerald-200/60 mt-1 truncate">{periodLabel}</p>
           </div>
           <div className="flex gap-4 md:contents">
               <div className="flex-1 bg-slate-800/50 p-4 rounded-2xl border border-slate-700">
                   <p className="text-slate-500 text-[10px] font-bold uppercase mb-1">Entradas</p>
-                  <p className="text-emerald-400 font-bold text-sm">R$ {isPrivacyMode ? '••' : stats.income.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
+                  <p className="text-emerald-400 font-bold text-sm">
+                    {isPrivacyMode ? '••••' : `R$ ${stats.income.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`}
+                  </p>
               </div>
               <div className="flex-1 bg-slate-800/50 p-4 rounded-2xl border border-slate-700">
                   <p className="text-slate-500 text-[10px] font-bold uppercase mb-1">Saídas</p>
-                  <p className="text-red-400 font-bold text-sm">R$ {isPrivacyMode ? '••' : stats.expenses.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
+                  <p className="text-red-400 font-bold text-sm">
+                    {isPrivacyMode ? '••••' : `R$ ${stats.expenses.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`}
+                  </p>
               </div>
           </div>
       </div>
@@ -211,6 +233,7 @@ const Dashboard: React.FC<any> = (props) => {
             onOpenCategoryManager={() => setIsCategoryModalOpen(true)}
             onDateSelect={handleDateSelect}
           />
+          {/* Passando privacy mode para a tabela também */}
           <TransactionHistory transactions={filtered} onDelete={onDeleteTransaction} isPrivacyMode={isPrivacyMode} />
       </div>
 
