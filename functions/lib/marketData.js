@@ -1,9 +1,41 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getMarketData = void 0;
 const https_1 = require("firebase-functions/v2/https");
-const logger = require("firebase-functions/logger");
-// DOMÍNIOS PERMITIDOS (CORS)
+const logger = __importStar(require("firebase-functions/logger"));
 const ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'https://financasproinvest.com',
@@ -11,17 +43,15 @@ const ALLOWED_ORIGINS = [
 ];
 exports.getMarketData = (0, https_1.onRequest)(async (request, response) => {
     const origin = request.headers.origin;
-    // --- LÓGICA DE CORS ATUALIZADA ---
     let finalOrigin = origin;
-    // Se a origem for do Vercel Preview/Staging, permitimos, pois a URL é dinâmica.
     if (origin && origin.includes('.vercel.app')) {
-        finalOrigin = origin; // Permite a URL completa do Preview
+        finalOrigin = origin;
     }
     else if (origin && ALLOWED_ORIGINS.includes(origin)) {
-        finalOrigin = origin; // Permite as origens fixas (localhost, produção)
+        finalOrigin = origin;
     }
     else {
-        finalOrigin = ALLOWED_ORIGINS[0]; // Padrão de segurança: retorna o localhost se for inválida
+        finalOrigin = ALLOWED_ORIGINS[0];
     }
     response.setHeader('Access-Control-Allow-Origin', finalOrigin);
     response.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -31,7 +61,6 @@ exports.getMarketData = (0, https_1.onRequest)(async (request, response) => {
         return;
     }
     try {
-        // ===== 1. BUSCAR ÍNDICES (IBOV e S&P 500) =====
         const indexTickers = ["%5EBVSP", "%5EGSPC"];
         const indexPromises = indexTickers.map(async (ticker) => {
             try {
@@ -45,8 +74,8 @@ exports.getMarketData = (0, https_1.onRequest)(async (request, response) => {
                 let name = ticker === "%5EBVSP" ? "IBOV" : "S&P 500";
                 return {
                     symbol: name,
-                    price: meta.regularMarketPrice, // Número puro
-                    change: changePercent, // Número puro
+                    price: meta.regularMarketPrice,
+                    change: changePercent,
                     up: changePercent >= 0
                 };
             }
@@ -56,7 +85,6 @@ exports.getMarketData = (0, https_1.onRequest)(async (request, response) => {
         });
         const indexResults = await Promise.all(indexPromises);
         const indices = indexResults.filter(i => i !== null);
-        // ===== 2. BUSCAR AÇÕES (Yahoo Finance) =====
         const stockTickers = ["VALE3.SA", "PETR4.SA", "ITUB4.SA", "BBDC4.SA", "ABEV3.SA", "BBAS3.SA", "ELET3.SA", "WEGE3.SA", "BPAC11.SA", "SUZB3.SA"];
         const stockPromises = stockTickers.map(async (ticker) => {
             try {
@@ -69,8 +97,8 @@ exports.getMarketData = (0, https_1.onRequest)(async (request, response) => {
                 const changePercent = ((meta.regularMarketPrice - meta.chartPreviousClose) / meta.chartPreviousClose) * 100;
                 return {
                     symbol: ticker.replace('.SA', ''),
-                    price: meta.regularMarketPrice, // Número puro
-                    change: changePercent, // Número puro
+                    price: meta.regularMarketPrice,
+                    change: changePercent,
                     up: changePercent >= 0
                 };
             }
@@ -80,7 +108,6 @@ exports.getMarketData = (0, https_1.onRequest)(async (request, response) => {
         });
         const stockResults = await Promise.all(stockPromises);
         const stocks = stockResults.filter((stock) => stock !== null);
-        // ===== 3. RESPOSTA FINAL =====
         const formattedData = {
             indices: indices.length > 0 ? indices : [],
             stocks: stocks.length > 0 ? stocks : [],
@@ -92,7 +119,6 @@ exports.getMarketData = (0, https_1.onRequest)(async (request, response) => {
     }
     catch (error) {
         logger.error("Erro CRÍTICO", error);
-        // Em caso de erro, usamos o fallback
         response.json({
             indices: [],
             stocks: [],

@@ -10,13 +10,11 @@ import {
   doc, 
   setDoc, 
   onSnapshot, 
-  updateDoc,
-  deleteDoc // Novo import
+  deleteDoc 
 } from 'firebase/firestore';
 import { db, firestore } from '../firebase';
 import { Transaction, Category, UserMeta } from '../types';
 
-// Categorias Padrão (Seed)
 const DEFAULT_CATEGORIES: Omit<Category, 'id' | 'userId'>[] = [
   { name: 'Moradia', type: 'expense', color: '#EF4444', icon: 'home' },
   { name: 'Alimentação', type: 'expense', color: '#F59E0B', icon: 'shopping-cart' },
@@ -35,7 +33,49 @@ export const useFirebase = (userId?: string) => {
   const [userMeta, setUserMeta] = useState<UserMeta | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Carrega Dados
+  // ✅ FUNÇÃO DE MIGRAÇÃO: Adiciona categorias usadas nos lançamentos que não existem no Firestore
+  const migrateCategoriesFromTransactions = async (
+    transactions: Transaction[], 
+    existingCategories: Category[], 
+    userId: string
+  ) => {
+    if (transactions.length === 0) return;
+
+    // Extrai categorias únicas dos lançamentos
+    const usedCategories = new Map<string, 'income' | 'expense'>();
+    
+    transactions.forEach(t => {
+      if (t.category && !usedCategories.has(t.category)) {
+        usedCategories.set(t.category, t.type);
+      }
+    });
+
+    // Identifica categorias faltantes
+    const existingNames = existingCategories.map(c => c.name);
+    const missingCategories: Category[] = [];
+
+    usedCategories.forEach((type, name) => {
+      if (!existingNames.includes(name)) {
+        missingCategories.push({
+          id: crypto.randomUUID(),
+          name,
+          type,
+          color: type === 'expense' ? '#64748b' : '#10B981',
+          icon: 'tag',
+          userId
+        });
+      }
+    });
+
+    // Adiciona categorias faltantes ao Firestore
+    if (missingCategories.length > 0) {
+      const categoriesRef = doc(firestore, 'categories', userId);
+      const updatedList = [...existingCategories, ...missingCategories];
+      await setDoc(categoriesRef, { list: updatedList }, { merge: true });
+      console.log(`✅ Migração: ${missingCategories.length} categoria(s) adicionada(s) automaticamente`);
+    }
+  };
+
   useEffect(() => {
     if (!userId) {
       setLancamentos([]);
@@ -45,22 +85,30 @@ export const useFirebase = (userId?: string) => {
       return;
     }
 
-    // 1. Transações (Realtime DB)
+    let loadedTransactions: Transaction[] = [];
+    let loadedCategories: Category[] = [];
+    let migrationExecuted = false;
+
     const transactionsRef = ref(db, `transactions/${userId}`);
     const unsubscribeTransactions = onValue(transactionsRef, (snapshot) => {
       const data = snapshot.val();
-      const loadedTransactions: Transaction[] = [];
+      const transactions: Transaction[] = [];
       if (data) {
         Object.entries(data).forEach(([id, value]: [string, any]) => {
-          loadedTransactions.push({ id, ...value });
+          transactions.push({ id, ...value });
         });
-        // Ordena por data (mais recente primeiro)
-        loadedTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       }
-      setLancamentos(loadedTransactions);
+      loadedTransactions = transactions;
+      setLancamentos(transactions);
+
+      // Executa migração após carregar transações e categorias
+      if (loadedCategories.length > 0 && !migrationExecuted) {
+        migrationExecuted = true;
+        migrateCategoriesFromTransactions(loadedTransactions, loadedCategories, userId);
+      }
     });
 
-    // 2. Metadados e Plano (Firestore)
     const userDocRef = doc(firestore, 'users', userId);
     const unsubscribeMeta = onSnapshot(userDocRef, (docSnap) => {
       if (docSnap.exists()) {
@@ -68,21 +116,27 @@ export const useFirebase = (userId?: string) => {
       }
     });
 
-    // 3. Categorias (Firestore)
     const categoriesRef = doc(firestore, 'categories', userId);
     const unsubscribeCategories = onSnapshot(categoriesRef, async (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         if (data && data.list) {
+          loadedCategories = data.list;
           setCategories(data.list);
         }
       } else {
-        // Auto-seed: Cria categorias padrão se não existirem
         const initialCategories = DEFAULT_CATEGORIES.map(cat => ({ ...cat, userId, id: crypto.randomUUID() }));
         await setDoc(categoriesRef, { list: initialCategories });
+        loadedCategories = initialCategories as Category[];
         setCategories(initialCategories as Category[]);
       }
       setLoading(false);
+
+      // Executa migração após carregar transações e categorias
+      if (loadedTransactions.length > 0 && !migrationExecuted) {
+        migrationExecuted = true;
+        migrateCategoriesFromTransactions(loadedTransactions, loadedCategories, userId);
+      }
     });
 
     return () => {
@@ -92,12 +146,19 @@ export const useFirebase = (userId?: string) => {
     };
   }, [userId]);
 
-  // --- AÇÕES ---
-
-  const saveLancamento = async (transaction: Omit<Transaction, 'id' | 'userId'>) => {
+  const saveLancamento = async (transaction: Omit<Transaction, 'id' | 'userId'> & { id?: string }) => {
     if (!userId) return;
-    const transactionsRef = ref(db, `transactions/${userId}`);
-    await push(transactionsRef, { ...transaction, userId });
+    
+    // Se tiver ID, é edição
+    if (transaction.id) {
+        const transactionRef = ref(db, `transactions/${userId}/${transaction.id}`);
+        const { id, ...dataToUpdate } = transaction; // Remove ID do payload
+        await update(transactionRef, dataToUpdate);
+    } else {
+        // Se não, é criação
+        const transactionsRef = ref(db, `transactions/${userId}`);
+        await push(transactionsRef, { ...transaction, userId });
+    }
   };
 
   const deleteLancamento = async (id: string) => {
@@ -110,8 +171,6 @@ export const useFirebase = (userId?: string) => {
     if (!userId) return;
     const categoriesRef = doc(firestore, 'categories', userId);
     const newCategory = { ...category, userId };
-    
-    // Se tem ID, é edição. Se não, cria novo.
     let newList;
     if (category.id) {
       newList = categories.map(c => c.id === category.id ? newCategory : c);
@@ -119,39 +178,44 @@ export const useFirebase = (userId?: string) => {
       newCategory.id = crypto.randomUUID();
       newList = [...categories, newCategory];
     }
-    
     await setDoc(categoriesRef, { list: newList }, { merge: true });
   };
 
+  // ✅ EXCLUSÃO COM PROTEÇÃO INTELIGENTE
   const deleteCategory = async (categoryId: string) => {
     if (!userId) return;
+    
+    // Encontra o nome da categoria que será excluída
+    const categoryToDelete = categories.find(c => c.id === categoryId);
+    if (!categoryToDelete) return;
+    
+    // ✅ PROTEÇÃO: Verifica se categoria está sendo usada
+    const usageCount = lancamentos.filter(t => t.category === categoryToDelete.name).length;
+    
+    if (usageCount > 0) {
+      alert(`⚠️ Não é possível excluir "${categoryToDelete.name}"\n\nEsta categoria está sendo usada em ${usageCount} lançamento(s).\n\nPara removê-la, primeiro altere ou exclua esses lançamentos.`);
+      return;
+    }
+    
+    // Se não está em uso, prossegue com a exclusão
     const categoriesRef = doc(firestore, 'categories', userId);
     const newList = categories.filter(c => c.id !== categoryId);
     await setDoc(categoriesRef, { list: newList }, { merge: true });
   };
 
-  // ✅ NOVA FUNÇÃO: APAGAR TUDO (LIXEIRO)
   const wipeUserData = async () => {
     if (!userId) return;
     try {
-      // 1. Apaga Transações (Realtime)
       await remove(ref(db, `transactions/${userId}`));
-      // 2. Apaga Metadados (Firestore)
       await deleteDoc(doc(firestore, 'users', userId));
-      // 3. Apaga Categorias (Firestore)
       await deleteDoc(doc(firestore, 'categories', userId));
-      // 4. Apaga Histórico do Chat (Firestore - Coleção chatHistory)
-      // Nota: Isso exigiria listar e deletar subcoleções, mas por hora apagamos o principal
-      console.log('Dados do usuário apagados com sucesso.');
     } catch (error) {
-      console.error('Erro ao apagar dados:', error);
       throw error;
     }
   };
 
-  // Lógica de Limite (Free Plan)
-  const isLimitReached = !userMeta?.subscription?.active && lancamentos.length >= 25;
-  const usagePercentage = userMeta?.subscription?.active ? 0 : Math.min((lancamentos.length / 25) * 100, 100);
+  const isLimitReached = !userMeta?.subscription?.active && lancamentos.length >= 30;
+  const usagePercentage = userMeta?.subscription?.active ? 0 : Math.min((lancamentos.length / 30) * 100, 100);
 
   return {
     lancamentos,
@@ -162,7 +226,7 @@ export const useFirebase = (userId?: string) => {
     deleteLancamento,
     saveCategory,
     deleteCategory,
-    wipeUserData, // Exportando a função nova
+    wipeUserData, 
     isLimitReached,
     usagePercentage
   };

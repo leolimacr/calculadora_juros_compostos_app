@@ -40,17 +40,17 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         </span>
       </div>
 
-      {/* 3. BOTÃO IA (Consultor) */}
+      {/* 3. BOTÃO IA (Nexus) - Rótulo alterado para Nexus */}
       <div className="relative -top-6">
         <button 
             onClick={() => onNavigate('chat')} 
             className={`w-14 h-14 bg-gradient-to-tr from-yellow-600 to-amber-400 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-yellow-500/30 border-[4px] border-[#020617] transform active:scale-95 transition-all ${currentTool === 'chat' ? 'ring-2 ring-yellow-400 ring-offset-2 ring-offset-[#020617]' : ''}`}
-            title="Consultor IA"
+            title="Nexus IA"
         >
             <Sparkles size={28} strokeWidth={2.5} fill="currentColor" className="opacity-90" />
         </button>
         <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[9px] font-black uppercase tracking-widest text-yellow-500 text-center w-full">
-            Consultar
+            Nexus
         </span>
       </div>
 
