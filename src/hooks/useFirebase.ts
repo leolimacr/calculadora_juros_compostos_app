@@ -1,182 +1,233 @@
-import { useState, useEffect, useMemo } from 'react';
-import { database, authReadyPromise, db } from '../firebase';
-import { ref, onValue, push, update, serverTimestamp, query, limitToLast, remove } from 'firebase/database';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { UserMeta } from '../types';
-import { AppUserDoc, isAppPremium } from '../types/user';
+import { useState, useEffect } from 'react';
+import { 
+  ref, 
+  push, 
+  onValue, 
+  remove, 
+  update 
+} from 'firebase/database';
+import { 
+  doc, 
+  setDoc, 
+  onSnapshot, 
+  deleteDoc 
+} from 'firebase/firestore';
+import { db, firestore } from '../firebase';
+import { Transaction, Category, UserMeta } from '../types';
 
-const DEFAULT_META: UserMeta = {
-  plan: 'free',
-  launchLimit: 30,
-  launchCount: 0,
-  createdAt: Date.now(),
-  updatedAt: Date.now()
-};
+const DEFAULT_CATEGORIES: Omit<Category, 'id' | 'userId'>[] = [
+  { name: 'Moradia', type: 'expense', color: '#EF4444', icon: 'home' },
+  { name: 'Alimentação', type: 'expense', color: '#F59E0B', icon: 'shopping-cart' },
+  { name: 'Transporte', type: 'expense', color: '#3B82F6', icon: 'truck' },
+  { name: 'Lazer', type: 'expense', color: '#10B981', icon: 'smile' },
+  { name: 'Saúde', type: 'expense', color: '#EC4899', icon: 'heart' },
+  { name: 'Educação', type: 'expense', color: '#8B5CF6', icon: 'book' },
+  { name: 'Salário', type: 'income', color: '#10B981', icon: 'dollar-sign' },
+  { name: 'Investimentos', type: 'income', color: '#3B82F6', icon: 'trending-up' },
+  { name: 'Extras', type: 'income', color: '#F59E0B', icon: 'plus' }
+];
 
-export const useFirebase = (userId: string | undefined | null) => {
-  const [lancamentos, setLancamentos] = useState<any[]>([]);
-  const [goals, setGoals] = useState<any[]>([]);
-  
-  // Novas estruturas de Chat
-  const [chatSessions, setChatSessions] = useState<any[]>([]);
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
-  const [currentMessages, setCurrentMessages] = useState<any[]>([]);
+export const useFirebase = (userId?: string) => {
+  const [lancamentos, setLancamentos] = useState<Transaction[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [userMeta, setUserMeta] = useState<UserMeta | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const [userMeta, setUserMeta] = useState<UserMeta>(DEFAULT_META);
-  const [firestoreUser, setFirestoreUser] = useState<AppUserDoc | null>(null);
-  const [isLoadingData, setIsLoadingData] = useState(true);
+  // ✅ FUNÇÃO DE MIGRAÇÃO: Adiciona categorias usadas nos lançamentos que não existem no Firestore
+  const migrateCategoriesFromTransactions = async (
+    transactions: Transaction[], 
+    existingCategories: Category[], 
+    userId: string
+  ) => {
+    if (transactions.length === 0) return;
 
-  const isPremium = useMemo(() => isAppPremium(firestoreUser), [firestoreUser]);
-  const isPro = useMemo(() => firestoreUser?.subscription?.planId?.includes('pro'), [firestoreUser]);
-  
-  const usagePercentage = useMemo(() => {
-    if (!userMeta?.launchLimit) return 0;
-    if (isPremium || isPro) return 0;
-    return Math.min(100, (userMeta.launchCount / userMeta.launchLimit) * 100);
-  }, [userMeta, isPremium, isPro]);
-
-  const isLimitReached = useMemo(() => {
-    if (!userMeta) return false;
-    if (isPremium || isPro) return false;
-    return userMeta.launchCount >= userMeta.launchLimit;
-  }, [userMeta, isPremium, isPro]);
-
-  // LÓGICA DE VALIDADE DAS CONVERSAS
-  const sessionRetentionLimit = useMemo(() => {
-    const now = Date.now();
-    const day = 24 * 60 * 60 * 1000;
-    if (isPremium) return 0; // Eterno
-    if (isPro) return now - (60 * day); // 60 dias
-    return now - (5 * day); // Free: 5 dias
-  }, [isPremium, isPro]);
-
-  useEffect(() => {
-    if (!userId || userId === 'guest') {
-        setIsLoadingData(false);
-        return;
-    }
-
-    const init = async () => {
-      await authReadyPromise;
-
-      // 1. Meta, Lançamentos, Goals (Iguais)
-      onValue(ref(database, `users/${userId}/meta`), (s) => setUserMeta(s.val() || DEFAULT_META));
-      onValue(query(ref(database, `users/${userId}/gerenciadorFinanceiro/lancamentos`), limitToLast(50)), (s) => {
-        const data = s.val();
-        const loaded = data ? Object.entries(data).map(([key, value]: [string, any]) => ({ ...value, id: key })) : [];
-        setLancamentos(loaded.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-        setIsLoadingData(false);
-      });
-      onValue(ref(database, `users/${userId}/gerenciadorFinanceiro/goals`), (s) => {
-        const data = s.val();
-        setGoals(data ? Object.entries(data).map(([key, value]: [string, any]) => ({ ...value, id: key })) : []);
-      });
-
-      // 2. SESSÕES DE CHAT (Nova Lógica)
-      onValue(ref(database, `users/${userId}/chat_sessions`), (s) => {
-        const data = s.val();
-        if (data) {
-            const list = Object.entries(data).map(([key, value]: [string, any]) => ({ ...value, id: key }));
-            
-            // Filtra sessões expiradas (Regra de Negócio)
-            const validSessions = list.filter(session => {
-                if (sessionRetentionLimit > 0 && session.createdAt < sessionRetentionLimit) {
-                    // Apaga silenciosamente do banco se expirou
-                    remove(ref(database, `users/${userId}/chat_sessions/${session.id}`));
-                    return false;
-                }
-                return true;
-            });
-            
-            // Ordena da mais recente para a mais antiga
-            setChatSessions(validSessions.sort((a, b) => b.createdAt - a.createdAt));
-            
-            // Se não tem sessão selecionada mas tem lista, seleciona a última
-            if (!currentSessionId && validSessions.length > 0) {
-                setCurrentSessionId(validSessions[0].id);
-            }
-        } else {
-            setChatSessions([]);
-            setCurrentSessionId(null);
-        }
-      });
-
-      // 3. Plano
-      onSnapshot(doc(db, 'users', userId), (docSnap) => {
-        if (docSnap.exists()) setFirestoreUser(docSnap.data() as AppUserDoc);
-      });
-    };
-    init();
-  }, [userId, sessionRetentionLimit]);
-
-  // Monitora mensagens da sessão atual
-  useEffect(() => {
-      if (!userId || !currentSessionId) {
-          setCurrentMessages([]);
-          return;
+    // Extrai categorias únicas dos lançamentos
+    const usedCategories = new Map<string, 'income' | 'expense'>();
+    
+    transactions.forEach(t => {
+      if (t.category && !usedCategories.has(t.category)) {
+        usedCategories.set(t.category, t.type);
       }
-      const messagesRef = ref(database, `users/${userId}/chat_sessions/${currentSessionId}/messages`);
-      const unsub = onValue(messagesRef, (snapshot) => {
-          const data = snapshot.val();
-          if (data) {
-              const loaded = Object.values(data).sort((a: any, b: any) => a.timestamp - b.timestamp);
-              setCurrentMessages(loaded);
-          } else {
-              setCurrentMessages([]);
-          }
-      });
-      return () => unsub();
-  }, [userId, currentSessionId]);
-
-  // FUNÇÕES DE AÇÃO
-
-  const createNewChatSession = async () => {
-    if (!userId) return;
-    const newRef = push(ref(database, `users/${userId}/chat_sessions`));
-    const newSessionId = newRef.key;
-    const title = `Conversa de ${new Date().toLocaleDateString('pt-BR')}`;
-    
-    await update(ref(database), {
-        [`users/${userId}/chat_sessions/${newSessionId}`]: { 
-            id: newSessionId, 
-            createdAt: serverTimestamp(),
-            title: title
-        }
     });
-    setCurrentSessionId(newSessionId);
-    return newSessionId;
+
+    // Identifica categorias faltantes
+    const existingNames = existingCategories.map(c => c.name);
+    const missingCategories: Category[] = [];
+
+    usedCategories.forEach((type, name) => {
+      if (!existingNames.includes(name)) {
+        missingCategories.push({
+          id: crypto.randomUUID(),
+          name,
+          type,
+          color: type === 'expense' ? '#64748b' : '#10B981',
+          icon: 'tag',
+          userId
+        });
+      }
+    });
+
+    // Adiciona categorias faltantes ao Firestore
+    if (missingCategories.length > 0) {
+      const categoriesRef = doc(firestore, 'categories', userId);
+      const updatedList = [...existingCategories, ...missingCategories];
+      await setDoc(categoriesRef, { list: updatedList }, { merge: true });
+      console.log(`✅ Migração: ${missingCategories.length} categoria(s) adicionada(s) automaticamente`);
+    }
   };
 
-  const saveChatMessage = async (role: 'user' | 'ai', text: string) => {
+  useEffect(() => {
+    if (!userId) {
+      setLancamentos([]);
+      setCategories([]);
+      setUserMeta(null);
+      setLoading(false);
+      return;
+    }
+
+    let loadedTransactions: Transaction[] = [];
+    let loadedCategories: Category[] = [];
+    let migrationExecuted = false;
+
+    const transactionsRef = ref(db, `transactions/${userId}`);
+    const unsubscribeTransactions = onValue(transactionsRef, (snapshot) => {
+      const data = snapshot.val();
+      const transactions: Transaction[] = [];
+      if (data) {
+        Object.entries(data).forEach(([id, value]: [string, any]) => {
+          transactions.push({ id, ...value });
+        });
+        transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      }
+      loadedTransactions = transactions;
+      setLancamentos(transactions);
+
+      // Executa migração após carregar transações e categorias
+      if (loadedCategories.length > 0 && !migrationExecuted) {
+        migrationExecuted = true;
+        migrateCategoriesFromTransactions(loadedTransactions, loadedCategories, userId);
+      }
+    });
+
+    const userDocRef = doc(firestore, 'users', userId);
+    const unsubscribeMeta = onSnapshot(userDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setUserMeta(docSnap.data() as UserMeta);
+      }
+    });
+
+    const categoriesRef = doc(firestore, 'categories', userId);
+    const unsubscribeCategories = onSnapshot(categoriesRef, async (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data && data.list) {
+          loadedCategories = data.list;
+          setCategories(data.list);
+        }
+      } else {
+        const initialCategories = DEFAULT_CATEGORIES.map(cat => ({ ...cat, userId, id: crypto.randomUUID() }));
+        await setDoc(categoriesRef, { list: initialCategories });
+        loadedCategories = initialCategories as Category[];
+        setCategories(initialCategories as Category[]);
+      }
+      setLoading(false);
+
+      // Executa migração após carregar transações e categorias
+      if (loadedTransactions.length > 0 && !migrationExecuted) {
+        migrationExecuted = true;
+        migrateCategoriesFromTransactions(loadedTransactions, loadedCategories, userId);
+      }
+    });
+
+    return () => {
+      unsubscribeTransactions();
+      unsubscribeMeta();
+      unsubscribeCategories();
+    };
+  }, [userId]);
+
+  const saveLancamento = async (transaction: Omit<Transaction, 'id' | 'userId'> & { id?: string }) => {
     if (!userId) return;
     
-    // Se não tem sessão, cria uma agora
-    let targetSessionId = currentSessionId;
-    if (!targetSessionId) {
-        targetSessionId = await createNewChatSession();
-    }
-
-    if (targetSessionId) {
-        const msgRef = push(ref(database, `users/${userId}/chat_sessions/${targetSessionId}/messages`));
-        await update(ref(database), {
-            [`users/${userId}/chat_sessions/${targetSessionId}/messages/${msgRef.key}`]: { 
-                role, text, timestamp: serverTimestamp() 
-            },
-            // Atualiza o timestamp da sessão para ela ficar em 1º
-            [`users/${userId}/chat_sessions/${targetSessionId}/createdAt`]: serverTimestamp()
-        });
+    // Se tiver ID, é edição
+    if (transaction.id) {
+        const transactionRef = ref(db, `transactions/${userId}/${transaction.id}`);
+        const { id, ...dataToUpdate } = transaction; // Remove ID do payload
+        await update(transactionRef, dataToUpdate);
+    } else {
+        // Se não, é criação
+        const transactionsRef = ref(db, `transactions/${userId}`);
+        await push(transactionsRef, { ...transaction, userId });
     }
   };
 
-  const saveLancamento = async (l: any) => { if (!userId) return; const r = push(ref(database, `users/${userId}/gerenciadorFinanceiro/lancamentos`)); await update(ref(database), { [`users/${userId}/gerenciadorFinanceiro/lancamentos/${r.key}`]: { ...l, id: r.key, createdAt: serverTimestamp() }, [`users/${userId}/meta/launchCount`]: (userMeta.launchCount || 0) + 1 }); };
-  const deleteLancamento = async (id: string) => { if (!userId) return; await update(ref(database), { [`users/${userId}/gerenciadorFinanceiro/lancamentos/${id}`]: null, [`users/${userId}/meta/launchCount`]: Math.max(0, (userMeta.launchCount || 1) - 1) }); };
-  const addGoal = async (g: any) => { if (userId) { const r = push(ref(database, `users/${userId}/gerenciadorFinanceiro/goals`)); await update(ref(database), { [`users/${userId}/gerenciadorFinanceiro/goals/${r.key}`]: { ...g, id: r.key } }); }};
-  const updateGoal = async (id: string, v: number) => { if (userId) await update(ref(database), { [`users/${userId}/gerenciadorFinanceiro/goals/${id}/currentAmount`]: v }); };
-  const deleteGoal = async (id: string) => { if (userId) await update(ref(database), { [`users/${userId}/gerenciadorFinanceiro/goals/${id}`]: null }); };
+  const deleteLancamento = async (id: string) => {
+    if (!userId) return;
+    const transactionRef = ref(db, `transactions/${userId}/${id}`);
+    await remove(transactionRef);
+  };
 
-  return { 
-    lancamentos, goals, userMeta, isPremium, isPro, isLimitReached, usagePercentage, isLoadingData,
-    chatSessions, currentSessionId, currentMessages, setCurrentSessionId, createNewChatSession, // EXPORTADOS
-    saveLancamento, deleteLancamento, addGoal, updateGoal, deleteGoal, saveChatMessage
+  const saveCategory = async (category: Omit<Category, 'userId'>) => {
+    if (!userId) return;
+    const categoriesRef = doc(firestore, 'categories', userId);
+    const newCategory = { ...category, userId };
+    let newList;
+    if (category.id) {
+      newList = categories.map(c => c.id === category.id ? newCategory : c);
+    } else {
+      newCategory.id = crypto.randomUUID();
+      newList = [...categories, newCategory];
+    }
+    await setDoc(categoriesRef, { list: newList }, { merge: true });
+  };
+
+  // ✅ EXCLUSÃO COM PROTEÇÃO INTELIGENTE
+  const deleteCategory = async (categoryId: string) => {
+    if (!userId) return;
+    
+    // Encontra o nome da categoria que será excluída
+    const categoryToDelete = categories.find(c => c.id === categoryId);
+    if (!categoryToDelete) return;
+    
+    // ✅ PROTEÇÃO: Verifica se categoria está sendo usada
+    const usageCount = lancamentos.filter(t => t.category === categoryToDelete.name).length;
+    
+    if (usageCount > 0) {
+      alert(`⚠️ Não é possível excluir "${categoryToDelete.name}"\n\nEsta categoria está sendo usada em ${usageCount} lançamento(s).\n\nPara removê-la, primeiro altere ou exclua esses lançamentos.`);
+      return;
+    }
+    
+    // Se não está em uso, prossegue com a exclusão
+    const categoriesRef = doc(firestore, 'categories', userId);
+    const newList = categories.filter(c => c.id !== categoryId);
+    await setDoc(categoriesRef, { list: newList }, { merge: true });
+  };
+
+  const wipeUserData = async () => {
+    if (!userId) return;
+    try {
+      await remove(ref(db, `transactions/${userId}`));
+      await deleteDoc(doc(firestore, 'users', userId));
+      await deleteDoc(doc(firestore, 'categories', userId));
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const isLimitReached = !userMeta?.subscription?.active && lancamentos.length >= 30;
+  const usagePercentage = userMeta?.subscription?.active ? 0 : Math.min((lancamentos.length / 30) * 100, 100);
+
+  return {
+    lancamentos,
+    categories,
+    userMeta,
+    loading,
+    saveLancamento,
+    deleteLancamento,
+    saveCategory,
+    deleteCategory,
+    wipeUserData, 
+    isLimitReached,
+    usagePercentage
   };
 };

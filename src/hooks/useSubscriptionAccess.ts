@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { db } from '../firebase';
+import { firestore } from '../firebase'; 
 import { doc, onSnapshot } from 'firebase/firestore';
+
+console.log("✅ useSubscriptionAccess.ts carregado - Versão Final Corrigida");
 
 export const useSubscriptionAccess = () => {
   const { user } = useAuth();
@@ -15,39 +17,65 @@ export const useSubscriptionAccess = () => {
       return;
     }
 
-    const unsub = onSnapshot(doc(db, 'users', user.uid), (docSnapshot) => {
-      if (docSnapshot.exists()) {
-        const data = docSnapshot.data();
-        
-        // BLINDAGEM AQUI TAMB�M
-        const sub = data?.subscription;
-        const status = sub?.status || 'inactive';
-        const planId = sub?.planId || ''; // Garante que nunca � undefined
-
-        if (status === 'active' || status === 'trialing') {
-            if (planId.includes('premium')) setRole('premium');
-            else if (planId.includes('pro')) setRole('pro');
-            else setRole('free');
-        } else {
-            setRole('free');
-        }
-      } else {
-        setRole('free');
-      }
-      setLoading(false);
-    }, (err) => {
-      console.error('Erro assinatura:', err);
-      // Em caso de erro, assume Free para n�o travar o app
+    if (!firestore) {
       setRole('free');
       setLoading(false);
-    });
+      return;
+    }
 
-    return () => unsub();
+    try {
+      const userDocRef = doc(firestore, 'users', user.uid);
+
+      const unsub = onSnapshot(
+        userDocRef,
+        (docSnapshot) => {
+          if (docSnapshot.exists()) {
+            const data = docSnapshot.data();
+            const sub = data?.subscription;
+            
+            // ✅ CORREÇÃO: Pegando 'plan' (correto) em vez de 'planId' (errado)
+            // ✅ CORREÇÃO: Usando o campo 'active' (booleano) que você criou
+            const isActive = sub?.active === true || sub?.status === 'active';
+            const planName = (sub?.plan || '').toLowerCase();
+
+            console.log("🔍 Verificação de Assinatura:", { isActive, planName });
+
+            if (isActive) {
+              if (planName.includes('premium')) {
+                setRole('premium');
+              } else if (planName.includes('pro')) {
+                setRole('pro');
+              } else {
+                setRole('free');
+              }
+            } else {
+              setRole('free');
+            }
+          } else {
+            setRole('free');
+          }
+          setLoading(false);
+        },
+        (err) => {
+          console.error('❌ Erro ao ler assinatura:', err);
+          setRole('free');
+          setLoading(false);
+        }
+      );
+
+      return () => unsub();
+    } catch (error) {
+      setRole('free');
+      setLoading(false);
+    }
   }, [user]);
 
+  const isPro = role === 'pro' || role === 'premium';
+  const isPremium = role === 'premium';
+  
   return {
-    isPro: role === 'pro' || role === 'premium',
-    isPremium: role === 'premium',
+    isPro,
+    isPremium,
     loadingSubscription,
     role
   };

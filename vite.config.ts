@@ -1,11 +1,10 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: './', // <--- ISSO É O QUE CONSERTA A TELA BRANCA NO ANDROID
+  // A chave da correção está nesta linha:
   build: {
-    outDir: 'dist',
-    emptyOutDir: true,
+    target: 'esnext' // ✅ Torna o ambiente de build compatível com top-level await
   }
-});
+})

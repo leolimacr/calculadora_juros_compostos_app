@@ -1,267 +1,249 @@
-
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import firebase from 'firebase/compat/app';
-import { auth, database } from '../firebase';
-
-// Tipagem estendida para compatibilidade com o resto do app
-export interface AppUser {
-  uid: string;
-  email: string;
-  name: string | null;
-  emailVerified: boolean;
-  photoURL: string | null;
-}
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { 
+  auth, 
+  firestore 
+} from '../firebase';
+import { 
+  onAuthStateChanged, 
+  signOut, 
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  User 
+} from 'firebase/auth';
+import { 
+  doc, 
+  setDoc, 
+  getDoc 
+} from 'firebase/firestore';
 
 interface AuthContextType {
-  user: AppUser | null;
+  user: User | null;
   isAuthenticated: boolean;
-  isLoading: boolean;
-  
-  // Métodos Principais
-  login: (email: string, pass: string) => Promise<{ success: boolean; error?: string }>;
-  register: (email: string, pass: string, name: string) => Promise<{ success: boolean; error?: string }>;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<{success: boolean; error?: string; code?: string}>;
+  register: (email: string, password: string, displayName: string) => Promise<{success: boolean; error?: string}>;
+  resetPassword: (email: string) => Promise<{success: boolean; error?: string; code?: string}>;
   logout: () => Promise<void>;
-  
-  // Gestão de Senha e E-mail
-  resetPassword: (email: string) => Promise<{ success: boolean; error?: string; code?: string }>;
-  changePassword: (currentPass: string, newPass: string) => Promise<boolean>;
-  resendVerification: () => Promise<{ success: boolean; error?: string }>;
-  reloadUser: () => Promise<void>;
-  
-  verifyEmail: (code: string) => Promise<'success' | 'invalid'>;
-  completePasswordReset: (code: string, newPass: string) => Promise<boolean>;
-
-  // Legado/Compatibilidade
-  hasLocalUser: boolean; // Mantido para compatibilidade de UI
-  updateProfile: (data: { name?: string }) => Promise<void>;
-  resetAppData: (password?: string) => Promise<boolean>;
 }
 
-const AuthContext = createContext<AuthContextType>({} as AuthContextType);
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  isAuthenticated: false,
+  loading: true,
+  login: async () => ({ success: false, error: 'Não inicializado' }),
+  register: async () => ({ success: false, error: 'Não inicializado' }),
+  resetPassword: async () => ({ success: false, error: 'Não inicializado' }),
+  logout: async () => {},
+});
 
-// Helper para mapeamento de erros do Firebase Auth
-const mapAuthError = (code: string): string => {
-  if (!code) return 'Ocorreu um erro desconhecido. Tente novamente.';
-
-  switch (code) {
-    // Erros de Credenciais (Unificados)
-    case 'auth/user-not-found': 
-    case 'auth/wrong-password': 
-    case 'auth/invalid-credential':
-    case 'auth/invalid-login-credentials':
-      return 'E-mail ou senha incorretos.';
-      
-    case 'auth/invalid-email': 
-      return 'E-mail inválido. Verifique o formato do endereço.';
-      
-    case 'auth/email-already-in-use': 
-      return 'Este e-mail já está cadastrado. Faça login ou recupere sua senha.';
-      
-    case 'auth/too-many-requests': 
-      return 'Muitas tentativas falhas. Aguarde alguns minutos ou redefina sua senha.';
-      
-    case 'auth/weak-password': 
-      return 'A senha deve ter pelo menos 6 caracteres.';
-      
-    case 'auth/network-request-failed': 
-      return 'Erro de conexão. Verifique sua internet.';
-      
-    case 'auth/user-disabled':
-      return 'Esta conta foi desativada.';
-      
-    case 'auth/operation-not-allowed':
-      return 'O login por e-mail/senha não está ativado no Firebase.';
-      
-    case 'auth/requires-recent-login': 
-      return 'Para esta ação, faça login novamente.';
-      
-    case 'auth/invalid-action-code': 
-      return 'Link inválido ou expirado.';
-      
-    default: 
-      // Retorna o código para facilitar o debug
-      return `Ocorreu um erro inesperado (${code}). Tente novamente.`;
-  }
-};
+export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [firebaseUser, setFirebaseUser] = useState<firebase.User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      setFirebaseUser(user);
-      setIsLoading(false);
+    console.log('🔥 AuthContext: Iniciando monitoramento de autenticação');
+    
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      console.log('🔥 AuthContext: Estado alterado - usuário:', currentUser?.email || 'Nenhum');
+      console.log('🔥 AuthContext: UID:', currentUser?.uid || 'Nenhum');
       
-      if (user) {
-        // Sync metadata to Realtime DB
-        const userMetaRef = database.ref(`users/${user.uid}/meta`);
-        userMetaRef.update({
-          email: user.email,
-          emailVerified: user.emailVerified,
-          lastLogin: Date.now()
-        }).catch(err => console.error("Sync Error:", err));
+      if (currentUser) {
+        // Verificar se o documento do usuário existe no Firestore
+        try {
+          const userDocRef = doc(firestore, 'users', currentUser.uid);
+          const userDoc = await getDoc(userDocRef);
+          
+          if (!userDoc.exists()) {
+            console.log('🔥 AuthContext: Criando documento do usuário no Firestore');
+            // Criar documento básico do usuário
+            await setDoc(userDocRef, {
+              email: currentUser.email,
+              displayName: currentUser.displayName || currentUser.email?.split('@')[0] || 'Usuário',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              subscription: {
+                planId: 'free',
+                status: 'active'
+              }
+            });
+          }
+        } catch (error) {
+          console.error('🔥 AuthContext: Erro ao verificar/criar documento do usuário:', error);
+        }
       }
+      
+      setUser(currentUser);
+      setLoading(false);
+    }, (error) => {
+      console.error('🔥 AuthContext: Erro no onAuthStateChanged:', error);
+      setLoading(false);
     });
-    return () => unsubscribe();
+
+    return () => {
+      console.log('🔥 AuthContext: Limpando listener de autenticação');
+      unsubscribe();
+    };
   }, []);
 
-  const user: AppUser | null = firebaseUser ? {
-    uid: firebaseUser.uid,
-    email: firebaseUser.email || '',
-    name: firebaseUser.displayName,
-    emailVerified: firebaseUser.emailVerified,
-    photoURL: firebaseUser.photoURL
-  } : null;
-
-  const login = async (email: string, pass: string) => {
+  const login = async (email: string, password: string) => {
+    console.log('🔥 AuthContext.login: Tentando login para:', email);
+    
     try {
-      await auth.signInWithEmailAndPassword(email, pass);
-      return { success: true };
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      console.log('🔥 AuthContext.login: Sucesso! UID:', userCredential.user.uid);
+      
+      return { 
+        success: true 
+      };
     } catch (error: any) {
-      console.error("Login Error:", error.code, error.message);
-      return { success: false, error: mapAuthError(error.code) };
+      console.error('🔥 AuthContext.login: Erro completo:', {
+        code: error.code,
+        message: error.message,
+        name: error.name
+      });
+      
+      let errorMessage = 'Erro ao fazer login. Tente novamente.';
+      
+      // Traduzir erros comuns
+      switch (error.code) {
+        case 'auth/invalid-email':
+          errorMessage = 'E-mail inválido. Verifique o formato.';
+          break;
+        case 'auth/user-disabled':
+          errorMessage = 'Esta conta foi desativada.';
+          break;
+        case 'auth/user-not-found':
+          errorMessage = 'Usuário não encontrado. Verifique o e-mail.';
+          break;
+        case 'auth/wrong-password':
+          errorMessage = 'Senha incorreta. Tente novamente.';
+          break;
+        case 'auth/too-many-requests':
+          errorMessage = 'Muitas tentativas. Tente novamente mais tarde.';
+          break;
+        case 'auth/network-request-failed':
+          errorMessage = 'Erro de conexão. Verifique sua internet.';
+          break;
+      }
+      
+      return { 
+        success: false, 
+        error: errorMessage,
+        code: error.code
+      };
     }
   };
 
-  const register = async (email: string, pass: string, name: string) => {
+  const register = async (email: string, password: string, displayName: string) => {
+    console.log('🔥 AuthContext.register: Criando conta para:', email);
+    
     try {
-      // 1. Cria usuário
-      const userCredential = await auth.createUserWithEmailAndPassword(email, pass);
-      const user = userCredential.user;
-
-      if (user) {
-        // 2. Atualiza Nome
-        await user.updateProfile({ displayName: name });
-
-        // 3. Envia e-mail de verificação
-        await user.sendEmailVerification();
-
-        // 4. Cria estrutura inicial no DB
-        const userMetaRef = database.ref(`users/${user.uid}/meta`);
-        await userMetaRef.update({
-          plan: 'free',
-          launchLimit: 30,
-          launchCount: 0,
-          createdAt: Date.now()
-        });
-
-        // Força refresh local
-        await user.reload();
-        if (auth.currentUser) setFirebaseUser(auth.currentUser);
-      }
-
-      return { success: true };
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      console.log('🔥 AuthContext.register: Conta criada! UID:', userCredential.user.uid);
+      
+      // Criar documento do usuário no Firestore
+      const userDocRef = doc(firestore, 'users', userCredential.user.uid);
+      await setDoc(userDocRef, {
+        email: email,
+        displayName: displayName,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        subscription: {
+          planId: 'free',
+          status: 'active'
+        }
+      });
+      
+      return { 
+        success: true 
+      };
     } catch (error: any) {
-      return { success: false, error: mapAuthError(error.code) };
+      console.error('🔥 AuthContext.register: Erro:', error);
+      
+      let errorMessage = 'Erro ao criar conta. Tente novamente.';
+      
+      switch (error.code) {
+        case 'auth/email-already-in-use':
+          errorMessage = 'Este e-mail já está em uso.';
+          break;
+        case 'auth/invalid-email':
+          errorMessage = 'E-mail inválido.';
+          break;
+        case 'auth/operation-not-allowed':
+          errorMessage = 'Operação não permitida.';
+          break;
+        case 'auth/weak-password':
+          errorMessage = 'Senha muito fraca. Use pelo menos 6 caracteres.';
+          break;
+      }
+      
+      return { 
+        success: false, 
+        error: errorMessage 
+      };
+    }
+  };
+
+  const resetPassword = async (email: string) => {
+    console.log('🔥 AuthContext.resetPassword: Enviando e-mail para:', email);
+    
+    try {
+      await sendPasswordResetEmail(auth, email);
+      console.log('🔥 AuthContext.resetPassword: E-mail enviado com sucesso');
+      
+      return { 
+        success: true 
+      };
+    } catch (error: any) {
+      console.error('🔥 AuthContext.resetPassword: Erro:', error);
+      
+      let errorMessage = 'Erro ao enviar e-mail de recuperação.';
+      
+      switch (error.code) {
+        case 'auth/user-not-found':
+          errorMessage = 'Nenhuma conta encontrada com este e-mail.';
+          break;
+        case 'auth/invalid-email':
+          errorMessage = 'E-mail inválido.';
+          break;
+      }
+      
+      return { 
+        success: false, 
+        error: errorMessage,
+        code: error.code
+      };
     }
   };
 
   const logout = async () => {
-    await auth.signOut();
-  };
-
-  const resetPassword = async (email: string) => {
-    try {
-      await auth.sendPasswordResetEmail(email);
-      return { success: true };
-    } catch (error: any) {
-      return { success: false, error: mapAuthError(error.code), code: error.code };
-    }
-  };
-
-  const changePassword = async (currentPass: string, newPass: string) => {
-    const user = auth.currentUser;
-    if (!user || !user.email) return false;
+    console.log('🔥 AuthContext.logout: Fazendo logout');
     
     try {
-      const credential = firebase.auth.EmailAuthProvider.credential(user.email, currentPass);
-      await user.reauthenticateWithCredential(credential);
-      await user.updatePassword(newPass);
-      return true;
+      await signOut(auth);
+      console.log('🔥 AuthContext.logout: Logout realizado com sucesso');
     } catch (error) {
-      console.error("Change Password Error:", error);
-      return false;
+      console.error('🔥 AuthContext.logout: Erro:', error);
+      throw error;
     }
   };
 
-  const resendVerification = async () => {
-    if (!auth.currentUser) return { success: false, error: 'Usuário não logado.' };
-    try {
-      await auth.currentUser.sendEmailVerification();
-      return { success: true };
-    } catch (error: any) {
-      return { success: false, error: mapAuthError(error.code) };
-    }
-  };
-
-  const verifyEmail = async (code: string): Promise<'success' | 'invalid'> => {
-    try {
-      await auth.applyActionCode(code);
-      return 'success';
-    } catch (error) {
-      return 'invalid';
-    }
-  };
-
-  const completePasswordReset = async (code: string, newPass: string): Promise<boolean> => {
-    try {
-      await auth.confirmPasswordReset(code, newPass);
-      return true;
-    } catch (error) {
-      return false;
-    }
-  };
-
-  const reloadUser = async () => {
-    if (auth.currentUser) {
-      await auth.currentUser.reload();
-      setFirebaseUser(auth.currentUser); 
-    }
-  };
-
-  const updateProfile = async (data: { name?: string }) => {
-    if (auth.currentUser && data.name) {
-      await auth.currentUser.updateProfile({ displayName: data.name });
-      await reloadUser();
-    }
-  };
-
-  const resetAppData = async (password?: string): Promise<boolean> => {
-    if (password && auth.currentUser && auth.currentUser.email) {
-       try {
-         const credential = firebase.auth.EmailAuthProvider.credential(auth.currentUser.email, password);
-         await auth.currentUser.reauthenticateWithCredential(credential);
-       } catch (e) {
-         return false; 
-       }
-    }
-    localStorage.clear();
-    await logout();
-    return true;
+  const value = {
+    user,
+    isAuthenticated: !!user,
+    loading,
+    login,
+    register,
+    resetPassword,
+    logout
   };
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      isAuthenticated: !!user,
-      isLoading,
-      hasLocalUser: !!user,
-      login,
-      register,
-      logout,
-      resetPassword,
-      changePassword,
-      resendVerification,
-      reloadUser,
-      updateProfile,
-      resetAppData,
-      verifyEmail,
-      completePasswordReset
-    }}>
-      {children}
+    <AuthContext.Provider value={value}>
+      {!loading && children}
     </AuthContext.Provider>
   );
 };
-
-export const useAuth = () => useContext(AuthContext);

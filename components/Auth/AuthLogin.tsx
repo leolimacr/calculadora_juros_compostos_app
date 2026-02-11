@@ -1,6 +1,6 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { Capacitor } from '@capacitor/core';
 
 interface AuthLoginProps {
   onSuccess: () => void;
@@ -32,14 +32,38 @@ const AuthLogin: React.FC<AuthLoginProps> = ({ onSuccess, onSwitchToRegister }) 
     setLoading(true);
     setError('');
     
-    const res = await login(email, password);
-    
-    if (res.success) {
-      onSuccess();
-    } else {
-      setError(res.error || 'Erro ao fazer login.');
+    try {
+      const res = await login(email, password);
+      
+      if (res.success) {
+        onSuccess();
+      } else {
+        // 🔥 DIAGNÓSTICO DETALHADO DO ERRO DE AUTENTICAÇÃO
+        console.error('🔥 ERRO DE AUTENTICAÇÃO COMPLETO:', {
+          code: res.code,
+          message: res.error,
+          email: email,
+          // Informações do ambiente
+          isNative: Capacitor.isNativePlatform(),
+          platform: Capacitor.getPlatform(),
+          timestamp: new Date().toISOString()
+        });
+        
+        setError(res.error || 'Erro ao fazer login.');
+      }
+    } catch (error: any) {
+      // 🔥 ERRO INESPERADO
+      console.error('🔥 ERRO INESPERADO NA AUTENTICAÇÃO:', {
+        message: error.message,
+        stack: error.stack,
+        isNative: Capacitor.isNativePlatform(),
+        platform: Capacitor.getPlatform()
+      });
+      
+      setError('Erro inesperado ao fazer login. Tente novamente.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
@@ -49,17 +73,31 @@ const AuthLogin: React.FC<AuthLoginProps> = ({ onSuccess, onSwitchToRegister }) 
     setLoading(true);
     setForgotStatus('idle');
     
-    const res = await resetPassword(forgotEmail);
-    
-    if (res.success) {
-      setForgotStatus('success');
-    } else if (res.code === 'auth/user-not-found') {
-      setForgotStatus('not-found');
-    } else {
+    try {
+      const res = await resetPassword(forgotEmail);
+      
+      if (res.success) {
+        setForgotStatus('success');
+      } else if (res.code === 'auth/user-not-found') {
+        setForgotStatus('not-found');
+      } else {
+        setForgotStatus('error');
+        setError(res.error || 'Não foi possível enviar o e-mail. Tente novamente.');
+        
+        // Log do erro de reset
+        console.error('🔥 ERRO AO REDEFINIR SENHA:', {
+          code: res.code,
+          message: res.error,
+          email: forgotEmail
+        });
+      }
+    } catch (error: any) {
+      console.error('🔥 ERRO INESPERADO AO REDEFINIR SENHA:', error);
       setForgotStatus('error');
-      setError(res.error || 'Não foi possível enviar o e-mail. Tente novamente.');
+      setError('Erro inesperado. Tente novamente.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   // --- MODO: ESQUECI SENHA ---

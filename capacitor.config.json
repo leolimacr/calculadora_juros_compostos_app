@@ -1,1 +1,14 @@
-{"appId": "com.financaspro.app", "appName": "Finanças Pro Invest", "webDir": "dist", "server": {"androidScheme": "https"}}
+{
+  "appId": "com.leolimacr.financaspro",
+  "appName": "FinanÃ§as Pro Invest",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "FirebaseAuthentication": {
+      "skipNativeAuth": false
+    }
+  }
+}

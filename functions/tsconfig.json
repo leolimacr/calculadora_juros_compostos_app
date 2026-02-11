@@ -8,8 +8,32 @@
     "strict": true,
     "target": "es2020",
     "skipLibCheck": true,
-    "lib": ["es2020"]
+    "lib": ["es2020"],
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "node",
+    "declaration": true,
+    "removeComments": true,
+    "emitDecoratorMetadata": false,
+    "experimentalDecorators": false,
+    "allowSyntheticDefaultImports": true,
+    "incremental": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "noImplicitAny": true,
+    "strictBindCallApply": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true
   },
   "compileOnSave": true,
-  "include": ["src"]
+  "include": [
+    "src/**/*.ts",
+    "*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "lib",
+    "**/*.spec.ts",
+    "**/*.test.ts"
+  ]
 }
