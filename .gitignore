@@ -23,3 +23,27 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+
+# Credenciais e arquivos sensíveis
+src/firebase-config.private.ts
+functions/a.env
+functions/.env*
+.env
+
+# Arquivos temporários e backups
+*.backup
+temp_code.txt
+test.txt
+PublicPages_backup.tsx
+PublicPages_commit_*.tsx
+PublicPages_completo.tsx
+functions/deploy_log.txt
+functions/BKP*
+
+# Pastas legadas na raiz (código fonte real está em src/)
+/components/
+/contexts/
+/hooks/
+/utils/
+/data/
+/types/

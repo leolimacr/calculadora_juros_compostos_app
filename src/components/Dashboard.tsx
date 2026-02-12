@@ -25,10 +25,12 @@ const Dashboard: React.FC<any> = (props) => {
     isPremium, 
     isLimitReached, 
     onShowPaywall, 
-    isPrivacyMode
+    isPrivacyMode,
+    onEditTransaction
   } = props;
 
-  const [selectedCategory, setSelectedCategory] = useState('Todas Categorias');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [viewMode, setViewMode] = useState<'day' | 'month' | 'year' | 'all' | 'period'>('month');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [startDate, setStartDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]);
@@ -64,8 +66,9 @@ const Dashboard: React.FC<any> = (props) => {
 
   const filtered = useMemo(() => {
     return safeTransactions.filter((t: any) => {
-      const categoryMatch = selectedCategory === 'Todas Categorias' || t?.category === selectedCategory;
-      if (!categoryMatch || !t.date) return false;
+      const categoryMatch = selectedCategories.length === 0 || selectedCategories.includes(t?.category);
+      const typeMatch = typeFilter === 'all' || t?.type === typeFilter;
+      if (!categoryMatch || !typeMatch || !t.date) return false;
       if (viewMode === 'all') return true;
       const [year, month, day] = t.date.split('-').map(Number);
       if (viewMode === 'period') return t.date >= startDate && t.date <= endDate;
@@ -77,7 +80,7 @@ const Dashboard: React.FC<any> = (props) => {
       if (viewMode === 'day') return isSameYear && isSameMonth && isSameDay;
       return false;
     });
-  }, [safeTransactions, selectedCategory, currentDate, viewMode, startDate, endDate]);
+  }, [safeTransactions, selectedCategories, typeFilter, currentDate, viewMode, startDate, endDate]);
 
   const stats = useMemo(() => {
     let income = 0; let expenses = 0;
@@ -110,7 +113,8 @@ const Dashboard: React.FC<any> = (props) => {
   }, [filtered]);
 
   const handleExportPDF = () => {
-    generateFinancialReport(filtered, `${selectedCategory} - ${periodLabel}`, userMeta?.email || 'Investidor');
+    const catLabel = selectedCategories.length === 0 ? 'Todas Categorias' : selectedCategories.join(', ');
+    generateFinancialReport(filtered, `${catLabel} - ${periodLabel}`, userMeta?.email || 'Investidor');
   };
 
   const categoryNames = useMemo(() => {
@@ -209,8 +213,10 @@ const Dashboard: React.FC<any> = (props) => {
       {/* FILTROS E TABELA */}
       <div className="space-y-6">
           <FilterBar 
-            selectedCategory={selectedCategory} 
-            setSelectedCategory={setSelectedCategory} 
+            selectedCategories={selectedCategories} 
+            setSelectedCategories={setSelectedCategories}
+            typeFilter={typeFilter}
+            setTypeFilter={setTypeFilter}
             categories={categoryNames}
             viewMode={viewMode}
             setViewMode={setViewMode}
@@ -224,7 +230,57 @@ const Dashboard: React.FC<any> = (props) => {
             onOpenCategoryManager={() => setIsCategoryModalOpen(true)}
             onDateSelect={handleDateSelect}
           />
-          <TransactionHistory transactions={filtered} onDelete={onDeleteTransaction} isPrivacyMode={isPrivacyMode} />
+          <TransactionHistory transactions={filtered} onDelete={onDeleteTransaction} onEdit={onEditTransaction} isPrivacyMode={isPrivacyMode} />
+          
+          {/* SOMATÓRIO DOS LANÇAMENTOS FILTRADOS */}
+          {filtered.length > 0 && (
+            <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 mt-4 shadow-lg">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Resultado dos filtros</span>
+                  <span className="text-[10px] text-slate-600">({filtered.length} lançamento{filtered.length !== 1 ? 's' : ''})</span>
+                </div>
+                <div className="flex items-center gap-6">
+                  {(() => {
+                    let totalIncome = 0;
+                    let totalExpense = 0;
+                    filtered.forEach((t: any) => {
+                      const val = Number(t?.amount) || 0;
+                      if (t?.type === 'income') totalIncome += val;
+                      else totalExpense += val;
+                    });
+                    const net = totalIncome - totalExpense;
+                    return (
+                      <>
+                        {totalIncome > 0 && (
+                          <div className="text-center">
+                            <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Entradas</p>
+                            <p className="text-sm font-black text-emerald-400">
+                              {isPrivacyMode ? '••••' : `R$ ${totalIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                            </p>
+                          </div>
+                        )}
+                        {totalExpense > 0 && (
+                          <div className="text-center">
+                            <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Saídas</p>
+                            <p className="text-sm font-black text-red-400">
+                              {isPrivacyMode ? '••••' : `R$ ${totalExpense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                            </p>
+                          </div>
+                        )}
+                        <div className="text-center border-l border-slate-700 pl-6">
+                          <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Total</p>
+                          <p className={`text-lg font-black ${net >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                            {isPrivacyMode ? '••••' : `R$ ${net.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                          </p>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            </div>
+          )}
       </div>
     </div>
   );

@@ -3,12 +3,14 @@ import {
   ChevronLeft, 
   ChevronRight, 
   FileText,
-  FolderOpen // <--- O IMPORT CORRIGIDO AQUI
+  FolderOpen
 } from 'lucide-react';
 
 interface FilterBarProps {
-  selectedCategory: string;
-  setSelectedCategory: (cat: string) => void;
+  selectedCategories: string[];
+  setSelectedCategories: (cats: string[]) => void;
+  typeFilter: 'all' | 'income' | 'expense';
+  setTypeFilter: (type: 'all' | 'income' | 'expense') => void;
   categories: string[];
   viewMode: 'day' | 'month' | 'year' | 'all' | 'period';
   setViewMode: (mode: 'day' | 'month' | 'year' | 'all' | 'period') => void;
@@ -24,8 +26,10 @@ interface FilterBarProps {
 }
 
 const FilterBar: React.FC<FilterBarProps> = ({ 
-  selectedCategory, 
-  setSelectedCategory, 
+  selectedCategories, 
+  setSelectedCategories, 
+  typeFilter,
+  setTypeFilter,
   categories,
   viewMode,
   setViewMode,
@@ -46,6 +50,17 @@ const FilterBar: React.FC<FilterBarProps> = ({
       dateInputRef.current.showPicker();
     }
   };
+
+  const toggleCategory = (cat: string) => {
+    if (selectedCategories.includes(cat)) {
+      const updated = selectedCategories.filter(c => c !== cat);
+      setSelectedCategories(updated.length === 0 ? [] : updated);
+    } else {
+      setSelectedCategories([...selectedCategories, cat]);
+    }
+  };
+
+  const isAllCategories = selectedCategories.length === 0;
 
   return (
     <div className="flex flex-col gap-4 bg-slate-900/50 p-4 rounded-3xl border border-slate-800/60 mb-4 shadow-xl">
@@ -125,8 +140,42 @@ const FilterBar: React.FC<FilterBarProps> = ({
           </button>
       </div>
 
-      {/* SEÇÃO 2: CATEGORIAS */}
+      {/* SEÇÃO 2: FILTRO POR TIPO (TUDO / RECEITAS / DESPESAS) */}
       <div className="w-full border-t border-slate-800/60 pt-4 mt-1">
+        <div className="flex flex-wrap gap-2 justify-start px-1 mb-3">
+            <button 
+                onClick={() => setTypeFilter('all')} 
+                className={`px-5 py-3 rounded-xl text-xs font-black uppercase whitespace-nowrap border-2 transition-all duration-200 ${
+                    typeFilter === 'all' 
+                    ? 'bg-sky-600/20 border-sky-500 text-sky-400 shadow-lg shadow-sky-500/10' 
+                    : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:border-slate-300'
+                }`}
+            >
+                Tudo
+            </button>
+            <button 
+                onClick={() => setTypeFilter('income')} 
+                className={`px-5 py-3 rounded-xl text-xs font-black uppercase whitespace-nowrap border-2 transition-all duration-200 ${
+                    typeFilter === 'income' 
+                    ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400 shadow-lg shadow-emerald-500/10' 
+                    : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:border-slate-300'
+                }`}
+            >
+                Receitas
+            </button>
+            <button 
+                onClick={() => setTypeFilter('expense')} 
+                className={`px-5 py-3 rounded-xl text-xs font-black uppercase whitespace-nowrap border-2 transition-all duration-200 ${
+                    typeFilter === 'expense' 
+                    ? 'bg-red-600/20 border-red-500 text-red-400 shadow-lg shadow-red-500/10' 
+                    : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:border-slate-300'
+                }`}
+            >
+                Despesas
+            </button>
+        </div>
+
+        {/* SEÇÃO 3: CATEGORIAS (multi-select) */}
         <div className="flex flex-wrap gap-2 justify-start px-1">
             <button 
                 onClick={onOpenCategoryManager}
@@ -137,19 +186,19 @@ const FilterBar: React.FC<FilterBarProps> = ({
             </button>
             <div className="w-[1px] h-9 bg-slate-800 mx-1"></div>
             <button 
-                onClick={() => setSelectedCategory('Todas Categorias')} 
+                onClick={() => setSelectedCategories([])} 
                 className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase whitespace-nowrap border transition-all duration-200 ${
-                    selectedCategory === 'Todas Categorias' ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400' : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:border-slate-300'
+                    isAllCategories ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400' : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:border-slate-300'
                 }`}
             >
-                Tudo
+                Todas
             </button>
             {categories.map((cat: string) => (
                 <button 
                     key={cat} 
-                    onClick={() => setSelectedCategory(cat)} 
+                    onClick={() => toggleCategory(cat)} 
                     className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase whitespace-nowrap border transition-all duration-200 ${
-                        selectedCategory === cat ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400' : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:border-slate-300'
+                        selectedCategories.includes(cat) ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400' : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:border-slate-300'
                     }`}
                 >
                     {cat}
