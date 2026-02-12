@@ -11,7 +11,9 @@ const loadFirebaseConfig = async () => {
   if (Capacitor.isNativePlatform()) {
     try {
       console.log('📱 Modo NATIVO: Carregando configuração privada...');
-      const privateConfig = await import('./firebase-config.private');
+      // Usa variavel para que o Vite nao resolva estaticamente no build web
+      const privatePath = './firebase-config.private';
+      const privateConfig = await import(/* @vite-ignore */ privatePath);
       const config = privateConfig.privateFirebaseConfig;
       
       if (!config.apiKey || config.apiKey.includes('SUA_API_KEY')) {
