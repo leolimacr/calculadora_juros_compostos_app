@@ -47,3 +47,4 @@ functions/BKP*
 /utils/
 /data/
 /types/
+src/firebase-config.private.ts
