@@ -22,17 +22,17 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         <div className="grid grid-cols-4 items-end gap-2">
           {/* 1. INÍCIO */}
           <button
-            onClick={() => onNavigate('manager')}
-            className={`min-w-0 flex flex-col items-center justify-center gap-1 transition-all active:scale-90 ${
-              currentTool === 'manager' ? 'text-emerald-400' : 'text-slate-500'
-            }`}
-          >
-            <Home size={22} strokeWidth={currentTool === 'manager' ? 3 : 2} />
-            <span className="w-full text-center text-[9px] leading-tight font-black uppercase tracking-widest">
-			  <span className="block">Ir para</span>
-			  <span className="block">Gerenciador Financeiro</span>
-			</span>
-          </button>
+		  onClick={() => onNavigate('manager')}
+		  className={`min-w-0 flex flex-col items-center justify-center gap-1 transition-all active:scale-90 ${
+			currentTool === 'manager' ? 'text-emerald-400' : 'text-slate-500'
+		  }`}
+		>
+		  <Home size={22} strokeWidth={currentTool === 'manager' ? 3 : 2} />
+		  <span className="w-full text-center text-[9px] leading-tight font-black uppercase tracking-widest">
+			<span className="block">Ir para</span>
+			<span className="block">Gerenciador Financeiro</span>
+		  </span>
+		</button>
 
           {/* 2. LANÇAR */}
           <button
