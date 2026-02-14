@@ -1,4 +1,4 @@
-import MobileBottomNav from './src/components/MobileBottomNav';
+import MobileBottomNav from "./MobileBottomNav";
 import React, { useEffect, useState, useMemo } from 'react';
 import { 
   TrendingUp, TrendingDown, Search, X, Maximize2, CheckCircle2, Lock, ArrowRight, Globe, Clock, ChevronLeft, Share2, Flame, Scale, Home, Brain, ShieldCheck, Mail, Users, MessageSquare, LockKeyhole, HelpCircle, Instagram, Linkedin, ShieldAlert, FileText
@@ -224,8 +224,6 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
         </div>
       </section>
 
-        
-
       <section className="max-w-[1600px] mx-auto px-4 lg:px-12 py-20 border-t border-slate-800">
          <h2 className="text-3xl md:text-5xl font-black text-white tracking-tighter mb-12 text-center md:text-left uppercase">Educação Financeira</h2>
          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -268,4 +266,5 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
     </div>
   );
 };
+
 export default PublicHome;

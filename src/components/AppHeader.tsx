@@ -2,7 +2,7 @@ import React from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 import { 
-  LogOut, Settings, Sparkles, Wallet, Eye, EyeOff, LayoutGrid, Globe 
+  LogOut, Settings, Sparkles, Wallet, Eye, EyeOff, Globe, Menu 
 } from 'lucide-react';
 interface UserMetaInfo {
   nickname?: string;
@@ -102,16 +102,32 @@ const AppHeader: React.FC<AppHeaderProps> = ({
           </div>
         )}
 
-        {!isAuthenticated && !isNative && (
-          <div className="hidden md:flex items-center gap-4 text-xs font-bold uppercase tracking-widest">
-            <button onClick={() => onNavigate('login')} className="text-slate-400 hover:text-white transition-colors">Entrar</button>
-            <button onClick={() => onNavigate('register')} className="bg-sky-600 text-white px-5 py-2 rounded-full hover:bg-sky-500 shadow-lg transition-all">Criar Conta</button>
-          </div>
-        )}
-
         {(!isNative || !isAuthenticated) && (
-          <div className="lg:hidden">
-            <button onClick={onOpenMobileMenu} className="text-slate-300 p-2"><LayoutGrid size={24}/></button>
+	  <div className="lg:hidden flex items-center gap-2">
+		<span className="text-[10px] font-black uppercase tracking-widest text-slate-300">
+		  {isAuthenticated ? `Seja Bem Vindo, ${nickname}!` : 'Entrar'}
+		</span>
+		<button
+		  onClick={onOpenMobileMenu}
+		  className="text-slate-300 p-2 rounded-full border border-slate-700 bg-slate-900/60 active:scale-95 transition-all"
+		  aria-label="Menu"
+		>
+		  <Menu size={22} />
+		</button>
+	  </div>
+	)}
+        {(!isNative || !isAuthenticated) && (
+          <div className="lg:hidden flex items-center gap-2">
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">
+              {isAuthenticated ? `Seja Bem Vindo, ${nickname}!` : 'Entrar'}
+            </span>
+            <button
+              onClick={onOpenMobileMenu}
+              className="text-slate-300 p-2 rounded-full border border-slate-700 bg-slate-900/60 active:scale-95 transition-all"
+              aria-label="Menu"
+            >
+              <Menu size={22} />
+            </button>
           </div>
         )}
       </div>

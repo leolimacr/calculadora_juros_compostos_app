@@ -201,7 +201,61 @@ const App: React.FC = () => {
       />
 
       <main className="flex-grow">{renderContent()}</main>
+	
+	{/* Painel móvel do menu (topo) */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-sm flex justify-end">
+          <div className="w-72 max-w-[80%] h-full bg-[#020617] border-l border-slate-800 shadow-2xl flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
+              <span className="text-[11px] font-black uppercase tracking-widest text-slate-300">
+                {isAuthenticated ? `Seja Bem Vindo, ${userMeta?.nickname || user?.displayName || 'Investidor'}!` : 'Entrar'}
+              </span>
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-slate-500 hover:text-white text-sm font-bold"
+              >
+                X
+              </button>
+            </div>
 
+            <div className="flex-1 px-4 py-3 flex flex-col gap-2 text-sm">
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  if (isAuthenticated) handleNavigate('manager');
+                  else handleNavigate('login');
+                }}
+                className="w-full text-left px-3 py-3 rounded-xl bg-slate-900/70 border border-slate-800 hover:border-emerald-500/60 hover:bg-slate-900 transition-all font-bold text-[12px] uppercase tracking-widest flex items-center gap-2"
+              >
+                Ir para Gerenciador Financeiro
+              </button>
+
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  if (isAuthenticated) handleNavigate('chat');
+                  else handleNavigate('login');
+                }}
+                className="w-full text-left px-3 py-3 rounded-xl bg-slate-900/70 border border-slate-800 hover:border-sky-500/60 hover:bg-slate-900 transition-all font-bold text-[12px] uppercase tracking-widest flex items-center gap-2"
+              >
+                Nexus IA
+              </button>
+
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  if (isAuthenticated) handleNavigate('settings');
+                  else handleNavigate('login');
+                }}
+                className="w-full text-left px-3 py-3 rounded-xl bg-slate-900/70 border border-slate-800 hover:border-slate-500/60 hover:bg-slate-900 transition-all font-bold text-[12px] uppercase tracking-widest flex items-center gap-2"
+              >
+                Configurações
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+		
       {isNative && isAuthenticated && !isAppLocked && (
         <MobileBottomNav
           currentTool={currentTool}
