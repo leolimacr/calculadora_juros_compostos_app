@@ -178,8 +178,8 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
         </div>
       </section>
       {/* Widget de Mercado - MOBILE/TABLET */}
-      <section className="lg:hidden px-4 py-6 max-w-[1600px] mx-auto">
-        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-3">
+      <section className="lg:hidden w-full px-4 py-6">
+		<div className="w-full bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-3">
           <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
             Mercado Agora
           </h3>
