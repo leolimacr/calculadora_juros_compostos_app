@@ -28,9 +28,10 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             }`}
           >
             <Home size={22} strokeWidth={currentTool === 'manager' ? 3 : 2} />
-            <span className="w-full text-center text-[10px] leading-tight font-black uppercase tracking-widest line-clamp-2">
-              Início
-            </span>
+            <span className="w-full text-center text-[9px] leading-tight font-black uppercase tracking-widest">
+			  <span className="block">Ir para</span>
+			  <span className="block">Gerenciador Financeiro</span>
+			</span>
           </button>
 
           {/* 2. LANÇAR */}
