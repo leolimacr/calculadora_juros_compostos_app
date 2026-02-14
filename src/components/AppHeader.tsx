@@ -88,9 +88,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
         {!isNative && isAuthenticated && currentTool !== 'manager' && (
           <button onClick={() => onNavigate('manager')} className="flex items-center gap-2 px-4 py-2 bg-emerald-600/10 text-emerald-500 border border-emerald-500/20 rounded-full font-black text-[10px] md:text-xs uppercase shadow-lg transition-all active:scale-95 hover:bg-emerald-600 hover:text-white">
             <Wallet size={14} className="shrink-0" /> 
-            <span className="flex flex-col">
-			  <span>Ir Para</span>
-			  <span>Gerenciador Financeiro</span>
+            <span className="flex flex-col">			  
 			</span>
           </button>
         )}
