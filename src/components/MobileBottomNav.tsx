@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Home, Plus, Sparkles, Menu } from 'lucide-react';
 
@@ -27,7 +28,7 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             }`}
           >
             <Home size={22} strokeWidth={currentTool === 'manager' ? 3 : 2} />
-            <span className="w-full text-center text-[10px] leading-none font-black uppercase tracking-widest truncate">
+            <span className="w-full text-center text-[10px] leading-tight font-black uppercase tracking-widest line-clamp-2">
               Início
             </span>
           </button>
