@@ -102,7 +102,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
           </div>
         )}
 
-        {(!isNative || !isAuthenticated) && (
+        {!isNative && (
           <div className="lg:hidden flex items-center gap-2">
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">
               {isAuthenticated ? `Seja Bem Vindo, ${nickname}!` : 'Entrar'}
