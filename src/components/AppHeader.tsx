@@ -103,20 +103,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({
         )}
 
         {(!isNative || !isAuthenticated) && (
-	  <div className="lg:hidden flex items-center gap-2">
-		<span className="text-[10px] font-black uppercase tracking-widest text-slate-300">
-		  {isAuthenticated ? `Seja Bem Vindo, ${nickname}!` : 'Entrar'}
-		</span>
-		<button
-		  onClick={onOpenMobileMenu}
-		  className="text-slate-300 p-2 rounded-full border border-slate-700 bg-slate-900/60 active:scale-95 transition-all"
-		  aria-label="Menu"
-		>
-		  <Menu size={22} />
-		</button>
-	  </div>
-	)}
-        {(!isNative || !isAuthenticated) && (
           <div className="lg:hidden flex items-center gap-2">
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">
               {isAuthenticated ? `Seja Bem Vindo, ${nickname}!` : 'Entrar'}
