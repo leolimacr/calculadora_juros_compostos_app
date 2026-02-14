@@ -183,6 +183,25 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
           <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
             Mercado Agora
           </h3>
+		  
+		  {/* BUSCA (mobile) */}
+		  <div className="relative">
+			<input type="text" placeholder="Pesquisar B3..." className="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm font-bold text-white focus:border-emerald-500 transition-all uppercase outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+			<Search className="absolute left-3 top-3 text-slate-500" size={16} />
+			{suggestions.length > 0 && (
+			  <div className="mt-2 bg-slate-800 border border-slate-700 rounded-xl overflow-hidden absolute w-full z-50 shadow-2xl">
+				{suggestions.map((t, i) => (
+				  <div key={i} className="p-3 hover:bg-slate-700 cursor-pointer border-t border-slate-700/50 font-bold text-xs" onClick={() => handleSelectSuggestion(t)}>
+					{t}
+			 </div>
+			))}
+		  </div>
+		)}
+	</div>
+
+
+
+
 
           <MarketGroup
             title="Índices"
