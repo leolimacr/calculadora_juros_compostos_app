@@ -177,6 +177,34 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
             </div>
         </div>
       </section>
+      {/* Widget de Mercado - MOBILE/TABLET */}
+      <section className="lg:hidden px-4 py-6 max-w-[1600px] mx-auto">
+        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-3">
+          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            Mercado Agora
+          </h3>
+
+          <MarketGroup
+            title="Índices"
+            items={marketData.indices.slice(0, 3)}
+            onClickItem={setSelectedAsset}
+          />
+
+          <MarketGroup
+            title="Câmbio"
+            items={marketData.currencies}
+            onClickItem={setSelectedAsset}
+          />
+
+          <MarketGroup
+            title="Cripto"
+            items={marketData.cryptos.slice(0, 4)}
+            onClickItem={setSelectedAsset}
+          />
+        </div>
+      </section>
+
+        
 
       <section className="max-w-[1600px] mx-auto px-4 lg:px-12 py-20 border-t border-slate-800">
          <h2 className="text-3xl md:text-5xl font-black text-white tracking-tighter mb-12 text-center md:text-left uppercase">Educação Financeira</h2>
