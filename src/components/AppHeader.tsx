@@ -23,7 +23,7 @@ interface AppHeaderProps {
   onLogout: () => void;
   onOpenMobileMenu: () => void;
 }
-
+	//Alteração para fazer novo build
 const AppHeader: React.FC<AppHeaderProps> = ({
   currentTool,
   isAuthenticated,
