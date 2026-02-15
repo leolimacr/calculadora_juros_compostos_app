@@ -205,61 +205,101 @@ const App: React.FC = () => {
 	{/* Painel móvel do menu (topo) */}
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-sm flex justify-end">
-          <div className="w-72 max-w-[80%] h-full bg-[#020617] border-l border-slate-800 shadow-2xl flex flex-col">
+          <div className="w-72 max-w-[85%] h-full bg-[#020617] border-l border-white/5 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+            
             {/* Cabeçalho do painel */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
-              <span className="text-[11px] font-black uppercase tracking-widest text-slate-300">
-                {isAuthenticated
-                  ? `Seja Bem Vindo, ${userMeta?.nickname || user?.displayName || 'Investidor'}!`
-                  : 'Entrar'}
-              </span>
+            <div className="flex items-center justify-between p-6 border-b border-white/5">
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-sky-500 mb-1">
+                  Menu Principal
+                </span>
+                <span className="text-sm font-black text-white truncate max-w-[180px] uppercase tracking-tight">
+                  {isAuthenticated
+                    ? (userMeta?.nickname || user?.displayName || 'Investidor')
+                    : 'Visitante'}
+                </span>
+              </div>
               <button
                 onClick={() => setMobileMenuOpen(false)}
-                className="text-slate-500 hover:text-white text-sm font-bold"
+                className="p-2 bg-white/5 rounded-lg text-slate-400 hover:text-white transition-colors"
               >
-                X
+                <X size={20} />
               </button>
             </div>
 
-            {/* Opções */}
-            <div className="flex-1 px-4 py-4 flex flex-col gap-3 text-sm">
-              {/* Ir para Gerenciador Financeiro */}
+            {/* Opções de Navegação */}
+            <div className="flex-1 px-4 py-6 flex flex-col gap-4 overflow-y-auto">
+              
+              {/* Botão Gerenciador (Dourado/Premium) */}
               <button
                 onClick={() => {
                   setMobileMenuOpen(false);
                   if (isAuthenticated) handleNavigate('manager');
                   else handleNavigate('login');
                 }}
-                className="w-full text-left px-3 py-3 rounded-xl bg-slate-900/70 border border-slate-800 hover:border-emerald-500/60 hover:bg-slate-900 transition-all font-bold text-[11px] uppercase tracking-widest"
+                className="w-full group relative p-px rounded-2xl bg-gradient-to-b from-amber-500/40 to-transparent transition-all active:scale-95 shadow-lg shadow-amber-950/20"
               >
-                <span className="block">Ir para</span>
-                <span className="block">Gerenciador Financeiro</span>
+                <div className="bg-[#0f172a] rounded-[15px] p-4 flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-600 text-white shadow-lg">
+                    <LayoutDashboard size={20} strokeWidth={2.5} />
+                  </div>
+                  <div className="flex-1 text-left leading-tight">
+                    <span className="block text-[9px] font-black text-amber-500 uppercase tracking-widest mb-0.5">App Nativo</span>
+                    <span className="block text-[13px] font-bold text-white uppercase tracking-tight">Gerenciador</span>
+                  </div>
+                  <ChevronRight size={16} className="text-slate-600 group-hover:text-amber-400" />
+                </div>
               </button>
 
-              {/* Nexus IA */}
+              {/* Botão Nexus IA (Sky/Neon) */}
               <button
                 onClick={() => {
                   setMobileMenuOpen(false);
                   if (isAuthenticated) handleNavigate('chat');
                   else handleNavigate('login');
                 }}
-                className="w-full text-left px-3 py-3 rounded-xl bg-slate-900/70 border border-slate-800 hover:border-sky-500/60 hover:bg-slate-900 transition-all font-bold text-[11px] uppercase tracking-widest"
+                className="w-full group relative p-px rounded-2xl bg-gradient-to-b from-sky-500/40 to-transparent transition-all active:scale-95 shadow-lg shadow-sky-950/20"
               >
-                Nexus IA
+                <div className="bg-[#0f172a] rounded-[15px] p-4 flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-indigo-600 text-white shadow-lg">
+                    <Sparkles size={20} strokeWidth={2.5} />
+                  </div>
+                  <div className="flex-1 text-left leading-tight">
+                    <span className="block text-[9px] font-black text-sky-500 uppercase tracking-widest mb-0.5">Inteligência</span>
+                    <span className="block text-[13px] font-bold text-white uppercase tracking-tight">Nexus IA</span>
+                  </div>
+                  <ChevronRight size={16} className="text-slate-600 group-hover:text-sky-400" />
+                </div>
               </button>
 
-              {/* Configurações */}
+              {/* Botão Configurações (Clean Glass) */}
               <button
                 onClick={() => {
                   setMobileMenuOpen(false);
                   if (isAuthenticated) handleNavigate('settings');
                   else handleNavigate('login');
                 }}
-                className="w-full text-left px-3 py-3 rounded-xl bg-slate-900/70 border border-slate-800 hover:border-slate-500/60 hover:bg-slate-900 transition-all font-bold text-[11px] uppercase tracking-widest"
+                className="w-full flex items-center gap-3 p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all active:scale-95 text-left group"
               >
-                Configurações
+                <div className="p-2 bg-slate-800 rounded-lg text-slate-400 group-hover:text-white transition-colors">
+                  <Settings size={18} />
+                </div>
+                <span className="flex-1 text-[13px] font-bold text-slate-300 uppercase tracking-widest">Configurações</span>
+                <ChevronRight size={16} className="text-slate-700" />
               </button>
             </div>
+
+            {/* Rodapé do Menu (Sair) */}
+            {isAuthenticated && (
+               <div className="p-6 border-t border-white/5 bg-slate-950/30">
+                 <button 
+                  onClick={() => { setMobileMenuOpen(false); handleLogout(); }}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-red-500/20 text-red-500 text-[11px] font-black uppercase tracking-widest hover:bg-red-500/10 transition-all"
+                 >
+                   <LogOut size={16} /> Sair da Conta
+                 </button>
+               </div>
+            )}
           </div>
         </div>
       )}
