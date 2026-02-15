@@ -1,3 +1,4 @@
+import { LayoutDashboard, Sparkles, Settings, X, LogOut, ChevronRight } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { useAuth } from './contexts/AuthContext';
@@ -148,9 +149,8 @@ const App: React.FC = () => {
           />
         );
       case 'settings':
-        if (!isAuthenticated) { handleNavigate('login'); return null; }
-        if (isMobileBrowser) return wrap(<AppOnlyBlock onBack={() => handleNavigate('home')} />);
-        return wrap(<SettingsPage onBack={() => handleNavigate('manager')} />);
+		if (!isAuthenticated) { handleNavigate('login'); return null; }
+		return wrap(<SettingsPage onBack={() => handleNavigate('manager')} />);
       case 'pricing':
         return wrap(<PricingPage onNavigate={handleNavigate} currentPlan={isPremium ? 'premium' : isPro ? 'pro' : 'free'} onBack={() => handleNavigate('home')} isAuthenticated={isAuthenticated} userId={user?.uid} />);
       case 'chat':
