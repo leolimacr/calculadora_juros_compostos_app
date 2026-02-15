@@ -2,7 +2,7 @@ import React from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 import { 
-  LogOut, Settings, Sparkles, Eye, EyeOff, Menu 
+  LogOut, Settings, Sparkles, Eye, EyeOff, Menu, Globe 
 } from 'lucide-react';
 
 interface UserMetaInfo {
@@ -36,30 +36,53 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   onOpenMobileMenu,
 }) => {
   const isNative = Capacitor.isNativePlatform();
-  // Pega o primeiro nome para ser mais íntimo
   const rawName = userMeta?.nickname || userDisplayName || 'Investidor';
   const firstName = rawName.split(' ')[0]; 
+
+  // CORREÇÃO CRÍTICA: Força abrir no navegador do sistema (Chrome/Safari)
+  // Isso mantém o login do usuário.
+  const handleOpenWebsite = async () => {
+    await Browser.open({ 
+      url: 'https://www.financasproinvest.com.br', 
+      windowName: '_system' // _system é o segredo para sair da WebView
+    });
+  };
 
   return (
     <header className="fixed top-0 left-0 w-full z-[100] bg-[#020617]/95 backdrop-blur-md border-b border-slate-800 h-16 flex items-center px-4 md:px-8 shadow-2xl transition-all duration-300">
       
       {/* LADO ESQUERDO: LOGO E TÍTULO */}
       <div className="flex items-center gap-2 md:gap-3 shrink-0">
-        <div className="flex items-center gap-3 cursor-pointer group" onClick={() => onNavigate('home')}>
-          <img src="/icon.png" alt="Logo" className="w-8 h-8 md:w-9 md:h-9 rounded-lg shadow-lg group-hover:scale-105 transition-transform" />
+        <div className="flex items-center gap-2 md:gap-3 cursor-pointer group" onClick={() => onNavigate('home')}>
+          <img src="/icon.png" alt="Logo" className="w-8 h-8 md:w-9 md:h-9 rounded-lg shadow-lg" />
           
-          {/* Título Principal (Oculto em celular se estiver no Gerenciador para dar espaço) */}
-          <h1 className={`text-sm md:text-xl font-black text-sky-400 tracking-tighter uppercase whitespace-nowrap ${currentTool === 'manager' ? 'hidden sm:block' : 'block'}`}>
+          {/* TÍTULO PRINCIPAL:
+              Se estiver no celular e na tela 'manager', ocultamos o nome do App
+              para tentar mostrar o título dourado. Mas se estiver deslogado,
+              priorizamos mostrar o nome do app. */}
+          <h1 className={`text-sm md:text-xl font-black text-sky-400 tracking-tighter uppercase whitespace-nowrap 
+            ${currentTool === 'manager' && isAuthenticated ? 'hidden sm:block' : 'block'}`}>
             Finanças Pro
           </h1>
         </div>
 
         {/* TÍTULO DOURADO DO GERENCIADOR */}
         {currentTool === 'manager' && (
-          <div className="flex flex-col items-start border-l border-slate-700 pl-3 ml-2 md:pl-4 md:ml-4 leading-none animate-in fade-in slide-in-from-left-2 duration-500">
+          <div className={`flex flex-col items-start border-l border-slate-700 pl-3 ml-2 md:pl-4 md:ml-4 leading-none 
+            ${!isAuthenticated ? 'hidden sm:flex' : 'flex'} 
+            animate-in fade-in slide-in-from-left-2 duration-500`}>
+            
+            {/* Se estiver deslogado, ESCONDE no mobile (hidden sm:flex) para não quebrar o layout com o botão Entrar */}
             <span className="text-[11px] md:text-lg font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-yellow-400 to-amber-500 tracking-tight uppercase whitespace-nowrap drop-shadow-sm">
               Gerenciador Financeiro
             </span>
+            
+            {/* Link para o site (só aparece se for App Nativo) */}
+            {isNative && (
+              <button onClick={handleOpenWebsite} className="flex items-center gap-1 text-slate-400 hover:text-white font-black text-[8px] uppercase tracking-widest mt-1 transition-colors">
+                <Globe size={10} /> Acessar Site
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -67,11 +90,11 @@ const AppHeader: React.FC<AppHeaderProps> = ({
       {/* LADO DIREITO */}
       <div className="flex items-center justify-end gap-2 md:gap-4 flex-1">
         
-        {/* DESLOGADO */}
+        {/* DESLOGADO (Botão Entrar) */}
         {!isAuthenticated && (
           <button 
             onClick={() => onNavigate('login')} 
-            className="text-[11px] md:text-xs font-black text-white bg-gradient-to-r from-sky-600 to-indigo-600 rounded-lg px-4 py-2 uppercase tracking-tight hover:shadow-lg hover:shadow-sky-500/30 transition-all active:scale-95"
+            className="text-[10px] md:text-xs font-black text-white bg-gradient-to-r from-sky-600 to-indigo-600 rounded-lg px-3 py-2 md:px-4 md:py-2 uppercase tracking-tight hover:shadow-lg hover:shadow-sky-500/30 transition-all active:scale-95 whitespace-nowrap"
           >
             Entrar
           </button>
@@ -83,7 +106,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             {/* DESKTOP VIEW */}
             <div className="hidden xl:flex items-center gap-3 mr-2 text-sm border-r border-slate-800 pr-4">
               <div className="flex flex-col text-right leading-none">
-                <span className="text-slate-500 text-[9px] font-black uppercase mb-1">Bem vindo de volta,</span>
+                <span className="text-slate-500 text-[9px] font-black uppercase mb-1">Bem vindo,</span>
                 <span className="text-[12px] font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 uppercase tracking-tight">
                   {rawName}
                 </span>
@@ -93,15 +116,15 @@ const AppHeader: React.FC<AppHeaderProps> = ({
               </button>
             </div>
 
-            {/* MOBILE VIEW - AQUI ESTÁ A "EMOÇÃO" */}
-            <div className="xl:hidden flex flex-col items-end mr-2 leading-none animate-in fade-in duration-700">
-               <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Olá,</span>
+            {/* MOBILE VIEW - Saudação Curta */}
+            <div className="xl:hidden flex flex-col items-end mr-1 leading-none animate-in fade-in duration-700">
+               <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Olá,</span>
                <span className="text-xs font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-200 tracking-tight drop-shadow-sm">
-                 {firstName}! 👋
+                 {firstName}!
                </span>
             </div>
 
-            {/* BOTÕES DE AÇÃO (Desktop) */}
+            {/* BOTÕES DE AÇÃO (Desktop Only) */}
             <div className="hidden md:flex items-center gap-2">
               <button onClick={() => onNavigate('chat')} className="flex items-center gap-2 px-4 py-2 rounded-full border text-[10px] font-black uppercase transition-all bg-slate-800 border-slate-800 text-sky-400 hover:bg-slate-700">
                 <Sparkles size={14} /> Nexus IA
@@ -112,7 +135,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
           </>
         )}
 
-        {/* MENU HAMBÚRGUER */}
+        {/* MENU HAMBÚRGUER (Aparece no Mobile Web e App) */}
         {!isNative && (
           <div className="lg:hidden flex items-center gap-2">
             <button 
@@ -121,8 +144,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({
               aria-label="Menu"
             >
               <Menu size={20} />
-              {/* Pontinho de notificação (opcional, para charme) */}
-              <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-sky-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(56,189,248,0.8)]"></span>
             </button>
           </div>
         )}
