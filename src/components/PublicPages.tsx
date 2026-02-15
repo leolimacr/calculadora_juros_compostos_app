@@ -1,7 +1,7 @@
 import MobileBottomNav from "./MobileBottomNav";
 import React, { useEffect, useState, useMemo } from 'react';
 import { 
-  TrendingUp, TrendingDown, Search, X, Maximize2, CheckCircle2, Lock, ArrowRight, Globe, Clock, ChevronLeft, Share2, Flame, Scale, Home, Brain, ShieldCheck, Mail, Users, MessageSquare, LockKeyhole, HelpCircle, Instagram, Linkedin, ShieldAlert, FileText
+  LogOut, Settings, Sparkles, Wallet, Eye, EyeOff, LayoutGrid, Globe, Menu, Search, ArrowRight,Instagram, Linkedin, Mail 
 } from 'lucide-react';
 
 import { ARTICLES } from '../data/articles'; 

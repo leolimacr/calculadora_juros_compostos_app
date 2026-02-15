@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { Home, Plus, Sparkles, Menu } from 'lucide-react';
+import { LayoutDashboard, Plus, Sparkles, Menu } from 'lucide-react';
 
 interface MobileBottomNavProps {
   currentTool: string;
@@ -16,68 +15,70 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   onAdd 
 }) => {
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#0f172a]/95 backdrop-blur border-t border-slate-800 shadow-[0_-10px_40px_rgba(0,0,0,0.4)]">
-      {/* Safe-area + largura controlada no mobile */}
-      <div className="mx-auto max-w-md px-2 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
-        <div className="grid grid-cols-4 items-end gap-2">
-          {/* 1. INÍCIO */}
+    <div className="fixed bottom-0 left-0 right-0 z-[90] bg-[#020617]/90 backdrop-blur-xl border-t border-slate-800 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+      {/* Safe-area padding para iPhones modernos */}
+      <div className="mx-auto max-w-lg px-6 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
+        <div className="flex items-end justify-between">
+          
+          {/* 1. GERENCIADOR (Agora Dourado quando ativo, igual ao Desktop) */}
           <button
-		  onClick={() => onNavigate('manager')}
-		  className={`min-w-0 flex flex-col items-center justify-center gap-1 transition-all active:scale-90 ${
-			currentTool === 'manager' ? 'text-emerald-400' : 'text-slate-500'
-		  }`}
-		>
-		  <Home size={22} strokeWidth={currentTool === 'manager' ? 3 : 2} />
-		  <span className="w-full text-center text-[9px] leading-tight font-black uppercase tracking-widest">
-			<span className="block">Ir para</span>
-			<span className="block">Gerenciador Financeiro</span>
-		  </span>
-		</button>
-
-          {/* 2. LANÇAR */}
-          <button
-            onClick={onAdd}
-            className="min-w-0 flex flex-col items-center justify-center gap-1 transition-all active:scale-90"
-            title="Novo Lançamento"
+            onClick={() => onNavigate('manager')}
+            className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-1.5 py-2 transition-all active:scale-95 group ${
+              currentTool === 'manager' ? 'text-yellow-400' : 'text-slate-500 hover:text-slate-300'
+            }`}
           >
-            <div className="w-12 h-12 bg-gradient-to-tr from-emerald-600 to-teal-400 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-emerald-500/30 border-[3px] border-[#020617]">
-              <Plus size={26} strokeWidth={3} />
+            <div className={`p-1 rounded-lg transition-all ${currentTool === 'manager' ? 'bg-yellow-400/10' : ''}`}>
+               <LayoutDashboard size={24} strokeWidth={currentTool === 'manager' ? 2.5 : 2} />
             </div>
-            <span className="w-full text-center text-[10px] leading-none font-black uppercase tracking-widest text-emerald-500 truncate">
-              Lançar
+            <span className="text-[9px] font-black uppercase tracking-widest leading-none">
+              Gerenciador
             </span>
           </button>
 
-          {/* 3. NEXUS */}
+          {/* 2. BOTÃO CENTRAL DE AÇÃO (Lançar) */}
+          <div className="relative -top-5 mx-2">
+            <button
+              onClick={onAdd}
+              className="flex flex-col items-center justify-center gap-1 transition-transform active:scale-90"
+              title="Novo Lançamento"
+            >
+              <div className="w-14 h-14 bg-gradient-to-tr from-emerald-600 to-teal-400 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/40 border-[4px] border-[#020617] ring-1 ring-slate-800">
+                <Plus size={28} strokeWidth={3} />
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500 mt-1">
+                Lançar
+              </span>
+            </button>
+          </div>
+
+          {/* 3. NEXUS IA (Azul/Sky quando ativo) */}
           <button
             onClick={() => onNavigate('chat')}
-            className="min-w-0 flex flex-col items-center justify-center gap-1 transition-all active:scale-90"
-            title="Nexus IA"
+            className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-1.5 py-2 transition-all active:scale-95 ${
+              currentTool === 'chat' ? 'text-sky-400' : 'text-slate-500 hover:text-slate-300'
+            }`}
           >
-            <div
-              className={`w-12 h-12 bg-gradient-to-tr from-yellow-600 to-amber-400 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-yellow-500/30 border-[3px] border-[#020617] ${
-                currentTool === 'chat'
-                  ? 'ring-2 ring-yellow-400 ring-offset-2 ring-offset-[#020617]'
-                  : ''
-              }`}
-            >
-              <Sparkles size={24} strokeWidth={2.5} fill="currentColor" className="opacity-90" />
-            </div>
-            <span className="w-full text-center text-[10px] leading-none font-black uppercase tracking-widest text-yellow-500 truncate">
-              Nexus
+             <div className={`p-1 rounded-lg transition-all ${currentTool === 'chat' ? 'bg-sky-400/10' : ''}`}>
+               <Sparkles size={24} strokeWidth={currentTool === 'chat' ? 2.5 : 2} />
+             </div>
+            <span className="text-[9px] font-black uppercase tracking-widest leading-none">
+              Nexus IA
             </span>
           </button>
 
-          {/* 4. MENU */}
+          {/* 4. MENU (Hambúrguer) */}
           <button
             onClick={onOpenMore}
-            className="min-w-0 flex flex-col items-center justify-center gap-1 text-slate-500 hover:text-white transition-all active:scale-90"
+            className="flex-1 min-w-0 flex flex-col items-center justify-center gap-1.5 py-2 text-slate-500 hover:text-white transition-all active:scale-95"
           >
-            <Menu size={22} />
-            <span className="w-full text-center text-[10px] leading-none font-black uppercase tracking-widest truncate">
+            <div className="p-1">
+               <Menu size={24} strokeWidth={2} />
+            </div>
+            <span className="text-[9px] font-black uppercase tracking-widest leading-none">
               Menu
             </span>
           </button>
+
         </div>
       </div>
     </div>
