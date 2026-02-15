@@ -40,10 +40,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   const firstName = rawName.split(' ')[0]; 
 
   // CORREÇÃO CRÍTICA: Abre o navegador do SISTEMA, evitando o "Loop" de login
-  const handleOpenWebsite = () => {
-    // Usamos o window.open nativo do Javascript com '_system'
-    // Isso força o Android/iOS a procurar um navegador externo
-    window.open('https://www.financasproinvest.com.br', '_system');
+  const handleOpenWebsite = async () => {
+	 await Browser.open({ url: 'https://www.financasproinvest.com.br', windowName: '_system' });
   };
 
   return (
