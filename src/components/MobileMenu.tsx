@@ -112,96 +112,94 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
         {/* === CORPO DO MENU (BOTÕES COLORIDOS) === */}
         <div className="flex-1 overflow-y-auto p-5 space-y-5 bg-[#0f172a]">
           
-          {isAuthenticated && (
+{isAuthenticated && (
             <>
               {/* SEÇÃO 1: APPS PRINCIPAIS */}
-              <div className="space-y-3">
-                <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Ferramentas</h3>
+              <div className="space-y-4">
+                <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1">Acesso Rápido</h3>
 
-                {/* BOTÃO GERENCIADOR (Dourado Vibrante) */}
+                {/* BOTÃO GERENCIADOR - Estilo Dourado Premium */}
                 <button 
                   onClick={() => handleDeepLink('manager')}
-                  className="w-full group relative overflow-hidden rounded-2xl bg-slate-900 border border-amber-500/30 p-4 transition-all active:scale-95 hover:border-amber-400 hover:shadow-[0_0_20px_rgba(245,158,11,0.15)]"
+                  className="w-full group relative p-px rounded-2xl bg-gradient-to-b from-amber-400/40 to-transparent shadow-lg shadow-amber-950/20 transition-all active:scale-[0.97]"
                 >
-                  {/* Gradiente de Fundo */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 to-transparent opacity-100" />
-                  
-                  <div className="flex items-center gap-4 relative z-10">
-                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lg shadow-amber-500/30">
+                  <div className="relative bg-[#0f172a] rounded-[15px] p-4 flex items-center gap-4 overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 blur-[40px] rounded-full -mr-16 -mt-16" />
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-600 text-white shadow-[0_0_15px_rgba(245,158,11,0.4)]">
                         <LayoutDashboard size={24} strokeWidth={2.5} />
-                     </div>
-                     <div className="flex-1 text-left">
-                        <span className="block text-[10px] font-black uppercase tracking-wider text-amber-400 mb-0.5">App Nativo</span>
-                        <span className="block text-lg font-bold text-white leading-tight">Gerenciador</span>
-                     </div>
-                     <div className="bg-slate-800 p-2 rounded-full text-slate-400 group-hover:text-amber-400 group-hover:bg-amber-400/10 transition-colors">
-                       <Smartphone size={18} />
-                     </div>
+                    </div>
+                    <div className="flex-1 text-left">
+                        <span className="block text-[10px] font-black uppercase tracking-widest text-amber-500/80">Plataforma</span>
+                        <span className="block text-lg font-black text-white">Gerenciador</span>
+                    </div>
+                    <ChevronRight size={20} className="text-slate-600 group-hover:text-amber-400 group-hover:translate-x-1 transition-all" />
                   </div>
                 </button>
 
-                {/* BOTÃO NEXUS IA (Azul Neon Vibrante) */}
+                {/* BOTÃO NEXUS IA - Estilo Cyan Neon */}
                 <button 
                   onClick={() => handleDeepLink('chat')}
-                  className="w-full group relative overflow-hidden rounded-2xl bg-slate-900 border border-cyan-500/30 p-4 transition-all active:scale-95 hover:border-cyan-400 hover:shadow-[0_0_20px_rgba(6,182,212,0.15)]"
+                  className="w-full group relative p-px rounded-2xl bg-gradient-to-b from-sky-400/40 to-transparent shadow-lg shadow-sky-950/20 transition-all active:scale-[0.97]"
                 >
-                  <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-transparent opacity-100" />
-                  
-                  <div className="flex items-center gap-4 relative z-10">
-                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-blue-500 text-white shadow-lg shadow-cyan-500/30">
+                  <div className="relative bg-[#0f172a] rounded-[15px] p-4 flex items-center gap-4 overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-sky-500/5 blur-[40px] rounded-full -mr-16 -mt-16" />
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-indigo-600 text-white shadow-[0_0_15px_rgba(56,189,248,0.4)]">
                         <Sparkles size={24} strokeWidth={2.5} />
-                     </div>
-                     <div className="flex-1 text-left">
-                        <span className="block text-[10px] font-black uppercase tracking-wider text-cyan-400 mb-0.5">Inteligência Artificial</span>
-                        <span className="block text-lg font-bold text-white leading-tight">Nexus IA</span>
-                     </div>
-                     <div className="bg-slate-800 p-2 rounded-full text-slate-400 group-hover:text-cyan-400 group-hover:bg-cyan-400/10 transition-colors">
-                       <Smartphone size={18} />
-                     </div>
+                    </div>
+                    <div className="flex-1 text-left">
+                        <span className="block text-[10px] font-black uppercase tracking-widest text-sky-400/80">Inteligência</span>
+                        <span className="block text-lg font-black text-white">Nexus IA</span>
+                    </div>
+                    <ChevronRight size={20} className="text-slate-600 group-hover:text-sky-400 group-hover:translate-x-1 transition-all" />
                   </div>
                 </button>
               </div>
 
-              <div className="h-px bg-slate-800 w-full" />
-
-              {/* SEÇÃO 2: UTILITÁRIOS (Visual Clean mas Elegante) */}
-              <div className="space-y-2">
-                 <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2">Preferências</h3>
+              {/* SEÇÃO 2: CONFIGURAÇÕES E PREFERÊNCIAS */}
+              <div className="pt-2 space-y-3">
+                 <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1">Painel</h3>
                  
-                 <div className="bg-slate-900/50 rounded-2xl border border-slate-800 overflow-hidden">
-                    {/* Configurações */}
-                    <button onClick={() => { onNavigate('settings'); onClose(); }} className="w-full flex items-center gap-4 p-4 hover:bg-slate-800/80 transition-colors border-b border-slate-800 group">
-                        <div className="p-2 bg-slate-800 rounded-lg text-slate-400 group-hover:text-white group-hover:bg-slate-700 transition-colors">
+                 <div className="grid grid-cols-1 gap-2">
+                    {/* Botão Configurações - Agora com estilo */}
+                    <button 
+                      onClick={() => { onNavigate('settings'); onClose(); }} 
+                      className="flex items-center gap-4 p-4 rounded-2xl bg-slate-900/50 border border-slate-800 hover:border-slate-700 hover:bg-slate-800/50 transition-all group"
+                    >
+                        <div className="p-2.5 bg-slate-800 rounded-xl text-slate-400 group-hover:text-white transition-colors">
                             <Settings size={20} />
                         </div>
-                        <span className="font-bold text-sm text-slate-200 flex-1 text-left">Configurações</span>
-                        <ChevronRight size={16} className="text-slate-600"/>
+                        <span className="font-bold text-[15px] text-slate-200 flex-1 text-left">Configurações</span>
+                        <ChevronRight size={16} className="text-slate-700 group-hover:text-slate-400" />
                     </button>
 
-                    {/* Privacidade */}
-                    <button onClick={onTogglePrivacy} className="w-full flex items-center gap-4 p-4 hover:bg-slate-800/80 transition-colors border-b border-slate-800 group">
-                        <div className="p-2 bg-slate-800 rounded-lg text-slate-400 group-hover:text-white group-hover:bg-slate-700 transition-colors">
-                             {isPrivacyMode ? <EyeOff size={20}/> : <Eye size={20}/>}
-                        </div>
-                        <div className="flex-1 text-left">
-                            <span className="font-bold text-sm text-slate-200 block">Privacidade</span>
-                            <span className="text-[10px] text-slate-500">{isPrivacyMode ? 'Valores Ocultos' : 'Valores Visíveis'}</span>
-                        </div>
-                        
-                        {/* Toggle Switch Visual */}
-                        <div className={`w-10 h-6 rounded-full relative transition-colors duration-300 ${isPrivacyMode ? 'bg-emerald-500' : 'bg-slate-700'}`}>
-                          <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 shadow-sm ${isPrivacyMode ? 'translate-x-4' : ''}`} />
-                        </div>
-                    </button>
-
-                    {/* Perfil */}
-                    <button onClick={() => { onNavigate('perfil'); onClose(); }} className="w-full flex items-center gap-4 p-4 hover:bg-slate-800/80 transition-colors group">
-                        <div className="p-2 bg-slate-800 rounded-lg text-slate-400 group-hover:text-white group-hover:bg-slate-700 transition-colors">
+                    {/* Botão Meu Perfil */}
+                    <button 
+                      onClick={() => { onNavigate('perfil'); onClose(); }} 
+                      className="flex items-center gap-4 p-4 rounded-2xl bg-slate-900/50 border border-slate-800 hover:border-slate-700 hover:bg-slate-800/50 transition-all group"
+                    >
+                        <div className="p-2.5 bg-slate-800 rounded-xl text-slate-400 group-hover:text-white transition-colors">
                             <User size={20} />
                         </div>
-                        <span className="font-bold text-sm text-slate-200 flex-1 text-left">Meu Perfil</span>
-                        <ChevronRight size={16} className="text-slate-600"/>
+                        <span className="font-bold text-[15px] text-slate-200 flex-1 text-left">Meu Perfil</span>
+                        <ChevronRight size={16} className="text-slate-700 group-hover:text-slate-400" />
                     </button>
+
+                    {/* Toggle de Privacidade Estilizado */}
+                    <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-900/50 border border-slate-800 shadow-inner">
+                        <div className={`p-2.5 rounded-xl transition-colors ${isPrivacyMode ? 'bg-emerald-500/10 text-emerald-500' : 'bg-slate-800 text-slate-400'}`}>
+                             {isPrivacyMode ? <EyeOff size={20}/> : <Eye size={20}/>}
+                        </div>
+                        <div className="flex-1 text-left" onClick={onTogglePrivacy}>
+                            <span className="font-bold text-[15px] text-slate-200 block">Modo Privado</span>
+                            <span className="text-[10px] text-slate-500 uppercase font-medium">{isPrivacyMode ? 'Valores Ocultos' : 'Valores Visíveis'}</span>
+                        </div>
+                        <button 
+                          onClick={onTogglePrivacy}
+                          className={`w-12 h-6 rounded-full relative transition-all duration-300 shadow-inner ${isPrivacyMode ? 'bg-emerald-500' : 'bg-slate-700'}`}
+                        >
+                          <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${isPrivacyMode ? 'translate-x-6' : ''}`} />
+                        </button>
+                    </div>
                  </div>
               </div>
             </>

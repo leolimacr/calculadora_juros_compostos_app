@@ -98,9 +98,9 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             {/* DESKTOP: Saudação Completa */}
             <div className="hidden xl:flex items-center gap-3 mr-2 text-sm border-r border-slate-800 pr-4">
               <div className="flex flex-col text-right leading-none">
-                <span className="text-slate-500 text-[9px] font-black uppercase mb-1">Conta Conectada</span>
-                <span className="text-[12px] font-bold text-white uppercase tracking-tight">
-                  {rawName}
+                <span className="text-slate-500 text-[9px] font-black uppercase mb-1">Seja bem-vindo(a),</span>
+                <span className="text-[12px] font-bold text-emerald-400 uppercase tracking-tight">
+                  {rawName}!
                 </span>
               </div>
               <button onClick={onTogglePrivacy} className="p-2 bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors">
