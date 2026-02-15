@@ -40,11 +40,10 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   const firstName = rawName.split(' ')[0]; 
 
   // CORREÇÃO CRÍTICA: Abre o navegador do SISTEMA, evitando o "Loop" de login
-  const handleOpenWebsite = async () => {
-    await Browser.open({ 
-      url: 'https://www.financasproinvest.com.br', 
-      windowName: '_system' // <--- ISSO OBRIGA A ABRIR O CHROME/SAFARI
-    });
+  const handleOpenWebsite = () => {
+    // Usamos o window.open nativo do Javascript com '_system'
+    // Isso força o Android/iOS a procurar um navegador externo
+    window.open('https://www.financasproinvest.com.br', '_system');
   };
 
   return (
@@ -57,7 +56,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
           
           {/* TÍTULO: Oculta no mobile se estiver logado para dar espaço ao "Gerenciador" ou Saudação */}
           <h1 className={`text-sm md:text-xl font-black text-sky-400 tracking-tighter uppercase whitespace-nowrap ${isNative ? 'hidden' : 'block'}`}>
-            Finanças Pro
+            Finanças Pro Invest
           </h1>
         </div>
 
