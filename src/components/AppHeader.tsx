@@ -97,7 +97,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             {/* DESKTOP: Saudação Completa */}
             <div className="hidden xl:flex items-center gap-3 mr-2 text-sm border-r border-slate-800 pr-4">
               <div className="flex flex-col text-right leading-none">
-                <span className="text-slate-500 text-[9px] font-black uppercase mb-1">Seja bem-vindo(a),</span>
+                <span className="text-slate-500 text-[9px] font-black uppercase mb-1">Seja</span>
+				<span className="text-slate-500 text-[9px] font-black uppercase mb-1">bem-vindo(a),</span>
                 <span className="text-[12px] font-bold text-emerald-400 uppercase tracking-tight">
                   {rawName}!
                 </span>
@@ -109,7 +110,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
 
             {/* MOBILE: Saudação Compacta */}
             <div className="xl:hidden flex flex-col items-end mr-1 leading-none animate-in fade-in">
-               <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Olá,</span>
+               <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Seja bem vindo(a),</span>
                <span className="text-xs font-black text-emerald-400 tracking-tight">
                  {firstName}!
                </span>
