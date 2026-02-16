@@ -29,7 +29,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, o
               transactions.map((t) => (
                 <tr key={t.id} className="hover:bg-slate-800/30 transition-colors group">
                   <td className="p-5 text-xs text-slate-400 font-medium">
-                    {new Date(t.date).toLocaleDateString('pt-BR')}
+                    {new Date(t.date.replace(/-/g, '/')).toLocaleDateString('pt-BR')}
                   </td>
                   <td className="p-5 text-sm text-white font-bold">{t.description}</td>
                   <td className="p-5">
@@ -43,7 +43,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, o
                   <td className="p-5">
                     <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button onClick={() => onEdit(t)} className="p-2 text-slate-500 hover:text-sky-400 hover:bg-sky-400/10 rounded-lg transition-all" title="Editar"><Pencil size={16}/></button>
-                      <button onClick={() => onDelete(t.id)} className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all" title="Excluir"><Trash2 size={16}/></button>
+                      <button onClick={() => { if (window.confirm(`Deseja excluir "${t.description}"?`)) onDelete(t.id); }} className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all" title="Excluir"><Trash2 size={16}/></button>
                     </div>
                   </td>
                 </tr>
