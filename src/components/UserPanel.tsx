@@ -35,7 +35,7 @@ const UserPanel: React.FC<UserPanelProps> = ({ onClose, onNavigate, userDisplayN
             <div>
               <p className="text-[10px] font-black text-sky-500 uppercase tracking-[0.2em] mb-1">Bem-vindo de volta</p>
               <h2 className="text-white text-2xl font-black tracking-tight leading-none">
-                Olá, <span className="text-sky-400">{firstName}</span>!
+                Seja bem vindo, <span className="text-sky-400">{firstName}</span>!
               </h2>
             </div>
             <button onClick={onClose} className="p-2 bg-white/5 rounded-lg text-slate-400 hover:bg-white/10 hover:text-white transition-all">
