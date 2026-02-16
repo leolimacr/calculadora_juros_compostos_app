@@ -36,6 +36,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   onOpenMobileMenu,
 }) => {
   const isNative = Capacitor.isNativePlatform();
+  //correção simples
   const rawName = userMeta?.nickname || userDisplayName || 'Investidor';
   const firstName = rawName.split(' ')[0]; 
 
