@@ -4,5 +4,5 @@ export declare class NexusIdentity {
         hasData: boolean;
         dataStatus: 'ok' | 'empty' | 'error';
         error?: string;
-    }): string;
+    }, historyDescription: string): string;
 }

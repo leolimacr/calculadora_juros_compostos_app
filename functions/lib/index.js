@@ -34,6 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.testMistral = exports.askAiAdvisor = void 0;
+const firestore_1 = require("firebase-admin/firestore");
 const https_1 = require("firebase-functions/v2/https");
 const params_1 = require("firebase-functions/params");
 const logger = __importStar(require("firebase-functions/logger"));
@@ -48,6 +49,35 @@ const openrouterApiKey = (0, params_1.defineSecret)("OPENROUTER_API_KEY");
 const mistralApiKey = (0, params_1.defineSecret)("MISTRAL_API_KEY");
 const brapiToken = (0, params_1.defineSecret)("BRAPI_TOKEN");
 const tavilyApiKey = (0, params_1.defineSecret)("TAVILY_API_KEY");
+async function getUserPlan(userId) {
+    try {
+        const db = (0, firestore_1.getFirestore)();
+        const userDoc = await db.collection('users').doc(userId).get();
+        if (userDoc.exists) {
+            const data = userDoc.data();
+            const plan = data?.subscription?.plan;
+            if (plan) {
+                logger.info(`[Subscription] Plano do usuário ${userId}: ${plan}`);
+                return plan;
+            }
+        }
+        logger.info(`[Subscription] Usuário ${userId} sem plano definido (usando padrão)`);
+        return undefined;
+    }
+    catch (error) {
+        logger.error(`[Subscription] Erro ao buscar plano: ${error.message}`);
+        return undefined;
+    }
+}
+function describeHistoryWindow(plan) {
+    switch (plan) {
+        case 'free': return 'Você está no plano Free, então posso analisar apenas os últimos 3 dias do seu histórico';
+        case 'pro': return 'Você está no plano Pro, então posso analisar os últimos 30 dias do seu histórico';
+        case 'premium': return 'Você está no plano Premium, então posso analisar os últimos 90 dias do seu histórico';
+        case 'premium_anual': return 'Você está no plano Premium Anual, então posso analisar todo o seu histórico de lançamentos (ilimitado)';
+        default: return 'analiso um recorte recente do seu histórico, definido pelo seu plano';
+    }
+}
 let tavilyUsageCount = 0;
 const TAVILY_MONTHLY_LIMIT = 1000;
 async function searchWebTavily(query, apiKey) {
@@ -400,8 +430,15 @@ exports.askAiAdvisor = (0, https_1.onCall)({
             };
         }
         let userData;
+        let historyDescription = 'analiso um recorte recente do seu histórico, definido pelo seu plano';
         try {
-            userData = await data_integrator_1.DataIntegrator.gatherUserData(userId);
+            const userPlan = await getUserPlan(userId);
+            logger.info(`🔍 [DEBUG] userId: ${userId}`);
+            logger.info(`🔍 [DEBUG] Plano retornado: "${userPlan}"`);
+            logger.info(`🔍 [DEBUG] Tipo: ${typeof userPlan}`);
+            historyDescription = describeHistoryWindow(userPlan);
+            logger.info(`🔍 [DEBUG] historyDescription: "${historyDescription}"`);
+            userData = await data_integrator_1.DataIntegrator.gatherUserData(userId, userPlan);
         }
         catch (dataError) {
             logger.error("Falha dados usuário:", dataError);
@@ -446,7 +483,7 @@ exports.askAiAdvisor = (0, https_1.onCall)({
             transactionsForPrompt = data_integrator_1.DataIntegrator.formatTransactionsForPrompt(userData.recentTransactions, context);
             goalsForPrompt = data_integrator_1.DataIntegrator.formatGoalsForPrompt(userData.goals, context);
         }
-        const systemPrompt = identity_1.NexusIdentity.getSystemPrompt(safeUserName, context, marketData, transactionsForPrompt, goalsForPrompt, "", isFirst, userData);
+        const systemPrompt = identity_1.NexusIdentity.getSystemPrompt(safeUserName, context, marketData, transactionsForPrompt, goalsForPrompt, "", isFirst, userData, historyDescription);
         const messages = [
             ...validHistory.slice(-6).map((h) => ({
                 role: h.role === 'ai' || h.role === 'assistant' ? 'assistant' : 'user',
@@ -551,10 +588,6 @@ ${isUserCorrection ? "\n**ATENÇÃO:** O usuário está CORRIGINDO uma informaç
             .replace(/<function.*?>.*?<\/function>/g, '')
             .replace(/\[.*?"function".*?\]/g, '')
             .trim();
-        if (isFirst && finalAnswer && !finalAnswer.includes("Me chamo Nexus") && !finalAnswer.includes("É um prazer")) {
-            const greeting = identity_1.NexusIdentity.getInitialGreeting(safeUserName);
-            finalAnswer = `${greeting}\n\n${finalAnswer}`;
-        }
         return {
             success: true,
             answer: finalAnswer,

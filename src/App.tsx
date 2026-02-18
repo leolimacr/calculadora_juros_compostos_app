@@ -1,3 +1,5 @@
+import { TermsPage } from './components/TermsPage';
+import { PrivacyPage } from './components/PrivacyPage';
 import { LayoutDashboard, Sparkles, Settings, X, LogOut, ChevronRight } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
@@ -170,6 +172,10 @@ const App: React.FC = () => {
         return wrap(<DebtOptimizerTool onNavigate={handleNavigate} isAuthenticated={isAuthenticated} />);
       case 'tool-dividendos':
         return wrap(<DividendsTool onNavigate={handleNavigate} isAuthenticated={isAuthenticated} />);
+	  case 'termos':
+		return wrap(<TermsPage />);
+	  case 'privacidade':
+        return wrap(<PrivacyPage />);
       case 'home':
       default:
         return (

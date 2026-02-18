@@ -27,15 +27,7 @@
                 <data android:scheme="financaspro" />
             </intent-filter>
 
-            <!-- App Links: permite abrir o app via link https do dominio -->
-            <intent-filter android:autoVerify="true">
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="www.financasproinvest.com.br" android:pathPrefix="/app" />
-            </intent-filter>
-        </activity>
-
+         
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

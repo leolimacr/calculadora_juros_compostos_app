@@ -4,7 +4,7 @@ android {
     namespace = "com.leolimacr.financaspro"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.financasproinvest.mobile"
+        applicationId "com.leolimacr.financaspro"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 3
