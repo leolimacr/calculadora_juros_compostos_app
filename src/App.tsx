@@ -126,9 +126,9 @@ const App: React.FC = () => {
 
     switch (currentTool) {
       case 'login':
-        return wrap(<AuthLogin onSuccess={() => handleNavigate('home')} onSwitchToRegister={() => handleNavigate('register')} />);
+        return wrap(<AuthLogin onSuccess={() => handleNavigate('manager')} onSwitchToRegister={() => handleNavigate('register')} />);
       case 'register':
-        return wrap(<AuthRegister onSuccess={() => handleNavigate('home')} onSwitchToLogin={() => handleNavigate('login')} />);
+        return wrap(<AuthRegister onSuccess={() => handleNavigate('manager')} onSwitchToLogin={() => handleNavigate('login')} />);
       case 'manager':
         if (!isAuthenticated) { handleNavigate('login'); return null; }
         if (isMobileBrowser) return wrap(<AppOnlyBlock onBack={() => handleNavigate('home')} />);
