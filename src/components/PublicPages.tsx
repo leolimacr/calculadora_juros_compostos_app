@@ -1,4 +1,5 @@
 import MobileBottomNav from "./MobileBottomNav";
+import { FileText } from 'lucide-react';
 import React, { useEffect, useState, useMemo } from 'react';
 import { 
   LogOut, Settings, Sparkles, Wallet, Eye, EyeOff, LayoutGrid, Globe, Menu, Search, ArrowRight,Instagram, Linkedin, Mail 
@@ -248,7 +249,7 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
                 <h4 className="text-white font-black text-xs uppercase tracking-widest mb-6">Institucional</h4>
                 <ul className="space-y-3">
                     <li><button onClick={() => setActiveInfoModal('quem-somos')} className="hover:text-emerald-400">Quem Somos</button></li>
-                    <li><button onClick={() => setActiveInfoModal('termos')} className="hover:text-emerald-400">Termos de Uso</button></li>
+                    <li><button onClick={() => { if (onNavigate) onNavigate('termos'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-emerald-400">Termos de Uso</button></li>
                     <li><button onClick={() => setActiveInfoModal('seguranca')} className="hover:text-emerald-400">Segurança de Dados</button></li>
                 </ul>
             </div>
