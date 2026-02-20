@@ -13,7 +13,7 @@ export const TermsPage = () => {
       <div className="prose prose-sm max-w-none">
         <h2>1. Definições</h2>
         <p>
-          <strong>Plataforma:</strong> Aplicativo híbrido e site Finanças Pro Invest, de titularidade de Leo (responsável pelo Finanças Pro Invest), podendo ser contatado através do e-mail privacidade@financasproinvest.com.br.<br />
+          <strong>Plataforma:</strong> Aplicativo híbrido e site Finanças Pro Invest, de titularidade do Finanças Pro Invest, podendo ser contatado através do e-mail contato@financasproinvest.com.br.<br />
           <strong>Usuário:</strong> Pessoa física que utiliza a Plataforma.<br />
           <strong>Conteúdo:</strong> Informações, dados, textos, gráficos e simulações disponibilizados.<br />
           <strong>Assinatura:</strong> Planos Pro e Premium, que concedem acesso a funcionalidades adicionais mediante pagamento.
@@ -44,16 +44,16 @@ export const TermsPage = () => {
         <p>A assinatura será renovada automaticamente até que seja cancelada pelo Usuário, de acordo com as regras da respectiva plataforma de pagamento. O cancelamento pode ser feito a qualquer momento nas configurações da conta ou diretamente no Google Play/Stripe.</p>
 
         <h2>7. Reembolsos</h2>
-        <p>Para assinaturas realizadas no aplicativo, aplicam-se as políticas de reembolso do Google Play. Para assinaturas realizadas no site, o Usuário tem direito de arrependimento de 7 dias, nos termos do Código de Defesa do Consumidor, desde que não tenha utilizado as funcionalidades premium. Após esse prazo ou após o uso, não haverá reembolso.</p>
+        <p>Para assinaturas realizadas no aplicativo, aplicam-se as políticas de reembolso do Google Play. Para assinaturas realizadas no site, o Usuário poderá exercer o direito de arrependimento no prazo de 7 (sete) dias corridos, nos termos do art. 49 do Código de Defesa do Consumidor, mediante solicitação enviada para contato@financasproinvest.com.br. Caso o Usuário já tenha utilizado as funcionalidades premium durante esse período, o reembolso poderá ser parcial ou negado, considerando o benefício já usufruído, em conformidade com a interpretação atual dos órgãos de defesa do consumidor.</p>
 
         <h2>8. Licença de Uso</h2>
-        <p>A Finanças Pro Invest concede ao Usuário uma licença limitada, não exclusiva, intransferível e revogável para acessar e utilizar a Plataforma para fins pessoais e não comerciais, de acordo com estes Termos.</p>
+        <p>O Finanças Pro Invest concede ao Usuário uma licença limitada, não exclusiva, intransferível e revogável para acessar e utilizar a Plataforma para fins pessoais e não comerciais, de acordo com estes Termos.</p>
 
         <h2>9. Propriedade Intelectual</h2>
-        <p>Todos os direitos sobre a Plataforma, incluindo software, marcas, logotipos, textos e layouts, são de propriedade exclusiva da Finanças Pro Invest. É vedada a reprodução, modificação ou distribuição sem autorização prévia por escrito.</p>
+        <p>Todos os direitos sobre a Plataforma, incluindo software, marcas, logotipos, textos e layouts, são de propriedade exclusiva do Finanças Pro Invest. É vedada a reprodução, modificação ou distribuição sem autorização prévia por escrito.</p>
 
         <h2>10. IA Nexus – Consultor Financeiro</h2>
-        <p>A IA Nexus utiliza modelos de linguagem (Gemini, Mistral) e dados do mercado para gerar respostas e simulações. O Usuário reconhece que:</p>
+        <p>A IA Nexus utiliza modelos de linguagem fornecidos por terceiros (Gemini, Mistral, OpenRouter) e dados do mercado para gerar respostas e simulações. Esses fornecedores atuam como operadores, processando os dados estritamente conforme nossas instruções e em conformidade com a LGPD. O Usuário reconhece que:</p>
         <ul>
           <li>As respostas são geradas automaticamente e podem conter imprecisões ou não refletir a realidade do mercado.</li>
           <li>Não constituem recomendação de investimento, análise financeira profissional ou aconselhamento legal.</li>
@@ -70,16 +70,16 @@ export const TermsPage = () => {
         </ul>
 
         <h2>12. Limitação de Responsabilidade</h2>
-        <p>A Plataforma é fornecida "como está", sem garantias de disponibilidade ininterrupta ou livre de erros. Em nenhuma hipótese a Finanças Pro Invest será responsável por danos indiretos, lucros cessantes ou perda de dados decorrentes do uso ou da impossibilidade de uso da Plataforma. A responsabilidade total, em qualquer caso, estará limitada ao valor pago pelo Usuário nos últimos 12 meses.</p>
+        <p>A Plataforma é fornecida "como está", sem garantias de disponibilidade ininterrupta ou livre de erros. Em nenhuma hipótese o Finanças Pro Invest será responsável por danos indiretos, lucros cessantes ou perda de dados decorrentes do uso ou da impossibilidade de uso da Plataforma. A responsabilidade total, em qualquer caso, estará limitada ao valor pago pelo Usuário nos últimos 12 meses.</p>
 
         <h2>13. Suspensão e Cancelamento</h2>
-        <p>A Finanças Pro Invest reserva-se o direito de suspender ou cancelar o acesso do Usuário que violar estes Termos, sem prejuízo de outras medidas legais. O Usuário pode cancelar sua conta a qualquer momento nas configurações, ficando ciente de que os dados poderão ser mantidos por obrigação legal ou para cumprimento de auditorias.</p>
+        <p>O Finanças Pro Invest reserva-se o direito de suspender ou cancelar o acesso do Usuário que violar estes Termos, sem prejuízo de outras medidas legais. O Usuário pode cancelar sua conta a qualquer momento nas configurações, ficando ciente de que os dados poderão ser mantidos por obrigação legal ou para cumprimento de auditorias.</p>
 
         <h2>14. Lei Aplicável e Foro</h2>
         <p>Estes Termos são regidos pela legislação brasileira. Fica eleito o foro da comarca de Brumado/Bahia para dirimir quaisquer controvérsias, com renúncia a qualquer outro, por mais privilegiado que seja.</p>
 
         <h2>15. Contato</h2>
-        <p>Dúvidas sobre estes Termos podem ser encaminhadas para: <strong>privacidade@financasproinvest.com.br</strong>.</p>
+        <p>Dúvidas sobre estes Termos podem ser encaminhadas para: <strong>contato@financasproinvest.com.br</strong>.</p>
       </div>
     </div>
   );

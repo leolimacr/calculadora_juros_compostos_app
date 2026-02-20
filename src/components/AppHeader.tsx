@@ -52,11 +52,12 @@ const AppHeader: React.FC<AppHeaderProps> = ({
       <div className="flex items-center gap-2 md:gap-3 shrink-0">
         <div className="flex items-center gap-2 md:gap-3 cursor-pointer group" onClick={() => onNavigate('home')}>
           <img src="/icon.png" alt="Logo" className="w-8 h-8 md:w-9 md:h-9 rounded-lg shadow-lg" />
-          
-          {/* TÍTULO: Oculta no mobile se estiver logado para dar espaço ao "Gerenciador" ou Saudação */}
-          <h1 className={`text-sm md:text-xl font-black text-sky-400 tracking-tighter uppercase whitespace-nowrap ${isNative ? 'hidden' : 'block'}`}>
-            Finanças Pro Invest
-          </h1>
+        
+		  
+		  
+		  <h1 className="text-sm md:text-xl font-black text-sky-400 tracking-tighter uppercase whitespace-nowrap">
+		    Finanças Pro Invest
+		  </h1>		  
         </div>
 
         {/* ÁREA DO GERENCIADOR (Dourado) */}

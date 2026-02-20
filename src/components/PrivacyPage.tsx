@@ -13,7 +13,7 @@ export const PrivacyPage = () => {
       <div className="prose prose-sm max-w-none">
         <h2>1. Quem é o controlador dos seus dados?</h2>
         <p>
-          A Finanças Pro Invest, de titularidade de Leo (responsável pelo Finanças Pro Invest), podendo ser contatado através do e-mail privacidade@financasproinvest.com.br, é a controladora responsável pelo tratamento dos dados pessoais dos Usuários, nos termos da Lei Geral de Proteção de Dados (LGPD – Lei 13.709/2018).
+          O Finanças Pro Invest, doravante denominado "Plataforma", é o controlador responsável pelo tratamento dos dados pessoais dos Usuários, nos termos da Lei Geral de Proteção de Dados (LGPD – Lei 13.709/2018). Qualquer comunicação relacionada a dados pessoais deve ser dirigida ao e-mail: <strong>contato@financasproinvest.com.br</strong>.
         </p>
 
         <h2>2. Quais dados coletamos?</h2>
@@ -48,46 +48,46 @@ export const PrivacyPage = () => {
         </ul>
 
         <h2>6. Compartilhamento com terceiros</h2>
-        <p>Compartilhamos dados apenas quando necessário para a operação da Plataforma:</p>
+        <p>Compartilhamos dados apenas quando necessário para a operação da Plataforma, sempre como operadores ou em conformidade com a LGPD:</p>
         <ul>
-          <li><strong>Google (Firebase):</strong> para autenticação, armazenamento e notificações.</li>
+          <li><strong>Google (Firebase, Google Analytics):</strong> para autenticação, armazenamento, notificações e análises de uso.</li>
           <li><strong>Google Play Billing / Stripe:</strong> para processamento de pagamentos.</li>
-          <li><strong>Fornecedores de IA (Gemini, OpenRouter, Mistral):</strong> para gerar respostas da IA Nexus, sendo que os dados são anonimizados ou tratados de acordo com as políticas desses fornecedores.</li>
+          <li><strong>Fornecedores de IA (Gemini, OpenRouter, Mistral):</strong> para gerar respostas da IA Nexus. Esses fornecedores atuam como operadores, processando exclusivamente as informações necessárias para a funcionalidade, sob nossas instruções e com medidas de segurança compatíveis com a LGPD.</li>
           <li><strong>Autoridades judiciais ou administrativas:</strong> mediante ordem judicial ou requisição legal.</li>
         </ul>
         <p>Não vendemos dados pessoais a terceiros.</p>
 
         <h2>7. Cookies e tecnologias semelhantes</h2>
-        <p>Utilizamos cookies essenciais para autenticação e segurança, além de cookies analíticos (Google Analytics) para entender o comportamento do Usuário. O Usuário pode gerenciar as preferências de cookies nas configurações do navegador, mas isso pode afetar algumas funcionalidades.</p>
+        <p>Utilizamos cookies essenciais para autenticação e segurança, sem os quais a Plataforma não funciona adequadamente. Também utilizamos cookies analíticos (Google Analytics) para entender o comportamento do Usuário e melhorar nossos serviços. O Usuário será informado, na primeira vez que acessar o site, sobre a utilização de cookies não essenciais e poderá optar por aceitá-los ou rejeitá-los por meio de um banner de consentimento. As preferências podem ser gerenciadas a qualquer momento nas configurações do navegador, mas a rejeição de cookies essenciais poderá prejudicar a experiência.</p>
 
         <h2>8. Por quanto tempo armazenamos seus dados?</h2>
-        <p>Mantemos os dados enquanto a conta estiver ativa. Após o cancelamento da conta, os dados serão excluídos ou anonimizados em até 6 meses, salvo quando houver obrigação legal de retenção (ex.: informações fiscais por 5 anos).</p>
+        <p>Mantemos os dados enquanto a conta estiver ativa. Após o cancelamento da conta, os dados serão excluídos ou anonimizados em até 6 (seis) meses, salvo quando houver obrigação legal de retenção (ex.: informações fiscais por 5 anos, nos termos do Código Tributário Nacional).</p>
 
         <h2>9. Direitos do Usuário (LGPD)</h2>
-        <p>O Usuário pode, a qualquer momento, solicitar:</p>
+        <p>O Usuário pode, a qualquer momento e mediante requisição gratuita, solicitar:</p>
         <ul>
           <li>Confirmação da existência de tratamento.</li>
           <li>Acesso aos dados.</li>
           <li>Correção de dados incompletos, inexatos ou desatualizados.</li>
           <li>Anonimização, bloqueio ou eliminação de dados desnecessários.</li>
-          <li>Portabilidade dos dados a outro fornecedor de serviço.</li>
+          <li>Portabilidade dos dados a outro fornecedor de serviço, observados os segredos comercial e industrial.</li>
           <li>Eliminação dos dados tratados com consentimento.</li>
           <li>Informação sobre as entidades com as quais compartilhamos dados.</li>
-          <li>Revogação do consentimento.</li>
+          <li>Revogação do consentimento, quando aplicável.</li>
         </ul>
-        <p>Para exercer seus direitos, entre em contato pelo e-mail <strong>privacidade@financasproinvest.com.br</strong>.</p>
+        <p>Para exercer seus direitos, entre em contato pelo e-mail <strong>contato@financasproinvest.com.br</strong>. Responderemos em até 15 (quinze) dias, conforme previsto na LGPD.</p>
 
         <h2>10. Medidas de segurança</h2>
-        <p>Adotamos medidas técnicas e organizacionais para proteger os dados contra acessos não autorizados, perda ou destruição, incluindo criptografia AES-256 em repouso, comunicação via HTTPS, e controles de acesso restrito. No entanto, nenhum sistema é completamente seguro; recomendamos que o Usuário também adote boas práticas de segurança.</p>
+        <p>Adotamos medidas técnicas e organizacionais para proteger os dados contra acessos não autorizados, perda ou destruição, incluindo criptografia AES-256 em repouso, comunicação via HTTPS, e controles de acesso restrito. No entanto, nenhum sistema é completamente seguro; recomendamos que o Usuário também adote boas práticas de segurança, como o uso de senhas fortes e a não compartilhamento de credenciais.</p>
 
         <h2>11. Transferências internacionais</h2>
-        <p>Seus dados podem ser transferidos e armazenados em servidores localizados fora do Brasil (ex.: Google Cloud). Adotamos cláusulas contratuais padrão e garantimos que os destinatários estejam em conformidade com a LGPD.</p>
+        <p>Seus dados podem ser transferidos e armazenados em servidores localizados fora do Brasil (ex.: Google Cloud, servidores dos provedores de IA). Adotamos cláusulas contratuais padrão aprovadas pela Autoridade Nacional de Proteção de Dados (ANPD) e garantimos que os destinatários estejam em conformidade com a LGPD, assegurando um nível de proteção adequado.</p>
 
         <h2>12. Alterações nesta política</h2>
-        <p>Esta Política pode ser atualizada periodicamente. A versão mais recente estará sempre disponível na Plataforma, com a data da última modificação. O uso continuado após as alterações implica aceitação das novas condições.</p>
+        <p>Esta Política pode ser atualizada periodicamente para refletir mudanças na legislação ou nas práticas da Plataforma. A versão mais recente estará sempre disponível na Plataforma, com a data da última modificação. O uso continuado após as alterações implica aceitação das novas condições, exceto quando depender de consentimento específico.</p>
 
         <h2>13. Contato do Encarregado (DPO)</h2>
-        <p>Para assuntos relacionados à proteção de dados, o Usuário pode contatar nosso Encarregado pelo e-mail: <strong>privacidade@financasproinvest.com.br</strong>.</p>
+        <p>Para assuntos relacionados à proteção de dados, o Usuário pode contatar nosso Encarregado pelo e-mail: <strong>contato@financasproinvest.com.br</strong>.</p>
       </div>
     </div>
   );
