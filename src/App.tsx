@@ -45,10 +45,10 @@ import AuthLogin from './components/Auth/AuthLogin';
 import AuthRegister from './components/Auth/AuthRegister';
 import PricingPage from './components/PricingPage';
 import SettingsPage from './components/SettingsPage';
-import { PublicHome, InvestmentArticle2026 } from './components/PublicPages';
+import { PublicHome } from './components/PublicPages';
 import AiChatPage from './components/AiChatPage';
 import SecurityLock from './components/SecurityLock';
-
+import { getArticleById } from './components/Public/Articles';
 // Tools
 import { 
   FireCalculatorTool, CompoundInterestTool, InflationTool, RentVsFinanceTool, DebtOptimizerTool, DividendsTool 
@@ -158,8 +158,12 @@ const App: React.FC = () => {
       case 'chat':
         if (isMobileBrowser) return wrap(<AppOnlyBlock onBack={() => handleNavigate('home')} />);
         return <AiChatPage onNavigate={handleNavigate} filteredTransactions={getAiContextTransactions()} simulations={[]} />;
-      case 'article-2026':
-        return wrap(<InvestmentArticle2026 onNavigate={handleNavigate} />);
+      case 'article-2026': {
+	    const article = getArticleById('investir-2026');
+	    if (!article) return null;
+	    const ArticleComponent = article.component;
+	    return wrap(<ArticleComponent onNavigate={handleNavigate} />);
+	  }
       case 'tool-fire':
         return wrap(<FireCalculatorTool onNavigate={handleNavigate} isAuthenticated={isAuthenticated} />);
       case 'tool-juros':

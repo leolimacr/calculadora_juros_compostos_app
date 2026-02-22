@@ -25,12 +25,9 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
   };
 
   const handleNav = (tool: string) => {
-  console.log('🔹 Footer: navegando para', tool);
   if (onNavigate) {
     onNavigate(tool);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  } else {
-    console.warn('❌ onNavigate não foi passado para o Footer');
   }
 };
 
