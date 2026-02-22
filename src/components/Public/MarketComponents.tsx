@@ -79,9 +79,33 @@ export const InfiniteTicker = ({ data }: any) => {
     );
 };
 
-export const ToolHubItem = ({ icon, name, route, onNavigate, onStartNow, isAuth }: any) => (
-    <button onClick={() => route === 'manager' && !isAuth ? onStartNow() : onNavigate(route)} className="bg-slate-900/50 border border-slate-800 p-6 rounded-[2.5rem] flex flex-col items-center justify-center gap-3 active:scale-95 group shadow-lg min-h-[160px] w-full">
+export const ToolHubItem = ({ icon, name, route, onNavigate, onStartNow, isAuth }: any) => {
+  const handleClick = () => {
+    // Detecta se é um dispositivo móvel
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+    if (route === 'manager' && isMobile) {
+      const appUrl = 'financaspro://manager';
+      const fallbackUrl = 'https://play.google.com/store/apps/details?id=com.leolimacr.financaspro';
+      
+      window.location.href = appUrl;
+      
+      setTimeout(() => {
+        window.location.href = fallbackUrl;
+      }, 500);
+    } else {
+      if (route === 'manager' && !isAuth) {
+        onStartNow();
+      } else {
+        onNavigate(route);
+      }
+    }
+  };
+
+  return (
+    <button onClick={handleClick} className="bg-slate-900/50 border border-slate-800 p-6 rounded-[2.5rem] flex flex-col items-center justify-center gap-3 active:scale-95 group shadow-lg min-h-[160px] w-full">
       <span className="text-4xl group-hover:scale-110 transition-transform mb-2">{icon}</span>
       <span className="text-white font-black text-[11px] uppercase tracking-[0.1em] leading-tight text-center px-2">{name}</span>
     </button>
-);
+  );
+};

@@ -1,4 +1,5 @@
-﻿import { onCall, HttpsError } from "firebase-functions/v2/https";
+﻿import { getFirestore } from "firebase-admin/firestore";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
 import * as logger from "firebase-functions/logger";
 import { initializeApp } from "firebase-admin/app";
@@ -19,6 +20,41 @@ const tavilyApiKey = defineSecret("TAVILY_API_KEY");
 // Interfaces
 interface CryptoPriceData { price: number; lastUpdated: string; }
 interface CryptoPriceDataDual { priceUSD: number; priceBRL: number; lastUpdated: string; }
+
+
+async function getUserPlan(userId: string): Promise<string | undefined> {
+  try {
+    const db = getFirestore();
+    const userDoc = await db.collection('users').doc(userId).get();
+    
+    if (userDoc.exists) {
+      const data = userDoc.data();
+      const plan = data?.subscription?.plan;
+      
+      if (plan) {
+        logger.info(`[Subscription] Plano do usuário ${userId}: ${plan}`);
+        return plan;
+      }
+    }
+    
+    logger.info(`[Subscription] Usuário ${userId} sem plano definido (usando padrão)`);
+    return undefined;
+  } catch (error: any) {
+    logger.error(`[Subscription] Erro ao buscar plano: ${error.message}`);
+    return undefined;
+  }
+}
+
+// NOVA FUNÇÃO: descreve o período de histórico com base no plano
+function describeHistoryWindow(plan?: string): string {
+  switch (plan) {
+    case 'free': return 'Você está no plano Free, então posso analisar apenas os últimos 3 dias do seu histórico';
+    case 'pro': return 'Você está no plano Pro, então posso analisar os últimos 30 dias do seu histórico';
+    case 'premium': return 'Você está no plano Premium, então posso analisar os últimos 90 dias do seu histórico';
+    case 'premium_anual': return 'Você está no plano Premium Anual, então posso analisar todo o seu histórico de lançamentos (ilimitado)';
+    default: return 'analiso um recorte recente do seu histórico, definido pelo seu plano';
+  }
+}
 
 // Contador de uso Tavily
 let tavilyUsageCount = 0;
@@ -415,8 +451,20 @@ export const askAiAdvisor = onCall(
 
       // 3. DADOS DO USUÁRIO
       let userData: UserDataResult;
+      let historyDescription = 'analiso um recorte recente do seu histórico, definido pelo seu plano'; // padrão
       try {
-        userData = await DataIntegrator.gatherUserData(userId);
+        // Buscar plano do usuário
+        const userPlan = await getUserPlan(userId);
+        logger.info(`🔍 [DEBUG] userId: ${userId}`);
+        logger.info(`🔍 [DEBUG] Plano retornado: "${userPlan}"`);
+        logger.info(`🔍 [DEBUG] Tipo: ${typeof userPlan}`);
+        
+        // Gerar descrição do período de histórico
+        historyDescription = describeHistoryWindow(userPlan);
+        logger.info(`🔍 [DEBUG] historyDescription: "${historyDescription}"`);
+        
+        // Passar plano para DataIntegrator
+        userData = await DataIntegrator.gatherUserData(userId, userPlan);
       } catch (dataError: any) {
         logger.error("Falha dados usuário:", dataError);
         userData = { goals: [], recentTransactions: [], simulations: [], summary: '', hasData: false, dataStatus: 'error' };
@@ -480,7 +528,8 @@ export const askAiAdvisor = onCall(
       const systemPrompt = NexusIdentity.getSystemPrompt(
         safeUserName, context, marketData,
         transactionsForPrompt, goalsForPrompt, "",
-        isFirst, userData
+        isFirst, userData,
+        historyDescription // NOVO PARÂMETRO
       );
 
       // 10. PREPARAR MENSAGENS
@@ -608,12 +657,6 @@ ${isUserCorrection ? "\n**ATENÇÃO:** O usuário está CORRIGINDO uma informaç
         .replace(/<function.*?>.*?<\/function>/g, '')
         .replace(/\[.*?"function".*?\]/g, '')
         .trim();
-
-      // 15. ADICIONAR SAUDAÇÃO SE PRIMEIRA MENSAGEM
-      if (isFirst && finalAnswer && !finalAnswer.includes("Me chamo Nexus") && !finalAnswer.includes("É um prazer")) {
-        const greeting = NexusIdentity.getInitialGreeting(safeUserName);
-        finalAnswer = `${greeting}\n\n${finalAnswer}`;
-      }
 
       return {
         success: true,

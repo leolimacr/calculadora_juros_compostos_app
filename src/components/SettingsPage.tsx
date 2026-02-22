@@ -298,20 +298,51 @@ const SettingsPage: React.FC<any> = ({ onBack }) => {
         </div>
       )}
       
-      {/* MODAL TERMOS */}
-      {activeModal === 'termos' && (
-        <div className="fixed inset-0 bg-black/95 z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200">
-            <div className="bg-slate-900 border border-slate-800 rounded-[3rem] p-10 w-full max-w-lg shadow-2xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-10 bg-sky-500/5 blur-3xl"></div>
-                <h3 className="text-2xl font-black text-white mb-6 uppercase tracking-tighter flex items-center gap-3"><FileText className="text-sky-500"/> Privacidade</h3>
-                <p className="text-slate-400 text-sm mb-8 leading-relaxed">Sua jornada financeira é protegida por criptografia AES-256. Seguimos rigorosamente a LGPD e as normas de segurança do Google Cloud para garantir que seus dados permaneçam apenas com você.</p>
-                <div className="flex flex-col gap-4">
-                    <button onClick={() => handleOpenExternal('/termos')} className="w-full py-5 bg-sky-600 hover:bg-sky-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-sky-900/20">Ler Documentação Completa</button>
-                    <button onClick={() => setActiveModal(null)} className="w-full py-4 text-slate-500 font-bold uppercase text-xs tracking-widest">Fechar Janela</button>
-                </div>
-            </div>
-        </div>
-      )}
+      {/* MODAL TERMOS E PRIVACIDADE */}
+		{activeModal === 'termos' && (
+		  <div className="fixed inset-0 bg-black/95 z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200">
+			<div className="bg-slate-900 border border-slate-800 rounded-[3rem] p-10 w-full max-w-md shadow-2xl relative overflow-hidden">
+			  <div className="absolute top-0 right-0 p-10 bg-sky-500/5 blur-3xl"></div>
+			  
+			  <h3 className="text-2xl font-black text-white mb-2 uppercase tracking-tighter flex items-center gap-3">
+				<FileText className="text-sky-500" /> Documentos Legais
+			  </h3>
+			  <p className="text-slate-500 text-xs mb-8">Escolha qual documento deseja consultar</p>
+
+			  <div className="flex flex-col gap-4">
+				{/* Opção Termos */}
+				<button 
+				  onClick={() => {
+					handleOpenExternal('/termos');
+					setActiveModal(null);
+				  }} 
+				  className="w-full py-5 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-slate-700"
+				>
+				  <FileText size={18} /> Termos de Uso
+				</button>
+
+				{/* Opção Privacidade */}
+				<button 
+				  onClick={() => {
+					handleOpenExternal('/privacidade');
+					setActiveModal(null);
+				  }} 
+				  className="w-full py-5 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-slate-700"
+				>
+				  <ShieldCheck size={18} /> Política de Privacidade
+				</button>
+
+				{/* Botão fechar */}
+				<button 
+				  onClick={() => setActiveModal(null)} 
+				  className="w-full py-4 text-slate-500 font-bold uppercase text-xs tracking-widest hover:text-slate-400 transition-colors"
+				>
+				  Cancelar
+				</button>
+			  </div>
+			</div>
+		  </div>
+		)}
 
     </div>
   );

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { useAiAgent } from '../hooks/useAiAgent';
-import { useSubscriptionAccess } from '../hooks/useSubscriptionAccess';
+import { useAuth } from '../../../contexts/AuthContext';
+import { useAiAgent } from '../../../hooks/useAiAgent';
+import { useSubscriptionAccess } from '../../../hooks/useSubscriptionAccess';
 import { Sparkles, Send, PlusCircle, Folder, Cpu, Activity, X, Trash2, Lock } from 'lucide-react';
-import { saveChatHistory, loadUserChatHistory, updateChatHistory, deleteChatHistory, type ChatHistoryItem } from '../services/chatHistoryService';
+import { saveChatHistory, loadUserChatHistory, updateChatHistory, deleteChatHistory, type ChatHistoryItem } from '../../../services/chatHistoryService';
 import { Preferences } from '@capacitor/preferences';
 
 interface AiAdvisorProps { transactions: any[]; currentCalcResult: any[]; goals: any[]; currentTool: string; }

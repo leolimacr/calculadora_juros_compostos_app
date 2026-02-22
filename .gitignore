@@ -29,6 +29,7 @@ src/firebase-config.private.ts
 functions/a.env
 functions/.env*
 .env
+android/app/google-services.json
 
 # Arquivos temporários e backups
 *.backup
@@ -47,3 +48,4 @@ functions/BKP*
 /utils/
 /data/
 /types/
+src/firebase-config.private.ts

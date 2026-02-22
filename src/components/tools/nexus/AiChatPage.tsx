@@ -1,7 +1,7 @@
 import React from 'react';
 import AiAdvisor from './AiAdvisor';
-import { useAuth } from '../contexts/AuthContext';
-import { useFirebase } from '../hooks/useFirebase';
+import { useAuth } from '../../../contexts/AuthContext';
+import { useFirebase } from '../../../hooks/useFirebase';
 import { Capacitor } from '@capacitor/core';
 import { Sparkles, History, ShieldAlert, Activity, Calculator, BrainCircuit } from 'lucide-react';
 

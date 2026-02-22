@@ -41,8 +41,7 @@ export interface UserDataResult {
 }
 
 export class DataIntegrator {
-    static async gatherUserData(userId: string): Promise<UserDataResult> {
-        // Timeout global de segurança (3 segundos)
+    static async gatherUserData(userId: string, userPlan?: string): Promise<UserDataResult> {
         const timeoutMs = 3000; 
         const timeoutPromise = new Promise<UserDataResult>((_, reject) =>
             setTimeout(() => reject(new Error(`DataIntegrator timeout global`)), timeoutMs)
@@ -60,9 +59,8 @@ export class DataIntegrator {
             try {
                 logger.info(`[DataIntegrator] Iniciando coleta para userId: ${userId}`);
                 
-                // Busca em paralelo com timeouts individuais
                 [transactions, goals] = await Promise.all([
-                    this.fetchRecentTransactionsWithTimeout(userId, 2500),
+                    this.fetchRecentTransactionsWithTimeout(userId, 2500, userPlan),
                     this.fetchUserGoalsWithTimeout(userId, 2500)
                 ]);
 
@@ -99,9 +97,7 @@ export class DataIntegrator {
         }
     }
 
-    // --- MÉTODOS DE BUSCA COM TIMEOUT E CORREÇÃO DE ÍNDICE ---
-
-    private static async fetchRecentTransactionsWithTimeout(userId: string, timeout: number): Promise<UserTransaction[]> {
+    private static async fetchRecentTransactionsWithTimeout(userId: string, timeout: number, userPlan?: string): Promise<UserTransaction[]> {
         return new Promise(async (resolve) => {
             const timeoutId = setTimeout(() => {
                 logger.warn(`[DataIntegrator] Timeout na busca de transações (${timeout}ms)`);
@@ -113,9 +109,7 @@ export class DataIntegrator {
                 const path = `transactions/${userId}`;
                 const userTransactionsRef = rtdb.ref(path);
                 
-                // CORREÇÃO CRÍTICA: Usar orderByKey() e filtrar no código se necessário.
-                // Isso evita o erro "Index not defined" do Firebase.
-                const snapshot = await userTransactionsRef.orderByKey().limitToLast(30).get();
+                const snapshot = await userTransactionsRef.orderByKey().get();
                 
                 clearTimeout(timeoutId);
                 
@@ -125,22 +119,32 @@ export class DataIntegrator {
                 }
                 
                 const transactions: UserTransaction[] = [];
+				logger.info(`🔍 [DEBUG DataIntegrator] userPlan recebido: "${userPlan}"`);
+				const daysToFetch = this.getPeriodByPlan(userPlan);
+				logger.info(`🔍 [DEBUG DataIntegrator] Dias calculados: ${daysToFetch}`);
+				const cutoffDate = new Date();
+				cutoffDate.setDate(cutoffDate.getDate() - daysToFetch);
+                
                 snapshot.forEach((childSnapshot: any) => {
                     const data = childSnapshot.val();
-                    transactions.push({
-                        id: childSnapshot.key || '',
-                        date: new Date(data.date),
-                        description: data.description?.trim() || 'Sem descrição',
-                        amount: parseFloat(data.amount) || 0,
-                        category: data.category || 'Outros',
-                        type: data.type === 'income' ? 'income' : 'expense',
-                        userId: data.userId || userId
-                    });
+                    const transactionDate = new Date(data.date);
+                    
+                    if (transactionDate >= cutoffDate) {
+                        transactions.push({
+                            id: childSnapshot.key || '',
+                            date: transactionDate,
+                            description: data.description?.trim() || 'Sem descrição',
+                            amount: parseFloat(data.amount) || 0,
+                            category: data.category || 'Outros',
+                            type: data.type === 'income' ? 'income' : 'expense',
+                            userId: data.userId || userId
+                        });
+                    }
                 });
                 
-                // Ordenação decrescente por data (feita em memória)
                 transactions.sort((a, b) => b.date.getTime() - a.date.getTime());
                 
+                logger.info(`[DataIntegrator] ${transactions.length} transações dos últimos ${daysToFetch} dias`);
                 resolve(transactions);
             } catch (error: any) {
                 clearTimeout(timeoutId);
@@ -194,22 +198,29 @@ export class DataIntegrator {
         });
     }
 
-    // --- MÉTODOS DE FORMATAÇÃO (MANTIDOS) ---
-
     static formatTransactionsForPrompt(transactions: UserTransaction[], context: any): string {
         if (!transactions || transactions.length === 0) return 'Nenhuma transação recente registrada.';
         
         const relevant = this.filterRelevantTransactions(transactions, context);
         if (relevant.length === 0) return 'Nenhuma transação relevante para o contexto atual.';
         
-        const summary = this.generateTransactionSummary(relevant);
+        // Calcular período a partir das transações mais antigas
+		const oldestTx = relevant.length > 0 ? relevant[relevant.length - 1] : null;
+		let daysToFetch = undefined;
+		if (oldestTx) {
+			const today = new Date();
+			const diffTime = Math.abs(today.getTime() - oldestTx.date.getTime());
+			const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+			daysToFetch = diffDays;
+		}
+		const summary = this.generateTransactionSummary(relevant, daysToFetch);
         const recentList = relevant.slice(0, 8).map(t => {
             const date = new Date(t.date).toLocaleDateString('pt-BR');
             const amount = t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
             return `• ${date}: ${t.description} - ${amount} (${t.category})`;
         });
         
-        return `**RESUMO:**\n${summary}\n\n**ÚLTIMAS TRANSAÇÕES:**\n${recentList.join('\n')}`;
+        return `**RESUMO CALCULADO (use estes valores nas respostas):**\n${summary}\n\n**ÚLTIMAS TRANSAÇÕES (apenas para contexto, não some manualmente):**\n${recentList.join('\n')}`;
     }
 
     static formatGoalsForPrompt(goals: UserGoal[], context: any): string {
@@ -222,22 +233,19 @@ export class DataIntegrator {
         return `**SIMULAÇÕES (${simulations.length}):**\n${simulations.map(s => `• ${s.label}`).join('\n')}`;
     }
 
-    // --- MÉTODOS AUXILIARES ---
-
     private static filterRelevantTransactions(transactions: UserTransaction[], context: any): UserTransaction[] {
-        if (!context?.intent) return transactions.slice(0, 10);
-        return transactions.slice(0, context.intent === 'user_data_query' ? 12 : 8);
+        return transactions;
     }
 
-    private static generateTransactionSummary(transactions: UserTransaction[]): string {
-        const last30Days = new Date(); last30Days.setDate(last30Days.getDate() - 30);
-        const recent = transactions.filter(t => new Date(t.date) >= last30Days);
-        const income = recent.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-        const expenses = recent.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-        const savings = income - expenses;
-        const expenseCount = recent.filter(t => t.type === 'expense').length;
-        
-        return `Últimos 30 dias:\n• Receitas: R$ ${income.toLocaleString('pt-BR')}\n• Despesas: R$ ${expenses.toLocaleString('pt-BR')} (${expenseCount})\n• Saldo: R$ ${savings.toLocaleString('pt-BR')}\n• Economia: ${income>0?((savings/income)*100).toFixed(1):0}%`;
+    private static generateTransactionSummary(transactions: UserTransaction[], daysToFetch?: number): string {
+       const period = daysToFetch ? `Últimos ${daysToFetch} dias` : 'Período recente';
+	   const recent = transactions; // já filtradas pelo período correto
+	   const income = recent.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+	   const expenses = recent.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+	   const savings = income - expenses;
+	   const expenseCount = recent.filter(t => t.type === 'expense').length;
+
+	   return `${period}:\n• Receitas: R$ ${income.toLocaleString('pt-BR')}\n• Despesas: R$ ${expenses.toLocaleString('pt-BR')} (${expenseCount})\n• Saldo: R$ ${savings.toLocaleString('pt-BR')}\n• Economia: ${income>0?((savings/income)*100).toFixed(1):0}%`;
     }
 
     private static generateDataSummary(goals: UserGoal[], transactions: UserTransaction[], simulations: UserSimulation[]): string {
@@ -248,5 +256,15 @@ export class DataIntegrator {
     private static mapGoalCategory(category: string): UserGoal['category'] {
         const valid: UserGoal['category'][] = ['retirement','travel','property','education','emergency','investment'];
         return valid.includes(category as any) ? (category as UserGoal['category']) : 'investment';
+    }
+
+    private static getPeriodByPlan(plan?: string): number {
+        switch (plan) {
+            case 'free': return 3;
+            case 'pro': return 30;
+            case 'premium': return 90;
+            case 'premium_anual': return 9999;
+            default: return 30;
+        }
     }
 }

@@ -34,8 +34,8 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DataIntegrator = void 0;
-const database_1 = require("firebase-admin/database");
 const logger = __importStar(require("firebase-functions/logger"));
+const database_1 = require("firebase-admin/database");
 class DataIntegrator {
     static async gatherUserData(userId, userPlan) {
         const timeoutMs = 3000;
@@ -101,9 +101,7 @@ class DataIntegrator {
                     return;
                 }
                 const transactions = [];
-                logger.info(`🔍 [DEBUG DataIntegrator] userPlan recebido: "${userPlan}"`);
                 const daysToFetch = this.getPeriodByPlan(userPlan);
-                logger.info(`🔍 [DEBUG DataIntegrator] Dias calculados: ${daysToFetch}`);
                 const cutoffDate = new Date();
                 cutoffDate.setDate(cutoffDate.getDate() - daysToFetch);
                 snapshot.forEach((childSnapshot) => {
@@ -176,15 +174,7 @@ class DataIntegrator {
         const relevant = this.filterRelevantTransactions(transactions, context);
         if (relevant.length === 0)
             return 'Nenhuma transação relevante para o contexto atual.';
-        const oldestTx = relevant.length > 0 ? relevant[relevant.length - 1] : null;
-        let daysToFetch = undefined;
-        if (oldestTx) {
-            const today = new Date();
-            const diffTime = Math.abs(today.getTime() - oldestTx.date.getTime());
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            daysToFetch = diffDays;
-        }
-        const summary = this.generateTransactionSummary(relevant, daysToFetch);
+        const summary = this.generateTransactionSummary(relevant);
         const recentList = relevant.slice(0, 8).map(t => {
             const date = new Date(t.date).toLocaleDateString('pt-BR');
             const amount = t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -205,14 +195,15 @@ class DataIntegrator {
     static filterRelevantTransactions(transactions, context) {
         return transactions;
     }
-    static generateTransactionSummary(transactions, daysToFetch) {
-        const period = daysToFetch ? `Últimos ${daysToFetch} dias` : 'Período recente';
-        const recent = transactions;
+    static generateTransactionSummary(transactions) {
+        const last30Days = new Date();
+        last30Days.setDate(last30Days.getDate() - 30);
+        const recent = transactions.filter(t => new Date(t.date) >= last30Days);
         const income = recent.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
         const expenses = recent.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
         const savings = income - expenses;
         const expenseCount = recent.filter(t => t.type === 'expense').length;
-        return `${period}:\n• Receitas: R$ ${income.toLocaleString('pt-BR')}\n• Despesas: R$ ${expenses.toLocaleString('pt-BR')} (${expenseCount})\n• Saldo: R$ ${savings.toLocaleString('pt-BR')}\n• Economia: ${income > 0 ? ((savings / income) * 100).toFixed(1) : 0}%`;
+        return `Últimos 30 dias:\n• Receitas: R$ ${income.toLocaleString('pt-BR')}\n• Despesas: R$ ${expenses.toLocaleString('pt-BR')} (${expenseCount})\n• Saldo: R$ ${savings.toLocaleString('pt-BR')}\n• Economia: ${income > 0 ? ((savings / income) * 100).toFixed(1) : 0}%`;
     }
     static generateDataSummary(goals, transactions, simulations) {
         const activeGoals = goals.filter(g => new Date(g.deadline) > new Date() && g.currentAmount < g.targetAmount).length;
@@ -227,10 +218,10 @@ class DataIntegrator {
             case 'free': return 3;
             case 'pro': return 30;
             case 'premium': return 90;
-            case 'premium_anual': return 9999;
+            case 'annual': return 9999;
             default: return 30;
         }
     }
 }
 exports.DataIntegrator = DataIntegrator;
-//# sourceMappingURL=data-integrator.js.map
+//# sourceMappingURL=AiAdvisor.js.map

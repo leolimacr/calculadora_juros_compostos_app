@@ -1,6 +1,13 @@
 import React from 'react';
 import { ArrowRight, ChevronLeft, ShieldCheck, Zap, TrendingUp, CheckCircle2 } from 'lucide-react';
-
+export const metadata = {
+  id: 'investir-2026',
+  title: 'Investir em 2026',
+  category: 'Análise',
+  excerpt: 'Por que a organização vence a sorte.',
+  readTime: '8 min',
+  icon: '📈' // ou um ícone do lucide-react, se preferir
+};
 export const InvestmentArticle2026 = ({ onNavigate }: any) => (
   <div className="max-w-4xl mx-auto px-6 py-12 text-slate-300 leading-relaxed font-sans animate-in fade-in duration-500 pb-32">
     <button onClick={() => onNavigate('home')} className="mb-10 text-sky-400 font-bold flex items-center gap-2 hover:underline text-xs uppercase tracking-widest">

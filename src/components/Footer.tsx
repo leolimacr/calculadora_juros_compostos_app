@@ -25,11 +25,11 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
   };
 
   const handleNav = (tool: string) => {
-    if (onNavigate) {
-      onNavigate(tool);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  };
+  if (onNavigate) {
+    onNavigate(tool);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+};
 
   return (
     <footer className="border-t border-slate-800 bg-[#0f172a] pt-20 pb-8 no-print">
@@ -113,8 +113,8 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             <ul className="space-y-3 text-sm text-slate-400">
               <li><button onClick={() => handleNav('sobre')} className="hover:text-emerald-400 transition-colors text-left">Sobre Nós</button></li>
               <li><button onClick={() => handleNav('faq')} className="hover:text-emerald-400 transition-colors text-left">FAQ</button></li>
-              <li><button onClick={() => handleNav('politica-privacidade')} className="hover:text-emerald-400 transition-colors text-left">Política de Privacidade</button></li>
-              <li><button onClick={() => handleNav('termos-de-uso')} className="hover:text-emerald-400 transition-colors text-left">Termos de Uso</button></li>
+              <li><button onClick={() => handleNav('privacidade')} className="hover:text-emerald-400 transition-colors text-left">Política de Privacidade</button></li>
+              <li><button onClick={() => handleNav('termos')} className="hover:text-emerald-400 transition-colors text-left">Termos de Uso</button></li>
               <li><button onClick={() => handleNav('sobre')} className="hover:text-emerald-400 transition-colors text-left">Contato</button></li>
             </ul>
           </div>
