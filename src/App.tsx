@@ -36,8 +36,8 @@ interface Transaction {
 // Components
 import AppHeader from './components/AppHeader';
 import AppOnlyBlock from './components/AppOnlyBlock';
-import Dashboard from './components/Dashboard';
-import TransactionForm from './components/TransactionForm';
+import { Dashboard, AiChatPage, FireCalculatorTool, CompoundInterestTool, InflationTool, RentVsFinanceTool, DebtOptimizerTool, DividendsTool } from './components/tools';
+import TransactionForm from './components/tools/finance/TransactionForm';
 import ContentModal from './components/ContentModal';
 import ToastContainer from './components/Toast';
 import MobileBottomNav from './components/MobileBottomNav';
@@ -46,13 +46,10 @@ import AuthRegister from './components/Auth/AuthRegister';
 import PricingPage from './components/PricingPage';
 import SettingsPage from './components/SettingsPage';
 import { PublicHome } from './components/PublicPages';
-import AiChatPage from './components/AiChatPage';
 import SecurityLock from './components/SecurityLock';
 import { getArticleById } from './components/Public/Articles';
+
 // Tools
-import { 
-  FireCalculatorTool, CompoundInterestTool, InflationTool, RentVsFinanceTool, DebtOptimizerTool, DividendsTool 
-} from './components/Tools';
 
 const App: React.FC = () => {
   const { user, isAuthenticated, loading: authLoading, logout } = useAuth();

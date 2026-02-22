@@ -10,7 +10,7 @@ import UsageIndicator from './UsageIndicator';
 import TransactionHistory from './TransactionHistory';
 import FilterBar from './FilterBar';
 import CategoryManager from './CategoryManager';
-import { generateFinancialReport } from '../utils/reportGenerator';
+import { generateFinancialReport } from '../../../utils/reportGenerator';
 
 const Dashboard: React.FC<any> = (props) => {
   const { 
