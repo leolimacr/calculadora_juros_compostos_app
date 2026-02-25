@@ -34,20 +34,20 @@ const TransactionForm: React.FC<any> = ({
       setCategory(currentCategoryList[0] || 'Outros');
     }
   }, [type, categories]);
-
   const handleSave = async () => {
-    if (!description || !amount) return alert("Preencha todos os campos");
+    const numericAmount = Number(amount);
+    if (!description || !numericAmount || numericAmount <= 0) return alert("Preencha todos os campos");
+    
     setIsSaving(true);
     await onSave({ 
       id: initialData?.id,
       description, 
-      amount: Number(amount), 
+      amount: numericAmount, 
       type, 
       category, 
       date 
     });
   };
-
   return (
     <>
       <CategoryManager 
@@ -64,11 +64,21 @@ const TransactionForm: React.FC<any> = ({
           <button onClick={() => setType('income')} className={`flex-1 py-2 rounded-lg font-black uppercase text-xs transition-all ${type === 'income' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500'}`}>Receita</button>
         </div>
         
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-500 uppercase ml-1">Valor (R$)</label>
-            <input type="number" inputMode="decimal" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} className="w-full bg-slate-800 p-4 rounded-xl text-white font-bold outline-none border border-slate-700 focus:border-sky-500" />
-          </div>
+        <div className="grid grid-cols-2 gap-3">          		  
+		  <div className="space-y-1">
+			  <label className="text-[10px] font-black text-slate-500 uppercase ml-1">Valor</label>
+			  <input 
+				type="text" 
+				inputMode="numeric" 
+				placeholder="R$ 0,00" 
+				value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount || 0)} 
+				onChange={e => {
+				  const value = e.target.value.replace(/\D/g, '');
+				  setAmount(Number(value) / 100);
+				}} 
+				className="w-full bg-slate-800 p-4 rounded-xl text-white font-bold outline-none border border-slate-700 focus:border-sky-500" 
+			  />
+			</div>		  
           <div className="space-y-1">
             <label className="text-[10px] font-black text-slate-500 uppercase ml-1">Data</label>
             <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full bg-slate-800 p-4 rounded-xl text-white outline-none border border-slate-700 focus:border-sky-500 text-sm" />

@@ -1,3 +1,6 @@
+import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
+import { firestore } from '../firebase'; // Verifique se o caminho do seu firebase.ts está correto
+import { MarkdownViewer } from './Public/MarkdownViewer';
 import { courses } from './Public/Courses';
 import React, { useEffect, useState, useMemo } from 'react';
 import MobileBottomNav from "./MobileBottomNav";
@@ -11,6 +14,7 @@ import { articles } from './Public/Articles';
 import { ALL_B3_TICKERS } from '../data/tickers'; 
 import { ContentModal, AssetModal } from './Public/HomeModals'; 
 import { InfiniteTicker, MarketGroup, MarketItemRow } from './Public/MarketComponents';
+import { getLatestNews } from '../services/newsService';
 
 // --- CONFIGURAÇÃO DAS APIS (MANTIDAS INTACTAS) ---
 const CLOUD_API_URL = 'https://getmarketdata-5auxvdzm3q-uc.a.run.app';
@@ -47,6 +51,59 @@ const RADAR_NEWS = [
 
 export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthenticated, userMeta }) => {
   // --- ESTADOS E LÓGICA (MANTIDOS INTACTOS) ---
+  const [radarNews, setRadarNews] = useState<any[]>(RADAR_NEWS); // Inicia com os dados fixos enquanto carrega
+	  const fetchNews = async () => {
+		const fetchedNews = await getLatestNews(9);
+		if (fetchedNews && fetchedNews.length > 0) {
+		  setRadarNews(fetchedNews);
+		}
+	  };
+
+	  // Adiciona a chamada no useEffect existente ou cria um novo
+	  useEffect(() => {
+		fetchNews();
+	  }, []);
+  const handleSaveNews = async () => {
+    try {
+      if (newsForm.id) {
+        // MODO EDIÇÃO: Atualiza o documento existente
+        const newsDocRef = doc(firestore, 'noticias', newsForm.id);
+        await updateDoc(newsDocRef, {
+          title: newsForm.title,
+          summary: newsForm.summary,
+          content: newsForm.content,
+          coverImage: newsForm.coverImage
+        });
+        alert('Notícia atualizada com sucesso!');
+      } else {
+        // MODO CRIAÇÃO: Adiciona um novo documento
+        const newsRef = collection(firestore, 'noticias');
+        await addDoc(newsRef, {
+          title: newsForm.title,
+          summary: newsForm.summary,
+          content: newsForm.content,
+          coverImage: newsForm.coverImage,
+          date: new Date().toISOString().split('T')[0], 
+          category: 'Geral',
+          tag: 'Notícia',
+          badge: 'Novo',
+          readTime: '3 min'
+        });
+        alert('Notícia salva com sucesso!');
+      }
+
+      // Limpa o form (incluindo o ID) e fecha o modal
+      setNewsForm({ id: '', title: '', summary: '', content: '', coverImage: '' });
+      setShowNewsAdmin(false);
+      
+      // Atualiza a lista na tela
+      fetchNews(); 
+      
+    } catch (error) {
+      console.error("Erro ao salvar:", error);
+      alert('Erro ao salvar a notícia.');
+    }
+  };	    
   const [marketData, setMarketData] = useState<any>({ indices: [], stocks: [], currencies: [], cryptos: [], indicators: [] });
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAsset, setSelectedAsset] = useState<string | null>(null);
@@ -54,7 +111,14 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
   const [selectedArticle, setSelectedArticle] = useState<any | null>(null);
   const [searchPreview, setSearchPreview] = useState<any>(null);
   const [selectedCourse, setSelectedCourse] = useState<any | null>(null);
-
+  const [showNewsAdmin, setShowNewsAdmin] = useState(false);
+  const [newsForm, setNewsForm] = useState({
+  id: '', // Adicionamos esta linha
+  title: '',
+  summary: '',
+  content: '',
+  coverImage: '',
+  });
   const fetchMarketData = async () => {
     try {
       const [cloudRes, awesomeRes, selic, ipca] = await Promise.all([
@@ -86,22 +150,45 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
   };
 
   useEffect(() => { fetchMarketData(); const id = setInterval(fetchMarketData, 60000); return () => clearInterval(id); }, []);
-
+  useEffect(() => {
+    if (selectedArticle) {
+      window.scrollTo(0, 0);
+    }
+  }, [selectedArticle]);
   const suggestions = useMemo(() => {
     if (!searchTerm || searchTerm.length < 2) return [];
     const term = searchTerm.toUpperCase();
     return ALL_B3_TICKERS.filter(t => t.includes(term)).slice(0, 6);
-  }, [searchTerm]);
-
+  }, [searchTerm]); 
+  
   const handleSelectSuggestion = async (ticker: string) => {
     setSearchTerm('');
-    setSearchPreview({ symbol: ticker, price: null, type: 'stock', change: 0 });
+    // Inicializa com null para mostrar um estado de "carregando"
+    setSearchPreview({ symbol: ticker, price: null, type: 'stock', change: null, up: true });
+    
     try {
         const res = await fetch(`${TICKER_API_URL}?tickers=${ticker}`).then(r => r.json());
-        const data = Array.isArray(res) ? res[0] : res;
-        if (data) setSearchPreview({ symbol: data.symbol || ticker, price: data.price || data.regularMarketPrice, change: data.change || data.regularMarketChangePercent || 0, up: (data.change || data.regularMarketChangePercent || 0) >= 0, type: 'stock' });
-    } catch (e) { setSearchPreview({ symbol: ticker, price: null, type: 'stock' }); }
-  };
+		const data = Array.isArray(res) ? res[0] : res;
+        const item = (data?.results && data.results[0]) ? data.results[0] : data;
+
+        if (item) {
+            const currentPrice = item.regularMarketPrice || item.price || item.close || null;
+            const currentChange = item.regularMarketChangePercent || item.change || 0;
+
+            setSearchPreview({ 
+                symbol: item.symbol || ticker, 
+                price: currentPrice, 
+                change: currentChange, 
+                up: currentChange >= 0, 
+                type: 'stock' 
+            });
+        }
+		
+    } catch (e) { 
+        console.error("Erro ao buscar ticker:", e);
+        setSearchPreview({ symbol: ticker, price: null, type: 'stock', change: null, up: true }); 
+    }
+  };	  
 
   // --- RENDERIZAÇÃO DE CURSO COMPLETO ---
   if (selectedCourse) {
@@ -140,7 +227,57 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
           <p className="text-emerald-400 font-bold text-lg mb-4">Finanças Pro Invest: Transformando Organização em Liberdade Real.</p>
           <p>O <strong>Finanças Pro Invest</strong> nasceu da inconformidade com as planilhas estáticas e complexas. Somos um ecossistema completo que une gestão de fluxo de caixa, ferramentas de simulação e inteligência artificial.</p>
         </ContentModal>
-      )}
+      )}	  
+	  {showNewsAdmin && (
+		  <ContentModal
+			title={newsForm.id ? "Editar Notícia" : "Nova Notícia"}
+			icon={Newspaper}
+			onClose={() => setShowNewsAdmin(false)}
+		  >
+			<div className="space-y-4 text-sm">	
+			 <input
+			  type="text"
+			  placeholder="Título"
+			  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+			  value={newsForm.title}
+			  onChange={(e) =>
+				setNewsForm((prev) => ({ ...prev, title: e.target.value }))
+			  }
+			/>
+		     <input
+			  type="text"
+			  placeholder="Caminho da Imagem (ex: /assets/images/news/foto.jpg)"
+			  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+			  value={newsForm.coverImage}
+			  onChange={(e) =>
+			    setNewsForm((prev) => ({ ...prev, coverImage: e.target.value }))
+			  }
+		    />
+   			  <textarea
+			    placeholder="Resumo (summary)"
+			    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white h-24"
+			    value={newsForm.summary}
+			    onChange={(e) =>
+				  setNewsForm((prev) => ({ ...prev, summary: e.target.value }))
+			  }
+			/>
+			  <textarea
+			    placeholder="Conteúdo completo (Markdown)"
+			    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white h-40"
+			    value={newsForm.content}
+			    onChange={(e) =>
+				  setNewsForm((prev) => ({ ...prev, content: e.target.value }))
+			    }
+			  />
+			  <button
+				onClick={handleSaveNews}
+				className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-widest px-4 py-2 rounded-lg"
+			  >
+				{newsForm.id ? "Salvar alterações" : "Salvar notícia"}
+			  </button>	
+			</div>
+		  </ContentModal>
+		)}	    
       {activeInfoModal === 'seguranca' && (
         <ContentModal title="Segurança de Dados" icon={LockKeyhole} onClose={() => setActiveInfoModal(null)}>
           <p className="font-bold text-white mb-4">Privacidade e Proteção Nível Bancário</p>
@@ -154,7 +291,7 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
       )}
       {activeInfoModal === 'ajuda' && (
         <ContentModal title="Central de Ajuda" icon={HelpCircle} onClose={() => setActiveInfoModal(null)}>
-          <p>Dúvidas técnicas? Entre em contato pelo e-mail <strong>suporte@financasproinvest.com.br</strong></p>
+          <p>Dúvidas técnicas? Entre em contato pelo e-mail <strong>contato@financasproinvest.com.br</strong></p>
         </ContentModal>
       )}
       {activeInfoModal === 'faq' && (
@@ -168,7 +305,7 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
       {activeInfoModal === 'especialista' && (
         <ContentModal title="Fale com um Especialista" icon={Mail} onClose={() => setActiveInfoModal(null)}>
           <div className="text-center py-8">
-             <a href="mailto:suporte@financasproinvest.com.br" className="bg-emerald-600 text-white px-8 py-4 rounded-2xl font-black text-lg shadow-xl hover:bg-emerald-500 transition-all">suporte@financasproinvest.com.br</a>
+             <a href="mailto:contato@financasproinvest.com.br" className="bg-emerald-600 text-white px-8 py-4 rounded-2xl font-black text-lg shadow-xl hover:bg-emerald-500 transition-all">contato@financasproinvest.com.br</a>
           </div>
         </ContentModal>
       )}
@@ -176,38 +313,121 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
       {/* TICKER DE MERCADO (TOPO - Mantido para sensação de Financeiro) */}
       <InfiniteTicker data={marketData} />
 
-      {/* --- 1. HERO SECTION: SOBRIEDADE E MÉTODO --- */}
-      <section className="relative px-6 py-16 lg:py-24 max-w-[1600px] mx-auto w-full flex flex-col items-center text-center z-10">
+	  {/* --- 1. HERO SECTION: SOBRIEDADE E MÉTODO (ATUALIZADO) --- */}
+      <section className="relative px-6 py-16 lg:py-24 max-w-[1600px] mx-auto w-full z-10">
         
-        {/* Fundo sutil para destaque */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-slate-800/20 rounded-full blur-[100px] pointer-events-none" />
+        {/* Fundo sutil para destaque redimensionado para cobrir o novo layout */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-[500px] bg-emerald-900/10 rounded-full blur-[120px] pointer-events-none" />
 
-        <h1 className="text-4xl md:text-6xl lg:text-7xl font-black text-white leading-[1.1] tracking-tighter mb-6 max-w-4xl animate-in fade-in slide-in-from-bottom-6 duration-1000">
-          Liberdade Financeira não é sorte. <br/>
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-emerald-200 to-sky-400">É Método.</span>
-        </h1>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+		  {/* Coluna Esquerda: Textos e CTAs (Alinhados à esquerda no desktop) */}
+          <div className="flex flex-col items-center lg:items-start text-center lg:text-left">
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-black text-white leading-[1.1] tracking-tighter mb-6 animate-in fade-in slide-in-from-bottom-6 duration-1000">
+              Liberdade Financeira não é sorte. <br/>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-emerald-200 to-sky-400">É Método.</span>
+            </h1>
 
-        <p className="text-base md:text-lg text-slate-400 max-w-2xl mb-10 leading-relaxed font-medium animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-100">
-          Assuma o controle absoluto do seu patrimônio. Utilize nossa tecnologia para organizar contas, projetar o futuro e tomar decisões baseadas em dados, não em achismos.
-        </p>
+            <p className="text-base md:text-lg text-slate-400 max-w-xl mb-10 leading-relaxed font-medium animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-100">
+              Assuma o controle absoluto do seu patrimônio. Utilize nossa tecnologia para organizar contas, projetar o futuro e tomar decisões baseadas em dados, não em achismos.
+            </p>
+			{/* Adição dos Botões de Ação (CTAs) para resolver a falta de direcionamento */}
+            <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-200">
+              
+              {!isAuthenticated ? (
+                // Botão original para quem NÃO está logado
+                <button 
+                  onClick={onStartNow} 
+                  className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black px-8 py-4 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 w-full sm:w-auto"
+                >
+                  Criar Conta Gratuita <ArrowRight size={20} />
+                </button>
+              ) : (
+                // Novo Botão do Nexus AI para quem JÁ ESTÁ logado (com Tooltip embutida apenas para Desktop)
+                <div className="relative group flex items-center justify-center w-full sm:w-auto">
+                  <button 
+                    onClick={() => onNavigate('chat')} 
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-black px-8 py-4 rounded-xl transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 w-full border border-indigo-400/30"
+                  >
+                    <Sparkles size={20} className="text-indigo-200" /> Analisar com Nexus AI
+                  </button>
+                  
+                  {/* Tooltip elegante que aparece no hover (Oculta no Mobile, visível no Desktop) */}
+                  <div className="absolute bottom-full mb-3 hidden sm:group-hover:block w-64 bg-slate-900 border border-slate-700 text-slate-300 text-xs rounded-lg p-3 shadow-2xl animate-in fade-in zoom-in-95 duration-200 z-50 text-center">
+                    <p>Descubra onde otimizar seus aportes e receba análises instantâneas sobre sua jornada financeira.</p>
+                    {/* Setinha apontando para o botão */}
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-700"></div>
+                  </div>
+                </div>
+              )}
 
-        <div className="flex flex-col sm:flex-row gap-4 w-full justify-center animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-200">
-          <button onClick={onStartNow} className="bg-emerald-600 hover:bg-emerald-500 text-white px-10 py-4 rounded-xl font-black text-base shadow-xl shadow-emerald-900/20 active:scale-95 transition-all uppercase tracking-wide">
-            Começar Agora
-          </button>
-          <button onClick={() => onNavigate('tool-juros')} className="bg-transparent border border-slate-700 hover:bg-slate-800 text-white px-10 py-4 rounded-xl font-bold text-base active:scale-95 transition-all flex items-center justify-center gap-2 group">
-            Simular Juros
-            <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-          </button>
+              {/* Botão Secundário Atualizado (FIRE) */}
+              <button 
+                onClick={() => onNavigate('tool-fire')} 
+                className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-8 py-4 rounded-xl transition-all border border-slate-700 flex items-center justify-center gap-2 group w-full sm:w-auto"
+              >
+                <Zap size={20} className="text-amber-400 group-hover:scale-110 transition-transform" /> 
+                Simular Liberdade (FIRE)
+              </button>
+            </div>
+          </div> {/* FIM DA COLUNA ESQUERDA */}
+
+          {/* Coluna Direita: Elemento Visual Abstrato (O "Anti-Vazio") */}
+          <div className="hidden lg:block relative animate-in fade-in slide-in-from-right-8 duration-1000 delay-300">
+            {/* Glow effect atrás do card */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/20 to-sky-500/20 blur-3xl rounded-[3rem]" />
+            
+            {/* Mockup do Dashboard (Painel de Vidro / Glassmorphism) */}
+            <div className="relative bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-6 shadow-2xl overflow-hidden">
+			  {/* Top bar do Mockup */}
+              <div className="flex items-center justify-between border-b border-slate-800/80 pb-4 mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded bg-emerald-500/20 flex items-center justify-center">
+                    <Wallet size={16} className="text-emerald-400" />
+                  </div>
+                  <div className="h-4 w-24 bg-slate-800 rounded animate-pulse" />
+                </div>
+                <div className="h-4 w-16 bg-slate-800 rounded animate-pulse" />
+              </div>
+              
+              {/* Corpo do Mockup: Gráficos e Cards abstratos */}
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/30">
+                  <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Patrimônio Total</p>
+                  <p className="text-xl font-black text-white">R$ 142.500,00</p>
+                  <p className="text-xs text-emerald-400 mt-2 font-medium">+2.4% este mês</p>
+                </div>
+                <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/30">
+                  <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Próximo Aporte</p>
+                  <p className="text-xl font-black text-white">R$ 1.200,00</p>
+                  <p className="text-xs text-slate-400 mt-2 font-medium">Faltam 5 dias</p>
+                </div>
+              </div>
+
+              {/* Gráfico Abstrato (Barras) */}
+              <div className="h-32 bg-slate-800/30 rounded-xl border border-slate-700/30 p-4 flex items-end gap-2 justify-between">
+                {[40, 60, 45, 80, 65, 90, 100].map((height, i) => (
+                  <div key={i} className="w-full bg-emerald-500/20 rounded-t-sm relative group">
+                    <div 
+                      className="absolute bottom-0 w-full bg-emerald-500 rounded-t-sm transition-all duration-1000" 
+                      style={{ height: `${height}%` }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
         </div>
       </section>
-
-      {/* --- 2. BENTO GRID: FERRAMENTAS --- */}
-      <section className="px-4 lg:px-12 pb-20 max-w-[1600px] mx-auto w-full">
-        <h3 className="text-slate-500 text-xs font-black uppercase tracking-widest mb-6 text-center md:text-left border-b border-slate-800 pb-2 inline-block">Ecossistema Pro Invest</h3>
+	  {/* --- 2. BENTO GRID: FERRAMENTAS (ATUALIZADO) --- */}
+      <section className="px-4 lg:px-12 pb-20 max-w-[1600px] mx-auto w-full relative">
+        <div className="text-center mb-10">
+          <h3 className="text-slate-500 text-xs font-black uppercase tracking-widest inline-block border-b border-slate-800 pb-2">
+            Ecossistema Pro Invest
+          </h3>
+        </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 relative z-10">
           {/* Card Principal: Gerenciador */}
           <div onClick={() => isAuthenticated ? onNavigate('manager') : onStartNow()} className="md:col-span-2 lg:col-span-2 row-span-2 bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 rounded-3xl p-8 relative overflow-hidden group cursor-pointer hover:border-slate-600 transition-all shadow-lg">
             <div className="absolute right-0 bottom-0 opacity-10 group-hover:opacity-20 transition-opacity">
@@ -249,58 +469,199 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
           
         </div>
       </section>
-
       {/* --- SEÇÃO DE CURSOS --- */}
       <section className="px-4 lg:px-12 py-16 max-w-[1600px] mx-auto w-full">
-        <h3 className="text-slate-500 text-xs font-black uppercase tracking-widest mb-6 text-center md:text-left border-b border-slate-800 pb-2 inline-block">
-          Cursos
-        </h3>
+		<div className="mb-12 text-center md:text-left">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold uppercase tracking-widest mb-4">
+            <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+            Academia Pro
+          </div>
+          <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-4 tracking-tight">
+            Evolua seus <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-indigo-500">Investimentos</span>
+          </h2>
+          <p className="text-slate-400 max-w-2xl text-sm md:text-base mx-auto md:mx-0">
+            Trilhas de conhecimento exclusivas. Do zero à maestria no mercado financeiro com a metodologia Finanças Pro Invest.
+          </p>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {courses.map((course) => (
+		  {courses.map((course) => (
             <div
               key={course.id}
-              className="bg-slate-900 border border-slate-800 rounded-2xl p-6 hover:border-sky-400/50 transition-all cursor-pointer group"
+              className="relative bg-slate-900/40 backdrop-blur-md border border-slate-800/80 rounded-2xl p-6 hover:bg-slate-800/60 hover:border-indigo-500/40 hover:shadow-[0_0_40px_rgba(99,102,241,0.1)] transition-all duration-500 cursor-pointer group overflow-hidden"
               onClick={() => setSelectedCourse(course)}
             >
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-4xl">{course.icon}</span>
-                <span className="text-xs text-slate-500 font-bold uppercase">{course.duration}</span>
+              {/* Efeito de brilho superior ao passar o mouse */}
+              <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+			  {/* Ícone com brilho sutil */}
+              <div className="w-14 h-14 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex items-center justify-center text-3xl mb-6 shadow-[0_0_20px_rgba(99,102,241,0.05)] group-hover:scale-110 group-hover:bg-indigo-500/20 transition-all duration-300">
+                {course.icon}
               </div>
-              <h4 className="text-xl font-bold text-white mb-2 group-hover:text-sky-400">{course.title}</h4>
-              <p className="text-sm text-slate-400 mb-4">{course.excerpt}</p>
-              <div className="flex items-center text-xs text-slate-500">
-                <span>{course.modules} módulos</span>
+
+              {/* Título com transição */}
+              <h4 className="text-xl font-bold text-white mb-3 group-hover:text-indigo-400 transition-colors duration-300">
+                {course.title}
+              </h4>
+              
+              {/* Descrição em duas linhas */}
+              <p className="text-sm text-slate-400 mb-6 line-clamp-2 leading-relaxed">
+                {course.excerpt}
+              </p>
+			  {/* Rodapé do Card: Badges e CTA */}
+              <div className="flex items-center justify-between pt-6 border-t border-slate-800/80 mt-auto">
+                {/* Badges agrupadas à esquerda */}
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-xs text-slate-400 font-medium group-hover:border-slate-700 transition-colors">
+                    <svg className="w-3.5 h-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                    {course.modules}
+                  </div>
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-xs text-slate-400 font-medium group-hover:border-slate-700 transition-colors">
+                    <svg className="w-3.5 h-3.5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {course.duration}
+                  </div>
+                </div>
+
+                {/* Micro-interação: Botão de Ação à direita */}
+                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-800/50 text-slate-500 group-hover:bg-indigo-500 group-hover:text-white transition-all duration-300 transform group-hover:translate-x-1 shadow-none group-hover:shadow-[0_0_15px_rgba(99,102,241,0.5)]">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
               </div>
             </div>
           ))}
         </div>
       </section>
+	  {/* --- 3. RADAR PRO INVEST (NOTÍCIAS) - NOVIDADE --- */}
+		<section className="bg-slate-900/30 border-y border-slate-800 py-16">
+		  <div className="max-w-[1600px] mx-auto px-4 lg:px-12">
+			<div className="flex items-center justify-between mb-8">
+			  <h3 className="text-xl font-black text-white uppercase tracking-tighter flex items-center gap-2">
+				<Newspaper size={20} className="text-emerald-500" />
+				Radar Pro Invest
+			  </h3>
+			  <div className="flex items-center gap-4">
+				<span className="text-xs font-bold text-slate-500 uppercase">
+				  Atualizado Semanalmente
+				</span>
+			  {isAuthenticated && userMeta?.email === 'leolimacr@hotmail.com' && (
+				<button
+				  onClick={() => setShowNewsAdmin(true)}
+				  className="text-[10px] font-black uppercase tracking-widest text-emerald-400 border border-emerald-500/40 px-3 py-1 rounded-lg hover:bg-emerald-500/10"
+				>
+				  + Nova notícia
+				</button>
+			  )}				
+			  </div>
+			</div>
+			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+			  {radarNews.map((news: any, index) => (
+				<div
+				  key={news.id || index}
+				  onClick={() =>
+					setSelectedArticle({
+					  component: () => (
+						<div className="flex flex-col gap-6 w-full animate-in fade-in zoom-in-95 duration-500 pb-16">
+						  <header className="mb-8 border-b border-slate-800 pb-8">
+							<div className="flex items-center gap-3 mb-4">
+							  <span className="bg-emerald-500/10 text-emerald-400 text-xs font-black uppercase px-3 py-1 rounded-full border border-emerald-500/20">
+								{news.category || news.tag}
+							  </span>
+							  <span className="text-slate-500 text-sm font-bold">
+								{news.date || news.badge}
+							  </span>
+							</div>
+							<h1 className="text-4xl md:text-5xl font-black text-white leading-tight mb-6">
+							  {news.title}
+							</h1>
+							{news.coverImage && (
+							  <img
+								src={news.coverImage}
+								alt={news.title}
+								className="w-full h-[400px] object-cover rounded-3xl border border-slate-800 shadow-2xl"
+							  />
+							)}
+						  </header>
+						  <div className="text-slate-300 max-w-[800px] mx-auto">
+							<MarkdownViewer content={news.content} />
+						  </div>
+						</div>
+					  ),
+					})
+				  }
+				  className="bg-slate-900/50 border border-slate-800 rounded-2xl overflow-hidden hover:border-emerald-500/30 hover:shadow-2xl hover:shadow-emerald-900/10 transition-all cursor-pointer group flex flex-col h-full"
+				>
+				  {/* Nova Área de Imagem (Thumbnail) */}
+				  <div className="relative w-full h-48 bg-slate-800 overflow-hidden">
+					{news.coverImage ? (
+					  <img 
+						src={news.coverImage} 
+						alt={news.title} 
+						className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+					  />
+					) : (
+					  /* Fallback caso a notícia não tenha imagem no Firebase */
+					  <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
+						<Newspaper size={32} className="text-slate-700" />
+					  </div>
+					)}
+					{/* Overlay sutil na base da imagem para transição suave com o card */}
+					<div className="absolute bottom-0 w-full h-1/2 bg-gradient-to-t from-slate-900/50 to-transparent" />
+				  </div>
 
-      {/* --- 3. RADAR PRO INVEST (NOTÍCIAS) - NOVIDADE --- */}
-      <section className="bg-slate-900/30 border-y border-slate-800 py-16">
-         <div className="max-w-[1600px] mx-auto px-4 lg:px-12">
-            <div className="flex items-center justify-between mb-8">
-               <h3 className="text-xl font-black text-white uppercase tracking-tighter flex items-center gap-2">
-                  <Newspaper size={20} className="text-emerald-500"/>
-                  Radar Pro Invest
-               </h3>
-               <span className="text-xs font-bold text-slate-500 uppercase">Atualizado Semanalmente</span>
-            </div>
+				  {/* Conteúdo do Card */}
+				  <div className="p-6 flex flex-col flex-grow">
+					<div className="flex items-center justify-between mb-4">
+					  <span className="bg-emerald-500/10 text-emerald-400 text-[9px] font-black uppercase px-2 py-1 rounded border border-emerald-500/20">
+						{news.tag || news.category}
+					  </span>
+					  
+					  <div className="flex items-center gap-3">
+						{/* Início: Botão Editar para o Admin */}
+						{isAuthenticated && userMeta?.email === 'leolimacr@hotmail.com' && (
+						  <button
+							onClick={(e) => {
+							  e.stopPropagation(); // Evita que o card inteiro seja clicado
+							  setNewsForm({
+								id: news.id,
+								title: news.title || '',
+								summary: news.summary || news.excerpt || '',
+								content: news.content || '',
+								coverImage: news.coverImage || ''
+							  });
+							  setShowNewsAdmin(true);
+							}}
+							className="text-[9px] font-black uppercase tracking-widest text-sky-400 border border-sky-500/30 px-2 py-1 rounded hover:bg-sky-500/10 transition-colors z-10 relative"
+						  >
+							Editar
+						  </button>
+						)}
+						{/* Fim: Botão Editar */}
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-               {RADAR_NEWS.map((news) => (
-                  <div key={news.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-6 hover:border-slate-600 transition-all cursor-default group">
-                     <div className="flex items-center justify-between mb-4">
-                        <span className="bg-slate-900 text-slate-400 text-[9px] font-black uppercase px-2 py-1 rounded border border-slate-800">{news.tag}</span>
-                        <span className="text-[10px] text-slate-600 font-bold uppercase">{news.date}</span>
-                     </div>
-                     <h4 className="text-lg font-bold text-white mb-2 leading-tight group-hover:text-sky-400 transition-colors">{news.title}</h4>
-                     <p className="text-sm text-slate-500 leading-relaxed">{news.excerpt}</p>
-                  </div>
-               ))}
-            </div>
-         </div>
-      </section>
+						<span className="text-[10px] text-slate-500 font-bold uppercase">
+						  {news.badge || news.date}
+						</span>
+					  </div>
+					</div>
+					
+					{/* Título com contraste melhorado */}
+					<h4 className="text-lg font-bold text-white mb-3 leading-tight group-hover:text-emerald-400 transition-colors line-clamp-2">
+					  {news.title}
+					</h4>
+					
+					{/* Resumo limitado a 3 linhas para manter o grid alinhado */}
+					<p className="text-sm text-slate-400 leading-relaxed line-clamp-3 mt-auto">
+					  {news.summary || news.excerpt}
+					</p>
+				  </div>
+				</div>
+			  ))}
+			</div>
+		  </div>
+		</section>				  
 
       {/* --- 4. TERMINAL DE MERCADO (DADOS) --- */}
       <section className="py-16 bg-[#020617]">
@@ -326,9 +687,8 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
                 )}
             </div>
           </div>
-
-          {searchPreview && (
-             <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl mb-8 flex items-center justify-between animate-in fade-in slide-in-from-top-2 shadow-xl">
+		  {searchPreview && (
+             <div onClick={() => setSelectedAsset(searchPreview.symbol)} className="bg-slate-900 border border-slate-800 p-4 rounded-xl mb-8 flex items-center justify-between animate-in fade-in slide-in-from-top-2 shadow-xl cursor-pointer hover:border-slate-600 transition-all">	
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 font-black text-xs border border-emerald-500/20">{searchPreview.symbol.substring(0,3)}</div>
                   <div>
@@ -337,8 +697,12 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
                   </div>
                 </div>
                 <div className="text-right">
-                   <div className="text-xl font-bold text-white">R$ {searchPreview.price?.toFixed(2) || '---'}</div>
-                   <div className={`text-xs font-black ${searchPreview.up ? 'text-emerald-400' : 'text-rose-400'}`}>{searchPreview.change?.toFixed(2)}%</div>
+                   <div className="text-xl font-bold text-white">
+                     R$ {searchPreview.price !== null && searchPreview.price !== undefined ? Number(searchPreview.price).toFixed(2).replace('.', ',') : 'Buscando...'}
+                   </div>
+                   <div className={`text-xs font-black ${searchPreview.up ? 'text-emerald-400' : 'text-rose-400'}`}>
+                     {searchPreview.change !== null && searchPreview.change !== undefined ? `${searchPreview.change > 0 ? '+' : ''}${Number(searchPreview.change).toFixed(2).replace('.', ',')}%` : '0,00%'}
+                   </div>
                 </div>
                 <button onClick={() => setSearchPreview(null)} className="p-2 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-white transition-colors"><LogOut size={16}/></button>
              </div>
@@ -408,37 +772,69 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
 };
 
 // --- SUB-COMPONENTES PARA ORGANIZAÇÃO VISUAL ---
-
-const ToolCard = ({ icon: Icon, title, desc, route, onNavigate, color }: any) => (
-  <div onClick={() => onNavigate(route)} className="bg-slate-900 border border-slate-800 rounded-2xl p-6 hover:bg-slate-800 hover:border-slate-700 transition-all cursor-pointer group flex flex-col justify-between h-40 shadow-lg">
-    <div className={`p-2 bg-slate-950 rounded-lg w-fit border border-slate-800 group-hover:border-${color.split('-')[1]}-500/30 transition-colors`}>
-      <Icon size={20} className={color} />
+const ToolCard = ({ icon: Icon, title, desc, route, onNavigate, color }: any) => {
+  // Extrai a cor base (ex: 'emerald' de 'text-emerald-400') para usar no glow do hover
+  const baseColor = color.replace('text-', '').replace('-400', '');
+  
+  return (
+    <div 
+      onClick={() => onNavigate(route)} 
+      className={`relative bg-slate-900 border border-slate-800 rounded-2xl p-6 transition-all duration-300 cursor-pointer group flex flex-col justify-between h-40 shadow-lg hover:shadow-xl hover:-translate-y-1 overflow-hidden`}
+    >
+      {/* Glow de fundo que aparece apenas no hover, usando a cor do ícone */}
+      <div className={`absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-500 bg-${baseColor}-500`} />
+      
+      <div className="relative z-10">
+        <div className={`p-2 bg-slate-950 rounded-lg w-fit border border-slate-800 group-hover:border-${baseColor}-500/50 transition-colors duration-300`}>
+          <Icon size={20} className={`${color} group-hover:scale-110 transition-transform duration-300`} />
+        </div>
+      </div>
+      
+      <div className="relative z-10 mt-auto">
+        <h4 className="text-white font-bold text-sm mb-1 group-hover:text-slate-200 transition-colors">{title}</h4>
+        <p className={`text-slate-500 text-[10px] font-bold uppercase tracking-wide group-hover:text-${baseColor}-400/80 transition-colors`}>
+          {desc}
+        </p>
+      </div>
     </div>
-    <div>
-      <h4 className="text-white font-bold text-sm mb-1">{title}</h4>
-      <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wide">{desc}</p>
-    </div>
-  </div>
-);
+  );
+};
+const MarketPanel = ({ title, items, onItemClick }: any) => {
+  // Lógica para injetar cores vivas e dinâmicas baseadas no título do painel
+  let accentColor = "bg-sky-500"; // Padrão: Azul (Índices)
+  if (title.includes("Câmbio")) accentColor = "bg-emerald-500"; // Verde
+  if (title.includes("Cripto")) accentColor = "bg-purple-500";  // Roxo
+  if (title.includes("B3")) accentColor = "bg-amber-500";       // Laranja
 
-const MarketPanel = ({ title, items, onItemClick }: any) => (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col h-[300px]">
-        <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 pb-2 border-b border-slate-800">{title}</h3>
-        <div className="flex-1 overflow-y-auto custom-scrollbar space-y-1 pr-1">
+  return (
+    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 flex flex-col h-[300px] relative overflow-hidden group hover:border-slate-700 transition-colors shadow-lg">
+        {/* Linha Neon no topo do painel */}
+        <div className={`absolute top-0 left-0 w-full h-1 ${accentColor} opacity-70 group-hover:opacity-100 transition-opacity shadow-[0_0_10px_rgba(0,0,0,0.5)]`} />
+        
+        {/* Título mais vivo com indicador "Ao vivo" */}
+        <h3 className="text-xs font-black text-white uppercase tracking-widest mb-3 pb-2 border-b border-slate-800/80 flex items-center gap-2">
+          <span className={`w-1.5 h-1.5 rounded-full ${accentColor} animate-pulse`} />
+          {title}
+        </h3>        		<div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-2 pb-2">
             {items.map((item: any, idx: number) => (
-                <div key={idx} onClick={() => onItemClick(item.symbol)} className="flex justify-between items-center py-2 px-2 hover:bg-slate-800 rounded-lg cursor-pointer transition-colors group">
+                <div 
+                  key={idx} 
+                  onClick={() => onItemClick(item.symbol)} 
+                  className="flex justify-between items-center p-3 bg-slate-950/50 border border-slate-800/50 rounded-xl cursor-pointer transition-all duration-300 hover:bg-slate-800 hover:border-slate-600 hover:-translate-y-px hover:shadow-md group/item"
+                >
                     <div>
-                        <span className="font-bold text-slate-300 text-xs block group-hover:text-white">{item.symbol}</span>
-                        <span className="text-[9px] text-slate-600 font-mono uppercase">{item.type}</span>
+                        <span className="font-black text-slate-200 text-xs block group-hover/item:text-white transition-colors">{item.symbol}</span>
+                        <span className="text-[9px] text-slate-500 font-mono uppercase">{item.type}</span>
                     </div>
-                    <div className="text-right">
-                        <span className="block text-xs font-bold text-slate-200">
+                    <div className="text-right flex flex-col items-end">
+                        <span className="block text-xs font-bold text-white tracking-wide">
                           {item.type === 'currency' || item.type === 'crypto' ? 'R$ ' : ''}
                           {typeof item.price === 'number' ? item.price.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : item.price}
                         </span>
-                        {item.change !== undefined && (
-                             <span className={`text-[9px] font-black ${item.up ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                {item.up ? '+' : ''}{item.change?.toFixed(2)}%
+						{item.change !== undefined && (
+                             /* Badges de cor viva MAIORES para leitura rápida */
+                             <span className={`mt-1 text-xs font-black px-2 py-1 rounded flex items-center gap-1 shadow-sm ${item.up ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'}`}>
+                                {item.up ? '▲' : '▼'} {item.up ? '+' : ''}{item.change?.toFixed(2)}%
                              </span>
                         )}
                     </div>
@@ -446,6 +842,7 @@ const MarketPanel = ({ title, items, onItemClick }: any) => (
             ))}
         </div>
     </div>
-);
+  );
+};
 export { InvestmentArticle2026 } from './Public/Articles/InvestmentArticle2026';
 export default PublicHome;

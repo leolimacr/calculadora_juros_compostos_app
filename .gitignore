@@ -30,6 +30,7 @@ functions/a.env
 functions/.env*
 .env
 android/app/google-services.json
+firebase-service-account.json
 
 # Arquivos temporários e backups
 *.backup
