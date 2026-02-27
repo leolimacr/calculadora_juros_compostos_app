@@ -1,3 +1,4 @@
+import { useWealthData } from '../../../hooks/useWealthData';
 import React from 'react';
 import AiAdvisor from './AiAdvisor';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -14,6 +15,7 @@ interface AiChatPageProps {
 const AiChatPage: React.FC<AiChatPageProps> = ({ onNavigate, simulations = [], filteredTransactions = [] }) => {
   const { user } = useAuth();
   const { userMeta } = useFirebase(user?.uid);
+  const { assets, passives, goals: wealthGoals, totalAssets, totalPassives, patrimonioLiquido, loading: wealthLoading } = useWealthData(); 
   const isNative = Capacitor.isNativePlatform();
 
   const hasSimulations = simulations.length > 0;
@@ -57,7 +59,14 @@ const AiChatPage: React.FC<AiChatPageProps> = ({ onNavigate, simulations = [], f
 
         <div className="flex-grow h-full w-full relative">
             <div className="absolute inset-0 md:relative md:h-full bg-slate-900/50 border-0 md:border md:border-slate-800 md:rounded-3xl overflow-hidden shadow-2xl">
-                 <AiAdvisor transactions={filteredTransactions} currentCalcResult={simulations} goals={[]} currentTool="chat_web" />
+				 <AiAdvisor 
+				  transactions={filteredTransactions} 
+				  currentCalcResult={simulations} 
+				  goals={wealthGoals} 
+				  assets={assets} 
+				  passives={passives} 
+				  currentTool="chat_web" 
+				/>
             </div>
         </div>
       </div>

@@ -377,7 +377,11 @@ exports.askAiAdvisor = (0, https_1.onCall)({
     try {
         if (!request.auth)
             throw new https_1.HttpsError("unauthenticated", "Login necessário.");
-        const { prompt, userName, history = [], isFirstInteraction } = request.data;
+        const { prompt, userName, history = [], isFirstInteraction, context: frontendContext = {} } = request.data;
+        const { assets = [], passives = [], goals = [] } = frontendContext;
+        console.log("📌 assets recebidos:", JSON.stringify(assets));
+        console.log("📌 passives recebidos:", JSON.stringify(passives));
+        console.log("📌 goals recebidos do frontend:", JSON.stringify(goals));
         const safeUserName = (userName || "Investidor").split(' ')[0];
         const userId = request.auth.uid;
         let isFirst;
@@ -444,6 +448,29 @@ exports.askAiAdvisor = (0, https_1.onCall)({
             logger.error("Falha dados usuário:", dataError);
             userData = { goals: [], recentTransactions: [], simulations: [], summary: '', hasData: false, dataStatus: 'error' };
         }
+        console.log("🔍 DEBUG - INÍCIO DO PROCESSAMENTO DE METAS");
+        console.log("🔍 userData existe?", !!userData);
+        console.log("🔍 userData.goals é array?", Array.isArray(userData?.goals));
+        console.log("🔍 Quantidade de goals em userData:", userData?.goals?.length || 0);
+        if (userData?.goals?.length > 0) {
+            console.log("🔍 Primeira goal:", JSON.stringify(userData.goals[0]));
+        }
+        console.log("🔍 userData.hasData:", userData?.hasData);
+        const assetsSummary = assets && assets.length > 0
+            ? `\n📊 PATRIMÔNIO ATIVO (${assets.length} itens):\n` + assets.map((a) => `  • ${a.name} (${a.category || 'Outros'}): R$ ${(a.currentValue || 0).toFixed(2)}`).join('\n')
+            : '\n📊 Patrimônio ativo: Nenhum ativo registrado.';
+        const passivesSummary = passives && passives.length > 0
+            ? `\n📉 PATRIMÔNIO PASSIVO (${passives.length} itens):\n` + passives.map((p) => `  • ${p.description || p.name} (${p.category || 'Outros'}): R$ ${(p.currentValue || 0).toFixed(2)}`).join('\n')
+            : '\n📉 Patrimônio passivo: Nenhum passivo registrado.';
+        const totalAssets = assets.reduce((sum, a) => sum + (a.currentValue || 0), 0);
+        const totalPassives = passives.reduce((sum, p) => sum + (p.currentValue || 0), 0);
+        const patrimonioLiquido = (totalAssets - totalPassives).toFixed(2);
+        const patrimonioLiquidoStr = `💰 Patrimônio Líquido: R$ ${patrimonioLiquido}`;
+        console.log("📌 assets recebidos:", JSON.stringify(assets));
+        console.log("📌 passives recebidos:", JSON.stringify(passives));
+        console.log("📌 assetsSummary:", assetsSummary);
+        console.log("📌 passivesSummary:", passivesSummary);
+        console.log("📌 patrimonioLiquidoStr:", patrimonioLiquidoStr);
         const validHistory = Array.isArray(history) ? history.filter((h) => h && h.text && h.text.trim()) : [];
         let marketData = "";
         const extracted = extractTickersFallback(prompt);
@@ -479,11 +506,28 @@ exports.askAiAdvisor = (0, https_1.onCall)({
         });
         let transactionsForPrompt = "Nenhuma transação registrada.";
         let goalsForPrompt = "Nenhuma meta definida.";
-        if (userData.hasData) {
-            transactionsForPrompt = data_integrator_1.DataIntegrator.formatTransactionsForPrompt(userData.recentTransactions, context);
-            goalsForPrompt = data_integrator_1.DataIntegrator.formatGoalsForPrompt(userData.goals, context);
+        if (goals && goals.length > 0) {
+            const mappedGoals = goals.map((g) => {
+                const nome = g.nome || g.name || 'Meta sem nome';
+                const valor = g.valor || g.targetAmount || 0;
+                const frequencia = g.frequencia || g.frequency || 'N/A';
+                return `• ${nome}: R$ ${typeof valor === 'number' ? valor.toFixed(2) : parseFloat(valor).toFixed(2)} (${frequencia})`;
+            }).join('\n');
+            goalsForPrompt = `**METAS DO USUÁRIO (${goals.length}):**\n${mappedGoals}`;
+            console.log("🔍 goalsForPrompt GERADO (frontend):", goalsForPrompt);
         }
-        const systemPrompt = identity_1.NexusIdentity.getSystemPrompt(safeUserName, context, marketData, transactionsForPrompt, goalsForPrompt, "", isFirst, userData, historyDescription);
+        else if (userData.goals && userData.goals.length > 0) {
+            goalsForPrompt = data_integrator_1.DataIntegrator.formatGoalsForPrompt(userData.goals, context);
+            console.log("🔍 goalsForPrompt GERADO (DataIntegrator):", goalsForPrompt);
+        }
+        else {
+            console.log("🔍 goalsForPrompt permaneceu como padrão: 'Nenhuma meta definida.'");
+        }
+        console.log("🔍 goalsForPrompt:", goalsForPrompt);
+        console.log("🚀 Chamando getSystemPrompt com assetsSummary:", assetsSummary);
+        console.log("🚀 passivesSummary:", passivesSummary);
+        console.log("🚀 patrimonioLiquidoStr:", patrimonioLiquidoStr);
+        const systemPrompt = identity_1.NexusIdentity.getSystemPrompt(safeUserName, context, marketData, assetsSummary, passivesSummary, patrimonioLiquido, transactionsForPrompt, goalsForPrompt, "", isFirst, userData, historyDescription);
         const messages = [
             ...validHistory.slice(-6).map((h) => ({
                 role: h.role === 'ai' || h.role === 'assistant' ? 'assistant' : 'user',

@@ -1,3 +1,4 @@
+import { PassiveWealthManager } from './components/tools/wealth/PassiveWealthManager';
 import { TermsPage } from './components/TermsPage';
 import { PrivacyPage } from './components/PrivacyPage';
 import { LayoutDashboard, Sparkles, Settings, X, LogOut, ChevronRight } from 'lucide-react';
@@ -48,6 +49,9 @@ import SettingsPage from './components/SettingsPage';
 import { PublicHome } from './components/PublicPages';
 import SecurityLock from './components/SecurityLock';
 import { getArticleById } from './components/Public/Articles';
+import ActiveWealthManager from './components/tools/wealth/ActiveWealthManager';
+import MetasPage from './pages/MetasPage';
+import GoalManager from './components/tools/goals/GoalManager';
 
 // Tools
 
@@ -173,10 +177,22 @@ const App: React.FC = () => {
         return wrap(<DebtOptimizerTool onNavigate={handleNavigate} isAuthenticated={isAuthenticated} />);
       case 'tool-dividendos':
         return wrap(<DividendsTool onNavigate={handleNavigate} isAuthenticated={isAuthenticated} />);
+	  case 'investimentos':
+        if (!isAuthenticated) { handleNavigate('login'); return null; }
+        return wrap(<ActiveWealthManager userMeta={userMeta} />);
+	  case 'passivos': // Sugiro usar 'passivos' (em vez de passive-wealth) para manter o padrão em português da rota 'investimentos'
+        if (!isAuthenticated) { handleNavigate('login'); return null; }
+        return wrap(<PassiveWealthManager userMeta={userMeta} />);
 	  case 'termos':
 		return wrap(<TermsPage />);
 	  case 'privacidade':
         return wrap(<PrivacyPage />);
+	  case 'metas':
+	    if (!isAuthenticated) { 
+		  handleNavigate('login'); 
+		  return null; 
+	    }
+	    return wrap(<GoalManager userMeta={userMeta} />);	
       case 'home':
       default:
         return (

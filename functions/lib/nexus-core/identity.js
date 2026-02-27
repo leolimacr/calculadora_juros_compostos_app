@@ -6,7 +6,10 @@ class NexusIdentity {
         const firstName = (userName || 'Investidor').split(' ')[0];
         return `Olá, ${firstName}! Me chamo Nexus e sou o consultor do Finanças Pro Invest. É um prazer falar com você!`;
     }
-    static getSystemPrompt(userName, context, marketData, transactions, goals, simulations, isFirst, userData, historyDescription) {
+    static getSystemPrompt(userName, context, marketData, transactions, goals, simulations, assetsSummary, passivesSummary, patrimonioLiquido, isFirst, userData, historyDescription) {
+        console.log("📥 getSystemPrompt - assetsSummary:", assetsSummary);
+        console.log("📥 getSystemPrompt - passivesSummary:", passivesSummary);
+        console.log("📥 getSystemPrompt - patrimonioLiquido:", patrimonioLiquido);
         const firstName = (userName || 'Investidor').split(' ')[0];
         const now = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
         return `Você é o Nexus, consultor financeiro do Finanças Pro Invest.
@@ -73,7 +76,14 @@ ${transactions}
 
 ${goals}
 
+${assetsSummary}
+
+${passivesSummary}
+
+${patrimonioLiquido}
+
 🚫 REGRA ABSOLUTA:
+
 - Ao responder sobre lançamentos/saldo/despesas/receitas, use APENAS os valores do resumo acima
 - NÃO some as transações individuais manualmente
 - NÃO invente novos números em respostas subsequentes

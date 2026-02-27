@@ -253,7 +253,6 @@ async function fetchCryptoPricesDual(cryptos: string[]): Promise<Record<string, 
   }
   return results;
 }
-
 async function fetchAllMarketData(
   tickers: string[],
   cryptos: string[],
@@ -384,8 +383,11 @@ export const askAiAdvisor = onCall(
 
     try {
       if (!request.auth) throw new HttpsError("unauthenticated", "Login necessário.");
-
-      const { prompt, userName, history = [], isFirstInteraction } = request.data;
+	  const { prompt, userName, history = [], isFirstInteraction, context: frontendContext = {} } = request.data;
+	  const { assets = [], passives = [], goals = [] } = frontendContext;
+	  console.log("📌 assets recebidos:", JSON.stringify(assets));
+	  console.log("📌 passives recebidos:", JSON.stringify(passives));
+	  console.log("📌 goals recebidos do frontend:", JSON.stringify(goals));
       const safeUserName = (userName || "Investidor").split(' ')[0];
       const userId = request.auth.uid;
 
@@ -469,7 +471,35 @@ export const askAiAdvisor = onCall(
         logger.error("Falha dados usuário:", dataError);
         userData = { goals: [], recentTransactions: [], simulations: [], summary: '', hasData: false, dataStatus: 'error' };
       }
+	  // LOGS DETALHADOS PARA DIAGNÓSTICO DAS METAS
+		console.log("🔍 DEBUG - INÍCIO DO PROCESSAMENTO DE METAS");
+		console.log("🔍 userData existe?", !!userData);
+		console.log("🔍 userData.goals é array?", Array.isArray(userData?.goals));
+		console.log("🔍 Quantidade de goals em userData:", userData?.goals?.length || 0);
+		if (userData?.goals?.length > 0) {
+		  console.log("🔍 Primeira goal:", JSON.stringify(userData.goals[0]));
+		}
+		console.log("🔍 userData.hasData:", userData?.hasData);
+	  // Formatar dados de ativos e passivos recebidos do frontend
+      const assetsSummary = assets && assets.length > 0
+        ? `\n📊 PATRIMÔNIO ATIVO (${assets.length} itens):\n` + assets.map((a: any) => `  • ${a.name} (${a.category || 'Outros'}): R$ ${(a.currentValue || 0).toFixed(2)}`).join('\n')
+        : '\n📊 Patrimônio ativo: Nenhum ativo registrado.';
 
+      const passivesSummary = passives && passives.length > 0
+        ? `\n📉 PATRIMÔNIO PASSIVO (${passives.length} itens):\n` + passives.map((p: any) => `  • ${p.description || p.name} (${p.category || 'Outros'}): R$ ${(p.currentValue || 0).toFixed(2)}`).join('\n')
+        : '\n📉 Patrimônio passivo: Nenhum passivo registrado.';
+
+      // Calcular patrimônio líquido
+      const totalAssets = assets.reduce((sum: number, a: any) => sum + (a.currentValue || 0), 0);
+      const totalPassives = passives.reduce((sum: number, p: any) => sum + (p.currentValue || 0), 0);
+      const patrimonioLiquido = (totalAssets - totalPassives).toFixed(2);
+      const patrimonioLiquidoStr = `💰 Patrimônio Líquido: R$ ${patrimonioLiquido}`;
+	  console.log("📌 assets recebidos:", JSON.stringify(assets));
+	  console.log("📌 passives recebidos:", JSON.stringify(passives));
+	  console.log("📌 assetsSummary:", assetsSummary);
+  	  console.log("📌 passivesSummary:", passivesSummary);
+	  console.log("📌 patrimonioLiquidoStr:", patrimonioLiquidoStr);	
+	  
       // 4. DADOS DE MERCADO
       const validHistory = Array.isArray(history) ? history.filter((h: any) =>
         h && h.text && h.text.trim()
@@ -480,7 +510,6 @@ export const askAiAdvisor = onCall(
       if (extracted.b3.length > 0 || extracted.crypto.length > 0) {
         marketData = await fetchAllMarketData(extracted.b3, extracted.crypto, brapiToken.value(), prompt, validHistory);
       }
-
       // 5. DETECÇÃO DE FOLLOW-UP TIMESTAMPS
       if (validHistory.length > 0 && marketData && /quando|horário|horario|data|dia|atualização|atualizacao|cotação|cotacao|qual.*hora|que.*hora|qual.*dia|que.*dia/i.test(prompt) && marketData.includes('cotação de')) {
         logger.info("✓ Follow-up timestamp");
@@ -518,15 +547,34 @@ export const askAiAdvisor = onCall(
 
       // 8. FORMATAÇÃO DADOS USUÁRIO
       let transactionsForPrompt = "Nenhuma transação registrada.";
+	  // Usar metas vindas do frontend (prioridade) ou fallback para userData
       let goalsForPrompt = "Nenhuma meta definida.";
-      if (userData.hasData) {
-        transactionsForPrompt = DataIntegrator.formatTransactionsForPrompt(userData.recentTransactions, context);
+      if (goals && goals.length > 0) {
+        // Mapear campos do frontend para o formato de prompt
+        const mappedGoals = goals.map((g: any) => {
+          const nome = g.nome || g.name || 'Meta sem nome';
+          const valor = g.valor || g.targetAmount || 0;
+          const frequencia = g.frequencia || g.frequency || 'N/A';
+          return `• ${nome}: R$ ${typeof valor === 'number' ? valor.toFixed(2) : parseFloat(valor).toFixed(2)} (${frequencia})`;
+        }).join('\n');
+        goalsForPrompt = `**METAS DO USUÁRIO (${goals.length}):**\n${mappedGoals}`;
+        console.log("🔍 goalsForPrompt GERADO (frontend):", goalsForPrompt);
+      } else if (userData.goals && userData.goals.length > 0) {
+        // Fallback para metas do DataIntegrator (caso frontend não envie)
         goalsForPrompt = DataIntegrator.formatGoalsForPrompt(userData.goals, context);
+        console.log("🔍 goalsForPrompt GERADO (DataIntegrator):", goalsForPrompt);
+      } else {
+        console.log("🔍 goalsForPrompt permaneceu como padrão: 'Nenhuma meta definida.'");
       }
+		console.log("🔍 goalsForPrompt:", goalsForPrompt);
+      
 
       // 9. SYSTEM PROMPT
+	  console.log("🚀 Chamando getSystemPrompt com assetsSummary:", assetsSummary);
+	  console.log("🚀 passivesSummary:", passivesSummary);
+	  console.log("🚀 patrimonioLiquidoStr:", patrimonioLiquidoStr);
       const systemPrompt = NexusIdentity.getSystemPrompt(
-        safeUserName, context, marketData,
+        safeUserName, context, marketData, assetsSummary, passivesSummary, patrimonioLiquido,
         transactionsForPrompt, goalsForPrompt, "",
         isFirst, userData,
         historyDescription // NOVO PARÂMETRO

@@ -5,8 +5,14 @@ import { useSubscriptionAccess } from '../../../hooks/useSubscriptionAccess';
 import { Sparkles, Send, PlusCircle, Folder, Cpu, Activity, X, Trash2, Lock } from 'lucide-react';
 import { saveChatHistory, loadUserChatHistory, updateChatHistory, deleteChatHistory, type ChatHistoryItem } from '../../../services/chatHistoryService';
 import { Preferences } from '@capacitor/preferences';
-
-interface AiAdvisorProps { transactions: any[]; currentCalcResult: any[]; goals: any[]; currentTool: string; }
+interface AiAdvisorProps { 
+  transactions: any[]; 
+  currentCalcResult: any[]; 
+  goals: any[]; 
+  assets?: any[]; 
+  passives?: any[]; 
+  currentTool: string; 
+}
 interface Message { role: 'user' | 'ai'; text: string; timestamp: Date; isIntro?: boolean; }
 
 const formatMarkdown = (text: string) => {
@@ -18,8 +24,14 @@ const formatMarkdown = (text: string) => {
     return <p key={i} className={line.trim().startsWith('•') ? "ml-2 mb-1" : "mb-3"}>{formattedLine}</p>;
   });
 };
-
-const AiAdvisor: React.FC<AiAdvisorProps> = ({ transactions = [], currentCalcResult = [], goals = [], currentTool }) => {
+const AiAdvisor: React.FC<AiAdvisorProps> = ({ 
+  transactions = [], 
+  currentCalcResult = [], 
+  goals = [], 
+  assets = [], 
+  passives = [], 
+  currentTool 
+}) => {	
   const { user } = useAuth();
   const { sendToNexus, isLoading: isAiLoading } = useAiAgent();
   const { isPro, isPremium } = useSubscriptionAccess(); 
@@ -115,14 +127,21 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({ transactions = [], currentCalcRes
     await incrementDailyCount();
     
     // ✅ EnviauserName e o contexto completo (transactions + simulations)
-    const response = await sendToNexus(
-      userMsg, 
-      { transactions, simulations: currentCalcResult, currentTool }, 
-      capitalizedName, 
-      newMessages.filter(m => !m.isIntro).map(m => ({ role: m.role, text: m.text })), 
-      newMessages.length === 2
-    );
-
+	
+	const response = await sendToNexus(
+	  userMsg, 
+	  { 
+		transactions, 
+		simulations: currentCalcResult, 
+		goals,
+		assets,
+		passives,
+		currentTool 
+	  }, 
+	  capitalizedName, 
+	  newMessages.filter(m => !m.isIntro).map(m => ({ role: m.role, text: m.text })), 
+	  newMessages.length === 2
+	);
     if (response) {
       const updatedWithAi: Message[] = [...newMessages, { role: 'ai', text: response.answer, timestamp: new Date() }];
       setMessages(updatedWithAi);

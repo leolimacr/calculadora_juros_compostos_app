@@ -1,4 +1,7 @@
-import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
+import { Link } from 'react-router-dom';
+import { useGoals } from '../hooks/useGoals';
+import { calcularProximoAporte, diasAteProximoAporte } from '../utils/dateHelpers';
+import { collection, addDoc, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { firestore } from '../firebase'; // Verifique se o caminho do seu firebase.ts está correto
 import { MarkdownViewer } from './Public/MarkdownViewer';
 import { courses } from './Public/Courses';
@@ -50,14 +53,49 @@ const RADAR_NEWS = [
 ];
 
 export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthenticated, userMeta }) => {
+	
   // --- ESTADOS E LÓGICA (MANTIDOS INTACTOS) ---
-  const [radarNews, setRadarNews] = useState<any[]>(RADAR_NEWS); // Inicia com os dados fixos enquanto carrega
-	  const fetchNews = async () => {
-		const fetchedNews = await getLatestNews(9);
-		if (fetchedNews && fetchedNews.length > 0) {
-		  setRadarNews(fetchedNews);
-		}
-	  };
+  const [radarNews, setRadarNews] = useState<any[]>(RADAR_NEWS); // Inicia com os dados fixos enquanto carrega  
+  // --- INÍCIO: CONTROLE DE PATRIMÔNIO E PRIVACIDADE ---
+  const [isPrivacyMode, setIsPrivacyMode] = useState(false);
+
+  const patrimonioAtivo = userMeta?.resumoFinanceiro?.patrimonioAtivo || 0;
+  
+  
+  const patrimonioPassivo = userMeta?.resumoFinanceiro?.patrimonioPassivo || 0;
+  const patrimonioTotal = patrimonioAtivo + patrimonioPassivo;
+
+  const formatValue = (value: number) => {
+    if (isPrivacyMode) return 'R$ •••••••';
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+  };
+  // --- NOVO: LÓGICA DAS METAS DE APORTE ---
+  const { goals: metas } = useGoals(userMeta?.uid);
+  const metasAtivas = metas.filter(m => m.ativa);
+  // Pega a meta mais recente (ou a primeira) - você pode definir critérios melhores depois
+  const proximaMeta = metasAtivas.length > 0 ? metasAtivas[0] : null;
+
+  let proximoAporteData: Date | null = null;
+  let diasRestantes: number | null = null;
+  let valorProximoAporte: number = 1200; // valor padrão para não logado
+
+  if (userMeta && proximaMeta) {
+    proximoAporteData = calcularProximoAporte({
+      dataInicio: proximaMeta.dataInicio,
+      frequencia: proximaMeta.frequencia,
+      diasPersonalizado: proximaMeta.diasPersonalizado,
+    });
+    diasRestantes = diasAteProximoAporte(proximoAporteData);
+    valorProximoAporte = proximaMeta.valor;
+  }
+  // --- FIM: LÓGICA DAS METAS DE APORTE ---
+  // --- FIM: CONTROLE DE PATRIMÔNIO E PRIVACIDADE ---
+  const fetchNews = async () => {
+	const fetchedNews = await getLatestNews(9);
+	if (fetchedNews && fetchedNews.length > 0) {
+	  setRadarNews(fetchedNews);
+	}
+  };
 
 	  // Adiciona a chamada no useEffect existente ou cria um novo
 	  useEffect(() => {
@@ -119,6 +157,29 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
   content: '',
   coverImage: '',
   });
+
+// Busca o resumoFinanceiro apenas se o usuário estiver logado
+    useEffect(() => {
+      const fetchResumoFinanceiro = async () => {
+        if (!isAuthenticated || !userMeta?.uid) return;
+        try {
+          const docRef = doc(firestore, 'users', userMeta.uid);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            const ativo = data.resumoFinanceiro?.patrimonioAtivo || 0;
+            const passivo = data.resumoFinanceiro?.patrimonioPassivo || 0;
+            
+            setPatrimonioAtivo(ativo);
+            setPatrimonioPassivo(passivo);
+            setPatrimonioTotal(ativo + passivo);
+          }
+        } catch (error) {
+          console.error("Erro ao buscar resumo financeiro:", error);
+        }
+      };
+      fetchResumoFinanceiro();
+    }, [isAuthenticated, userMeta]);
   const fetchMarketData = async () => {
     try {
       const [cloudRes, awesomeRes, selic, ipca] = await Promise.all([
@@ -261,6 +322,21 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
 				  setNewsForm((prev) => ({ ...prev, summary: e.target.value }))
 			  }
 			/>
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
 			  <textarea
 			    placeholder="Conteúdo completo (Markdown)"
 			    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white h-40"
@@ -309,7 +385,7 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
           </div>
         </ContentModal>
       )}
-
+	  
       {/* TICKER DE MERCADO (TOPO - Mantido para sensação de Financeiro) */}
       <InfiniteTicker data={marketData} />
 
@@ -371,14 +447,16 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
             </div>
           </div> {/* FIM DA COLUNA ESQUERDA */}
 
-          {/* Coluna Direita: Elemento Visual Abstrato (O "Anti-Vazio") */}
-          <div className="hidden lg:block relative animate-in fade-in slide-in-from-right-8 duration-1000 delay-300">
-            {/* Glow effect atrás do card */}
-            <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/20 to-sky-500/20 blur-3xl rounded-[3rem]" />
+		  {/* Coluna Direita: Elemento Visual Abstrato (O "Anti-Vazio") */}
+          <div className="hidden lg:block relative animate-in fade-in slide-in-from-right-8 duration-1000 delay-300 group/card cursor-default">
             
-            {/* Mockup do Dashboard (Painel de Vidro / Glassmorphism) */}
-            <div className="relative bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-6 shadow-2xl overflow-hidden">
-			  {/* Top bar do Mockup */}
+            {/* Glow effect atrás do card - Intensifica no hover */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/20 to-sky-500/20 blur-3xl rounded-[3rem] opacity-50 transition-opacity duration-700 group-hover/card:opacity-100" />
+            
+            {/* Mockup do Dashboard (Painel de Vidro) - Flutuação e brilho no hover */}
+            <div className="relative bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-6 shadow-2xl overflow-hidden transition-all duration-700 group-hover/card:-translate-y-2 group-hover/card:shadow-[0_20px_40px_-15px_rgba(16,185,129,0.2)] group-hover/card:border-slate-600/80">
+              
+              {/* Top bar do Mockup */}
               <div className="flex items-center justify-between border-b border-slate-800/80 pb-4 mb-4">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded bg-emerald-500/20 flex items-center justify-center">
@@ -388,35 +466,158 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
                 </div>
                 <div className="h-4 w-16 bg-slate-800 rounded animate-pulse" />
               </div>
-              
+				
+				{/* Top bar do Mockup */}
+              <div className="flex items-center justify-between border-b border-slate-800/80 pb-4 mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded bg-emerald-500/20 flex items-center justify-center">
+                    <Wallet size={16} className="text-emerald-400" />
+                  </div>
+                  <div className="h-4 w-24 bg-slate-800 rounded animate-pulse" />
+                </div>
+                <div className="h-4 w-16 bg-slate-800 rounded animate-pulse" />
+              </div>
+				
               {/* Corpo do Mockup: Gráficos e Cards abstratos */}
               <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/30">
-                  <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Patrimônio Total</p>
-                  <p className="text-xl font-black text-white">R$ 142.500,00</p>
-                  <p className="text-xs text-emerald-400 mt-2 font-medium">+2.4% este mês</p>
+                
+                {/* 1. Patrimônio Ativo (A ESTRELA - Foco em Liberdade Financeira) */}
+                <div 
+                  onClick={() => isAuthenticated ? onNavigate('investimentos') : onStartNow()}
+                  className="col-span-2 bg-gradient-to-br from-emerald-900/40 via-slate-800/40 to-slate-800/40 backdrop-blur-md rounded-2xl p-5 md:p-6 border border-emerald-500/40 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_10px_30px_-10px_rgba(16,185,129,0.3)] hover:border-emerald-400/60 cursor-pointer relative overflow-hidden group/ativo"
+                >  
+                  {/* Efeito de brilho de fundo - intensifica no hover */}
+                  <div className="absolute -right-10 -top-10 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl group-hover/ativo:bg-emerald-500/20 transition-all duration-500" />
+                  
+                  <div className="flex items-center gap-2 mb-2 relative z-10">
+                    <span className="relative flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                    </span>
+                    <p className="text-[10px] md:text-xs text-emerald-400 font-black uppercase tracking-widest">
+                      Patrimônio Ativo <span className="text-emerald-500/70 hidden sm:inline ml-1 font-semibold">- O motor da sua Liberdade</span>
+                    </p>
+                  </div>
+                  
+                  {isAuthenticated && typeof patrimonioAtivo !== 'undefined' && patrimonioAtivo !== null ? (
+                    <p className="text-3xl md:text-4xl lg:text-5xl font-black text-white tracking-tight my-2 relative z-10">
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(patrimonioAtivo)}
+                    </p>
+                  ) : (
+                    <p className="text-3xl md:text-4xl lg:text-5xl font-black text-white tracking-tight my-2 relative z-10">
+                      R$ 142.500,00
+                    </p>
+                  )}
+                  
+                  <p className="text-xs md:text-sm text-emerald-400/80 font-medium relative z-10">
+                    {isAuthenticated ? "Gerando sua renda passiva do futuro" : "Rendimento médio de +2.4% ao mês"}
+                  </p>
                 </div>
-                <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/30">
-                  <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Próximo Aporte</p>
-                  <p className="text-xl font-black text-white">R$ 1.200,00</p>
-                  <p className="text-xs text-slate-400 mt-2 font-medium">Faltam 5 dias</p>
+
+
+
+
+
+
+
+
+
+
+				{/* 2. Próximo Aporte (O COMBUSTÍVEL) */}
+				<div 
+				  onClick={() => onNavigate('metas')} 
+				  className="col-span-1 h-full bg-gradient-to-b from-blue-500/10 to-slate-800/20 backdrop-blur-md rounded-xl p-4 md:p-5 border border-blue-500/30 transition-all duration-300 ease-out hover:-translate-y-1 hover:bg-blue-500/20 hover:shadow-lg hover:shadow-blue-500/20 flex flex-col justify-center cursor-pointer"
+				>
+				  <p className="text-[10px] md:text-xs text-blue-300 font-bold uppercase mb-2 tracking-wider">
+					Próximo Aporte
+				  </p>
+				  <p className="text-xl md:text-2xl lg:text-3xl font-black text-white truncate mb-1">
+					{userMeta ? `R$ ${valorProximoAporte.toFixed(2).replace('.', ',')}` : 'R$ 1.200,00'}
+				  </p>
+				  <div className="mt-auto pt-3">
+					{userMeta ? (
+					  metasAtivas.length === 0 ? (
+						<span className="inline-block bg-amber-500/20 border border-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-1 rounded-md">
+						  Definir meta
+						</span>
+					  ) : (
+						<span className={`inline-block border text-[10px] font-bold px-2 py-1 rounded-md ${
+						  diasRestantes !== null && diasRestantes <= 0 ? 'bg-emerald-500/20 border-emerald-500/20 text-emerald-300' :
+						  diasRestantes !== null && diasRestantes <= 5 ? 'bg-amber-500/20 border-amber-500/20 text-amber-300' :
+						  'bg-blue-500/20 border-blue-500/20 text-blue-300'
+						}`}>
+						  {diasRestantes !== null ? (diasRestantes <= 0 ? 'Hoje é o dia!' : `Faltam ${diasRestantes} dias`) : 'Em breve'}
+						</span>
+					  )
+					) : (
+					  <span className="inline-block bg-blue-500/20 border border-blue-500/20 text-blue-300 text-[10px] font-bold px-2 py-1 rounded-md">
+						Faça login para definir metas
+					  </span>
+					)}
+				  </div>
+				</div>
+                {/* 3 e 4. Passivo e Total (OS INFORMATIVOS - Compactos e Empilhados) */}
+                <div className="col-span-1 flex flex-col gap-3">
+                  
+                  {/* Patrimônio Passivo */}
+                  <div 
+                    onClick={() => isAuthenticated ? onNavigate('passivos') : onStartNow()}
+                    className="flex-1 bg-slate-800/30 backdrop-blur-md rounded-xl p-3 md:p-4 border border-slate-700/40 transition-all duration-300 hover:bg-slate-700/50 hover:border-slate-600/50 cursor-pointer flex flex-col justify-center group/passivo"
+                  >
+                    <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase mb-1 tracking-wider group-hover/passivo:text-slate-300 transition-colors">
+                      Patrimônio Passivo
+                    </p>
+                    {isAuthenticated && typeof patrimonioPassivo !== 'undefined' && patrimonioPassivo !== null ? (
+                      <p className="text-base md:text-lg font-bold text-slate-200 truncate" title={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(patrimonioPassivo)}>
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(patrimonioPassivo)}
+                      </p>
+                    ) : (
+                      <p className="text-base md:text-lg font-bold text-slate-200 truncate">R$ 350.000,00</p>
+                    )}
+                  </div>
+
+                  {/* Patrimônio Total */}
+                  <div className="flex-1 bg-slate-800/10 backdrop-blur-md rounded-xl p-3 md:p-4 border border-slate-700/30 border-dashed transition-all duration-300 flex flex-col justify-center opacity-70 hover:opacity-100">
+                    <p className="text-[9px] md:text-[10px] text-slate-500 font-bold uppercase mb-1 tracking-wider">
+                      Patrimônio Total
+                    </p>
+                    {isAuthenticated && typeof patrimonioAtivo !== 'undefined' && typeof patrimonioPassivo !== 'undefined' ? (
+                      <p className="text-sm md:text-base font-bold text-slate-400 truncate" title={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((patrimonioAtivo || 0) + (patrimonioPassivo || 0))}>
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((patrimonioAtivo || 0) + (patrimonioPassivo || 0))}
+                      </p>
+                    ) : (
+                      <p className="text-sm md:text-base font-bold text-slate-400 truncate">R$ 492.500,00</p>
+                    )}
+                  </div>
+
+                </div>
+
+              </div>
+             
+              {/* Mockup de Gráfico de Evolução Patrimonial */}
+              <div className="bg-slate-800/30 backdrop-blur-md rounded-xl p-4 border border-slate-700/50 mt-4 group">
+                <div className="flex justify-between items-center mb-4">
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Evolução Patrimonial</p>
+                  <div className="flex gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+                  </div>
+                </div>
+                
+                <div className="flex items-end justify-between h-24 gap-2">
+                  {[40, 55, 45, 70, 60, 85, 100].map((height, index) => (
+                    <div 
+                      key={index} 
+                      className="w-full bg-slate-700/40 rounded-t-sm transition-all duration-300 group-hover:bg-slate-600/50 hover:!bg-emerald-500/60" 
+                      style={{ height: `${height}%` }}
+                    ></div>
+                  ))}
                 </div>
               </div>
 
-              {/* Gráfico Abstrato (Barras) */}
-              <div className="h-32 bg-slate-800/30 rounded-xl border border-slate-700/30 p-4 flex items-end gap-2 justify-between">
-                {[40, 60, 45, 80, 65, 90, 100].map((height, i) => (
-                  <div key={i} className="w-full bg-emerald-500/20 rounded-t-sm relative group">
-                    <div 
-                      className="absolute bottom-0 w-full bg-emerald-500 rounded-t-sm transition-all duration-1000" 
-                      style={{ height: `${height}%` }}
-                    />
-                  </div>
-                ))}
-              </div>
             </div>
           </div>
-
         </div>
       </section>
 	  {/* --- 2. BENTO GRID: FERRAMENTAS (ATUALIZADO) --- */}
@@ -501,7 +702,6 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
               <h4 className="text-xl font-bold text-white mb-3 group-hover:text-indigo-400 transition-colors duration-300">
                 {course.title}
               </h4>
-              
               {/* Descrição em duas linhas */}
               <p className="text-sm text-slate-400 mb-6 line-clamp-2 leading-relaxed">
                 {course.excerpt}
@@ -844,5 +1044,4 @@ const MarketPanel = ({ title, items, onItemClick }: any) => {
     </div>
   );
 };
-export { InvestmentArticle2026 } from './Public/Articles/InvestmentArticle2026';
 export default PublicHome;
