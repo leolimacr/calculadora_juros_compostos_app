@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useGoals } from '../hooks/useGoals';
 import { calcularProximoAporte, diasAteProximoAporte } from '../utils/dateHelpers';
-import { collection, addDoc, doc, updateDoc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, getDoc, deleteDoc } from 'firebase/firestore';
 import { firestore } from '../firebase'; // Verifique se o caminho do seu firebase.ts está correto
 import { MarkdownViewer } from './Public/MarkdownViewer';
 import { courses } from './Public/Courses';
@@ -141,7 +141,24 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
       console.error("Erro ao salvar:", error);
       alert('Erro ao salvar a notícia.');
     }
-  };	    
+  };
+
+  const handleDeleteNews = async (id) => {
+    try {
+      // Referência ao documento na coleção 'noticias'
+      const newsDocRef = doc(firestore, 'noticias', id);
+      await deleteDoc(newsDocRef);
+  
+      // Atualiza o estado local removendo a notícia
+      setRadarNews(prev => prev.filter(news => news.id !== id));
+  
+      // Opcional: feedback visual (use um toast se tiver)
+      alert('Notícia excluída com sucesso!');
+    } catch (error) {
+      console.error('Erro ao excluir notícia:', error);
+    alert('Erro ao excluir a notícia. Tente novamente.');
+    }
+  };
   const [marketData, setMarketData] = useState<any>({ indices: [], stocks: [], currencies: [], cryptos: [], indicators: [] });
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAsset, setSelectedAsset] = useState<string | null>(null);
@@ -323,20 +340,6 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
 			  }
 			/>
 			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
 			  <textarea
 			    placeholder="Conteúdo completo (Markdown)"
 			    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white h-40"
@@ -513,15 +516,6 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
                     {isAuthenticated ? "Gerando sua renda passiva do futuro" : "Rendimento médio de +2.4% ao mês"}
                   </p>
                 </div>
-
-
-
-
-
-
-
-
-
 
 				{/* 2. Próximo Aporte (O COMBUSTÍVEL) */}
 				<div 
@@ -840,13 +834,26 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
 						  </button>
 						)}
 						{/* Fim: Botão Editar */}
-
+						{/* NOVO: Botão Excluir para o Admin */}
+						  {isAuthenticated && userMeta?.email === 'leolimacr@hotmail.com' && (
+							<button
+							  onClick={(e) => {
+								e.stopPropagation();
+								if (window.confirm('Tem certeza que deseja excluir esta notícia?')) {
+								  handleDeleteNews(news.id);
+								}
+							  }}
+							  className="text-[9px] font-black uppercase tracking-widest text-rose-400 border border-rose-500/30 px-2 py-1 rounded hover:bg-rose-500/10 transition-colors z-10 relative"
+							>
+							  Excluir
+							</button>
+						  )}
 						<span className="text-[10px] text-slate-500 font-bold uppercase">
 						  {news.badge || news.date}
 						</span>
 					  </div>
-					</div>
-					
+                    </div>
+										
 					{/* Título com contraste melhorado */}
 					<h4 className="text-lg font-bold text-white mb-3 leading-tight group-hover:text-emerald-400 transition-colors line-clamp-2">
 					  {news.title}
@@ -861,10 +868,10 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
 			  ))}
 			</div>
 		  </div>
-		</section>				  
-
-      {/* --- 4. TERMINAL DE MERCADO (DADOS) --- */}
-      <section className="py-16 bg-[#020617]">
+		</section>
+		
+          {/* --- 4. TERMINAL DE MERCADO (DADOS) --- */}
+          <section className="py-16 bg-[#020617]">
         <div className="max-w-[1600px] mx-auto px-4 lg:px-12">
           
           <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-6">
@@ -918,7 +925,7 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
 
         </div>
       </section>
-
+	
       {/* --- FOOTER PROFISSIONAL --- */}
       <footer className="bg-[#020617] border-t border-slate-900 py-16 px-6">
         <div className="max-w-[1400px] mx-auto grid grid-cols-1 md:grid-cols-12 gap-12">
