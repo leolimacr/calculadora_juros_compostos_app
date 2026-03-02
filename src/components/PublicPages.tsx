@@ -1,8 +1,9 @@
+import { storage, firestore } from '../firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Link } from 'react-router-dom';
 import { useGoals } from '../hooks/useGoals';
 import { calcularProximoAporte, diasAteProximoAporte } from '../utils/dateHelpers';
 import { collection, addDoc, doc, updateDoc, getDoc, deleteDoc } from 'firebase/firestore';
-import { firestore } from '../firebase'; // Verifique se o caminho do seu firebase.ts está correto
 import { MarkdownViewer } from './Public/MarkdownViewer';
 import { courses } from './Public/Courses';
 import React, { useEffect, useState, useMemo } from 'react';
@@ -101,6 +102,25 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
 	  useEffect(() => {
 		fetchNews();
 	  }, []);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingImage(true);
+    try {
+  	  const storageRef = ref(storage, `news/${Date.now()}-${file.name}`);
+	  await uploadBytes(storageRef, file);
+	  const url = await getDownloadURL(storageRef);
+	  setNewsForm((prev) => ({ ...prev, coverImage: url }));
+    } catch (error) {
+	  alert('Erro ao fazer upload da imagem.');
+    } finally {
+	  setUploadingImage(false);
+    }
+  };	  
+	  
   const handleSaveNews = async () => {
     try {
       if (newsForm.id) {
@@ -322,15 +342,23 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
 				setNewsForm((prev) => ({ ...prev, title: e.target.value }))
 			  }
 			/>
-		     <input
-			  type="text"
-			  placeholder="Caminho da Imagem (ex: /assets/images/news/foto.jpg)"
-			  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
-			  value={newsForm.coverImage}
-			  onChange={(e) =>
-			    setNewsForm((prev) => ({ ...prev, coverImage: e.target.value }))
-			  }
-		    />
+			
+			 <div className="space-y-2">
+			  <label className="text-slate-400 text-xs">Imagem da notícia</label>
+			  <input
+				type="file"
+				accept="image/*"
+				onChange={handleImageUpload}
+				className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+			  />
+			  {uploadingImage && (
+				<p className="text-emerald-400 text-xs">Enviando imagem...</p>
+			  )}
+			  {newsForm.coverImage && !uploadingImage && (
+				<img src={newsForm.coverImage} className="w-full h-32 object-cover rounded-lg mt-1" />
+			  )}
+			 </div>
+			
    			  <textarea
 			    placeholder="Resumo (summary)"
 			    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white h-24"
