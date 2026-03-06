@@ -12,6 +12,7 @@ export declare const askAiAdvisor: import("firebase-functions/v2/https").Callabl
     error: any;
     context?: undefined;
 }>, unknown>;
+export { getMarketData } from './marketData';
 export declare const testMistral: import("firebase-functions/v2/https").CallableFunction<any, Promise<{
     success: boolean;
     error: string;

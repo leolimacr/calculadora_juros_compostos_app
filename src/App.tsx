@@ -147,6 +147,7 @@ const App: React.FC = () => {
             isLimitReached={isLimitReached}
             onShowPaywall={() => setActiveModal('paywall')}
             isPrivacyMode={isPrivacyMode}
+			onTogglePrivacy={() => setIsPrivacyMode(prev => !prev)}
             onNavigate={handleNavigate}
             onEditTransaction={handleEditTransaction}
           />
@@ -196,18 +197,18 @@ const App: React.FC = () => {
       case 'home':
       default:
         return (
-          <PublicHome
-            key={homeKey}
-            onNavigate={handleNavigate}
-            onStartNow={() => handleNavigate(isAuthenticated ? 'manager' : 'register')}
-            isAuthenticated={isAuthenticated}
-            userEmail={user?.email}
-            userMeta={userMeta}
-          />
+		  <PublicHome
+		    key={homeKey}
+		    onNavigate={handleNavigate}
+		    onStartNow={() => handleNavigate(isAuthenticated ? 'manager' : 'register')}
+		    isAuthenticated={isAuthenticated}
+		    userEmail={user?.email}
+		    userMeta={userMeta}
+		    isPrivacyMode={isPrivacyMode}
+	  	  />
         );
     }
   };
-
   return (
     <div className="min-h-screen bg-[#020617] text-slate-200 flex flex-col font-sans overflow-x-hidden">
       <AppHeader

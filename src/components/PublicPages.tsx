@@ -1,3 +1,4 @@
+import { fetchAssetQuote } from '../services/marketService';
 import { storage, firestore } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Link } from 'react-router-dom';
@@ -53,12 +54,11 @@ const RADAR_NEWS = [
   }
 ];
 
-export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthenticated, userMeta }) => {
+export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthenticated, userMeta, isPrivacyMode }) => {
 	
   // --- ESTADOS E LÓGICA (MANTIDOS INTACTOS) ---
   const [radarNews, setRadarNews] = useState<any[]>(RADAR_NEWS); // Inicia com os dados fixos enquanto carrega  
   // --- INÍCIO: CONTROLE DE PATRIMÔNIO E PRIVACIDADE ---
-  const [isPrivacyMode, setIsPrivacyMode] = useState(false);
 
   const patrimonioAtivo = userMeta?.resumoFinanceiro?.patrimonioAtivo || 0;
   
@@ -180,21 +180,22 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
     }
   };
   const [marketData, setMarketData] = useState<any>({ indices: [], stocks: [], currencies: [], cryptos: [], indicators: [] });
+  const indicesComIndicadores = useMemo(() => {
+    return [...(marketData.indices || []), ...(marketData.indicators || [])];
+  }, [marketData.indices, marketData.indicators]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedAsset, setSelectedAsset] = useState<string | null>(null);
+  const [selectedAsset, setSelectedAsset] = useState<{ symbol: string; category: string } | null>(null);
   const [activeInfoModal, setActiveInfoModal] = useState<string | null>(null);
   const [selectedArticle, setSelectedArticle] = useState<any | null>(null);
   const [searchPreview, setSearchPreview] = useState<any>(null);
   const [selectedCourse, setSelectedCourse] = useState<any | null>(null);
   const [showNewsAdmin, setShowNewsAdmin] = useState(false);
-  const [newsForm, setNewsForm] = useState({
-  id: '', // Adicionamos esta linha
-  title: '',
-  summary: '',
-  content: '',
-  coverImage: '',
-  });
-
+  const [newsForm, setNewsForm] = useState({ id: '', title: '', summary: '', content: '', coverImage: '' });
+  const [cryptoSymbol, setCryptoSymbol] = useState('');
+  const [cryptoPreview, setCryptoPreview] = useState<any>(null);
+    useEffect(() => {
+  }, [selectedAsset]);
+  
 // Busca o resumoFinanceiro apenas se o usuário estiver logado
     useEffect(() => {
       const fetchResumoFinanceiro = async () => {
@@ -226,11 +227,13 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
           fetch(BCB_IPCA_URL).then(r => r.json()).catch(() => [{valor: '4.50'}])
       ]);
       
-      const formatB = (item: any, type: string) => ({ 
-          symbol: item.symbol === '^BVSP' ? 'IBOV' : (item.symbol === '^GSPC' ? 'S&P 500' : item.symbol), 
-          price: item.regularMarketPrice, change: item.regularMarketChangePercent, 
-          up: (item.regularMarketChangePercent || 0) >= 0, type 
-      });
+	  const formatB = (item: any, type: string) => ({ 
+		  symbol: item.symbol === '^BVSP' ? 'IBOV' : (item.symbol === '^GSPC' ? 'S&P 500' : item.symbol), 
+		  price: item.price,        // ✅ campo correto
+		  change: item.change,      // ✅ campo correto
+		  up: (item.change || 0) >= 0, 
+		  type 
+	  });
       const formatC = (symbol: string, raw: any, type: string) => ({ symbol, price: parseFloat(raw?.bid || 0), change: parseFloat(raw?.pctChange || 0), up: parseFloat(raw?.pctChange || 0) >= 0, type });
       
       setMarketData({
@@ -260,33 +263,55 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
   }, [searchTerm]); 
   
   const handleSelectSuggestion = async (ticker: string) => {
-    setSearchTerm('');
-    // Inicializa com null para mostrar um estado de "carregando"
-    setSearchPreview({ symbol: ticker, price: null, type: 'stock', change: null, up: true });
-    
-    try {
-        const res = await fetch(`${TICKER_API_URL}?tickers=${ticker}`).then(r => r.json());
-		const data = Array.isArray(res) ? res[0] : res;
-        const item = (data?.results && data.results[0]) ? data.results[0] : data;
-
-        if (item) {
-            const currentPrice = item.regularMarketPrice || item.price || item.close || null;
-            const currentChange = item.regularMarketChangePercent || item.change || 0;
-
-            setSearchPreview({ 
-                symbol: item.symbol || ticker, 
-                price: currentPrice, 
-                change: currentChange, 
-                up: currentChange >= 0, 
-                type: 'stock' 
-            });
-        }
-		
-    } catch (e) { 
-        console.error("Erro ao buscar ticker:", e);
-        setSearchPreview({ symbol: ticker, price: null, type: 'stock', change: null, up: true }); 
+  setSearchTerm('');
+  setSearchPreview({ symbol: ticker, price: null, type: 'stock', change: null, up: true });
+  try {
+    const quote = await fetchAssetQuote(ticker);
+    if (quote) {
+      setSearchPreview({
+        symbol: quote.symbol,
+        price: quote.price,
+        change: quote.changePercent,
+        up: quote.changePercent >= 0,
+        type: quote.category
+      });
+    } else {
+      // Se não encontrar, limpa a prévia
+      setSearchPreview(null);
     }
-  };	  
+  } catch (e) {
+    console.error("Erro ao buscar ticker:", e);
+    setSearchPreview(null);
+  }
+};
+  const handleCryptoSearch = async () => {
+  if (!cryptoSymbol.trim()) return;
+  const ticker = cryptoSymbol.trim().toUpperCase();
+  
+  setSearchPreview(null);
+  setCryptoPreview({ symbol: ticker, price: null, change: null, up: true });
+
+  try {
+    const quote = await fetchAssetQuote(ticker);
+    if (quote) {
+      setCryptoPreview({
+        symbol: quote.symbol,
+        price: quote.price,
+        change: quote.changePercent,
+        up: quote.changePercent >= 0,
+        type: quote.category
+      });
+    } else {
+      setCryptoPreview(null);
+      alert('Criptomoeda não encontrada');
+    }
+  } catch (error) {
+    console.error('Erro ao buscar cripto:', error);
+    setCryptoPreview(null);
+  } finally {
+    setCryptoSymbol('');
+  }
+};
 
   // --- RENDERIZAÇÃO DE CURSO COMPLETO ---
   if (selectedCourse) {
@@ -317,7 +342,7 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
   // --- NOVA ESTRUTURA VISUAL (JXS) ---
   return (
     <div className="flex flex-col bg-[#020617] min-h-screen text-white font-sans overflow-x-hidden pt-16 selection:bg-emerald-500/30">
-      {selectedAsset && <AssetModal symbol={selectedAsset} onClose={() => setSelectedAsset(null)} />}
+      {selectedAsset && <AssetModal asset={selectedAsset} onClose={() => setSelectedAsset(null)} />}
       
       {/* --- MODAIS DE INFORMAÇÃO (MANTIDOS) --- */}
       {activeInfoModal === 'quem-somos' && (
@@ -532,7 +557,7 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
                   
                   {isAuthenticated && typeof patrimonioAtivo !== 'undefined' && patrimonioAtivo !== null ? (
                     <p className="text-3xl md:text-4xl lg:text-5xl font-black text-white tracking-tight my-2 relative z-10">
-                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(patrimonioAtivo)}
+					  {formatValue(patrimonioAtivo)}
                     </p>
                   ) : (
                     <p className="text-3xl md:text-4xl lg:text-5xl font-black text-white tracking-tight my-2 relative z-10">
@@ -554,7 +579,7 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
 					Próximo Aporte
 				  </p>
 				  <p className="text-xl md:text-2xl lg:text-3xl font-black text-white truncate mb-1">
-					{userMeta ? `R$ ${valorProximoAporte.toFixed(2).replace('.', ',')}` : 'R$ 1.200,00'}
+					{userMeta ? formatValue(valorProximoAporte) : 'R$ 1.200,00'}
 				  </p>
 				  <div className="mt-auto pt-3">
 					{userMeta ? (
@@ -591,7 +616,7 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
                     </p>
                     {isAuthenticated && typeof patrimonioPassivo !== 'undefined' && patrimonioPassivo !== null ? (
                       <p className="text-base md:text-lg font-bold text-slate-200 truncate" title={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(patrimonioPassivo)}>
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(patrimonioPassivo)}
+						{formatValue(patrimonioPassivo)}
                       </p>
                     ) : (
                       <p className="text-base md:text-lg font-bold text-slate-200 truncate">R$ 350.000,00</p>
@@ -605,7 +630,7 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
                     </p>
                     {isAuthenticated && typeof patrimonioAtivo !== 'undefined' && typeof patrimonioPassivo !== 'undefined' ? (
                       <p className="text-sm md:text-base font-bold text-slate-400 truncate" title={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((patrimonioAtivo || 0) + (patrimonioPassivo || 0))}>
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((patrimonioAtivo || 0) + (patrimonioPassivo || 0))}
+						{formatValue(patrimonioTotal)}
                       </p>
                     ) : (
                       <p className="text-sm md:text-base font-bold text-slate-400 truncate">R$ 492.500,00</p>
@@ -901,54 +926,163 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
           {/* --- 4. TERMINAL DE MERCADO (DADOS) --- */}
           <section className="py-16 bg-[#020617]">
         <div className="max-w-[1600px] mx-auto px-4 lg:px-12">
-          
-          <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-6">
-            <div>
-               <h2 className="text-2xl font-black text-white tracking-tighter mb-2 flex items-center gap-2">
-                  <BarChart3 className="text-slate-500"/>
-                  Terminal de Mercado
-               </h2>
-               <p className="text-slate-500 text-xs uppercase tracking-wide font-bold">Monitoramento B3, Cripto e Câmbio</p>
-            </div>
-            
-            {/* BUSCA B3 */}
-            <div className="relative w-full md:w-96">
-                <input type="text" placeholder="Pesquisar Ativo (ex: PETR4)..." className="w-full bg-slate-900 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-sm font-bold text-white focus:border-emerald-500 transition-all uppercase outline-none shadow-inner" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                <Search className="absolute left-3 top-3 text-slate-500" size={16} />
-                {suggestions.length > 0 && (
-                    <div className="mt-2 bg-slate-900 border border-slate-700 rounded-xl overflow-hidden absolute w-full z-50 shadow-2xl">
-                        {suggestions.map((t, i) => <div key={i} className="p-3 hover:bg-slate-800 cursor-pointer border-t border-slate-800 font-bold text-xs" onClick={() => handleSelectSuggestion(t)}>{t}</div>)}
-                    </div>
-                )}
-            </div>
-          </div>
-		  {searchPreview && (
-             <div onClick={() => setSelectedAsset(searchPreview.symbol)} className="bg-slate-900 border border-slate-800 p-4 rounded-xl mb-8 flex items-center justify-between animate-in fade-in slide-in-from-top-2 shadow-xl cursor-pointer hover:border-slate-600 transition-all">	
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 font-black text-xs border border-emerald-500/20">{searchPreview.symbol.substring(0,3)}</div>
-                  <div>
-                    <h3 className="font-black text-white text-lg">{searchPreview.symbol}</h3>
-                    <p className="text-slate-500 text-[10px] uppercase font-bold">Ativo B3 Encontrado</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                   <div className="text-xl font-bold text-white">
-                     R$ {searchPreview.price !== null && searchPreview.price !== undefined ? Number(searchPreview.price).toFixed(2).replace('.', ',') : 'Buscando...'}
-                   </div>
-                   <div className={`text-xs font-black ${searchPreview.up ? 'text-emerald-400' : 'text-rose-400'}`}>
-                     {searchPreview.change !== null && searchPreview.change !== undefined ? `${searchPreview.change > 0 ? '+' : ''}${Number(searchPreview.change).toFixed(2).replace('.', ',')}%` : '0,00%'}
-                   </div>
-                </div>
-                <button onClick={() => setSearchPreview(null)} className="p-2 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-white transition-colors"><LogOut size={16}/></button>
-             </div>
-          )}
+		  <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-6">
+		    <div>
+			  <h2 className="text-2xl font-black text-white tracking-tighter mb-2 flex items-center gap-2">
+			    <BarChart3 className="text-slate-500"/>
+			    Terminal de Mercado
+			  </h2>
+			  <p className="text-slate-500 text-xs uppercase tracking-wide font-bold">Monitoramento B3, Cripto e Câmbio</p>
+		    </div>
 
+		    {/* DOIS CAMPOS LADO A LADO */}
+		    <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+			  {/* Campo B3 */}
+			  <div className="relative flex-1">
+			    <input
+				  type="text"
+				  placeholder="Pesquisar Ativo B3 (ex: PETR4)"
+				  className="w-full bg-slate-900 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-sm font-bold text-white focus:border-emerald-500 transition-all uppercase outline-none shadow-inner"
+				  value={searchTerm}
+				  onChange={(e) => setSearchTerm(e.target.value)}
+				  onKeyDown={(e) => e.key === 'Enter' && searchTerm && handleSelectSuggestion(searchTerm.toUpperCase())}
+			    />
+			    <Search className="absolute left-3 top-3 text-slate-500" size={16} />
+			    {suggestions.length > 0 && (
+				  <div className="mt-2 bg-slate-900 border border-slate-700 rounded-xl overflow-hidden absolute w-full z-50 shadow-2xl">
+				    {suggestions.map((t, i) => (
+					  <div
+					    key={i}
+					    className="p-3 hover:bg-slate-800 cursor-pointer border-t border-slate-800 font-bold text-xs"
+					    onClick={() => handleSelectSuggestion(t)}
+					  >
+					    {t}
+					  </div>
+				    ))}
+				  </div>
+			    )}
+			  </div>
+
+			  {/* Campo Cripto */}
+			  <div className="relative flex-1">
+			    <input
+				  type="text"
+				  placeholder="Buscar Cripto (ex: BTC, LTC, AVAX)"
+				  className="w-full bg-slate-900 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-sm font-bold text-white focus:border-purple-500 transition-all uppercase outline-none shadow-inner"
+				  value={cryptoSymbol}
+				  onChange={(e) => setCryptoSymbol(e.target.value)}
+				  onKeyDown={(e) => e.key === 'Enter' && handleCryptoSearch()}
+			    />
+			    <Search className="absolute left-3 top-3 text-slate-500" size={16} />
+			  </div>
+		    </div>
+		  </div>
+		  {(searchPreview || cryptoPreview) && (
+		    <div
+			  onClick={() => {
+			    const preview = searchPreview || cryptoPreview;
+			    if (preview) {				  
+				  setSelectedAsset({ symbol: preview.symbol, category: preview.type });
+			    }
+			  }}
+			  className="bg-slate-900 border border-slate-800 p-4 rounded-xl mb-8 flex items-center justify-between animate-in fade-in slide-in-from-top-2 shadow-xl cursor-pointer hover:border-slate-600 transition-all"
+		    >
+		   	  <div className="flex items-center gap-4">
+			    <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 font-black text-xs border border-emerald-500/20">
+				  {(searchPreview?.symbol || cryptoPreview?.symbol)?.substring(0, 3)}
+			    </div>
+			    <div>
+				  <h3 className="font-black text-white text-lg">{searchPreview?.symbol || cryptoPreview?.symbol}</h3>
+				  <p className="text-slate-500 text-[10px] uppercase font-bold">
+				    {searchPreview ? 'Ativo B3 Encontrado' : 'Criptomoeda Encontrada'}
+				  </p>
+			    </div>
+			  </div>
+			  <div className="text-right">
+			    <div className="text-xl font-bold text-white">
+				  {searchPreview?.price !== null && searchPreview?.price !== undefined
+				    ? `R$ ${Number(searchPreview.price).toFixed(2).replace('.', ',')}`
+				    : cryptoPreview?.price !== null && cryptoPreview?.price !== undefined
+				    ? `R$ ${Number(cryptoPreview.price).toFixed(2).replace('.', ',')}`
+				    : 'Buscando...'}
+			    </div>
+			    <div className={`text-xs font-black ${(searchPreview?.up ?? cryptoPreview?.up) ? 'text-emerald-400' : 'text-rose-400'}`}>
+				  {searchPreview?.change !== null && searchPreview?.change !== undefined
+				    ? `${searchPreview.change > 0 ? '+' : ''}${Number(searchPreview.change).toFixed(2).replace('.', ',')}%`
+				    : cryptoPreview?.change !== null && cryptoPreview?.change !== undefined
+				    ? `${cryptoPreview.change > 0 ? '+' : ''}${Number(cryptoPreview.change).toFixed(2).replace('.', ',')}%`
+				    : '0,00%'}
+			    </div>
+			  </div>
+			  <button
+			    onClick={(e) => {
+				  e.stopPropagation();
+				  setSearchPreview(null);
+				  setCryptoPreview(null);
+			    }}
+			    className="p-2 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-white transition-colors"
+			  >
+			    <LogOut size={16} />
+			  </button>
+		    </div>
+		  )}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
              {/* Painéis de Mercado Estilizados */}
-             <MarketPanel title="Índices Globais" items={marketData.indices} onItemClick={setSelectedAsset} />
-             <MarketPanel title="Câmbio & Moedas" items={marketData.currencies} onItemClick={setSelectedAsset} />
-             <MarketPanel title="Criptoativos" items={marketData.cryptos} onItemClick={setSelectedAsset} />
-             <MarketPanel title="Destaques B3" items={marketData.stocks.slice(0, 5)} onItemClick={setSelectedAsset} />
+			 
+			 
+			 
+			 
+			 
+			 
+			 
+			 
+			 
+			 
+			 
+			 
+			 
+			 
+			 
+			 
+			 
+			 
+			 
+			 
+			 
+			 
+			 
+			 <MarketPanel 
+			   title="Índices Globais e Indicadores" 
+			   items={indicesComIndicadores} 
+			   onItemClick={(symbol, category) => {
+			     console.log('MarketPanel clicado:', { symbol, category });
+			     setSelectedAsset({ symbol, category });
+			   }} 
+		     />
+		     <MarketPanel
+			   title="Câmbio & Moedas" 
+			   items={marketData.currencies} 
+			   onItemClick={(symbol, category) => {
+			     console.log('MarketPanel clicado:', { symbol, category });
+			     setSelectedAsset({ symbol, category });
+			   }} 
+		     />
+		     <MarketPanel
+			   title="Criptoativos" 
+			   items={marketData.cryptos} 
+			   onItemClick={(symbol, category) => {
+			     console.log('MarketPanel clicado:', { symbol, category });
+			     setSelectedAsset({ symbol, category });
+			   }} 
+		     />
+		     <MarketPanel
+			   title="Destaques B3" 
+			   items={marketData.stocks.slice(0, 5)} 
+			   onItemClick={(symbol, category) => {
+			     console.log('MarketPanel clicado:', { symbol, category });
+			     setSelectedAsset({ symbol, category });
+			   }} 
+			 />
           </div>
 
         </div>
@@ -1054,7 +1188,10 @@ const MarketPanel = ({ title, items, onItemClick }: any) => {
             {items.map((item: any, idx: number) => (
                 <div 
                   key={idx} 
-                  onClick={() => onItemClick(item.symbol)} 
+				  onClick={() => {
+				    onItemClick(item.symbol, item.type);
+				  }}
+				  onClick={() => onItemClick(item.symbol, item.type)}
                   className="flex justify-between items-center p-3 bg-slate-950/50 border border-slate-800/50 rounded-xl cursor-pointer transition-all duration-300 hover:bg-slate-800 hover:border-slate-600 hover:-translate-y-px hover:shadow-md group/item"
                 >
                     <div>

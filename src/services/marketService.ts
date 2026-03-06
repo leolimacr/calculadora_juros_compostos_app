@@ -205,42 +205,70 @@ export const searchAssets = async (query: string): Promise<AssetSearchResult[]> 
   }
 };
 
-// --- Busca Cotação Específica ---
 export const fetchAssetQuote = async (symbol: string): Promise<MarketQuote | null> => {
   try {
-    let apiSymbol = symbol;
-    let category: any = 'stock';
-    const knownCryptos = ['BTC', 'ETH', 'SOL', 'BNB', 'USDT', 'XRP', 'ADA', 'DOGE'];
+    // Primeiro, tenta buscar como criptomoeda nos formatos do Yahoo Finance
+    const cryptoFormats = [
+      `${symbol}-BRL`,
+      `${symbol}-USD`,
+      symbol // algumas vezes o símbolo puro funciona (ex: BTCUSD)
+    ];
 
-    if (symbol === 'BTC/USD') {
-        apiSymbol = 'BTC-USD';
-        category = 'crypto';
-    } else if (knownCryptos.includes(symbol)) {
-        apiSymbol = `${symbol}-BRL`;
-        category = 'crypto';
-    } else if (!symbol.includes('.') && !symbol.includes('-') && !symbol.startsWith('^')) {
-        apiSymbol = `${symbol}.SA`; 
+    for (const fmt of cryptoFormats) {
+      try {
+        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${fmt}?interval=1d&range=1d`)}`;
+        const res = await fetch(proxyUrl);
+        if (res.ok) {
+          const data = await res.json();
+          const result = data.chart?.result?.[0]?.meta;
+          if (result) {
+            const price = result.regularMarketPrice;
+            const prevClose = result.chartPreviousClose;
+            const changePercent = prevClose ? ((price - prevClose) / prevClose) * 100 : 0;
+            // Se chegou aqui, é uma cripto válida
+            return {
+              symbol: symbol, // mantém o original digitado
+              name: result.shortName || symbol,
+              price,
+              changePercent,
+              category: 'crypto',
+              timestamp: Date.now(),
+              simulated: false
+            };
+          }
+        }
+      } catch (e) {
+        // ignora erro e tenta o próximo formato
+      }
+    }
+
+    // Se não achou como cripto, tenta como ação brasileira (adiciona .SA)
+    let apiSymbol = symbol;
+    if (!symbol.includes('.') && !symbol.startsWith('^')) {
+      apiSymbol = `${symbol}.SA`;
     }
 
     const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${apiSymbol}?interval=1d&range=1d`)}`;
     const res = await fetch(proxyUrl);
-    
     if (!res.ok) return null;
-    
+
     const data = await res.json();
     const result = data.chart?.result?.[0]?.meta;
-    
     if (!result) return null;
 
     const price = result.regularMarketPrice;
     const prevClose = result.chartPreviousClose;
     const changePercent = prevClose ? ((price - prevClose) / prevClose) * 100 : 0;
-    
-    if (result.instrumentType === 'CRYPTOCURRENCY') category = 'crypto';
-    
+
+    // Determina a categoria: se o Yahoo disser que é cripto, usa crypto
+    let category: any = 'stock';
+    if (result.instrumentType === 'CRYPTOCURRENCY') {
+      category = 'crypto';
+    }
+
     return {
-      symbol: symbol === 'BTC-USD' ? 'BTC/USD' : symbol.replace('.SA', ''),
-      name:  data.chart?.result?.[0]?.meta?.shortName || symbol,
+      symbol: symbol.replace('.SA', ''),
+      name: result.shortName || symbol,
       price,
       changePercent,
       category,
@@ -301,7 +329,7 @@ export const fetchMarketQuotes = async (forceRefresh = false): Promise<MarketRes
                     symbol: idx.symbol,
                     name: idx.name, 
                     price: idx.price,
-                    changePercent: idx.changePercent,
+                    changePercent: idx.change,
                     category: 'index',
                     timestamp: Date.now(),
                     simulated: data.simulated
@@ -315,7 +343,7 @@ export const fetchMarketQuotes = async (forceRefresh = false): Promise<MarketRes
                     symbol: stock.symbol,
                     name: stock.name,
                     price: stock.price,
-                    changePercent: stock.changePercent,
+					changePercent: stock.change,
                     category: 'stock',
                     timestamp: Date.now(),
                     simulated: data.simulated

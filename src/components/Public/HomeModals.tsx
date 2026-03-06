@@ -17,30 +17,32 @@ export const ContentModal = ({ title, icon: Icon, children, onClose }: any) => (
     </div>
   </div>
 );
-
-export const AssetModal = ({ symbol, onClose }: { symbol: string, onClose: () => void }) => {
+export const AssetModal = ({ asset, onClose }: { asset: { symbol: string; category: string }, onClose: () => void }) => {  	
   const [isFull, setIsFull] = useState(false); // ✅ Estado para controlar o tamanho da tela
-
-  const getTradingViewSymbol = (s: string) => {
+  const getTradingViewSymbol = (s: string, cat: string) => {
     const sym = s.toUpperCase();
-    
-    // 1. ÍNDICES
-    if (sym.includes('IBOV') || sym === '^BVSP') return 'BMFBOVESPA:IBOV';
-    if (sym.includes('S&P') || sym === '^GSPC') return 'SP:SPX';
-    
-    // 2. CÂMBIO (Moedas)
-    if (sym === 'USD' || sym === 'USDBRL') return 'FX_IDC:USDBRL';
-    if (sym === 'EUR' || sym === 'EURBRL') return 'FX_IDC:EURBRL';
-    
-    // 3. CRIPTO
-    if (sym.includes('BTC')) return sym.includes('USD') ? 'BINANCE:BTCUSD' : 'BINANCE:BTCBRL';
-    if (sym.includes('ETH')) return sym.includes('USD') ? 'BINANCE:ETHUSD' : 'BINANCE:ETHBRL';
-    if (sym.includes('SOL')) return sym.includes('USD') ? 'BINANCE:SOLUSD' : 'BINANCE:SOLBRL';
 
-    // 4. AÇÕES B3 (Default)
+    // Índices
+    if (cat === 'index') {
+      if (sym.includes('IBOV') || sym === '^BVSP') return 'BMFBOVESPA:IBOV';
+      if (sym.includes('S&P') || sym === '^GSPC') return 'SP:SPX';
+    }
+
+    // Câmbio (moedas)
+    if (cat === 'currency') {
+      if (sym === 'USD' || sym === 'USDBRL') return 'FX_IDC:USDBRL';
+      if (sym === 'EUR' || sym === 'EURBRL') return 'FX_IDC:EURBRL';
+    }
+
+    // Criptomoedas
+    if (cat === 'crypto') {
+      // Tenta o formato mais comum: BINANCE:SYMBOLUSDT
+      return `BINANCE:${sym}USDT`;
+    }
+
+    // Ações B3 (stock)
     return `BMFBOVESPA:${sym.replace('.SA', '')}`;
   };
-
   return (
     <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/95 backdrop-blur-sm p-4">
       
@@ -51,7 +53,7 @@ export const AssetModal = ({ symbol, onClose }: { symbol: string, onClose: () =>
         {/* Header do Modal */}
         <div className="flex justify-between items-center p-4 border-b border-slate-800 bg-[#020617]">
             <h3 className="text-white font-bold text-lg flex items-center gap-2">
-                <span className="text-emerald-400">📊</span> Análise Técnica: {symbol}
+                <span className="text-emerald-400">📊</span> Análise Técnica: {asset.symbol}
             </h3>
 
             {/* Agrupamento de botões à direita */}
@@ -83,7 +85,7 @@ export const AssetModal = ({ symbol, onClose }: { symbol: string, onClose: () =>
         {/* Iframe do Gráfico */}
         <div className="flex-1 bg-black relative">
             <iframe 
-                src={`https://s.tradingview.com/widgetembed/?frameElementId=tradingview_widget&symbol=${getTradingViewSymbol(symbol)}&interval=D&hidesidetoolbar=1&theme=dark&style=1&timezone=America%2FSao_Paulo`} 
+                src={`https://s.tradingview.com/widgetembed/?frameElementId=tradingview_widget&symbol=${getTradingViewSymbol(asset.symbol, asset.category)}&interval=D&hidesidetoolbar=1&theme=dark&style=1&timezone=America%2FSao_Paulo`}
                 className="w-full h-full absolute inset-0 border-0" 
                 allowTransparency 
                 allowFullScreen

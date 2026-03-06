@@ -1,6 +1,5 @@
 ﻿import { getFirestore } from "firebase-admin/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
-import { defineSecret } from "firebase-functions/params";
 import * as logger from "firebase-functions/logger";
 import { initializeApp } from "firebase-admin/app";
 import { NexusIdentity } from "./nexus-core/identity";
@@ -9,13 +8,6 @@ import { DataIntegrator, UserDataResult } from "./nexus-core/data-integrator";
 import { MultiModelRouter } from "./nexus-core/MultiModelRouter";
 
 initializeApp();
-
-// Secrets
-const geminiApiKey = defineSecret("GEMINI_API_KEY");
-const openrouterApiKey = defineSecret("OPENROUTER_API_KEY");
-const mistralApiKey = defineSecret("MISTRAL_API_KEY");
-const brapiToken = defineSecret("BRAPI_TOKEN");
-const tavilyApiKey = defineSecret("TAVILY_API_KEY");
 
 // Interfaces
 interface CryptoPriceData { price: number; lastUpdated: string; }
@@ -368,19 +360,25 @@ function extractTickersFallback(prompt: string): { b3: string[], crypto: string[
 // --- FUNÇÃO PRINCIPAL ---
 export const askAiAdvisor = onCall(
   {
-    secrets: [geminiApiKey, openrouterApiKey, mistralApiKey, brapiToken, tavilyApiKey],
     memory: "1GiB",
     timeoutSeconds: 120,
     region: "us-central1"
   },
   async (request) => {
+    // 1. LÊ AS CHAVES AQUI DENTRO (No momento exato da execução)
+    const geminiApiKey = process.env.GEMINI_API_KEY as string;
+    const openrouterApiKey = process.env.OPENROUTER_API_KEY as string;
+    const mistralApiKey = process.env.MISTRAL_API_KEY as string;
+    const brapiToken = process.env.BRAPI_TOKEN as string;
+    // const tavilyApiKey = process.env.TAVILY_API_KEY as string; // (Declare onde for usar)
+
+    // 2. ATUALIZA O SEU ROUTER (Que já gerencia o Singleton dos SDKs!)
     const router = MultiModelRouter.getInstance();
     router.updateApiKeys({
-      gemini: geminiApiKey.value(),
-      openrouter: openrouterApiKey.value(),
-      mistral: mistralApiKey.value()
+      gemini: geminiApiKey,
+      openrouter: openrouterApiKey,
+      mistral: mistralApiKey
     });
-
     try {
       if (!request.auth) throw new HttpsError("unauthenticated", "Login necessário.");
 	  const { prompt, userName, history = [], isFirstInteraction, context: frontendContext = {} } = request.data;
@@ -508,7 +506,7 @@ export const askAiAdvisor = onCall(
       let marketData = "";
       const extracted = extractTickersFallback(prompt);
       if (extracted.b3.length > 0 || extracted.crypto.length > 0) {
-        marketData = await fetchAllMarketData(extracted.b3, extracted.crypto, brapiToken.value(), prompt, validHistory);
+        marketData = await fetchAllMarketData(extracted.b3, extracted.crypto, brapiToken, prompt, validHistory);
       }
       // 5. DETECÇÃO DE FOLLOW-UP TIMESTAMPS
       if (validHistory.length > 0 && marketData && /quando|horário|horario|data|dia|atualização|atualizacao|cotação|cotacao|qual.*hora|que.*hora|qual.*dia|que.*dia/i.test(prompt) && marketData.includes('cotação de')) {
@@ -661,7 +659,8 @@ ${isUserCorrection ? "\n**ATENÇÃO:** O usuário está CORRIGINDO uma informaç
         logger.info(`[WebSearch] 🔍 Nexus solicitou busca: "${searchQuery}"`);
         
         // Executar busca
-        const searchResult = await searchWebCascade(searchQuery, tavilyApiKey.value());
+		const tavilyApiKey = process.env.TAVILY_API_KEY as string;
+        const searchResult = await searchWebCascade(searchQuery, tavilyApiKey);
         
         // Segunda chamada com resultado da busca
         logger.info('[Router] Segunda chamada com resultado da busca...');
@@ -725,16 +724,17 @@ ${isUserCorrection ? "\n**ATENÇÃO:** O usuário está CORRIGINDO uma informaç
 // ============================================
 // FUNÇÃO DE TESTE - MISTRAL
 // ============================================
+export { getMarketData } from './marketData';
 export const testMistral = onCall(
   {
-    secrets: [mistralApiKey],
     timeoutSeconds: 30,
     region: "us-central1"
   },
   async (request) => {
     logger.info("🧪 TESTE MISTRAL - Iniciando...");
     
-    const apiKey = mistralApiKey.value();
+	const mistralApiKey = process.env.MISTRAL_API_KEY as string;
+    const apiKey = mistralApiKey;
     
     if (!apiKey) {
       logger.error("❌ MISTRAL_API_KEY não configurada!");
@@ -822,7 +822,7 @@ export const testMistral = onCall(
           completionTokens: data.usage?.completion_tokens
         }
       };
-      
+      // deploy forçado para atualizar env vars
     } catch (error: any) {
       logger.error(`❌ Erro na requisição: ${error.message}`);
       return {

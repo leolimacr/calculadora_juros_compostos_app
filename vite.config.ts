@@ -3,8 +3,17 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  // A chave da correção está nesta linha:
   build: {
-    target: 'esnext' // ✅ Torna o ambiente de build compatível com top-level await
+    target: 'esnext'
+  },
+  server: {
+    proxy: {
+      '/api/market': {
+        target: 'https://us-central1-financas-pro-invest.cloudfunctions.net/getMarketData',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api\/market/, '')
+      }
+    }
   }
 })

@@ -33,10 +33,9 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.testMistral = exports.askAiAdvisor = void 0;
+exports.testMistral = exports.getMarketData = exports.askAiAdvisor = void 0;
 const firestore_1 = require("firebase-admin/firestore");
 const https_1 = require("firebase-functions/v2/https");
-const params_1 = require("firebase-functions/params");
 const logger = __importStar(require("firebase-functions/logger"));
 const app_1 = require("firebase-admin/app");
 const identity_1 = require("./nexus-core/identity");
@@ -44,11 +43,6 @@ const discretion_engine_1 = require("./nexus-core/discretion-engine");
 const data_integrator_1 = require("./nexus-core/data-integrator");
 const MultiModelRouter_1 = require("./nexus-core/MultiModelRouter");
 (0, app_1.initializeApp)();
-const geminiApiKey = (0, params_1.defineSecret)("GEMINI_API_KEY");
-const openrouterApiKey = (0, params_1.defineSecret)("OPENROUTER_API_KEY");
-const mistralApiKey = (0, params_1.defineSecret)("MISTRAL_API_KEY");
-const brapiToken = (0, params_1.defineSecret)("BRAPI_TOKEN");
-const tavilyApiKey = (0, params_1.defineSecret)("TAVILY_API_KEY");
 async function getUserPlan(userId) {
     try {
         const db = (0, firestore_1.getFirestore)();
@@ -363,16 +357,19 @@ function extractTickersFallback(prompt) {
     return result;
 }
 exports.askAiAdvisor = (0, https_1.onCall)({
-    secrets: [geminiApiKey, openrouterApiKey, mistralApiKey, brapiToken, tavilyApiKey],
     memory: "1GiB",
     timeoutSeconds: 120,
     region: "us-central1"
 }, async (request) => {
+    const geminiApiKey = process.env.GEMINI_API_KEY;
+    const openrouterApiKey = process.env.OPENROUTER_API_KEY;
+    const mistralApiKey = process.env.MISTRAL_API_KEY;
+    const brapiToken = process.env.BRAPI_TOKEN;
     const router = MultiModelRouter_1.MultiModelRouter.getInstance();
     router.updateApiKeys({
-        gemini: geminiApiKey.value(),
-        openrouter: openrouterApiKey.value(),
-        mistral: mistralApiKey.value()
+        gemini: geminiApiKey,
+        openrouter: openrouterApiKey,
+        mistral: mistralApiKey
     });
     try {
         if (!request.auth)
@@ -475,7 +472,7 @@ exports.askAiAdvisor = (0, https_1.onCall)({
         let marketData = "";
         const extracted = extractTickersFallback(prompt);
         if (extracted.b3.length > 0 || extracted.crypto.length > 0) {
-            marketData = await fetchAllMarketData(extracted.b3, extracted.crypto, brapiToken.value(), prompt, validHistory);
+            marketData = await fetchAllMarketData(extracted.b3, extracted.crypto, brapiToken, prompt, validHistory);
         }
         if (validHistory.length > 0 && marketData && /quando|horário|horario|data|dia|atualização|atualizacao|cotação|cotacao|qual.*hora|que.*hora|qual.*dia|que.*dia/i.test(prompt) && marketData.includes('cotação de')) {
             logger.info("✓ Follow-up timestamp");
@@ -595,7 +592,8 @@ ${isUserCorrection ? "\n**ATENÇÃO:** O usuário está CORRIGINDO uma informaç
         if (webSearchMatch) {
             const searchQuery = webSearchMatch[1].trim();
             logger.info(`[WebSearch] 🔍 Nexus solicitou busca: "${searchQuery}"`);
-            const searchResult = await searchWebCascade(searchQuery, tavilyApiKey.value());
+            const tavilyApiKey = process.env.TAVILY_API_KEY;
+            const searchResult = await searchWebCascade(searchQuery, tavilyApiKey);
             logger.info('[Router] Segunda chamada com resultado da busca...');
             const messagesWithSearch = [
                 ...messages,
@@ -647,13 +645,15 @@ ${isUserCorrection ? "\n**ATENÇÃO:** O usuário está CORRIGINDO uma informaç
         };
     }
 });
+var marketData_1 = require("./marketData");
+Object.defineProperty(exports, "getMarketData", { enumerable: true, get: function () { return marketData_1.getMarketData; } });
 exports.testMistral = (0, https_1.onCall)({
-    secrets: [mistralApiKey],
     timeoutSeconds: 30,
     region: "us-central1"
 }, async (request) => {
     logger.info("🧪 TESTE MISTRAL - Iniciando...");
-    const apiKey = mistralApiKey.value();
+    const mistralApiKey = process.env.MISTRAL_API_KEY;
+    const apiKey = mistralApiKey;
     if (!apiKey) {
         logger.error("❌ MISTRAL_API_KEY não configurada!");
         return {

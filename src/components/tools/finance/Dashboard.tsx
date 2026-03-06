@@ -4,7 +4,9 @@ import {
   Plus, 
   PieChart, 
   BarChart3, 
-  Lock
+  Lock,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import UsageIndicator from './UsageIndicator';
 import TransactionHistory from './TransactionHistory';
@@ -26,6 +28,7 @@ const Dashboard: React.FC<any> = (props) => {
     isLimitReached, 
     onShowPaywall, 
     isPrivacyMode,
+	onTogglePrivacy,
     onEditTransaction
   } = props;
 
@@ -127,18 +130,26 @@ const Dashboard: React.FC<any> = (props) => {
     <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 space-y-8 animate-in fade-in duration-500 pb-32">
       <CategoryManager isOpen={isCategoryModalOpen} onClose={() => setIsCategoryModalOpen(false)} categories={categories} onSave={onSaveCategory} onDelete={onDeleteCategory} />
 
-      {/* HEADER DO GERENCIADOR */}
-      <div className="flex justify-between items-center">
-         <div>
-            <h2 className="text-xl md:text-2xl font-black text-white tracking-tight uppercase">Fluxo de Caixa</h2>
-            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">{periodLabel}</p>
-         </div>
-         <button onClick={isLimitReached && !isPremium ? onShowPaywall : onOpenForm} className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg transition-transform active:scale-95 ${isLimitReached && !isPremium ? 'bg-slate-800 text-slate-400 border border-slate-700' : 'bg-emerald-500 text-white hover:bg-emerald-400 shadow-emerald-500/20'}`}>
-            {isLimitReached && !isPremium ? <Lock size={16}/> : <Plus size={16} />}
-            <span>{isLimitReached && !isPremium ? 'Limite Atingido' : 'Novo Lançamento'}</span>
-         </button>
-      </div>
-
+	  {/* HEADER DO GERENCIADOR */}
+<div className="flex justify-between items-center">
+   <div>
+      <h2 className="text-xl md:text-2xl font-black text-white tracking-tight uppercase">Fluxo de Caixa</h2>
+      <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">{periodLabel}</p>
+   </div>
+   <div className="flex items-center gap-3">
+      {/* BOTÃO OLHINHO */}
+      <button
+        onClick={onTogglePrivacy}
+        className="p-3 rounded-2xl bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 transition-all active:scale-95"
+      >
+        {isPrivacyMode ? <EyeOff size={18} /> : <Eye size={18} />}
+      </button>
+      <button onClick={isLimitReached && !isPremium ? onShowPaywall : onOpenForm} className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg transition-transform active:scale-95 ${isLimitReached && !isPremium ? 'bg-slate-800 text-slate-400 border border-slate-700' : 'bg-emerald-500 text-white hover:bg-emerald-400 shadow-emerald-500/20'}`}>
+         {isLimitReached && !isPremium ? <Lock size={16}/> : <Plus size={16} />}
+         <span>{isLimitReached && !isPremium ? 'Limite Atingido' : 'Novo Lançamento'}</span>
+      </button>
+   </div>
+</div>
       {/* CARDS DE SALDO PRINCIPAIS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-gradient-to-br from-slate-900 to-[#020617] p-8 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden border border-slate-800 group">
