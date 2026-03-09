@@ -39,7 +39,9 @@ const logger = __importStar(require("firebase-functions/logger"));
 const ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'https://financasproinvest.com',
+    'https://www.financasproinvest.com',
     'https://financasproinvest.com.br',
+    'https://www.financasproinvest.com.br',
 ];
 exports.getMarketData = (0, https_1.onRequest)(async (request, response) => {
     const origin = request.headers.origin;

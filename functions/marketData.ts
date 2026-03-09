@@ -5,7 +5,9 @@ import * as logger from "firebase-functions/logger";
 const ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'https://financasproinvest.com',
+    'https://www.financasproinvest.com',
     'https://financasproinvest.com.br',
+    'https://www.financasproinvest.com.br',
 ];
 
 export const getMarketData = onRequest(async (request, response) => {

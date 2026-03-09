@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.testMistral = exports.getMarketData = exports.askAiAdvisor = void 0;
+exports.testMistral = exports.getMarketData = exports.getAssetQuote = exports.askAiAdvisor = void 0;
 const firestore_1 = require("firebase-admin/firestore");
 const https_1 = require("firebase-functions/v2/https");
 const logger = __importStar(require("firebase-functions/logger"));
@@ -645,6 +645,8 @@ ${isUserCorrection ? "\n**ATENÇÃO:** O usuário está CORRIGINDO uma informaç
         };
     }
 });
+var getAssetQuote_1 = require("./getAssetQuote");
+Object.defineProperty(exports, "getAssetQuote", { enumerable: true, get: function () { return getAssetQuote_1.getAssetQuote; } });
 var marketData_1 = require("./marketData");
 Object.defineProperty(exports, "getMarketData", { enumerable: true, get: function () { return marketData_1.getMarketData; } });
 exports.testMistral = (0, https_1.onCall)({

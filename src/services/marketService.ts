@@ -177,6 +177,7 @@ const parseYahooChartData = (data: any): HistoricalDataPoint[] => {
 
 // --- Busca de Sugestões (Autocomplete) ---
 export const searchAssets = async (query: string): Promise<AssetSearchResult[]> => {
+  console.log('searchAssets chamada com query:', query);	
   if (!query || query.length < 2) return [];
 
   try {
@@ -207,6 +208,30 @@ export const searchAssets = async (query: string): Promise<AssetSearchResult[]> 
 
 export const fetchAssetQuote = async (symbol: string): Promise<MarketQuote | null> => {
   try {
+    // Determina se está em produção (domínio .com.br)
+    const isProduction = window.location.hostname.includes('financasproinvest.com.br');
+    
+    // Se estiver em produção, usa a Firebase Function
+    if (isProduction) {
+      const functionUrl = 'https://us-central1-financas-pro-invest.cloudfunctions.net/getAssetQuote';
+      const url = `${functionUrl}?symbol=${encodeURIComponent(symbol)}`;
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      const data = await res.json();
+      // A função retorna exatamente o formato esperado por MarketQuote?
+      // Vamos adaptar: a função retorna price, changePercent, etc.
+      return {
+        symbol: data.symbol,
+        name: data.name,
+        price: data.price,
+        changePercent: data.changePercent,
+        category: data.category,
+        timestamp: data.timestamp,
+        simulated: false
+      };
+    }
+
+    // Abaixo é o código original do proxy (para desenvolvimento local)
     // Primeiro, tenta buscar como criptomoeda nos formatos do Yahoo Finance
     const cryptoFormats = [
       `${symbol}-BRL`,
@@ -225,9 +250,8 @@ export const fetchAssetQuote = async (symbol: string): Promise<MarketQuote | nul
             const price = result.regularMarketPrice;
             const prevClose = result.chartPreviousClose;
             const changePercent = prevClose ? ((price - prevClose) / prevClose) * 100 : 0;
-            // Se chegou aqui, é uma cripto válida
             return {
-              symbol: symbol, // mantém o original digitado
+              symbol: symbol,
               name: result.shortName || symbol,
               price,
               changePercent,
@@ -260,7 +284,6 @@ export const fetchAssetQuote = async (symbol: string): Promise<MarketQuote | nul
     const prevClose = result.chartPreviousClose;
     const changePercent = prevClose ? ((price - prevClose) / prevClose) * 100 : 0;
 
-    // Determina a categoria: se o Yahoo disser que é cripto, usa crypto
     let category: any = 'stock';
     if (result.instrumentType === 'CRYPTOCURRENCY') {
       category = 'crypto';

@@ -724,6 +724,7 @@ ${isUserCorrection ? "\n**ATENÇÃO:** O usuário está CORRIGINDO uma informaç
 // ============================================
 // FUNÇÃO DE TESTE - MISTRAL
 // ============================================
+export { getAssetQuote } from './getAssetQuote';
 export { getMarketData } from './marketData';
 export const testMistral = onCall(
   {

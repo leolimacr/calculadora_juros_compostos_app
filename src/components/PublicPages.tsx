@@ -22,7 +22,7 @@ import { InfiniteTicker, MarketGroup, MarketItemRow } from './Public/MarketCompo
 import { getLatestNews } from '../services/newsService';
 
 // --- CONFIGURAÇÃO DAS APIS (MANTIDAS INTACTAS) ---
-const CLOUD_API_URL = 'https://getmarketdata-5auxvdzm3q-uc.a.run.app';
+const CLOUD_API_URL = '/api/market';
 const TICKER_API_URL = 'https://gettickerprice-5auxvdzm3q-uc.a.run.app';
 const AWESOME_API_URL = 'https://economia.awesomeapi.com.br/last/USD-BRL,EUR-BRL,BTC-BRL,ETH-BRL,BNB-BRL,SOL-BRL,BTC-USD,ETH-USD,SOL-USD';
 const BCB_SELIC_URL = 'https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados/ultimos/1?formato=json';
@@ -191,8 +191,9 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
   const [selectedCourse, setSelectedCourse] = useState<any | null>(null);
   const [showNewsAdmin, setShowNewsAdmin] = useState(false);
   const [newsForm, setNewsForm] = useState({ id: '', title: '', summary: '', content: '', coverImage: '' });
-  const [cryptoSymbol, setCryptoSymbol] = useState('');
   const [cryptoPreview, setCryptoPreview] = useState<any>(null);
+  const [cryptoSymbol, setCryptoSymbol] = useState('');  
+  const [heroPersona, setHeroPersona] = useState<'dividas' | 'patrimonio'>('patrimonio');
     useEffect(() => {
   }, [selectedAsset]);
   
@@ -453,54 +454,92 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
 		  {/* Coluna Esquerda: Textos e CTAs (Alinhados à esquerda no desktop) */}
-          <div className="flex flex-col items-center lg:items-start text-center lg:text-left">
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-black text-white leading-[1.1] tracking-tighter mb-6 animate-in fade-in slide-in-from-bottom-6 duration-1000">
-              Liberdade Financeira não é sorte. <br/>
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-emerald-200 to-sky-400">É Método.</span>
-            </h1>
+		  <div className="flex flex-col items-center lg:items-start text-center lg:text-left">
+		    <div className="mb-6 inline-flex rounded-2xl border border-slate-700 bg-slate-900/70 p-1 backdrop-blur-md">
+			  <button
+			    onClick={() => setHeroPersona('dividas')}
+			    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+				  heroPersona === 'dividas'
+				    ? 'bg-emerald-500 text-slate-950 shadow-lg'
+				    : 'text-slate-300 hover:text-white'
+			    }`}
+			  >
+			    Quero Sair das Dívidas
+			  </button>
 
-            <p className="text-base md:text-lg text-slate-400 max-w-xl mb-10 leading-relaxed font-medium animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-100">
-              Assuma o controle absoluto do seu patrimônio. Utilize nossa tecnologia para organizar contas, projetar o futuro e tomar decisões baseadas em dados, não em achismos.
-            </p>
+			  <button
+			    onClick={() => setHeroPersona('patrimonio')}
+			    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+				  heroPersona === 'patrimonio'
+				    ? 'bg-emerald-500 text-slate-950 shadow-lg'
+				    : 'text-slate-300 hover:text-white'
+			    }`}
+			  >
+			    Quero Multiplicar Patrimônio
+			  </button>
+		    </div>
+			<h1 className="text-4xl md:text-6xl lg:text-7xl font-black text-white leading-[1.1] tracking-tighter mb-6 animate-in fade-in slide-in-from-bottom-6 duration-1000">
+			  {heroPersona === 'dividas' ? (
+				<>
+				  Sair das dívidas não é sorte. <br />
+				  <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-emerald-200 to-sky-400">
+					É estratégia.
+				  </span>
+				</>
+			  ) : (
+				<>
+				  Liberdade Financeira não é sorte. <br />
+				  <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-emerald-200 to-sky-400">
+					É Método.
+				  </span>
+				</>
+			  )}
+			</h1>
+
+			<p className="text-base md:text-lg text-slate-400 max-w-xl mb-10 leading-relaxed font-medium animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-100">
+			  {heroPersona === 'dividas'
+				? 'Organize suas contas, entenda o peso dos juros e monte um plano claro para recuperar o controle da sua vida financeira.'
+				: 'Assuma o controle absoluto do seu patrimônio. Utilize nossa tecnologia para organizar contas, projetar o futuro e tomar decisões baseadas em dados, não em achismos.'}
+			</p>
 			{/* Adição dos Botões de Ação (CTAs) para resolver a falta de direcionamento */}
-            <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-200">
-              
-              {!isAuthenticated ? (
-                // Botão original para quem NÃO está logado
-                <button 
-                  onClick={onStartNow} 
-                  className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black px-8 py-4 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 w-full sm:w-auto"
-                >
-                  Criar Conta Gratuita <ArrowRight size={20} />
-                </button>
-              ) : (
-                // Novo Botão do Nexus AI para quem JÁ ESTÁ logado (com Tooltip embutida apenas para Desktop)
-                <div className="relative group flex items-center justify-center w-full sm:w-auto">
-                  <button 
-                    onClick={() => onNavigate('chat')} 
-                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-black px-8 py-4 rounded-xl transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 w-full border border-indigo-400/30"
-                  >
-                    <Sparkles size={20} className="text-indigo-200" /> Analisar com Nexus AI
-                  </button>
-                  
-                  {/* Tooltip elegante que aparece no hover (Oculta no Mobile, visível no Desktop) */}
-                  <div className="absolute bottom-full mb-3 hidden sm:group-hover:block w-64 bg-slate-900 border border-slate-700 text-slate-300 text-xs rounded-lg p-3 shadow-2xl animate-in fade-in zoom-in-95 duration-200 z-50 text-center">
-                    <p>Descubra onde otimizar seus aportes e receba análises instantâneas sobre sua jornada financeira.</p>
-                    {/* Setinha apontando para o botão */}
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-700"></div>
-                  </div>
-                </div>
-              )}
+			<div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-200">
 
-              {/* Botão Secundário Atualizado (FIRE) */}
-              <button 
-                onClick={() => onNavigate('tool-fire')} 
-                className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-8 py-4 rounded-xl transition-all border border-slate-700 flex items-center justify-center gap-2 group w-full sm:w-auto"
-              >
-                <Zap size={20} className="text-amber-400 group-hover:scale-110 transition-transform" /> 
-                Simular Liberdade (FIRE)
-              </button>
-            </div>
+			  {!isAuthenticated ? (
+				<button
+				  onClick={onStartNow}
+				  className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black px-8 py-4 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 w-full sm:w-auto"
+				>
+				  {heroPersona === 'dividas' ? 'Montar Meu Plano' : 'Criar Conta Gratuita'} <ArrowRight size={20} />
+				</button>
+			  ) : (
+				<div className="relative group flex items-center justify-center w-full sm:w-auto">
+				  <button
+					onClick={() => onNavigate('chat')}
+					className="bg-indigo-600 hover:bg-indigo-500 text-white font-black px-8 py-4 rounded-xl transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 w-full border border-indigo-400/30"
+				  >
+					<Sparkles size={20} className="text-indigo-200" />
+					{heroPersona === 'dividas' ? 'Analisar minha recuperação' : 'Analisar com Nexus AI'}
+				  </button>
+
+				  <div className="absolute bottom-full mb-3 hidden sm:group-hover:block w-64 bg-slate-900 border border-slate-700 text-slate-300 text-xs rounded-lg p-3 shadow-2xl animate-in fade-in zoom-in-95 duration-200 z-50 text-center">
+					<p>
+					  {heroPersona === 'dividas'
+						? 'Receba uma leitura inicial sobre onde sua recuperação financeira pode ganhar mais velocidade.'
+						: 'Descubra onde otimizar seus aportes e receba análises instantâneas sobre sua jornada financeira.'}
+					</p>
+					<div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-700"></div>
+				  </div>
+				</div>
+			  )}
+
+			  <button
+				onClick={() => onNavigate(heroPersona === 'dividas' ? 'tool-debt' : 'tool-fire')}
+				className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-8 py-4 rounded-xl transition-all border border-slate-700 flex items-center justify-center gap-2 group w-full sm:w-auto"
+			  >
+				<Zap size={20} className="text-amber-400 group-hover:scale-110 transition-transform" />
+				{heroPersona === 'dividas' ? 'Simular Quitação de Dívidas' : 'Simular Liberdade (FIRE)'}
+			  </button>
+			</div>
           </div> {/* FIM DA COLUNA ESQUERDA */}
 
 		  {/* Coluna Direita: Elemento Visual Abstrato (O "Anti-Vazio") */}
@@ -538,10 +577,16 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
               <div className="grid grid-cols-2 gap-4 mb-4">
                 
                 {/* 1. Patrimônio Ativo (A ESTRELA - Foco em Liberdade Financeira) */}
-                <div 
-                  onClick={() => isAuthenticated ? onNavigate('investimentos') : onStartNow()}
+                <div
+                  onClick={() =>
+                    heroPersona === 'dividas'
+                      ? onNavigate('tool-debt')
+                      : isAuthenticated
+                        ? onNavigate('investimentos')
+                        : onStartNow()
+                  }
                   className="col-span-2 bg-gradient-to-br from-emerald-900/40 via-slate-800/40 to-slate-800/40 backdrop-blur-md rounded-2xl p-5 md:p-6 border border-emerald-500/40 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_10px_30px_-10px_rgba(16,185,129,0.3)] hover:border-emerald-400/60 cursor-pointer relative overflow-hidden group/ativo"
-                >  
+                >
                   {/* Efeito de brilho de fundo - intensifica no hover */}
                   <div className="absolute -right-10 -top-10 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl group-hover/ativo:bg-emerald-500/20 transition-all duration-500" />
                   
@@ -550,93 +595,148 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
                     </span>
-                    <p className="text-[10px] md:text-xs text-emerald-400 font-black uppercase tracking-widest">
-                      Patrimônio Ativo <span className="text-emerald-500/70 hidden sm:inline ml-1 font-semibold">- O motor da sua Liberdade</span>
-                    </p>
+					<p className="text-[10px] md:text-xs text-emerald-400 font-black uppercase tracking-widest">
+					  {heroPersona === 'dividas' ? (
+						<>
+						  Plano de Quitação <span className="text-emerald-500/70 hidden sm:inline ml-1 font-semibold">- Sua rota de recuperação</span>
+						</>
+					  ) : (
+						<>
+						  Patrimônio Ativo <span className="text-emerald-500/70 hidden sm:inline ml-1 font-semibold">- O motor da sua Liberdade</span>
+						</>
+					  )}
+					</p>
                   </div>
-                  
-                  {isAuthenticated && typeof patrimonioAtivo !== 'undefined' && patrimonioAtivo !== null ? (
-                    <p className="text-3xl md:text-4xl lg:text-5xl font-black text-white tracking-tight my-2 relative z-10">
+				  {heroPersona === 'dividas' ? (
+				    <p className="text-3xl md:text-4xl lg:text-5xl font-black text-white tracking-tight my-2 relative z-10">
+					  - 72 meses
+				    </p>
+				  ) : isAuthenticated && typeof patrimonioAtivo !== 'undefined' && patrimonioAtivo !== null ? (
+				    <p className="text-3xl md:text-4xl lg:text-5xl font-black text-white tracking-tight my-2 relative z-10">
 					  {formatValue(patrimonioAtivo)}
-                    </p>
-                  ) : (
-                    <p className="text-3xl md:text-4xl lg:text-5xl font-black text-white tracking-tight my-2 relative z-10">
-                      R$ 142.500,00
-                    </p>
-                  )}
-                  
-                  <p className="text-xs md:text-sm text-emerald-400/80 font-medium relative z-10">
-                    {isAuthenticated ? "Gerando sua renda passiva do futuro" : "Rendimento médio de +2.4% ao mês"}
-                  </p>
+				    </p>
+				  ) : (
+				    <p className="text-3xl md:text-4xl lg:text-5xl font-black text-white tracking-tight my-2 relative z-10">
+					  R$ 142.500,00
+				    </p>
+				  )}
+				  <p className="text-xs md:text-sm text-emerald-400/80 font-medium relative z-10">
+				    {heroPersona === 'dividas'
+					  ? 'Visualize o impacto de um plano consistente nas suas finanças'
+					  : isAuthenticated
+					    ? 'Gerando sua renda passiva do futuro'
+					    : 'Rendimento médio de +2.4% ao mês'}
+				  </p>
                 </div>
 
 				{/* 2. Próximo Aporte (O COMBUSTÍVEL) */}
 				<div 
-				  onClick={() => onNavigate('metas')} 
+          onClick={() => onNavigate(heroPersona === 'dividas' ? 'tool-debt' : 'metas')}
 				  className="col-span-1 h-full bg-gradient-to-b from-blue-500/10 to-slate-800/20 backdrop-blur-md rounded-xl p-4 md:p-5 border border-blue-500/30 transition-all duration-300 ease-out hover:-translate-y-1 hover:bg-blue-500/20 hover:shadow-lg hover:shadow-blue-500/20 flex flex-col justify-center cursor-pointer"
 				>
 				  <p className="text-[10px] md:text-xs text-blue-300 font-bold uppercase mb-2 tracking-wider">
-					Próximo Aporte
+				    {heroPersona === 'dividas' ? 'Próximo Pagamento' : 'Próximo Aporte'}
 				  </p>
 				  <p className="text-xl md:text-2xl lg:text-3xl font-black text-white truncate mb-1">
-					{userMeta ? formatValue(valorProximoAporte) : 'R$ 1.200,00'}
-				  </p>
-				  <div className="mt-auto pt-3">
-					{userMeta ? (
-					  metasAtivas.length === 0 ? (
-						<span className="inline-block bg-amber-500/20 border border-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-1 rounded-md">
-						  Definir meta
-						</span>
-					  ) : (
-						<span className={`inline-block border text-[10px] font-bold px-2 py-1 rounded-md ${
-						  diasRestantes !== null && diasRestantes <= 0 ? 'bg-emerald-500/20 border-emerald-500/20 text-emerald-300' :
-						  diasRestantes !== null && diasRestantes <= 5 ? 'bg-amber-500/20 border-amber-500/20 text-amber-300' :
-						  'bg-blue-500/20 border-blue-500/20 text-blue-300'
-						}`}>
-						  {diasRestantes !== null ? (diasRestantes <= 0 ? 'Hoje é o dia!' : `Faltam ${diasRestantes} dias`) : 'Em breve'}
-						</span>
-					  )
-					) : (
-					  <span className="inline-block bg-blue-500/20 border border-blue-500/20 text-blue-300 text-[10px] font-bold px-2 py-1 rounded-md">
-						Faça login para definir metas
-					  </span>
-					)}
-				  </div>
+            {heroPersona === 'dividas'
+              ? 'R$ 850,00'
+              : userMeta
+                ? formatValue(valorProximoAporte)
+                : 'R$ 1.200,00'}
+          </p>
+
+          <div className="mt-auto pt-3">
+            {heroPersona === 'dividas' ? (
+              <span className="inline-block bg-blue-500/20 border border-blue-500/20 text-blue-300 text-[10px] font-bold px-2 py-1 rounded-md">
+                Vence em 5 dias
+              </span>
+            ) : userMeta ? (
+              metasAtivas.length === 0 ? (
+                <span className="inline-block bg-amber-500/20 border border-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-1 rounded-md">
+                  Definir meta
+                </span>
+              ) : (
+                <span
+                  className={`inline-block border text-[10px] font-bold px-2 py-1 rounded-md ${
+                    diasRestantes !== null && diasRestantes <= 0
+                      ? 'bg-emerald-500/20 border-emerald-500/20 text-emerald-300'
+                      : diasRestantes !== null && diasRestantes <= 5
+                        ? 'bg-amber-500/20 border-amber-500/20 text-amber-300'
+                        : 'bg-blue-500/20 border-blue-500/20 text-blue-300'
+                  }`}
+                >
+                  {diasRestantes !== null
+                    ? diasRestantes <= 0
+                      ? 'Hoje é o dia!'
+                      : `Faltam ${diasRestantes} dias`
+                    : 'Em breve'}
+                </span>
+              )
+            ) : (
+              <span className="inline-block bg-blue-500/20 border border-blue-500/20 text-blue-300 text-[10px] font-bold px-2 py-1 rounded-md">
+                Faça login para definir metas
+              </span>
+            )}
+          </div>
 				</div>
                 {/* 3 e 4. Passivo e Total (OS INFORMATIVOS - Compactos e Empilhados) */}
                 <div className="col-span-1 flex flex-col gap-3">
                   
                   {/* Patrimônio Passivo */}
-                  <div 
-                    onClick={() => isAuthenticated ? onNavigate('passivos') : onStartNow()}
+                  <div
+                    onClick={() =>
+                      heroPersona === 'dividas'
+                        ? onNavigate('tool-debt')
+                        : isAuthenticated
+                          ? onNavigate('passivos')
+                          : onStartNow()
+                    }
                     className="flex-1 bg-slate-800/30 backdrop-blur-md rounded-xl p-3 md:p-4 border border-slate-700/40 transition-all duration-300 hover:bg-slate-700/50 hover:border-slate-600/50 cursor-pointer flex flex-col justify-center group/passivo"
                   >
                     <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase mb-1 tracking-wider group-hover/passivo:text-slate-300 transition-colors">
-                      Patrimônio Passivo
+                      {heroPersona === 'dividas' ? 'Custo dos Juros' : 'Patrimônio Passivo'}
                     </p>
-                    {isAuthenticated && typeof patrimonioPassivo !== 'undefined' && patrimonioPassivo !== null ? (
-                      <p className="text-base md:text-lg font-bold text-slate-200 truncate" title={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(patrimonioPassivo)}>
-						{formatValue(patrimonioPassivo)}
+
+                    {heroPersona === 'dividas' ? (
+                      <p className="text-base md:text-lg font-bold text-slate-200 truncate">
+                        R$ 18.400,00
+                      </p>
+                    ) : isAuthenticated && typeof patrimonioPassivo !== 'undefined' && patrimonioPassivo !== null ? (
+                      <p
+                        className="text-base md:text-lg font-bold text-slate-200 truncate"
+                        title={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(patrimonioPassivo)}
+                      >
+                        {formatValue(patrimonioPassivo)}
                       </p>
                     ) : (
-                      <p className="text-base md:text-lg font-bold text-slate-200 truncate">R$ 350.000,00</p>
+                      <p className="text-base md:text-lg font-bold text-slate-200 truncate">
+                        R$ 350.000,00
+                      </p>
                     )}
                   </div>
-
                   {/* Patrimônio Total */}
                   <div className="flex-1 bg-slate-800/10 backdrop-blur-md rounded-xl p-3 md:p-4 border border-slate-700/30 border-dashed transition-all duration-300 flex flex-col justify-center opacity-70 hover:opacity-100">
                     <p className="text-[9px] md:text-[10px] text-slate-500 font-bold uppercase mb-1 tracking-wider">
-                      Patrimônio Total
+                      {heroPersona === 'dividas' ? 'Economia Potencial' : 'Patrimônio Total'}
                     </p>
-                    {isAuthenticated && typeof patrimonioAtivo !== 'undefined' && typeof patrimonioPassivo !== 'undefined' ? (
-                      <p className="text-sm md:text-base font-bold text-slate-400 truncate" title={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((patrimonioAtivo || 0) + (patrimonioPassivo || 0))}>
-						{formatValue(patrimonioTotal)}
+
+                    {heroPersona === 'dividas' ? (
+                      <p className="text-sm md:text-base font-bold text-slate-400 truncate">
+                        R$ 9.600,00
+                      </p>
+                    ) : isAuthenticated && typeof patrimonioAtivo !== 'undefined' && typeof patrimonioPassivo !== 'undefined' ? (
+                      <p
+                        className="text-sm md:text-base font-bold text-slate-400 truncate"
+                        title={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((patrimonioAtivo || 0) + (patrimonioPassivo || 0))}
+                      >
+                        {formatValue(patrimonioTotal)}
                       </p>
                     ) : (
-                      <p className="text-sm md:text-base font-bold text-slate-400 truncate">R$ 492.500,00</p>
+                      <p className="text-sm md:text-base font-bold text-slate-400 truncate">
+                        R$ 492.500,00
+                      </p>
                     )}
                   </div>
-
                 </div>
 
               </div>
@@ -644,7 +744,9 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
               {/* Mockup de Gráfico de Evolução Patrimonial */}
               <div className="bg-slate-800/30 backdrop-blur-md rounded-xl p-4 border border-slate-700/50 mt-4 group">
                 <div className="flex justify-between items-center mb-4">
-                  <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Evolução Patrimonial</p>
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">
+                    {heroPersona === 'dividas' ? 'Redução da Dívida' : 'Evolução Patrimonial'}
+                  </p>
                   <div className="flex gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
                     <span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
@@ -653,7 +755,10 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
                 </div>
                 
                 <div className="flex items-end justify-between h-24 gap-2">
-                  {[40, 55, 45, 70, 60, 85, 100].map((height, index) => (
+                  {(heroPersona === 'dividas'
+                    ? [100, 92, 80, 68, 55, 42, 28]
+                    : [40, 55, 45, 70, 60, 85, 100]
+                  ).map((height, index) => (
                     <div 
                       key={index} 
                       className="w-full bg-slate-700/40 rounded-t-sm transition-all duration-300 group-hover:bg-slate-600/50 hover:!bg-emerald-500/60" 
@@ -664,6 +769,127 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
               </div>
 
             </div>
+          </div>
+        </div>
+      </section>
+	  {/* --- RESUMO FINANCEIRO PARA MOBILE (visível apenas em telas pequenas) --- */}
+      <section className="block lg:hidden px-4 py-6 max-w-[1600px] mx-auto w-full">
+        <div className="grid grid-cols-2 gap-3">
+          {/* Card Patrimônio Ativo (clicável) */}
+          <div
+            onClick={() =>
+              heroPersona === 'dividas'
+                ? onNavigate('tool-debt')
+                : isAuthenticated
+                  ? onNavigate('investimentos')
+                  : onStartNow()
+            }
+            className="col-span-2 bg-gradient-to-br from-emerald-900/40 to-slate-800/40 backdrop-blur-md rounded-2xl p-5 border border-emerald-500/40 cursor-pointer relative overflow-hidden"
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest">
+                {heroPersona === 'dividas' ? 'Plano de Quitação' : 'Patrimônio Ativo'}
+              </p>
+            </div>
+            <p className="text-3xl font-black text-white tracking-tight">
+              {heroPersona === 'dividas'
+                ? '72 meses'
+                : isAuthenticated && typeof patrimonioAtivo !== 'undefined' && patrimonioAtivo !== null
+                  ? formatValue(patrimonioAtivo)
+                  : 'R$ 142.500,00'}
+            </p>
+            <p className="text-xs text-emerald-400/80 font-medium">
+              {heroPersona === 'dividas'
+                ? 'Visualize sua rota de recuperação'
+                : isAuthenticated
+                  ? 'Gerando sua renda passiva'
+                  : 'Rendimento médio +2,4%'}
+            </p>
+          </div>
+
+          {/* Card Próximo Aporte (clicável) */}
+          <div
+            onClick={() => onNavigate(heroPersona === 'dividas' ? 'tool-debt' : 'metas')}
+            className="bg-gradient-to-b from-blue-500/10 to-slate-800/20 backdrop-blur-md rounded-xl p-4 border border-blue-500/30 cursor-pointer"
+          >
+            <p className="text-[10px] text-blue-300 font-bold uppercase mb-1">
+              {heroPersona === 'dividas' ? 'Próximo Pagamento' : 'Próximo Aporte'}
+            </p>
+            <p className="text-xl font-black text-white truncate">
+              {heroPersona === 'dividas'
+                ? 'R$ 850,00'
+                : userMeta
+                  ? formatValue(valorProximoAporte)
+                  : 'R$ 1.200,00'}
+            </p>
+            <div className="mt-2">
+              {heroPersona === 'dividas' ? (
+                <span className="bg-blue-500/20 text-blue-300 text-[9px] font-bold px-2 py-1 rounded">
+                  Vence em 5 dias
+                </span>
+              ) : userMeta ? (
+                metasAtivas.length === 0 ? (
+                  <span className="inline-block bg-amber-500/20 text-amber-300 text-[9px] font-bold px-2 py-1 rounded">
+                    Definir meta
+                  </span>
+                ) : (
+                  <span className={`inline-block text-[9px] font-bold px-2 py-1 rounded ${
+                    diasRestantes !== null && diasRestantes <= 0
+                      ? 'bg-emerald-500/20 text-emerald-300'
+                      : diasRestantes !== null && diasRestantes <= 5
+                        ? 'bg-amber-500/20 text-amber-300'
+                        : 'bg-blue-500/20 text-blue-300'
+                  }`}>
+                    {diasRestantes !== null ? (diasRestantes <= 0 ? 'Hoje!' : `Faltam ${diasRestantes} dias`) : 'Em breve'}
+                  </span>
+                )
+              ) : (
+                <span className="bg-blue-500/20 text-blue-300 text-[9px] font-bold px-2 py-1 rounded">
+                  Faça login
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Card Patrimônio Passivo (clicável) */}
+          <div
+            onClick={() =>
+              heroPersona === 'dividas'
+                ? onNavigate('tool-debt')
+                : isAuthenticated
+                  ? onNavigate('passivos')
+                  : onStartNow()
+            }
+            className="bg-slate-800/30 backdrop-blur-md rounded-xl p-4 border border-slate-700/40 cursor-pointer"
+          >
+            <p className="text-[9px] text-slate-400 font-bold uppercase mb-1">
+              {heroPersona === 'dividas' ? 'Custo dos Juros' : 'Passivo'}
+            </p>
+            <p className="text-base font-bold text-slate-200 truncate">
+              {heroPersona === 'dividas'
+                ? 'R$ 18.400,00'
+                : isAuthenticated && typeof patrimonioPassivo !== 'undefined' && patrimonioPassivo !== null
+                  ? formatValue(patrimonioPassivo)
+                  : 'R$ 350.000,00'}
+            </p>
+          </div>
+
+          {/* Card Patrimônio Total (apenas informativo) */}
+          <div className="bg-slate-800/10 backdrop-blur-md rounded-xl p-4 border border-slate-700/30 border-dashed">
+            <p className="text-[9px] text-slate-500 font-bold uppercase mb-1">
+              {heroPersona === 'dividas' ? 'Economia Potencial' : 'Total'}
+            </p>     
+            <p className="text-sm font-bold text-slate-400 truncate">
+              {heroPersona === 'dividas'
+                ? 'R$ 9.600,00'
+                : isAuthenticated && typeof patrimonioAtivo !== 'undefined' && typeof patrimonioPassivo !== 'undefined'
+                  ? formatValue(patrimonioTotal)
+                  : 'R$ 492.500,00'}
+            </p>
           </div>
         </div>
       </section>
@@ -1028,29 +1254,6 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
 		  )}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
              {/* Painéis de Mercado Estilizados */}
-			 
-			 
-			 
-			 
-			 
-			 
-			 
-			 
-			 
-			 
-			 
-			 
-			 
-			 
-			 
-			 
-			 
-			 
-			 
-			 
-			 
-			 
-			 
 			 <MarketPanel 
 			   title="Índices Globais e Indicadores" 
 			   items={indicesComIndicadores} 
