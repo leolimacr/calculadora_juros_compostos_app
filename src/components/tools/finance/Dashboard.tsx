@@ -40,8 +40,9 @@ const Dashboard: React.FC<any> = (props) => {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [sortMode, setSortMode] = useState<'date-desc' | 'date-asc' | 'category-asc' | 'category-desc'>('date-desc');
   const [showCategorySummary, setShowCategorySummary] = useState(false);
+  const [openCategory, setOpenCategory] = useState<string | null>(null);
   const safeTransactions = Array.isArray(transactions) ? transactions : [];
-
+  
   const changeDate = (offset: number) => {
     const newDate = new Date(currentDate);
     if (viewMode === 'day') newDate.setDate(newDate.getDate() + offset);
@@ -185,6 +186,18 @@ const Dashboard: React.FC<any> = (props) => {
 
     return result.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
   }, [filtered, sortMode]);
+  const categoryTransactionsMap = useMemo(() => {
+    const map = new Map<string, any[]>();
+
+    filtered.forEach((t: any) => {
+      const category = (t?.category || 'Sem categoria').toString();
+      const current = map.get(category) || [];
+      current.push(t);
+      map.set(category, current);
+    });
+
+    return map;
+  }, [filtered]);
 
   const handleExportPDF = () => {
     const catLabel = selectedCategories.length === 0 ? 'Todas Categorias' : selectedCategories.join(', ');
@@ -333,10 +346,15 @@ const Dashboard: React.FC<any> = (props) => {
                   <div className="text-[10px] text-slate-500">
                     {categorySummary.length} categoria{categorySummary.length !== 1 ? 's' : ''}
                   </div>
-
                   <button
                     type="button"
-                    onClick={() => setShowCategorySummary(prev => !prev)}
+                    onClick={() => {
+                      setShowCategorySummary(prev => {
+                        const next = !prev;
+                        if (!next) setOpenCategory(null);
+                        return next;
+                      });
+                    }}
                     className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase border transition-all ${
                       showCategorySummary
                         ? 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
@@ -350,44 +368,101 @@ const Dashboard: React.FC<any> = (props) => {
 
               {showCategorySummary && (
                 <div className="space-y-3 mt-4">
-                  {categorySummary.map((cat) => (
-                    <div
-                      key={cat.name}
-                      className="bg-slate-50 border border-slate-200 rounded-2xl p-4"
-                    >
-                      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                        <div>
-                          <p className="text-sm font-black text-slate-900">{cat.name}</p>
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mt-1">
-                            {cat.count} lançamento{cat.count !== 1 ? 's' : ''}
-                          </p>
-                        </div>
+                  {categorySummary.map((cat) => {
+                    const isOpen = openCategory === cat.name;
+                    const catTransactions = categoryTransactionsMap.get(cat.name) || [];
 
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-                          <div className="text-left sm:text-center">
-                            <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Entradas</p>
-                            <p className="text-sm font-black text-emerald-600">
-                              {isPrivacyMode ? '••••' : `R$ ${cat.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                            </p>
-                          </div>
+                    return (
+                      <div
+                        key={cat.name}
+                        className="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setOpenCategory(prev => (prev === cat.name ? null : cat.name))}
+                          className="w-full p-4 text-left hover:bg-slate-100 transition-colors"
+                        >
+                          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                            <div>
+                              <p className="text-sm font-black text-slate-900">{cat.name}</p>
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mt-1">
+                                {cat.count} lançamento{cat.count !== 1 ? 's' : ''}
+                              </p>
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 mt-2">
+                                {isOpen ? 'Toque para ocultar lançamentos' : 'Toque para visualizar lançamentos'}
+                              </p>
+                            </div>
 
-                          <div className="text-left sm:text-center">
-                            <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Saídas</p>
-                            <p className="text-sm font-black text-red-600">
-                              {isPrivacyMode ? '••••' : `R$ ${cat.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                            </p>
-                          </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+                              <div className="text-left sm:text-center">
+                                <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Entradas</p>
+                                <p className="text-sm font-black text-emerald-600">
+                                  {isPrivacyMode ? '••••' : `R$ ${cat.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                                </p>
+                              </div>
 
-                          <div className="text-left sm:text-center sm:border-l sm:border-slate-200 sm:pl-6">
-                            <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Saldo</p>
-                            <p className={`text-sm font-black ${cat.total >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                              {isPrivacyMode ? '••••' : `R$ ${cat.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                            </p>
+                              <div className="text-left sm:text-center">
+                                <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Saídas</p>
+                                <p className="text-sm font-black text-red-600">
+                                  {isPrivacyMode ? '••••' : `R$ ${cat.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                                </p>
+                              </div>
+
+                              <div className="text-left sm:text-center sm:border-l sm:border-slate-200 sm:pl-6">
+                                <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Saldo</p>
+                                <p className={`text-sm font-black ${cat.total >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                  {isPrivacyMode ? '••••' : `R$ ${cat.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                                </p>
+                              </div>
+                            </div>
                           </div>
-                        </div>
+                        </button>
+
+                        {isOpen && (
+                          <div className="border-t border-slate-200 bg-white px-4 py-3">
+                            {catTransactions.length === 0 ? (
+                              <p className="text-xs text-slate-500 italic">Nenhum lançamento encontrado nesta categoria.</p>
+                            ) : (
+                              <div className="space-y-3">
+                                {catTransactions.map((t: any) => (
+                                  <div
+                                    key={t.id}
+                                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
+                                  >
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-black text-slate-900 break-words">
+                                        {t.description}
+                                      </p>
+                                      <div className="flex flex-wrap items-center gap-2 mt-1">
+                                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                                          {new Date(t.date.replace(/-/g, '/')).toLocaleDateString('pt-BR')}
+                                        </span>
+                                        <span className={`text-[10px] font-black uppercase tracking-widest ${
+                                          t.type === 'income' ? 'text-emerald-600' : 'text-red-600'
+                                        }`}>
+                                          {t.type === 'income' ? 'Entrada' : 'Saída'}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    <div className="text-left sm:text-right">
+                                      <p className={`text-sm font-black ${
+                                        t.type === 'income' ? 'text-emerald-600' : 'text-red-600'
+                                      }`}>
+                                        {isPrivacyMode
+                                          ? '••••'
+                                          : `R$ ${Number(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                                      </p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

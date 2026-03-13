@@ -77,7 +77,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
           <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
              
              {/* 1.1 Modos de Visualização */}
-             <div className="flex bg-slate-100 rounded-2xl p-1.5 w-full sm:w-auto justify-between border border-slate-200 shadow-sm">
+             <div className="flex bg-slate-50 rounded-2xl p-1.5 w-full sm:w-auto justify-between border border-slate-200 shadow-sm">
                 {['day', 'month', 'year', 'period', 'all'].map((mode) => (
                     <button 
                         key={mode}
@@ -154,7 +154,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
                     onClick={() => setTypeFilter('all')} 
                     className={`px-5 py-3 rounded-xl text-xs font-black uppercase whitespace-nowrap border-2 transition-all duration-200 ${
                         typeFilter === 'all' 
-                        ? 'bg-sky-600/20 border-sky-500 text-sky-400 shadow-lg shadow-sky-500/10' 
+                        ? 'bg-sky-50 border-sky-300 text-sky-700 shadow-sm' 
                         : 'bg-white border-slate-300 text-slate-600 hover:border-slate-400'
                     }`}
                 >
@@ -164,8 +164,8 @@ const FilterBar: React.FC<FilterBarProps> = ({
                     onClick={() => setTypeFilter('income')} 
                     className={`px-5 py-3 rounded-xl text-xs font-black uppercase whitespace-nowrap border-2 transition-all duration-200 ${
                         typeFilter === 'income' 
-                        ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400 shadow-lg shadow-emerald-500/10' 
-                        : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:border-slate-300'
+                        ? 'bg-emerald-50 border-emerald-300 text-emerald-700 shadow-sm' 
+                        : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800'
                     }`}
                 >
                     Receitas
@@ -174,8 +174,8 @@ const FilterBar: React.FC<FilterBarProps> = ({
                     onClick={() => setTypeFilter('expense')} 
                     className={`px-5 py-3 rounded-xl text-xs font-black uppercase whitespace-nowrap border-2 transition-all duration-200 ${
                         typeFilter === 'expense' 
-                        ? 'bg-red-600/20 border-red-500 text-red-400 shadow-lg shadow-red-500/10' 
-                        : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:border-slate-300'
+                        ? 'bg-red-50 border-red-300 text-red-700 shadow-sm' 
+                        : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800'
                     }`}
                 >
                     Despesas
@@ -187,8 +187,8 @@ const FilterBar: React.FC<FilterBarProps> = ({
                     onClick={() => setSortMode('date-desc')}
                     className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase whitespace-nowrap border transition-all duration-200 ${
                         sortMode === 'date-desc'
-                        ? 'bg-amber-600/20 border-amber-500 text-amber-400 shadow-lg shadow-amber-500/10'
-                        : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:border-slate-300'
+                        ? 'bg-amber-50 border-amber-300 text-amber-700 shadow-sm'
+                        : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800'
                     }`}
                 >
                     Mais Recentes
@@ -198,8 +198,8 @@ const FilterBar: React.FC<FilterBarProps> = ({
                     onClick={() => setSortMode('date-asc')}
                     className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase whitespace-nowrap border transition-all duration-200 ${
                         sortMode === 'date-asc'
-                        ? 'bg-amber-600/20 border-amber-500 text-amber-400 shadow-lg shadow-amber-500/10'
-                        : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:border-slate-300'
+                        ? 'bg-amber-50 border-amber-300 text-amber-700 shadow-sm'
+                        : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800'
                     }`}
                 >
                     Mais Antigos
@@ -209,8 +209,8 @@ const FilterBar: React.FC<FilterBarProps> = ({
                     onClick={() => setSortMode('category-asc')}
                     className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase whitespace-nowrap border transition-all duration-200 ${
                         sortMode === 'category-asc'
-                        ? 'bg-amber-600/20 border-amber-500 text-amber-400 shadow-lg shadow-amber-500/10'
-                        : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:border-slate-300'
+                        ? 'bg-amber-50 border-amber-300 text-amber-700 shadow-sm'
+                        : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800'
                     }`}
                 >
                     Categoria A-Z
@@ -220,8 +220,8 @@ const FilterBar: React.FC<FilterBarProps> = ({
                     onClick={() => setSortMode('category-desc')}
                     className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase whitespace-nowrap border transition-all duration-200 ${
                         sortMode === 'category-desc'
-                        ? 'bg-amber-600/20 border-amber-500 text-amber-400 shadow-lg shadow-amber-500/10'
-                        : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:border-slate-300'
+                        ? 'bg-amber-50 border-amber-300 text-amber-700 shadow-sm'
+                        : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800'
                     }`}
                 >
                     Categoria Z-A
@@ -260,7 +260,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
                     <button 
                         onClick={() => setSelectedCategories([])} 
                         className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase whitespace-nowrap border transition-all duration-200 ${
-                            isAllCategories ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400' : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:border-slate-300'
+                            isAllCategories ? 'bg-emerald-50 border-emerald-300 text-emerald-700 shadow-sm' : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800'
                         }`}
                     >
                         Todas
@@ -271,7 +271,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
                             key={cat} 
                             onClick={() => toggleCategory(cat)} 
                             className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase whitespace-nowrap border transition-all duration-200 ${
-                                selectedCategories.includes(cat) ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400' : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:border-slate-300'
+                                selectedCategories.includes(cat) ? 'bg-emerald-50 border-emerald-300 text-emerald-700 shadow-sm' : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800'
                             }`}
                         >
                             {cat}

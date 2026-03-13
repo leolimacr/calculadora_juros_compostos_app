@@ -109,12 +109,16 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             </div>
 
             {/* MOBILE: Saudação Compacta */}
-            <div className="xl:hidden flex flex-col items-end mr-1 leading-none animate-in fade-in">
-               <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Seja</span>
-			   <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">bem vindo(a),</span>
-               <span className="text-xs font-black text-emerald-400 tracking-tight">
-                 {firstName}!
-               </span>
+            <div className="xl:hidden flex flex-col items-end text-right mr-1 leading-none animate-in fade-in">
+              <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">
+                Seja
+              </span>
+              <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">
+                bem vindo(a),
+              </span>
+              <span className="text-xs font-black text-emerald-400 tracking-tight">
+                {firstName}!
+              </span>
             </div>
 
             {/* ÍCONES DE AÇÃO (Desktop) */}
