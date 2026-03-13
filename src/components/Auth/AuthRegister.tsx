@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createUserWithEmailAndPassword, sendEmailVerification, signOut } from 'firebase/auth';
 import { auth, database } from '../../firebase';
 import { ref, set } from 'firebase/database';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, CheckCircle } from 'lucide-react';
 
 const AuthRegister: React.FC<{ onSuccess: () => void, onSwitchToLogin: () => void }> = ({ onSuccess, onSwitchToLogin }) => {
   const [email, setEmail] = useState('');
@@ -10,7 +11,7 @@ const AuthRegister: React.FC<{ onSuccess: () => void, onSwitchToLogin: () => voi
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [emailSent, setEmailSent] = useState(false); // Novo estado para controlar a tela de sucesso
+  const [emailSent, setEmailSent] = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,30 +19,22 @@ const AuthRegister: React.FC<{ onSuccess: () => void, onSwitchToLogin: () => voi
     setError('');
     setLoading(true);
     try {
-      // 1. Cria o usuário
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // 2. Salva dados iniciais no Banco
       await set(ref(database, 'users/' + user.uid), {
         meta: { 
-            plan: 'free', 
-            launchLimit: 30, 
-            launchCount: 0, 
-            createdAt: Date.now(),
-            updatedAt: Date.now()
+          plan: 'free', 
+          launchLimit: 30, 
+          launchCount: 0, 
+          createdAt: Date.now(),
+          updatedAt: Date.now()
         }
       });
 
-      // 3. Envia E-mail de Verificação
       await sendEmailVerification(user);
-
-      // 4. Desloga imediatamente para forçar o login apenas após verificar
       await signOut(auth);
-
-      // 5. Mostra a tela de "Verifique seu e-mail"
       setEmailSent(true);
-
     } catch (err: any) {
       if (err.code === 'auth/email-already-in-use') setError('E-mail já cadastrado.');
       else if (err.code === 'auth/weak-password') setError('Senha fraca (mínimo 6 caracteres).');
@@ -54,108 +47,143 @@ const AuthRegister: React.FC<{ onSuccess: () => void, onSwitchToLogin: () => voi
   // --- TELA DE SUCESSO (ENVIADO) ---
   if (emailSent) {
     return (
-        <div className="w-full max-w-sm mx-auto p-6 flex flex-col justify-center min-h-screen animate-in fade-in zoom-in duration-500">
-            <div className="bg-slate-900/50 p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl text-center">
-                <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <span className="text-3xl">📧</span>
-                </div>
-                <h2 className="text-2xl font-black text-white mb-2">Verifique seu E-mail</h2>
-                <p className="text-slate-400 text-sm mb-6 leading-relaxed">
-                    Enviamos um link de confirmação para <br/> 
-                    <span className="text-sky-400 font-bold">{email}</span>.
+      <div className="flex flex-col items-center justify-center min-h-screen w-full px-4 bg-white">
+        <div className="w-full max-w-md">
+          <div className="bg-sky-50 rounded-2xl border border-sky-200 shadow-lg overflow-hidden">
+            <div className="h-1 w-full bg-gradient-to-r from-indigo-500 via-emerald-400 to-sky-500"></div>
+            <div className="p-8 text-center">
+              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-200">
+                <CheckCircle size={32} className="text-emerald-600" />
+              </div>
+              <h2 className="text-2xl font-black text-slate-900 mb-2">Verifique seu E-mail</h2>
+              <p className="text-slate-600 text-sm mb-4">
+                Enviamos um link de confirmação para <br />
+                <span className="text-indigo-600 font-bold">{email}</span>.
+              </p>
+              <div className="bg-sky-100/50 p-4 rounded-xl border border-sky-200 mb-6">
+                <p className="text-xs text-slate-600">
+                  Clique no link enviado para ativar sua conta e acessar o sistema.
                 </p>
-                <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800 mb-6">
-                    <p className="text-xs text-slate-500">Clique no link enviado para ativar sua conta e acessar o sistema.</p>
-                </div>
-                <button 
-                    onClick={onSwitchToLogin} 
-                    className="w-full bg-sky-500 hover:bg-sky-400 text-white font-bold py-4 rounded-2xl shadow-lg transition-all active:scale-95"
-                >
-                    Fazer Login
-                </button>
+              </div>
+              <button 
+                onClick={onSwitchToLogin} 
+                className="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-black py-4 rounded-xl transition-all active:scale-[0.98] shadow-md shadow-emerald-500/30 flex items-center justify-center gap-2 text-sm uppercase tracking-wider"
+              >
+                Fazer Login <ArrowRight size={18} />
+              </button>
             </div>
+          </div>
         </div>
+      </div>
     );
   }
 
   // --- TELA DE FORMULÁRIO (PADRÃO) ---
   return (
-    <div className="w-full max-w-sm mx-auto p-6 animate-in fade-in flex flex-col justify-center min-h-screen">
-      
-      {/* IDENTIDADE VISUAL */}
-      <div className="flex flex-col items-center justify-center mb-10">
-        <div className="flex items-center gap-3">
-            <img src="/icon.png" alt="Logo" className="w-11 h-11 rounded-xl shadow-lg shadow-sky-500/20" />
-            <div className="flex flex-col">
-                <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.3em] leading-none mb-1">Ecossistema</p>
-                <h1 className="text-2xl font-black text-sky-400 tracking-tight leading-none">Finanças Pro Invest</h1>
+    <div className="flex flex-col items-center justify-center min-h-screen w-full px-4 bg-white">
+      <div className="w-full max-w-md">
+        <div className="bg-sky-50 rounded-2xl border border-sky-200 shadow-lg overflow-hidden">
+          
+          {/* Detalhe decorativo no topo */}
+          <div className="h-1 w-full bg-gradient-to-r from-indigo-500 via-emerald-400 to-sky-500"></div>
+          
+          <div className="p-8">
+            {/* HEADER com logo e título */}
+            <div className="text-center mb-8">
+              <div className="w-20 h-20 bg-gradient-to-br from-indigo-50 to-slate-50 border border-slate-200 rounded-2xl flex items-center justify-center mx-auto shadow-sm mb-4">
+                <img src="/icon.png" alt="Logo" className="w-12 h-12" />
+              </div>
+              
+              <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+                Finanças <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-emerald-600">Pro Invest</span>
+              </h1>
+              
+              <p className="text-slate-500 text-sm mt-2 font-medium">
+                Crie sua conta gratuita e comece sua jornada
+              </p>
             </div>
-        </div>
-      </div>
 
-      <div className="bg-slate-900/50 p-6 rounded-[2.5rem] border border-slate-800 shadow-2xl backdrop-blur-sm">
-        <h2 className="text-lg font-bold text-white mb-6 text-center">Criar Nova Conta</h2>
-
-        {error && <div className="bg-red-500/20 text-red-200 p-3 rounded-xl mb-4 text-sm text-center border border-red-500/30">{error}</div>}
-        
-        <form onSubmit={handleRegister} className="space-y-4">
-            <div>
-                <label className="text-slate-400 text-xs font-bold uppercase ml-1">E-mail</label>
-                <input 
-                    type="email" 
-                    value={email} 
-                    onChange={(e) => setEmail(e.target.value)} 
-                    className="w-full bg-slate-950 border border-slate-700 rounded-2xl p-4 text-white outline-none focus:border-sky-500 transition-all" 
-                    placeholder="seu@email.com"
-                    required 
-                />
-            </div>
+            {/* Mensagem de erro */}
+            {error && (
+              <div className="flex items-start gap-3 bg-rose-50 border border-rose-200 text-rose-700 p-4 rounded-xl text-sm mb-6">
+                <span className="font-medium">{error}</span>
+              </div>
+            )}
             
-            <div className="relative">
-                <label className="text-slate-400 text-xs font-bold uppercase ml-1">Senha</label>
+            <form onSubmit={handleRegister} className="space-y-5">
+              {/* Campo E-mail */}
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
                 <input 
-                    type={showPassword ? "text" : "password"} 
-                    value={password} 
-                    onChange={(e) => setPassword(e.target.value)} 
-                    className="w-full bg-slate-950 border border-slate-700 rounded-2xl p-4 text-white outline-none focus:border-sky-500 transition-all pr-12" 
-                    placeholder="Mínimo 6 caracteres"
-                    required 
+                  type="email" 
+                  placeholder="Seu melhor e-mail" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-white border border-slate-300 text-slate-800 pl-12 pr-4 py-4 rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all placeholder:text-slate-500"
+                  required 
+                />
+              </div>
+              
+              {/* Campo Senha */}
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                <input 
+                  type={showPassword ? "text" : "password"} 
+                  placeholder="Crie uma senha (mínimo 6 caracteres)"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-white border border-slate-300 text-slate-800 pl-12 pr-12 py-4 rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all placeholder:text-slate-500"
+                  required 
                 />
                 <button 
-                    type="button" 
-                    onClick={() => setShowPassword(!showPassword)} 
-                    className="absolute right-4 top-[38px] text-slate-400 hover:text-white transition-colors"
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors"
                 >
-                    {showPassword ? '🙈' : '👁️'}
+                  {showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}
                 </button>
-            </div>
+              </div>
 
-            <div>
-                <label className="text-slate-400 text-xs font-bold uppercase ml-1">Confirmar Senha</label>
+              {/* Campo Confirmar Senha */}
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
                 <input 
-                    type={showPassword ? "text" : "password"} 
-                    value={confirm} 
-                    onChange={(e) => setConfirm(e.target.value)} 
-                    className="w-full bg-slate-950 border border-slate-700 rounded-2xl p-4 text-white outline-none focus:border-sky-500 transition-all" 
-                    placeholder="Repita sua senha"
-                    required 
+                  type={showPassword ? "text" : "password"} 
+                  placeholder="Confirme sua senha"
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  className="w-full bg-white border border-slate-300 text-slate-800 pl-12 pr-4 py-4 rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all placeholder:text-slate-500"
+                  required 
                 />
-            </div>
+              </div>
 
-            <button 
-                disabled={loading} 
+              {/* Botão principal */}
+              <button 
                 type="submit" 
-                className="w-full bg-sky-500 hover:bg-sky-400 text-white font-black py-4 rounded-2xl shadow-lg shadow-sky-900/40 transition-all disabled:opacity-50 active:scale-95 mt-4 tracking-widest"
-            >
-                {loading ? 'CRIANDO...' : 'CRIAR CONTA'}
-            </button>
-        </form>
-        
-        <div className="mt-8 text-center border-t border-slate-800 pt-6">
-            <button onClick={onSwitchToLogin} className="text-slate-400 text-sm hover:text-white transition-colors">
-                Já tem conta? <span className="text-sky-400 font-bold">Entrar agora</span>
-            </button>
+                disabled={loading}
+                className="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-black py-4 rounded-xl transition-all active:scale-[0.98] shadow-md shadow-emerald-500/30 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm uppercase tracking-wider"
+              >
+                {loading ? 'CRIANDO CONTA...' : 'CRIAR CONTA'} <ArrowRight size={18} />
+              </button>
+            </form>
+
+            {/* Rodapé - Já tem conta */}
+            <div className="mt-8 text-center">
+              <p className="text-slate-500 text-sm mb-2">Já tem uma conta?</p>
+              <button 
+                onClick={onSwitchToLogin} 
+                className="text-indigo-600 font-bold hover:text-indigo-800 transition-colors text-sm uppercase tracking-wider hover:underline"
+              >
+                Entrar agora
+              </button>
+            </div>
+          </div>
         </div>
+        
+        {/* Texto de segurança */}
+        <p className="text-center text-xs text-slate-400 mt-6">
+          🔒 Seus dados estão protegidos com criptografia de ponta a ponta.
+        </p>
       </div>
     </div>
   );

@@ -122,14 +122,20 @@ const App: React.FC = () => {
     if (isAppLocked && isAuthenticated && storedPin) {
       return <SecurityLock storedPin={storedPin} useBiometrics={false} onSuccess={handleUnlockSuccess} />;
     }
-
-    const wrap = (comp: React.ReactNode) => <div className="pt-16 pb-24 min-h-screen">{comp}</div>;
-
+    const wrap = (comp: React.ReactNode, isAuthRoute = false) => (
+      <div
+        className={`${isAuthRoute ? 'pt-0 pb-0' : 'pt-16 pb-24'} min-h-screen h-full ${
+          currentTool === 'manager' ? 'bg-slate-100' : 'bg-[#020617]'
+        }`}
+      >
+        {comp}
+      </div>
+    );
     switch (currentTool) {
       case 'login':
-        return wrap(<AuthLogin onSuccess={() => handleNavigate('home')} onSwitchToRegister={() => handleNavigate('register')} />);
+        return wrap(<AuthLogin onSuccess={() => handleNavigate('home')} onSwitchToRegister={() => handleNavigate('register')} />, true);
       case 'register':
-        return wrap(<AuthRegister onSuccess={() => handleNavigate('home')} onSwitchToLogin={() => handleNavigate('login')} />);
+        return wrap(<AuthRegister onSuccess={() => handleNavigate('home')} onSwitchToLogin={() => handleNavigate('login')} />, true);
       case 'manager':
         if (!isAuthenticated) { handleNavigate('login'); return null; }
         if (isMobileBrowser) return wrap(<AppOnlyBlock onBack={() => handleNavigate('home')} />);
@@ -224,7 +230,7 @@ const App: React.FC = () => {
         onOpenMobileMenu={() => setMobileMenuOpen(true)}
       />
 
-      <main className="flex-grow">{renderContent()}</main>
+      <main className="flex-grow h-full">{renderContent()}</main>
 	
 	{/* Painel móvel do menu (topo) */}
       {mobileMenuOpen && (

@@ -46,7 +46,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   };
 
   return (
-    <header className="fixed top-0 left-0 w-full z-[100] bg-[#020617]/95 backdrop-blur-md border-b border-slate-800 h-16 flex items-center px-4 md:px-8 shadow-2xl transition-all duration-300">
+    <header className="fixed top-0 left-0 w-full z-[100] bg-[#eaf4ff]/95 backdrop-blur-md border-b border-sky-100 h-16 flex items-center px-4 md:px-8 shadow-lg transition-all duration-300">
       
       {/* LADO ESQUERDO: LOGO */}
       <div className="flex items-center gap-2 md:gap-3 shrink-0">
@@ -55,7 +55,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
         
 		  
 		  
-		  <h1 className="text-sm md:text-xl font-black text-sky-400 tracking-tighter uppercase whitespace-nowrap">
+		  <h1 className="text-sm md:text-xl font-black text-sky-600 tracking-tighter uppercase whitespace-nowrap">
 		    Finanças Pro Invest
 		  </h1>		  
         </div>
@@ -98,13 +98,12 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             {/* DESKTOP: Saudação Completa */}
             <div className="hidden xl:flex items-center gap-3 mr-2 text-sm border-r border-slate-800 pr-4">
               <div className="flex flex-col text-right leading-none">
-                <span className="text-slate-500 text-[9px] font-black uppercase mb-1">Seja</span>
-				<span className="text-slate-500 text-[9px] font-black uppercase mb-1">bem-vindo(a),</span>
-                <span className="text-[12px] font-bold text-emerald-400 uppercase tracking-tight">
+				<span className="text-slate-700 text-[11px] font-black uppercase mb-1">Seja bem-vindo(a),</span>
+                <span className="text-[12px] font-bold text-emerald-600 uppercase tracking-tight">
                   {rawName}!
                 </span>
               </div>
-              <button onClick={onTogglePrivacy} className="p-2 bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors">
+              <button onClick={onTogglePrivacy} className="p-2 bg-slate-500 rounded-full text-slate-900 hover:text-white transition-colors">
                 {isPrivacyMode ? <EyeOff size={16}/> : <Eye size={16}/>}
               </button>
             </div>
@@ -120,7 +119,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
 
             {/* ÍCONES DE AÇÃO (Desktop) */}
             <div className="hidden md:flex items-center gap-2">
-              <button onClick={() => onNavigate('chat')} className="flex items-center gap-2 px-4 py-2 rounded-full border text-[10px] font-black uppercase transition-all bg-slate-800 border-slate-800 text-sky-400 hover:bg-slate-700">
+              <button onClick={() => onNavigate('chat')} className="flex items-center gap-2 px-6 py-2 rounded-full border text-[10px] font-black uppercase transition-all bg-slate-300 border-slate-800 text-sky-800 hover:bg-slate-100">
                 <Sparkles size={14} /> Nexus IA
               </button>
               <button onClick={() => onNavigate('settings')} className="p-2 text-slate-400 hover:text-white transition-colors"><Settings size={18} /></button>

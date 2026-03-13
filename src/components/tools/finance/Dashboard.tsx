@@ -31,7 +31,6 @@ const Dashboard: React.FC<any> = (props) => {
 	onTogglePrivacy,
     onEditTransaction
   } = props;
-
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [viewMode, setViewMode] = useState<'day' | 'month' | 'year' | 'all' | 'period'>('month');
@@ -39,7 +38,8 @@ const Dashboard: React.FC<any> = (props) => {
   const [startDate, setStartDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
-
+  const [sortMode, setSortMode] = useState<'date-desc' | 'date-asc' | 'category-asc' | 'category-desc'>('date-desc');
+  const [showCategorySummary, setShowCategorySummary] = useState(false);
   const safeTransactions = Array.isArray(transactions) ? transactions : [];
 
   const changeDate = (offset: number) => {
@@ -68,22 +68,56 @@ const Dashboard: React.FC<any> = (props) => {
   }, [viewMode, currentDate, startDate, endDate]);
 
   const filtered = useMemo(() => {
-    return safeTransactions.filter((t: any) => {
+    const base = safeTransactions.filter((t: any) => {
       const categoryMatch = selectedCategories.length === 0 || selectedCategories.includes(t?.category);
       const typeMatch = typeFilter === 'all' || t?.type === typeFilter;
       if (!categoryMatch || !typeMatch || !t.date) return false;
       if (viewMode === 'all') return true;
+
       const [year, month, day] = t.date.split('-').map(Number);
+
       if (viewMode === 'period') return t.date >= startDate && t.date <= endDate;
+
       const isSameYear = year === currentDate.getFullYear();
       const isSameMonth = month === (currentDate.getMonth() + 1);
       const isSameDay = day === currentDate.getDate();
+
       if (viewMode === 'year') return isSameYear;
       if (viewMode === 'month') return isSameYear && isSameMonth;
       if (viewMode === 'day') return isSameYear && isSameMonth && isSameDay;
+
       return false;
     });
-  }, [safeTransactions, selectedCategories, typeFilter, currentDate, viewMode, startDate, endDate]);
+
+    return [...base].sort((a: any, b: any) => {
+      const dateA = a?.date || '';
+      const dateB = b?.date || '';
+      const categoryA = (a?.category || 'Sem categoria').toString();
+      const categoryB = (b?.category || 'Sem categoria').toString();
+
+      if (sortMode === 'date-asc') {
+        return dateA.localeCompare(dateB);
+      }
+
+      if (sortMode === 'date-desc') {
+        return dateB.localeCompare(dateA);
+      }
+
+      if (sortMode === 'category-asc') {
+        const categoryCompare = categoryA.localeCompare(categoryB, 'pt-BR', { sensitivity: 'base' });
+        if (categoryCompare !== 0) return categoryCompare;
+        return dateB.localeCompare(dateA);
+      }
+
+      if (sortMode === 'category-desc') {
+        const categoryCompare = categoryB.localeCompare(categoryA, 'pt-BR', { sensitivity: 'base' });
+        if (categoryCompare !== 0) return categoryCompare;
+        return dateB.localeCompare(dateA);
+      }
+
+      return 0;
+    });
+  }, [safeTransactions, selectedCategories, typeFilter, currentDate, viewMode, startDate, endDate, sortMode]);
 
   const stats = useMemo(() => {
     let income = 0; let expenses = 0;
@@ -114,12 +148,48 @@ const Dashboard: React.FC<any> = (props) => {
     }).join(', ') : '#334155 0deg 360deg'})`;
     return { data, gradient };
   }, [filtered]);
+  const categorySummary = useMemo(() => {
+    const map = new Map<string, { income: number; expense: number; total: number; count: number }>();
+
+    filtered.forEach((t: any) => {
+      const category = (t?.category || 'Sem categoria').toString();
+      const value = Number(t?.amount) || 0;
+
+      const current = map.get(category) || {
+        income: 0,
+        expense: 0,
+        total: 0,
+        count: 0
+      };
+
+      if (t?.type === 'income') {
+        current.income += value;
+        current.total += value;
+      } else {
+        current.expense += value;
+        current.total -= value;
+      }
+
+      current.count += 1;
+      map.set(category, current);
+    });
+
+    const result = Array.from(map.entries()).map(([name, values]) => ({
+      name,
+      ...values
+    }));
+
+    if (sortMode === 'category-desc') {
+      return result.sort((a, b) => b.name.localeCompare(a.name, 'pt-BR', { sensitivity: 'base' }));
+    }
+
+    return result.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
+  }, [filtered, sortMode]);
 
   const handleExportPDF = () => {
     const catLabel = selectedCategories.length === 0 ? 'Todas Categorias' : selectedCategories.join(', ');
     generateFinancialReport(filtered, `${catLabel} - ${periodLabel}`, userMeta?.email || 'Investidor');
   };
-
   const categoryNames = useMemo(() => {
     const fromDb = categories.map((c: any) => c.name);
     const fromTransactions = safeTransactions.map((t: any) => t?.category).filter(Boolean);
@@ -127,74 +197,81 @@ const Dashboard: React.FC<any> = (props) => {
   }, [categories, safeTransactions]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 space-y-8 animate-in fade-in duration-500 pb-32">
+    
+    <div className="max-w-7xl mx-auto px-4 md:px-8 py-6 space-y-8 animate-in fade-in duration-500 pb-32 bg-slate-50/95 rounded-[2.5rem] border border-slate-200 shadow-sm">
       <CategoryManager isOpen={isCategoryModalOpen} onClose={() => setIsCategoryModalOpen(false)} categories={categories} onSave={onSaveCategory} onDelete={onDeleteCategory} />
 
 	  {/* HEADER DO GERENCIADOR */}
 <div className="flex justify-between items-center">
    <div>
-      <h2 className="text-xl md:text-2xl font-black text-white tracking-tight uppercase">Fluxo de Caixa</h2>
+      <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight uppercase">Fluxo de Caixa</h2>
       <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">{periodLabel}</p>
    </div>
    <div className="flex items-center gap-3">
       {/* BOTÃO OLHINHO */}
       <button
         onClick={onTogglePrivacy}
-        className="p-3 rounded-2xl bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 transition-all active:scale-95"
+        className="p-3 rounded-2xl bg-white border border-slate-200 text-slate-500 hover:text-slate-900 hover:border-slate-400 transition-all active:scale-95 shadow-sm"
       >
         {isPrivacyMode ? <EyeOff size={18} /> : <Eye size={18} />}
       </button>
-      <button onClick={isLimitReached && !isPremium ? onShowPaywall : onOpenForm} className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg transition-transform active:scale-95 ${isLimitReached && !isPremium ? 'bg-slate-800 text-slate-400 border border-slate-700' : 'bg-emerald-500 text-white hover:bg-emerald-400 shadow-emerald-500/20'}`}>
+      <button onClick={isLimitReached && !isPremium ? onShowPaywall : onOpenForm} className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-sm transition-transform active:scale-95 ${isLimitReached && !isPremium ? 'bg-slate-100 text-slate-500 border border-slate-200' : 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-emerald-500/20'}`}>
          {isLimitReached && !isPremium ? <Lock size={16}/> : <Plus size={16} />}
          <span>{isLimitReached && !isPremium ? 'Limite Atingido' : 'Novo Lançamento'}</span>
       </button>
    </div>
-</div>
+</div>  
       {/* CARDS DE SALDO PRINCIPAIS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-gradient-to-br from-slate-900 to-[#020617] p-8 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden border border-slate-800 group">
-             <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity"><Wallet size={80} /></div>
+          <div className="bg-gradient-to-br from-white to-slate-50 p-8 rounded-[2.5rem] text-slate-900 shadow-xl relative overflow-hidden border border-slate-200 group">
+             <div className="absolute top-0 right-0 p-8 opacity-5 text-slate-900 group-hover:opacity-10 transition-opacity"><Wallet size={80} /></div>
              <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mb-2">Saldo Disponível</p>
-             <h2 className="text-4xl font-black tracking-tighter">
+             <h2 className="text-4xl font-black tracking-tighter text-slate-900">
                 {isPrivacyMode ? '••••••' : `R$ ${stats.balance.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`}
              </h2>
              <div className="mt-6 flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${stats.balance >= 0 ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{stats.balance >= 0 ? 'Saúde Financeira Estável' : 'Atenção ao Orçamento'}</span>
+                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">{stats.balance >= 0 ? 'Saúde Financeira Estável' : 'Atenção ao Orçamento'}</span>
              </div>
           </div>
 
-          <div className="bg-slate-900/40 p-6 rounded-[2rem] border border-slate-800 flex flex-col justify-center">
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-200 flex flex-col justify-center shadow-sm">
               <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1">Total Entradas</p>
-              <p className="text-2xl font-black text-emerald-400 tracking-tight">
+              <p className="text-2xl font-black text-emerald-600 tracking-tight">
                 {isPrivacyMode ? '••••' : `R$ ${stats.income.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`}
               </p>
           </div>
 
-          <div className="bg-slate-900/40 p-6 rounded-[2rem] border border-slate-800 flex flex-col justify-center">
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-200 flex flex-col justify-center shadow-sm">
               <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1">Total Saídas</p>
-              <p className="text-2xl font-black text-red-400 tracking-tight">
+              <p className="text-2xl font-black text-red-600 tracking-tight">
                 {isPrivacyMode ? '••••' : `R$ ${stats.expenses.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`}
               </p>
           </div>
       </div>
-
       <UsageIndicator userMeta={userMeta} usagePercentage={usagePercentage} isPremium={isPremium} />
 
       {/* ÁREA DE GRÁFICOS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-slate-900/40 p-8 rounded-[2.5rem] border border-slate-800 shadow-xl">
-            <h3 className="text-white font-black mb-6 text-xs uppercase tracking-[0.2em] flex items-center gap-3"><PieChart size={16} className="text-emerald-500"/> Composição de Gastos</h3>
+       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+            <h3 className="text-slate-900 font-black mb-6 text-xs uppercase tracking-[0.2em] flex items-center gap-3"><PieChart size={16} className="text-emerald-600"/> Composição de Gastos</h3>
             <div className="flex items-center gap-10">
                 <div className="w-24 h-24 md:w-32 md:h-32 rounded-full flex-shrink-0 shadow-2xl" style={{ background: categoryStats.gradient }}></div>
+                
+                
+                
+                
+                
+                
+                
                 <div className="flex-1 space-y-3">
                     {categoryStats.data.length > 0 ? categoryStats.data.map((cat: any) => (
                         <div key={cat.name} className="flex flex-col">
                            <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest mb-1">
-                              <span className="text-slate-400">{cat.name}</span>
-                              <span className="text-white">{Math.round(cat.percent)}%</span>
+                              <span className="text-slate-600">{cat.name}</span>
+                              <span className="text-slate-900">{Math.round(cat.percent)}%</span>
                            </div>
-                           <div className="w-full bg-slate-800 h-1 rounded-full overflow-hidden">
+                           <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
                               <div className="h-full transition-all duration-1000" style={{ width: `${cat.percent}%`, backgroundColor: cat.color }}></div>
                            </div>
                         </div>
@@ -202,17 +279,16 @@ const Dashboard: React.FC<any> = (props) => {
                 </div>
             </div>
           </div>
-
-          <div className="bg-slate-900/40 p-8 rounded-[2.5rem] border border-slate-800 shadow-xl">
-            <h3 className="text-white font-black mb-6 text-xs uppercase tracking-[0.2em] flex items-center gap-3"><BarChart3 size={16} className="text-sky-500"/> Visão de Fluxo</h3>
+           <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+            <h3 className="text-slate-900 font-black mb-6 text-xs uppercase tracking-[0.2em] flex items-center gap-3"><BarChart3 size={16} className="text-sky-600"/> Visão de Fluxo</h3>
             <div className="flex items-end justify-around h-32 gap-4">
                 {[
                     {label: 'Entradas', c:'bg-emerald-500', h:(stats.income/Math.max(stats.income,stats.expenses,1))*100},
                     {label: 'Saídas', c:'bg-red-500', h:(stats.expenses/Math.max(stats.income,stats.expenses,1))*100}
                 ].map((b,i)=>(
                     <div key={i} className="flex-1 flex flex-col items-center gap-3 h-full">
-                        <div className="w-full bg-slate-800/50 rounded-2xl h-full flex items-end overflow-hidden border border-slate-700/30">
-                            <div className={`w-full ${b.c} transition-all duration-1000 shadow-[0_0_20px_rgba(16,185,129,0.2)]`} style={{height:`${b.h}%`}}></div>
+                        <div className="w-full bg-slate-100 rounded-2xl h-full flex items-end overflow-hidden border border-slate-200">
+                            <div className={`w-full ${b.c} transition-all duration-1000 shadow-none`} style={{height:`${b.h}%`}}></div>
                         </div>
                         <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{b.label}</span>
                     </div>
@@ -220,7 +296,6 @@ const Dashboard: React.FC<any> = (props) => {
             </div>
           </div>
       </div>
-
       {/* FILTROS E TABELA */}
       <div className="space-y-6">
           <FilterBar 
@@ -240,12 +315,86 @@ const Dashboard: React.FC<any> = (props) => {
             setEndDate={setEndDate}
             onOpenCategoryManager={() => setIsCategoryModalOpen(true)}
             onDateSelect={handleDateSelect}
+            sortMode={sortMode}
+            setSortMode={setSortMode}
           />
           <TransactionHistory transactions={filtered} onDelete={onDeleteTransaction} onEdit={onEditTransaction} isPrivacyMode={isPrivacyMode} />
-          
+          {categorySummary.length > 0 && (
+            <div className="bg-white border border-slate-200 rounded-[2rem] p-5 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <h3 className="text-slate-900 font-black text-xs uppercase tracking-[0.2em]">Resumo por Categoria</h3>
+                  <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-1">
+                    Visão consolidada dos lançamentos filtrados
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="text-[10px] text-slate-500">
+                    {categorySummary.length} categoria{categorySummary.length !== 1 ? 's' : ''}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowCategorySummary(prev => !prev)}
+                    className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase border transition-all ${
+                      showCategorySummary
+                        ? 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
+                        : 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
+                    }`}
+                  >
+                    {showCategorySummary ? 'Ocultar Resumo por Categoria' : 'Mostrar Resumo por Categoria'}
+                  </button>
+                </div>
+              </div>
+
+              {showCategorySummary && (
+                <div className="space-y-3 mt-4">
+                  {categorySummary.map((cat) => (
+                    <div
+                      key={cat.name}
+                      className="bg-slate-50 border border-slate-200 rounded-2xl p-4"
+                    >
+                      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                        <div>
+                          <p className="text-sm font-black text-slate-900">{cat.name}</p>
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mt-1">
+                            {cat.count} lançamento{cat.count !== 1 ? 's' : ''}
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+                          <div className="text-left sm:text-center">
+                            <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Entradas</p>
+                            <p className="text-sm font-black text-emerald-600">
+                              {isPrivacyMode ? '••••' : `R$ ${cat.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                            </p>
+                          </div>
+
+                          <div className="text-left sm:text-center">
+                            <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Saídas</p>
+                            <p className="text-sm font-black text-red-600">
+                              {isPrivacyMode ? '••••' : `R$ ${cat.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                            </p>
+                          </div>
+
+                          <div className="text-left sm:text-center sm:border-l sm:border-slate-200 sm:pl-6">
+                            <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Saldo</p>
+                            <p className={`text-sm font-black ${cat.total >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                              {isPrivacyMode ? '••••' : `R$ ${cat.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           {/* SOMATÓRIO DOS LANÇAMENTOS FILTRADOS */}
           {filtered.length > 0 && (
-            <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 mt-4 shadow-lg">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 mt-4 shadow-sm">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Resultado dos filtros</span>
@@ -262,11 +411,11 @@ const Dashboard: React.FC<any> = (props) => {
                     });
                     const net = totalIncome - totalExpense;
                     return (
-                      <>
+                      <> 
                         {totalIncome > 0 && (
                           <div className="text-center">
                             <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Entradas</p>
-                            <p className="text-sm font-black text-emerald-400">
+                            <p className="text-sm font-black text-emerald-600">  
                               {isPrivacyMode ? '••••' : `R$ ${totalIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                             </p>
                           </div>
@@ -274,14 +423,14 @@ const Dashboard: React.FC<any> = (props) => {
                         {totalExpense > 0 && (
                           <div className="text-center">
                             <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Saídas</p>
-                            <p className="text-sm font-black text-red-400">
+                            <p className="text-sm font-black text-red-600">  
                               {isPrivacyMode ? '••••' : `R$ ${totalExpense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                             </p>
                           </div>
                         )}
-                        <div className="text-center border-l border-slate-700 pl-6">
+                        <div className="text-center border-l border-slate-200 pl-6">
                           <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Total</p>
-                          <p className={`text-lg font-black ${net >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                          <p className={`text-lg font-black ${net >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                             {isPrivacyMode ? '••••' : `R$ ${net.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                           </p>
                         </div>

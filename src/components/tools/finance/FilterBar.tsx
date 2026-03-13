@@ -1,7 +1,9 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { 
   ChevronLeft, 
   ChevronRight, 
+  ChevronDown,
+  ChevronUp,
   FileText,
   FolderOpen
 } from 'lucide-react';
@@ -23,6 +25,8 @@ interface FilterBarProps {
   setEndDate: (date: string) => void;
   onOpenCategoryManager: () => void;
   onDateSelect: (date: string) => void;
+  sortMode: 'date-desc' | 'date-asc' | 'category-asc' | 'category-desc';
+  setSortMode: (mode: 'date-desc' | 'date-asc' | 'category-asc' | 'category-desc') => void;
 }
 
 const FilterBar: React.FC<FilterBarProps> = ({ 
@@ -41,10 +45,12 @@ const FilterBar: React.FC<FilterBarProps> = ({
   setStartDate,
   setEndDate,
   onOpenCategoryManager,
-  onDateSelect
-}) => {
+  onDateSelect,
+  sortMode,
+  setSortMode
+}) => {  
   const dateInputRef = useRef<HTMLInputElement>(null);
-
+  const [showCategories, setShowCategories] = useState(false);
   const handleLabelClick = () => {
     if (dateInputRef.current) {
       dateInputRef.current.showPicker();
@@ -63,7 +69,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
   const isAllCategories = selectedCategories.length === 0;
 
   return (
-    <div className="flex flex-col gap-4 bg-slate-900/50 p-4 rounded-3xl border border-slate-800/60 mb-4 shadow-xl">
+    <div className="flex flex-col gap-4 bg-white p-4 rounded-3xl border border-slate-200 mb-4 shadow-sm">
       
       {/* SEÇÃO 1: CONTROLES DE DATA E PDF */}
       <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
@@ -71,15 +77,15 @@ const FilterBar: React.FC<FilterBarProps> = ({
           <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
              
              {/* 1.1 Modos de Visualização */}
-             <div className="flex bg-slate-950 rounded-2xl p-1.5 w-full sm:w-auto justify-between border border-slate-800/50 shadow-inner">
+             <div className="flex bg-slate-100 rounded-2xl p-1.5 w-full sm:w-auto justify-between border border-slate-200 shadow-sm">
                 {['day', 'month', 'year', 'period', 'all'].map((mode) => (
                     <button 
                         key={mode}
-                        onClick={() => setViewMode(mode as any)} 
+                        onClick={() => setViewMode(mode as any)}
                         className={`flex-1 sm:flex-none px-3 py-2 rounded-xl text-[10px] font-black uppercase transition-all duration-200 ${
                             viewMode === mode 
-                            ? 'bg-emerald-600 text-white shadow-lg scale-105' 
-                            : 'text-slate-500 hover:text-slate-300'
+                            ? 'bg-emerald-600 text-white shadow-sm scale-105' 
+                            : 'text-slate-600 hover:text-slate-900'
                         }`}
                     >
                         {mode === 'day' ? 'Dia' : mode === 'month' ? 'Mês' : mode === 'year' ? 'Ano' : mode === 'period' ? 'Período' : 'Tudo'}
@@ -89,16 +95,16 @@ const FilterBar: React.FC<FilterBarProps> = ({
 
              {/* 1.2 Navegação Rápida com Calendário ao Clicar */}
              {viewMode !== 'all' && viewMode !== 'period' && (
-                <div className="flex items-center justify-between w-full sm:w-auto bg-slate-800/40 p-1.5 rounded-2xl border border-slate-700/50 px-3 shadow-sm relative">
-                    <button onClick={() => changeDate(-1)} className="p-2 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white transition-colors z-10">
+                                <div className="flex items-center justify-between w-full sm:w-auto bg-white p-1.5 rounded-2xl border border-slate-200 px-3 shadow-sm relative">
+                                        <button onClick={() => changeDate(-1)} className="p-2 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-slate-900 transition-colors z-10">
                         <ChevronLeft size={20}/>
                     </button>
                     
                     <div 
                       onClick={handleLabelClick}
-                      className="flex-1 min-w-[110px] text-center cursor-pointer hover:bg-slate-700/50 rounded-lg py-1 transition-colors mx-1"
+                      className="flex-1 min-w-[110px] text-center cursor-pointer hover:bg-slate-100 rounded-lg py-1 transition-colors mx-1"
                     >
-                        <span className="text-sm font-black text-white capitalize tracking-tight">
+                        <span className="text-sm font-black text-slate-900 capitalize tracking-tight">
                             {periodLabel}
                         </span>
                         <input 
@@ -109,7 +115,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
                         />
                     </div>
 
-                    <button onClick={() => changeDate(1)} className="p-2 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white transition-colors z-10">
+                    <button onClick={() => changeDate(1)} className="p-2 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-slate-900 transition-colors z-10">
                         <ChevronRight size={20}/>
                     </button>
                 </div>
@@ -118,14 +124,14 @@ const FilterBar: React.FC<FilterBarProps> = ({
 
           {/* 1.3 Inputs Período */}
           {viewMode === 'period' && (
-            <div className="flex flex-col sm:flex-row items-center gap-2 w-full lg:w-auto bg-slate-800/30 p-2 rounded-2xl border border-slate-800 animate-in fade-in zoom-in duration-300">
+            <div className="flex flex-col sm:flex-row items-center gap-2 w-full lg:w-auto bg-slate-50 p-2 rounded-2xl border border-slate-200 animate-in fade-in zoom-in duration-300">
                 <div className="flex items-center justify-between w-full sm:w-auto gap-3 px-3">
                     <span className="text-[10px] font-black text-slate-500 uppercase">De</span>
-                    <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 h-10 shadow-inner" />
+                    <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-emerald-500 h-10 shadow-sm" />
                 </div>
-                <div className="flex items-center justify-between w-full sm:w-auto gap-3 px-3 border-t sm:border-t-0 sm:border-l border-slate-800 pt-2 sm:pt-0 sm:pl-3">
+                <div className="flex items-center justify-between w-full sm:w-auto gap-3 px-3 border-t sm:border-t-0 sm:border-l border-slate-200 pt-2 sm:pt-0 sm:pl-3">
                     <span className="text-[10px] font-black text-slate-500 uppercase">Até</span>
-                    <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 h-10 shadow-inner" />
+                    <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-emerald-500 h-10 shadow-sm" />
                 </div>
             </div>
           )}
@@ -133,7 +139,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
           {/* 1.4 Botão PDF */}
           <button 
             onClick={onExportPDF}
-            className="flex items-center justify-center gap-3 px-6 py-3.5 rounded-2xl font-black bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 border border-slate-700 transition-all active:scale-95 shadow-lg w-full lg:w-auto group"
+            className="flex items-center justify-center gap-3 px-6 py-3.5 rounded-2xl font-black bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-50 border border-slate-200 transition-all active:scale-95 shadow-sm w-full lg:w-auto group"
           >
             <FileText size={18} className="text-emerald-500 group-hover:scale-110 transition-transform" />
             <span className="text-[10px] uppercase tracking-[0.15em]">Gerar Relatório PDF</span>
@@ -141,72 +147,140 @@ const FilterBar: React.FC<FilterBarProps> = ({
       </div>
 
       {/* SEÇÃO 2: FILTRO POR TIPO (TUDO / RECEITAS / DESPESAS) */}
-      <div className="w-full border-t border-slate-800/60 pt-4 mt-1">
-        <div className="flex flex-wrap gap-2 justify-start px-1 mb-3">
-            <button 
-                onClick={() => setTypeFilter('all')} 
-                className={`px-5 py-3 rounded-xl text-xs font-black uppercase whitespace-nowrap border-2 transition-all duration-200 ${
-                    typeFilter === 'all' 
-                    ? 'bg-sky-600/20 border-sky-500 text-sky-400 shadow-lg shadow-sky-500/10' 
-                    : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:border-slate-300'
-                }`}
-            >
-                Tudo
-            </button>
-            <button 
-                onClick={() => setTypeFilter('income')} 
-                className={`px-5 py-3 rounded-xl text-xs font-black uppercase whitespace-nowrap border-2 transition-all duration-200 ${
-                    typeFilter === 'income' 
-                    ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400 shadow-lg shadow-emerald-500/10' 
-                    : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:border-slate-300'
-                }`}
-            >
-                Receitas
-            </button>
-            <button 
-                onClick={() => setTypeFilter('expense')} 
-                className={`px-5 py-3 rounded-xl text-xs font-black uppercase whitespace-nowrap border-2 transition-all duration-200 ${
-                    typeFilter === 'expense' 
-                    ? 'bg-red-600/20 border-red-500 text-red-400 shadow-lg shadow-red-500/10' 
-                    : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:border-slate-300'
-                }`}
-            >
-                Despesas
-            </button>
-        </div>
-
-        {/* SEÇÃO 3: CATEGORIAS (multi-select) */}
-        <div className="flex flex-wrap gap-2 justify-start px-1">
-            <button 
-                onClick={onOpenCategoryManager}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase bg-slate-800 border border-slate-700 text-emerald-400 hover:bg-slate-700 transition-all"
-            >
-                <FolderOpen size={16} />
-                <span>Categorias</span>
-            </button>
-            <div className="w-[1px] h-9 bg-slate-800 mx-1"></div>
-            <button 
-                onClick={() => setSelectedCategories([])} 
-                className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase whitespace-nowrap border transition-all duration-200 ${
-                    isAllCategories ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400' : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:border-slate-300'
-                }`}
-            >
-                Todas
-            </button>
-            {categories.map((cat: string) => (
+      <div className="w-full border-t border-slate-200 pt-4 mt-1">
+        <div className="flex flex-col gap-3 px-1 mb-3">
+            <div className="flex flex-wrap gap-2 justify-start">
                 <button 
-                    key={cat} 
-                    onClick={() => toggleCategory(cat)} 
-                    className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase whitespace-nowrap border transition-all duration-200 ${
-                        selectedCategories.includes(cat) ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400' : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:border-slate-300'
+                    onClick={() => setTypeFilter('all')} 
+                    className={`px-5 py-3 rounded-xl text-xs font-black uppercase whitespace-nowrap border-2 transition-all duration-200 ${
+                        typeFilter === 'all' 
+                        ? 'bg-sky-600/20 border-sky-500 text-sky-400 shadow-lg shadow-sky-500/10' 
+                        : 'bg-white border-slate-300 text-slate-600 hover:border-slate-400'
                     }`}
                 >
-                    {cat}
+                    Tudo
                 </button>
-            ))}
+                <button 
+                    onClick={() => setTypeFilter('income')} 
+                    className={`px-5 py-3 rounded-xl text-xs font-black uppercase whitespace-nowrap border-2 transition-all duration-200 ${
+                        typeFilter === 'income' 
+                        ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400 shadow-lg shadow-emerald-500/10' 
+                        : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:border-slate-300'
+                    }`}
+                >
+                    Receitas
+                </button>
+                <button 
+                    onClick={() => setTypeFilter('expense')} 
+                    className={`px-5 py-3 rounded-xl text-xs font-black uppercase whitespace-nowrap border-2 transition-all duration-200 ${
+                        typeFilter === 'expense' 
+                        ? 'bg-red-600/20 border-red-500 text-red-400 shadow-lg shadow-red-500/10' 
+                        : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:border-slate-300'
+                    }`}
+                >
+                    Despesas
+                </button>
+            </div>
+
+            <div className="flex flex-wrap gap-2 justify-start">
+                <button
+                    onClick={() => setSortMode('date-desc')}
+                    className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase whitespace-nowrap border transition-all duration-200 ${
+                        sortMode === 'date-desc'
+                        ? 'bg-amber-600/20 border-amber-500 text-amber-400 shadow-lg shadow-amber-500/10'
+                        : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:border-slate-300'
+                    }`}
+                >
+                    Mais Recentes
+                </button>
+
+                <button
+                    onClick={() => setSortMode('date-asc')}
+                    className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase whitespace-nowrap border transition-all duration-200 ${
+                        sortMode === 'date-asc'
+                        ? 'bg-amber-600/20 border-amber-500 text-amber-400 shadow-lg shadow-amber-500/10'
+                        : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:border-slate-300'
+                    }`}
+                >
+                    Mais Antigos
+                </button>
+
+                <button
+                    onClick={() => setSortMode('category-asc')}
+                    className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase whitespace-nowrap border transition-all duration-200 ${
+                        sortMode === 'category-asc'
+                        ? 'bg-amber-600/20 border-amber-500 text-amber-400 shadow-lg shadow-amber-500/10'
+                        : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:border-slate-300'
+                    }`}
+                >
+                    Categoria A-Z
+                </button>
+
+                <button
+                    onClick={() => setSortMode('category-desc')}
+                    className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase whitespace-nowrap border transition-all duration-200 ${
+                        sortMode === 'category-desc'
+                        ? 'bg-amber-600/20 border-amber-500 text-amber-400 shadow-lg shadow-amber-500/10'
+                        : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:border-slate-300'
+                    }`}
+                >
+                    Categoria Z-A
+                </button>
+            </div>
+        </div>
+        
+        {/* SEÇÃO 3: CATEGORIAS (multi-select) */}
+        <div className="flex flex-col gap-3 justify-start px-1">
+            <div className="flex flex-wrap items-center gap-2">
+                <button 
+                    onClick={onOpenCategoryManager}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase bg-white border border-slate-200 text-emerald-600 hover:bg-emerald-50 transition-all"
+                >
+                    <FolderOpen size={16} />
+                    <span>Categorias</span>
+                </button>
+
+                <button
+                    onClick={() => setShowCategories(!showCategories)}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase bg-white border border-slate-300 text-slate-700 hover:border-slate-400 hover:text-slate-900 transition-all"
+                >
+                    {showCategories ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    <span>{showCategories ? 'Ocultar Categorias' : 'Mostrar Categorias'}</span>
+                </button>
+
+                {!isAllCategories && (
+                    <span className="px-3 py-2 rounded-xl text-[10px] font-black uppercase border border-emerald-200 bg-emerald-50 text-emerald-700">
+                        {selectedCategories.length} selecionada{selectedCategories.length !== 1 ? 's' : ''}
+                    </span>
+                )}
+            </div>
+
+            {showCategories && (
+                <div className="flex flex-wrap gap-2 justify-start animate-in fade-in duration-200">
+                    <button 
+                        onClick={() => setSelectedCategories([])} 
+                        className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase whitespace-nowrap border transition-all duration-200 ${
+                            isAllCategories ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400' : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:border-slate-300'
+                        }`}
+                    >
+                        Todas
+                    </button>
+
+                    {categories.map((cat: string) => (
+                        <button 
+                            key={cat} 
+                            onClick={() => toggleCategory(cat)} 
+                            className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase whitespace-nowrap border transition-all duration-200 ${
+                                selectedCategories.includes(cat) ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400' : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:border-slate-300'
+                            }`}
+                        >
+                            {cat}
+                        </button>
+                    ))}
+                </div>
+            )}
         </div>
       </div>
-
     </div>
   );
 };
