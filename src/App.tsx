@@ -125,7 +125,13 @@ const App: React.FC = () => {
     const wrap = (comp: React.ReactNode, isAuthRoute = false) => (
       <div
         className={`${isAuthRoute ? 'pt-0 pb-0' : 'pt-16 pb-24'} min-h-screen h-full ${
-          currentTool === 'manager' ? 'bg-slate-100' : 'bg-[#020617]'
+          currentTool === 'manager' ||
+          currentTool === 'settings' ||
+          currentTool === 'pricing' ||
+          currentTool === 'chat' ||
+          currentTool.startsWith('tool-')
+            ? 'bg-slate-50'
+            : 'bg-[#020617]'
         }`}
       >
         {comp}
