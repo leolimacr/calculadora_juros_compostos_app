@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
-import { Lock, Globe, Smartphone, UserPlus, LogIn, HelpCircle, Zap } from 'lucide-react';
+import { Lock, Globe, Smartphone, UserPlus, LogIn, Zap } from 'lucide-react';
 
 // === COMPONENTE DE BLOQUEIO WEB-ONLY (MOBILE APP) ===
 export const WebOnlyBlock = ({ title, onBack }: any) => {
@@ -130,38 +130,106 @@ export const ToolLayout = ({ title, icon, onBack, children, description, badge }
     </div>
   );
 };
+const formatMoneyInputValue = (value: number | '') => {
+  if (value === '' || value === null || value === undefined || Number.isNaN(Number(value))) {
+    return '';
+  }
 
+  return Number(value).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
+const parseMoneyDigitsToNumber = (raw: string) => {
+  const digits = raw.replace(/\D/g, '');
+
+  if (!digits) return '';
+
+  return Number(digits) / 100;
+};
 // === COMPONENTE DE INPUT REUTILIZÁVEL ===
-export const Input = ({ label, value, onChange, prefix, placeholder, help }: any) => (
-  <div className="space-y-3 flex-1">
-    <div className="flex items-center gap-2 ml-1">
-      <label className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">{label}</label>
-      {help && (
-        <div className="group relative text-slate-400">
-          <HelpCircle size={12} />
-          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-white text-[10px] text-slate-600 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-slate-200 shadow-lg">
-            {help}
-          </div>
-        </div>
-      )}
-    </div>
+export const Input = ({ label, value, onChange, prefix, placeholder, help }: any) => {
+  const isMoneyInput = prefix === 'R$';
+  const helpRef = useRef<HTMLDivElement | null>(null);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
 
-    <div className="relative group">
-      {prefix && (
-        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold group-focus-within:text-sky-600 transition-colors">
-          {prefix}
-        </span>
-      )}
-      <input
-        type="number"
-        value={value}
-        placeholder={placeholder}
-        onChange={e => onChange(e.target.value === '' ? '' : Number(e.target.value))}
-        className={`w-full bg-white border border-slate-200 rounded-2xl p-5 text-slate-900 font-black text-lg focus:border-sky-400 focus:ring-2 focus:ring-sky-100 outline-none transition-all placeholder:text-slate-300 ${prefix ? 'pl-12' : ''}`}
-      />
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (helpRef.current && !helpRef.current.contains(event.target as Node)) {
+        setIsHelpOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const displayValue = useMemo(() => {
+    if (isMoneyInput) {
+      return formatMoneyInputValue(value);
+    }
+
+    return value;
+  }, [isMoneyInput, value]);
+
+  return (
+    <div className="space-y-3 flex-1">
+      <div className="flex items-center gap-2 ml-1">
+        <label className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">
+          {label}
+        </label>
+
+        {help && (
+          <div ref={helpRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setIsHelpOpen((prev: boolean) => !prev)}
+              className="w-4 h-4 rounded-full border border-slate-300 text-[10px] font-black text-slate-500 bg-white hover:bg-slate-50 hover:text-sky-700 hover:border-sky-300 transition-all flex items-center justify-center"
+              aria-label={`Ajuda sobre ${label}`}
+            >
+              ?
+            </button>
+
+            {isHelpOpen && (
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-3 bg-white text-[10px] text-slate-600 rounded-xl z-50 border border-slate-200 shadow-xl leading-relaxed">
+                {help}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="relative group">
+        {prefix && (
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold group-focus-within:text-sky-600 transition-colors">
+            {prefix}
+          </span>
+        )}
+
+        {isMoneyInput ? (
+          <input
+            type="text"
+            inputMode="numeric"
+            value={displayValue}
+            placeholder={placeholder}
+            onChange={(e) => onChange(parseMoneyDigitsToNumber(e.target.value))}
+            className={`w-full bg-white border border-slate-200 rounded-2xl p-5 text-slate-900 font-black text-lg focus:border-sky-400 focus:ring-2 focus:ring-sky-100 outline-none transition-all placeholder:text-slate-300 ${prefix ? 'pl-12' : ''}`}
+          />
+        ) : (
+          <input
+            type="number"
+            inputMode="decimal"
+            value={value}
+            placeholder={placeholder}
+            onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))}
+            className={`w-full bg-white border border-slate-200 rounded-2xl p-5 text-slate-900 font-black text-lg focus:border-sky-400 focus:ring-2 focus:ring-sky-100 outline-none transition-all placeholder:text-slate-300 ${prefix ? 'pl-12' : ''}`}
+          />
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 // === COMPONENTE DE FERRAMENTA EM CONSTRUÇÃO (PLACEHOLDER) ===
 export const PlaceholderTool = ({ title, icon, onBack, description, badge }: any) => (

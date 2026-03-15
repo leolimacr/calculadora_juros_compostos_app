@@ -10,6 +10,7 @@ import { useSubscriptionAccess } from './hooks/useSubscriptionAccess';
 import { useAppSecurity } from './hooks/useAppSecurity';
 import { useNavigation } from './hooks/useNavigation';
 import { NotificationService } from './services/NotificationService';
+
 interface ToastMessage {
   id: string;
   message: string;
@@ -37,7 +38,16 @@ interface Transaction {
 // Components
 import AppHeader from './components/AppHeader';
 import AppOnlyBlock from './components/AppOnlyBlock';
-import { Dashboard, AiChatPage, FireCalculatorTool, CompoundInterestTool, InflationTool, RentVsFinanceTool, DebtOptimizerTool, DividendsTool } from './components/tools';
+import {
+  Dashboard,
+  AiChatPage,
+  FireCalculatorTool,
+  CompoundInterestTool,
+  InflationTool,
+  RentVsFinanceTool,
+  DebtOptimizerTool,
+  DividendsTool,
+} from './components/tools';
 import TransactionForm from './components/tools/finance/TransactionForm';
 import ContentModal from './components/ContentModal';
 import ToastContainer from './components/Toast';
@@ -57,7 +67,17 @@ import GoalManager from './components/tools/goals/GoalManager';
 
 const App: React.FC = () => {
   const { user, isAuthenticated, loading: authLoading, logout } = useAuth();
-  const { lancamentos, categories, saveLancamento, deleteLancamento, saveCategory, deleteCategory, userMeta, usagePercentage, isLimitReached } = useFirebase(user?.uid);
+  const {
+    lancamentos,
+    categories,
+    saveLancamento,
+    deleteLancamento,
+    saveCategory,
+    deleteCategory,
+    userMeta,
+    usagePercentage,
+    isLimitReached,
+  } = useFirebase(user?.uid);
   const { isPro, isPremium } = useSubscriptionAccess();
   const { isAppLocked, storedPin, handleUnlockSuccess } = useAppSecurity(user?.uid, isAuthenticated);
   const { currentTool, homeKey, navigateTo } = useNavigation();
@@ -69,14 +89,17 @@ const App: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isPrivacyMode, setIsPrivacyMode] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [postAuthRedirect, setPostAuthRedirect] = useState<string | null>(null);
 
-  const isMobileBrowser = !isNative && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  const isMobileBrowser =
+    !isNative &&
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
   const getAiContextTransactions = (): Transaction[] => {
-    const days = isPremium ? 1460 : (isPro ? 120 : 10);
+    const days = isPremium ? 1460 : isPro ? 120 : 10;
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - days);
-    return lancamentos.filter(t => new Date(t.date) >= cutoff);
+    return lancamentos.filter((t) => new Date(t.date) >= cutoff);
   };
 
   useEffect(() => {
@@ -89,12 +112,31 @@ const App: React.FC = () => {
     }
   }, [isAuthenticated, isNative]);
 
+  const shouldRememberAuthReturn = (targetTool: string) => {
+    if (targetTool !== 'login' && targetTool !== 'register') return false;
+    if (currentTool === 'login' || currentTool === 'register') return false;
+
+    return currentTool.startsWith('tool-');
+  };
+
   const handleNavigate = (tool: string) => {
+    if (shouldRememberAuthReturn(tool)) {
+      setPostAuthRedirect(currentTool);
+    }
+
     navigateTo(tool);
     setMobileMenuOpen(false);
   };
 
+  const handleAuthSuccess = () => {
+    const destination = postAuthRedirect || 'home';
+    setPostAuthRedirect(null);
+    navigateTo(destination);
+    setMobileMenuOpen(false);
+  };
+
   const handleLogout = async () => {
+    setPostAuthRedirect(null);
     await NotificationService.cancelAll();
     await logout();
     handleNavigate('home');
@@ -122,6 +164,7 @@ const App: React.FC = () => {
     if (isAppLocked && isAuthenticated && storedPin) {
       return <SecurityLock storedPin={storedPin} useBiometrics={false} onSuccess={handleUnlockSuccess} />;
     }
+
     const wrap = (comp: React.ReactNode, isAuthRoute = false) => (
       <div
         className={`${isAuthRoute ? 'pt-0 pb-0' : 'pt-16 pb-24'} min-h-screen h-full ${
@@ -137,20 +180,41 @@ const App: React.FC = () => {
         {comp}
       </div>
     );
+
     switch (currentTool) {
       case 'login':
-        return wrap(<AuthLogin onSuccess={() => handleNavigate('home')} onSwitchToRegister={() => handleNavigate('register')} />, true);
+        return wrap(
+          <AuthLogin
+            onSuccess={handleAuthSuccess}
+            onSwitchToRegister={() => handleNavigate('register')}
+          />,
+          true
+        );
+
       case 'register':
-        return wrap(<AuthRegister onSuccess={() => handleNavigate('home')} onSwitchToLogin={() => handleNavigate('login')} />, true);
+        return wrap(
+          <AuthRegister
+            onSuccess={handleAuthSuccess}
+            onSwitchToLogin={() => handleNavigate('login')}
+          />,
+          true
+        );
+
       case 'manager':
-        if (!isAuthenticated) { handleNavigate('login'); return null; }
+        if (!isAuthenticated) {
+          handleNavigate('login');
+          return null;
+        }
         if (isMobileBrowser) return wrap(<AppOnlyBlock onBack={() => handleNavigate('home')} />);
         return wrap(
           <Dashboard
             transactions={lancamentos}
             categories={categories}
             onDeleteTransaction={deleteLancamento}
-            onOpenForm={() => { setEditingTransaction(null); setActiveModal('transaction'); }}
+            onOpenForm={() => {
+              setEditingTransaction(null);
+              setActiveModal('transaction');
+            }}
             onSaveCategory={saveCategory}
             onDeleteCategory={deleteCategory}
             userMeta={userMeta}
@@ -159,68 +223,102 @@ const App: React.FC = () => {
             isLimitReached={isLimitReached}
             onShowPaywall={() => setActiveModal('paywall')}
             isPrivacyMode={isPrivacyMode}
-			onTogglePrivacy={() => setIsPrivacyMode(prev => !prev)}
+            onTogglePrivacy={() => setIsPrivacyMode((prev) => !prev)}
             onNavigate={handleNavigate}
             onEditTransaction={handleEditTransaction}
           />
         );
+
       case 'settings':
-		if (!isAuthenticated) { handleNavigate('login'); return null; }
-		return wrap(<SettingsPage onBack={() => handleNavigate('manager')} />);
+        if (!isAuthenticated) {
+          handleNavigate('login');
+          return null;
+        }
+        return wrap(<SettingsPage onBack={() => handleNavigate('manager')} />);
+
       case 'pricing':
-        return wrap(<PricingPage onNavigate={handleNavigate} currentPlan={isPremium ? 'premium' : isPro ? 'pro' : 'free'} onBack={() => handleNavigate('home')} isAuthenticated={isAuthenticated} userId={user?.uid} />);
+        return wrap(
+          <PricingPage
+            onNavigate={handleNavigate}
+            currentPlan={isPremium ? 'premium' : isPro ? 'pro' : 'free'}
+            onBack={() => handleNavigate('home')}
+            isAuthenticated={isAuthenticated}
+            userId={user?.uid}
+          />
+        );
+
       case 'chat':
         if (isMobileBrowser) return wrap(<AppOnlyBlock onBack={() => handleNavigate('home')} />);
         return <AiChatPage onNavigate={handleNavigate} filteredTransactions={getAiContextTransactions()} simulations={[]} />;
+
       case 'article-2026': {
-	    const article = getArticleById('investir-2026');
-	    if (!article) return null;
-	    const ArticleComponent = article.component;
-	    return wrap(<ArticleComponent onNavigate={handleNavigate} />);
-	  }
+        const article = getArticleById('investir-2026');
+        if (!article) return null;
+        const ArticleComponent = article.component;
+        return wrap(<ArticleComponent onNavigate={handleNavigate} />);
+      }
+
       case 'tool-fire':
         return wrap(<FireCalculatorTool onNavigate={handleNavigate} isAuthenticated={isAuthenticated} />);
+
       case 'tool-juros':
         return wrap(<CompoundInterestTool onNavigate={handleNavigate} isAuthenticated={isAuthenticated} />);
+
       case 'tool-inflacao':
         return wrap(<InflationTool onNavigate={handleNavigate} isAuthenticated={isAuthenticated} />);
+
       case 'tool-alugar':
         return wrap(<RentVsFinanceTool onNavigate={handleNavigate} isAuthenticated={isAuthenticated} />);
+
       case 'tool-dividas':
         return wrap(<DebtOptimizerTool onNavigate={handleNavigate} isAuthenticated={isAuthenticated} />);
+
       case 'tool-dividendos':
         return wrap(<DividendsTool onNavigate={handleNavigate} isAuthenticated={isAuthenticated} />);
-	  case 'investimentos':
-        if (!isAuthenticated) { handleNavigate('login'); return null; }
+
+      case 'investimentos':
+        if (!isAuthenticated) {
+          handleNavigate('login');
+          return null;
+        }
         return wrap(<ActiveWealthManager userMeta={userMeta} />);
-	  case 'passivos': // Sugiro usar 'passivos' (em vez de passive-wealth) para manter o padrão em português da rota 'investimentos'
-        if (!isAuthenticated) { handleNavigate('login'); return null; }
+
+      case 'passivos':
+        if (!isAuthenticated) {
+          handleNavigate('login');
+          return null;
+        }
         return wrap(<PassiveWealthManager userMeta={userMeta} />);
-	  case 'termos':
-		return wrap(<TermsPage />);
-	  case 'privacidade':
+
+      case 'termos':
+        return wrap(<TermsPage />);
+
+      case 'privacidade':
         return wrap(<PrivacyPage />);
-	  case 'metas':
-	    if (!isAuthenticated) { 
-		  handleNavigate('login'); 
-		  return null; 
-	    }
-	    return wrap(<GoalManager userMeta={userMeta} />);	
+
+      case 'metas':
+        if (!isAuthenticated) {
+          handleNavigate('login');
+          return null;
+        }
+        return wrap(<GoalManager userMeta={userMeta} />);
+
       case 'home':
       default:
         return (
-		  <PublicHome
-		    key={homeKey}
-		    onNavigate={handleNavigate}
-		    onStartNow={() => handleNavigate(isAuthenticated ? 'manager' : 'register')}
-		    isAuthenticated={isAuthenticated}
-		    userEmail={user?.email}
-		    userMeta={userMeta}
-		    isPrivacyMode={isPrivacyMode}
-	  	  />
+          <PublicHome
+            key={homeKey}
+            onNavigate={handleNavigate}
+            onStartNow={() => handleNavigate(isAuthenticated ? 'manager' : 'register')}
+            isAuthenticated={isAuthenticated}
+            userEmail={user?.email}
+            userMeta={userMeta}
+            isPrivacyMode={isPrivacyMode}
+          />
         );
     }
   };
+
   return (
     <div className="min-h-screen bg-[#020617] text-slate-200 flex flex-col font-sans overflow-x-hidden">
       <AppHeader
@@ -237,13 +335,10 @@ const App: React.FC = () => {
       />
 
       <main className="flex-grow h-full">{renderContent()}</main>
-	
-	{/* Painel móvel do menu (topo) */}
+
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-sm flex justify-end">
           <div className="w-72 max-w-[85%] h-full bg-[#020617] border-l border-white/5 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
-            
-            {/* Cabeçalho do painel */}
             <div className="flex items-center justify-between p-6 border-b border-white/5">
               <div className="flex flex-col">
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-sky-500 mb-1">
@@ -251,7 +346,7 @@ const App: React.FC = () => {
                 </span>
                 <span className="text-sm font-black text-white truncate max-w-[180px] uppercase tracking-tight">
                   {isAuthenticated
-                    ? (userMeta?.nickname || user?.displayName || 'Investidor')
+                    ? userMeta?.nickname || user?.displayName || 'Investidor'
                     : 'Visitante'}
                 </span>
               </div>
@@ -263,10 +358,7 @@ const App: React.FC = () => {
               </button>
             </div>
 
-            {/* Opções de Navegação */}
             <div className="flex-1 px-4 py-6 flex flex-col gap-4 overflow-y-auto">
-              
-              {/* Botão Gerenciador (Dourado/Premium) */}
               <button
                 onClick={() => {
                   setMobileMenuOpen(false);
@@ -280,14 +372,17 @@ const App: React.FC = () => {
                     <LayoutDashboard size={20} strokeWidth={2.5} />
                   </div>
                   <div className="flex-1 text-left leading-tight">
-                    <span className="block text-[9px] font-black text-amber-500 uppercase tracking-widest mb-0.5">App Nativo</span>
-                    <span className="block text-[13px] font-bold text-white uppercase tracking-tight">Gerenciador</span>
+                    <span className="block text-[9px] font-black text-amber-500 uppercase tracking-widest mb-0.5">
+                      App Nativo
+                    </span>
+                    <span className="block text-[13px] font-bold text-white uppercase tracking-tight">
+                      Gerenciador
+                    </span>
                   </div>
                   <ChevronRight size={16} className="text-slate-600 group-hover:text-amber-400" />
                 </div>
               </button>
 
-              {/* Botão Nexus IA (Sky/Neon) */}
               <button
                 onClick={() => {
                   setMobileMenuOpen(false);
@@ -301,14 +396,17 @@ const App: React.FC = () => {
                     <Sparkles size={20} strokeWidth={2.5} />
                   </div>
                   <div className="flex-1 text-left leading-tight">
-                    <span className="block text-[9px] font-black text-sky-500 uppercase tracking-widest mb-0.5">Inteligência</span>
-                    <span className="block text-[13px] font-bold text-white uppercase tracking-tight">Nexus IA</span>
+                    <span className="block text-[9px] font-black text-sky-500 uppercase tracking-widest mb-0.5">
+                      Inteligência
+                    </span>
+                    <span className="block text-[13px] font-bold text-white uppercase tracking-tight">
+                      Nexus IA
+                    </span>
                   </div>
                   <ChevronRight size={16} className="text-slate-600 group-hover:text-sky-400" />
                 </div>
               </button>
 
-              {/* Botão Configurações (Clean Glass) */}
               <button
                 onClick={() => {
                   setMobileMenuOpen(false);
@@ -320,49 +418,70 @@ const App: React.FC = () => {
                 <div className="p-2 bg-slate-800 rounded-lg text-slate-400 group-hover:text-white transition-colors">
                   <Settings size={18} />
                 </div>
-                <span className="flex-1 text-[13px] font-bold text-slate-300 uppercase tracking-widest">Configurações</span>
+                <span className="flex-1 text-[13px] font-bold text-slate-300 uppercase tracking-widest">
+                  Configurações
+                </span>
                 <ChevronRight size={16} className="text-slate-700" />
               </button>
             </div>
 
-            {/* Rodapé do Menu (Sair) */}
             {isAuthenticated && (
-               <div className="p-6 border-t border-white/5 bg-slate-950/30">
-                 <button 
-                  onClick={() => { setMobileMenuOpen(false); handleLogout(); }}
+              <div className="p-6 border-t border-white/5 bg-slate-950/30">
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    handleLogout();
+                  }}
                   className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-red-500/20 text-red-500 text-[11px] font-black uppercase tracking-widest hover:bg-red-500/10 transition-all"
-                 >
-                   <LogOut size={16} /> Sair da Conta
-                 </button>
-               </div>
+                >
+                  <LogOut size={16} /> Sair da Conta
+                </button>
+              </div>
             )}
           </div>
         </div>
       )}
-		
+
       {isNative && isAuthenticated && !isAppLocked && (
         <MobileBottomNav
           currentTool={currentTool}
           onNavigate={handleNavigate}
           onOpenMore={() => handleNavigate('settings')}
-          onAdd={() => { setEditingTransaction(null); setActiveModal('transaction'); }}
+          onAdd={() => {
+            setEditingTransaction(null);
+            setActiveModal('transaction');
+          }}
         />
       )}
 
-      <ContentModal isOpen={activeModal === 'transaction'} onClose={handleCloseModal} title={editingTransaction ? "Editar Lançamento" : "Novo Lançamento"}>
+      <ContentModal
+        isOpen={activeModal === 'transaction'}
+        onClose={handleCloseModal}
+        title={editingTransaction ? 'Editar Lançamento' : 'Novo Lançamento'}
+      >
         <TransactionForm
           initialData={editingTransaction}
-          onSave={async (t: any) => { try { const { id, ...rest } = t; const cleanData = { ...rest, amount: Number(t.amount) }; if (id) cleanData.id = id; await saveLancamento(cleanData); handleCloseModal(); } catch (e) { throw e; } }}
+          onSave={async (t: any) => {
+            try {
+              const { id, ...rest } = t;
+              const cleanData = { ...rest, amount: Number(t.amount) };
+              if (id) cleanData.id = id;
+              await saveLancamento(cleanData);
+              handleCloseModal();
+            } catch (e) {
+              throw e;
+            }
+          }}
           onCancel={handleCloseModal}
           expenseCategories={categories.filter((c: any) => c.type === 'expense').map((c: any) => c.name)}
           incomeCategories={categories.filter((c: any) => c.type === 'income').map((c: any) => c.name)}
           onUpdateExpenseCategories={async (newCat: any) => {
-              const name = typeof newCat === 'function' ? newCat([]).pop() : newCat;
-              if (name) await saveCategory({ name, type: 'expense', color: '#3b82f6', icon: 'tag' });
+            const name = typeof newCat === 'function' ? newCat([]).pop() : newCat;
+            if (name) await saveCategory({ name, type: 'expense', color: '#3b82f6', icon: 'tag' });
           }}
           onUpdateIncomeCategories={async (newCat: any) => {
-              const name = typeof newCat === 'function' ? newCat([]).pop() : newCat;
-              if (name) await saveCategory({ name, type: 'income', color: '#10b981', icon: 'tag' });
+            const name = typeof newCat === 'function' ? newCat([]).pop() : newCat;
+            if (name) await saveCategory({ name, type: 'income', color: '#10b981', icon: 'tag' });
           }}
           categories={categories}
           onSaveCategory={saveCategory}
