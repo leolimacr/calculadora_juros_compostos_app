@@ -180,7 +180,7 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
     }
   };
   const [marketData, setMarketData] = useState<any>({ indices: [], stocks: [], currencies: [], cryptos: [], indicators: [] });
-  const [heroPersona, setHeroPersona] = useState<'dividas' | 'patrimonio'>('patrimonio'); // <--- movido para antes de toolsByPersona
+  const [heroPersona, setHeroPersona] = useState<'dividas' | 'patrimonio'>('dividas'); // <--- movido para antes de toolsByPersona
 
   const indicesComIndicadores = useMemo(() => {
     return [...(marketData.indices || []), ...(marketData.indicators || [])];
@@ -190,10 +190,10 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
   const toolsByPersona = useMemo(() => {
     if (heroPersona === 'dividas') {
       return [
-        { icon: Zap, title: 'Simular Quitação de Dívidas', desc: 'Prioridade Máxima', route: 'tool-debt', color: 'text-amber-400', highlight: true, bgColor: 'amber' },
-        { icon: TrendingUp, title: 'Juros Compostos', desc: 'Entenda o peso', route: 'tool-juros', color: 'text-emerald-400', highlight: false, bgColor: 'emerald' },
-        { icon: Building2, title: 'Aluguel vs Compra', desc: 'Decida com dados', route: 'tool-alugar', color: 'text-sky-400', highlight: false, bgColor: 'sky' },
-        { icon: PieChart, title: 'Dividendos', desc: 'Renda Passiva', route: 'tool-dividendos', color: 'text-purple-400', highlight: false, bgColor: 'purple' },
+        { icon: Zap, title: 'Sair das dívidas', desc: 'Comece por aqui', route: 'tool-debt', color: 'text-amber-400', highlight: true, bgColor: 'amber' },
+        { icon: TrendingUp, title: 'Entender os juros', desc: 'Por que a dívida cresce', route: 'tool-juros', color: 'text-emerald-400', highlight: false, bgColor: 'emerald' },
+        { icon: Building2, title: 'Organizar moradia', desc: 'Aluguel ou compra', route: 'tool-alugar', color: 'text-sky-400', highlight: false, bgColor: 'sky' },
+        { icon: PieChart, title: 'Próximo passo', desc: 'Depois da organização', route: 'tool-dividendos', color: 'text-purple-400', highlight: false, bgColor: 'purple' },
       ];
     } else {
       return [
@@ -469,110 +469,126 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
       <InfiniteTicker data={marketData} />
 
 	  {/* --- 1. HERO SECTION: SOBRIEDADE E MÉTODO (ATUALIZADO) --- */}
-      <section className="relative px-6 py-16 lg:py-24 max-w-[1600px] mx-auto w-full z-10">
+      <section className="relative px-6 py-12 lg:py-20 max-w-[1600px] mx-auto w-full z-10">
         
         {/* Fundo sutil para destaque redimensionado para cobrir o novo layout */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-[500px] bg-emerald-300/20 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-[420px] bg-emerald-100/10 rounded-full blur-[110px] pointer-events-none" />
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.08fr_0.92fr] gap-10 xl:gap-12 items-center">
 		  {/* Coluna Esquerda: Textos e CTAs (Alinhados à esquerda no desktop) */}
-		  <div className="flex flex-col items-center lg:items-start text-center lg:text-left">
-		    <div className="mb-6 inline-flex rounded-2xl border border-slate-200 bg-white/90 p-1 backdrop-blur-md shadow-sm">
-        <button
-          onClick={() => setHeroPersona('dividas')}
-          className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
-            heroPersona === 'dividas'
-              ? 'bg-emerald-500 text-slate-950 shadow-lg'
-              : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
-          }`}
-        >
-          Quero Sair das Dívidas
-        </button>
+		  <div className="flex flex-col items-center lg:items-start text-center lg:text-left max-w-2xl">
+        <h1 className="text-5xl md:text-6xl lg:text-[5.2rem] font-black text-slate-950 leading-[0.98] tracking-[-0.04em] mb-5 animate-in fade-in slide-in-from-bottom-6 duration-1000">
+          
+         {heroPersona === 'dividas' ? (
+            <>
+              Suas{' '}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-700 via-emerald-500 to-sky-600">
+                dívidas
+              </span>{' '}
+              têm solução. <br />
+              Aqui começa o seu plano.
+            </>   
+            ) : (
+            <>
+              Liberdade Financeira não é sorte. <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-emerald-400 to-sky-500">
+                É Método.
+              </span>
+            </>
+          )}
+        </h1>
+        <p className="text-lg md:text-xl text-slate-600 max-w-lg mb-8 leading-relaxed font-medium animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-100">
+          {heroPersona === 'dividas'
+            ? 'Em poucos minutos você entende o tamanho real das suas dívidas, quanto está pagando de juros e qual o caminho mais rápido para quitar tudo.'
+            : 'Assuma o controle absoluto do seu patrimônio. Utilize nossa tecnologia para organizar contas, projetar o futuro e tomar decisões baseadas em dados, não em achismos.'}
+        </p>
 
-        <button
-          onClick={() => setHeroPersona('patrimonio')}
-          className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
-            heroPersona === 'patrimonio'
-              ? 'bg-emerald-500 text-slate-950 shadow-lg'
-              : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
-          }`}
-        >
-          Quero Multiplicar Patrimônio
-        </button>
-		    </div>
-			<h1 className="text-4xl md:text-6xl lg:text-7xl font-black text-slate-900 leading-[1.1] tracking-tighter mb-6 animate-in fade-in slide-in-from-bottom-6 duration-1000">
-			  {heroPersona === 'dividas' ? (
-				<>
-				  Sair das dívidas não é sorte. <br />
-				  <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-700 via-emerald-500 to-sky-600">
-					É estratégia.
-				  </span>
-				</>
-			  ) : (
-				<>
-				  Liberdade Financeira não é sorte. <br />
-				  <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-emerald-200 to-sky-400">
-					É Método.
-				  </span>
-				</>
-			  )}
-			</h1>
+        <div className="mb-8 inline-flex self-start rounded-2xl border border-slate-200/80 bg-white p-1 shadow-sm animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-150">
+          <button
+            onClick={() => setHeroPersona('dividas')}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+              heroPersona === 'dividas'
+                ? 'bg-slate-900 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+            }`}
+          >
+            Quero Sair das Dívidas
+          </button>
 
-			<p className="text-base md:text-lg text-slate-600 max-w-xl mb-10 leading-relaxed font-medium animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-100">
-			  {heroPersona === 'dividas'
-				? 'Organize suas contas, entenda o peso dos juros e monte um plano claro para recuperar o controle da sua vida financeira.'
-				: 'Assuma o controle absoluto do seu patrimônio. Utilize nossa tecnologia para organizar contas, projetar o futuro e tomar decisões baseadas em dados, não em achismos.'}
-			</p>
-			{/* Adição dos Botões de Ação (CTAs) para resolver a falta de direcionamento */}
-			<div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-200">
+          <button
+            onClick={() => setHeroPersona('patrimonio')}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+              heroPersona === 'patrimonio'
+                ? 'bg-slate-900 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+            }`}
+          >
+            Quero investir melhor
+          </button>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-200">
+
         {!isAuthenticated ? (
           <button
-            onClick={onStartNow}
-            className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black px-8 py-4 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 w-full sm:w-auto"
+            onClick={() => onNavigate('tool-debt')}
+            className="bg-emerald-500 hover:bg-emerald-600 text-white font-black px-8 py-4 rounded-2xl transition-all shadow-[0_16px_35px_-18px_rgba(16,185,129,0.65)] flex items-center justify-center gap-2 w-full sm:w-auto"
           >
-            {heroPersona === 'dividas' 
-              ? 'Calcular tempo para quitar dívidas' 
-              : 'Descobrir minha data FIRE'} 
+            <span>
+              {heroPersona === 'dividas'
+                ? 'Montar meu plano grátis para sair das dívidas'
+                : 'Descobrir minha data FIRE'}
+            </span>
             <ArrowRight size={20} />
           </button>
         ) : (
-				<div className="relative group flex items-center justify-center w-full sm:w-auto">
-				  <button
-					onClick={() => onNavigate('chat')}
-					className="bg-indigo-600 hover:bg-indigo-500 text-white font-black px-8 py-4 rounded-xl transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 w-full border border-indigo-400/30"
-				  >
-					<Sparkles size={20} className="text-indigo-200" />
-					{heroPersona === 'dividas' ? 'Analisar minha recuperação' : 'Analisar com Nexus AI'}
-				  </button>
+          <div className="relative group flex items-center justify-center w-full sm:w-auto">
+            <button
+              onClick={() => onNavigate('chat')}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-black px-8 py-4 rounded-2xl transition-all shadow-[0_16px_35px_-18px_rgba(79,70,229,0.55)] flex items-center justify-center gap-2 w-full border border-indigo-400/20"
+            >
+              <Sparkles size={20} className="text-indigo-200" />
+              <span>
+                {heroPersona === 'dividas'
+                  ? 'Pedir orientação ao Nexus AI'
+                  : 'Analisar com Nexus AI'}
+              </span>
+            </button>
 
-				  <div className="absolute bottom-full mb-3 hidden sm:group-hover:block w-64 bg-white border border-slate-200 text-slate-600 text-xs rounded-lg p-3 shadow-xl animate-in fade-in zoom-in-95 duration-200 z-50 text-center">
-					<p>
-					  {heroPersona === 'dividas'
-						? 'Receba uma leitura inicial sobre onde sua recuperação financeira pode ganhar mais velocidade.'
-						: 'Descubra onde otimizar seus aportes e receba análises instantâneas sobre sua jornada financeira.'}
-					</p>
-					<div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-white"></div>
-				  </div>
-				</div>
-			  )}
-			  <button
-        onClick={() => onNavigate(heroPersona === 'dividas' ? 'tool-dividas' : 'tool-fire')}
-				className="bg-white hover:bg-slate-100 text-slate-900 font-bold px-8 py-4 rounded-xl transition-all border border-slate-300 flex items-center justify-center gap-2 group w-full sm:w-auto shadow-sm"
-			  >
-				<Zap size={20} className="text-amber-400 group-hover:scale-110 transition-transform" />
-				{heroPersona === 'dividas' ? 'Simular Quitação de Dívidas' : 'Simular Liberdade (FIRE)'}
-			  </button>
-			</div>
+            <div className="absolute bottom-full mb-3 hidden sm:group-hover:block w-64 bg-white border border-slate-200 text-slate-600 text-xs rounded-lg p-3 shadow-xl animate-in fade-in zoom-in-95 duration-200 z-50 text-center">
+              <p>
+                {heroPersona === 'dividas'
+                  ? 'Descubra quanto suas dívidas realmente pesam, quanto você paga de juros e qual caminho seguir para começar a sair dessa com clareza.'
+                  : 'Descubra onde otimizar seus aportes e receba análises instantâneas sobre sua jornada financeira.'}
+              </p>
+              <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-white" />
+            </div>
+          </div>
+        )}
+      </div>
+      
+      <div className="flex flex-wrap gap-2 mt-4 w-full sm:w-auto animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-300">
+          <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">
+            Sem planilhas complicadas
+          </span>
+          <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">
+            Sem linguagem difícil
+          </span>
+          <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">
+            Comece com os dados que você tiver
+          </span>
+        </div>    
+      
           </div> {/* FIM DA COLUNA ESQUERDA */}
 
 		  {/* Coluna Direita: Elemento Visual Abstrato (O "Anti-Vazio") */}
-          <div className="hidden lg:block relative animate-in fade-in slide-in-from-right-8 duration-1000 delay-300 group/card cursor-default">
+          <div className="hidden lg:block relative max-w-[620px] w-full ml-auto animate-in fade-in slide-in-from-right-8 duration-1000 delay-300 group/card cursor-default">
             
             {/* Glow effect atrás do card - Intensifica no hover */}
-            <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/20 to-sky-500/20 blur-3xl rounded-[3rem] opacity-50 transition-opacity duration-700 group-hover/card:opacity-100" />
+            <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/15 to-sky-500/15 blur-3xl rounded-[3rem] opacity-30 transition-opacity duration-700 group-hover/card:opacity-60" />
             
             {/* Mockup do Dashboard (Painel de Vidro) - Flutuação e brilho no hover */}
-            <div className="relative bg-white/90 backdrop-blur-xl border border-slate-200 rounded-3xl p-6 shadow-xl overflow-hidden transition-all duration-700 group-hover/card:-translate-y-2 group-hover/card:shadow-[0_20px_40px_-15px_rgba(16,185,129,0.12)] group-hover/card:border-slate-300">
+            <div className="relative bg-white/95 backdrop-blur-xl border border-slate-200 rounded-[2rem] p-5 xl:p-6 shadow-[0_25px_60px_-30px_rgba(15,23,42,0.22)] overflow-hidden transition-all duration-700 group-hover/card:-translate-y-1 group-hover/card:shadow-[0_28px_65px_-28px_rgba(15,23,42,0.24)] group-hover/card:border-slate-300">
               
              
 				{/* Top bar do Mockup */}
@@ -611,13 +627,16 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
                     </p>
                   </div>
                   {heroPersona === 'dividas' ? (
-                    <>
+                    <>                    
                       <p className="text-3xl md:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight my-2 relative z-10">
-                        Zero Dívidas
+                        Plano de Saída
                       </p>
+                      <span className="inline-block bg-white/60 border border-emerald-200/50 text-emerald-700 text-[9px] font-bold px-2 py-0.5 rounded mt-1 mb-2 relative z-10">
+                        100% Confidencial
+                      </span>
                       <p className="text-xs md:text-sm text-emerald-800 font-medium relative z-10">
-                        Um método claro para recuperar sua paz financeira.
-                      </p>
+                        Descubra qual dívida atacar primeiro e como retomar o controle.
+                      </p>                     
                     </>
                   ) : isAuthenticated && typeof patrimonioAtivo !== 'undefined' && patrimonioAtivo !== null ? (
                     <>
@@ -755,14 +774,14 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
             </div>
             <p className="text-3xl font-black text-slate-900 tracking-tight">
               {heroPersona === 'dividas'
-                ? '72 meses'
+                ? 'Plano em 3 etapas'
                 : isAuthenticated && typeof patrimonioAtivo !== 'undefined' && patrimonioAtivo !== null
                   ? formatValue(patrimonioAtivo)
                   : 'R$ 142.500,00'}
             </p>
             <p className="text-xs text-emerald-700 font-medium">
               {heroPersona === 'dividas'
-                ? 'Visualize sua rota de recuperação'
+                ? 'Entenda o que fazer primeiro para sair das dívidas'
                 : isAuthenticated
                   ? 'Gerando sua renda passiva'
                   : 'Rendimento médio +2,4%'}
@@ -775,11 +794,11 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
             className="bg-gradient-to-b from-blue-50 to-white backdrop-blur-md rounded-xl p-4 border border-blue-200 cursor-pointer shadow-sm"
           >
             <p className="text-[10px] text-blue-700 font-bold uppercase mb-1">
-              {heroPersona === 'dividas' ? 'Próximo Pagamento' : 'Próximo Aporte'}
+              {heroPersona === 'dividas' ? 'Primeiro passo' : 'Próximo Aporte'}
             </p>
             <p className="text-xl font-black text-slate-900 truncate">
               {heroPersona === 'dividas'
-                ? 'R$ 850,00'
+                ? 'Diagnosticar dívidas'
                 : userMeta
                   ? formatValue(valorProximoAporte)
                   : 'R$ 1.200,00'}
@@ -787,7 +806,7 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
             <div className="mt-2">
               {heroPersona === 'dividas' ? (
                 <span className="bg-blue-100 text-blue-700 text-[9px] font-bold px-2 py-1 rounded border border-blue-200">
-                  Vence em 5 dias
+                  Comece gratuitamente
                 </span>
               ) : userMeta ? (
                 metasAtivas.length === 0 ? (
@@ -825,11 +844,11 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
             className="bg-white backdrop-blur-md rounded-xl p-4 border border-slate-200 cursor-pointer shadow-sm"
           >
             <p className="text-[9px] text-slate-300 font-bold uppercase mb-1">
-              {heroPersona === 'dividas' ? 'Custo dos Juros' : 'Passivo'}
+              {heroPersona === 'dividas' ? 'Peso dos juros' : 'Passivo'}
             </p>
             <p className="text-base font-bold text-slate-900 truncate">
               {heroPersona === 'dividas'
-                ? 'R$ 18.400,00'
+                ? 'Veja o impacto real'
                 : isAuthenticated && typeof patrimonioPassivo !== 'undefined' && patrimonioPassivo !== null
                   ? formatValue(patrimonioPassivo)
                   : 'R$ 350.000,00'}
@@ -851,16 +870,150 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
           </div>
         </div>
       </section>
+      
+      {/* --- JORNADA: COMO COMEÇAR --- */}
+      <section className="px-4 lg:px-12 pb-10 max-w-[1600px] mx-auto w-full">
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 md:p-8 shadow-sm">
+          <div className="mb-8 text-center md:text-left">
+            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-widest mb-4">
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              Seu caminho começa aqui
+            </span>
+            <h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight mb-3">
+              Entenda sua situação, organize suas prioridades e avance com clareza.
+            </h3>
+            <p className="text-slate-600 text-sm md:text-base max-w-3xl">
+              Você não precisa dominar finanças para começar. O processo foi pensado para quem quer sair das dívidas sem complicação.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-black text-sm mb-4">
+                1
+              </div>
+              <h4 className="text-slate-900 font-black text-lg mb-2">Entenda</h4>
+              <p className="text-slate-600 text-sm leading-relaxed">
+                Veja sua situação com clareza, mesmo que hoje você ainda tenha só parte das informações.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+              <div className="w-10 h-10 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center font-black text-sm mb-4">
+                2
+              </div>
+              <h4 className="text-slate-900 font-black text-lg mb-2">Organize</h4>
+              <p className="text-slate-600 text-sm leading-relaxed">
+                Veja qual dívida atacar primeiro e monte um plano simples para retomar o controle.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+              <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-black text-sm mb-4">
+                3
+              </div>
+              <h4 className="text-slate-900 font-black text-lg mb-2">Evolua</h4>
+              <p className="text-slate-600 text-sm leading-relaxed">
+                Depois da organização, avance para metas, patrimônio e decisões financeiras melhores.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>     
+      {/* --- POR QUE FAZ SENTIDO --- */}
+      <section className="px-4 lg:px-12 pb-10 max-w-[1600px] mx-auto w-full">
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 md:p-8 shadow-sm">
+          <div className="mb-8 text-center md:text-left">
+            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-50 border border-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-widest mb-4">
+              Clareza antes de tudo
+            </span>
+            <h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight mb-3">
+              Você não precisa entender tudo de finanças para começar.
+            </h3>
+            <p className="text-slate-600 text-sm md:text-base max-w-3xl">
+              O Finanças Pro Invest foi desenhado para transformar confusão em próximos passos claros.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+              <h4 className="text-slate-900 font-black text-lg mb-2">Diagnóstico simples</h4>
+              <p className="text-slate-600 text-sm leading-relaxed">
+                Entenda sua situação sem precisar dominar termos técnicos.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+              <h4 className="text-slate-900 font-black text-lg mb-2">Prioridade prática</h4>
+              <p className="text-slate-600 text-sm leading-relaxed">
+                Veja o que atacar primeiro para reduzir juros e recuperar fôlego.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+              <h4 className="text-slate-900 font-black text-lg mb-2">Evolução no mesmo lugar</h4>
+              <p className="text-slate-600 text-sm leading-relaxed">
+                Depois da organização, avance para metas, patrimônio e decisões melhores.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+      {/* --- PARA QUEM É --- */}
+      <section className="px-4 lg:px-12 pb-10 max-w-[1600px] mx-auto w-full">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+            <h4 className="text-slate-900 font-black text-lg mb-2">Para quem está perdido</h4>
+            <p className="text-slate-600 text-sm leading-relaxed">
+              Se você sente que o dinheiro some, não sabe por onde começar e quer clareza, este é o ponto de partida.
+            </p>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+            <h4 className="text-slate-900 font-black text-lg mb-2">Para quem já tem dívidas</h4>
+            <p className="text-slate-600 text-sm leading-relaxed">
+              Veja o peso real dos juros, entenda prioridades e monte um plano mais racional para sair dessa.
+            </p>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+            <h4 className="text-slate-900 font-black text-lg mb-2">Para quem quer evoluir</h4>
+            <p className="text-slate-600 text-sm leading-relaxed">
+              Depois da organização, use o mesmo ecossistema para metas, patrimônio e decisões melhores.
+            </p>
+          </div>
+        </div>
+      </section>
+      {/* --- CREDIBILIDADE --- */}
+      <section className="px-4 lg:px-12 pb-10 max-w-[1600px] mx-auto w-full">
+        <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl p-6 md:p-8 text-white shadow-sm overflow-hidden relative">
+          <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_top_right,_rgba(16,185,129,0.35),_transparent_35%)]" />
+          <div className="relative z-10 max-w-3xl">
+            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/10 text-white text-[10px] font-black uppercase tracking-widest mb-4">
+              Feito para a realidade brasileira
+            </span>
+            <h3 className="text-2xl md:text-3xl font-black tracking-tight mb-3">
+              Menos teoria solta. Mais clareza para decidir o próximo passo.
+            </h3>
+            <p className="text-slate-200 text-sm md:text-base leading-relaxed">
+              O Finanças Pro Invest foi pensado para ajudar quem quer sair da confusão financeira e voltar a enxergar um caminho possível.
+            </p>
+          </div>
+        </div>
+      </section>
 	  {/* --- 2. BENTO GRID: FERRAMENTAS (ATUALIZADO) --- */}
       <section className="px-4 lg:px-12 pb-20 max-w-[1600px] mx-auto w-full relative">
         <div className="text-center mb-10">
-          <h3 className="text-slate-600 text-xs font-black uppercase tracking-widest inline-block border-b border-slate-300 pb-2">
-            Ecossistema Pro Invest
+          <h3 className="text-slate-600 text-xs font-black uppercase tracking-widest inline-block border-b border-slate-300 pb-2">           
+            Ferramentas para agir
           </h3>
         </div>
+        <p className="text-center text-sm text-slate-500 max-w-2xl mx-auto mb-8">
+          Se você está perdido e não sabe por onde começar, use primeiro a opção destacada abaixo.
+        </p>
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 relative z-10">
           {/* Card Principal: Gerenciador */}
-          <div onClick={() => isAuthenticated ? onNavigate('manager') : onStartNow()} className="md:col-span-2 lg:col-span-2 row-span-2 bg-gradient-to-br from-white to-slate-400 border border-slate-400 rounded-3xl p-8 relative overflow-hidden group cursor-pointer hover:border-slate-300 transition-all shadow-sm">
+          <div onClick={() => isAuthenticated ? onNavigate('manager') : onNavigate('tool-debt')} className="md:col-span-2 lg:col-span-2 row-span-2 bg-gradient-to-br from-white to-slate-100 border border-slate-200 rounded-3xl p-8 relative overflow-hidden group cursor-pointer hover:border-slate-300 transition-all shadow-sm">
             <div className="absolute right-0 bottom-0 opacity-10 group-hover:opacity-20 transition-opacity">
               <Wallet size={180} />
             </div>
@@ -868,14 +1021,14 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
               <div>
                 <div className="flex items-center gap-2 mb-3">
                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"/>
-                   <span className="text-emerald-700 text-[10px] font-black uppercase tracking-widest">Sistema Principal</span>
+                   <span className="text-emerald-700 text-[10px] font-black uppercase tracking-widest">Primeiro passo</span>
                 </div>
-                <h4 className="text-2xl md:text-3xl font-black text-slate-900 mb-2">Gerenciador Financeiro</h4>
-                <p className="text-slate-600 text-sm max-w-sm leading-relaxed">Centralize suas contas, defina metas de aporte e acompanhe a evolução do seu patrimônio em tempo real.</p>
+                <h4 className="text-2xl md:text-3xl font-black text-slate-900 mb-2">Veja sua vida financeira com clareza</h4>
+                <p className="text-slate-600 text-sm max-w-sm leading-relaxed">Junte contas, gastos e dívidas em um só lugar para enxergar sua situação real e decidir o que fazer primeiro.</p>              
               </div>
               <div className="mt-8">
                   <button className="text-xs font-black text-slate-900 uppercase tracking-widest bg-white px-4 py-2 rounded-lg border border-slate-300 group-hover:bg-emerald-50 group-hover:border-emerald-300 transition-colors">
-                    Acessar Painel
+                    Começar pelo diagnóstico
                   </button>
               </div>
             </div>
@@ -886,17 +1039,19 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
             <div className="absolute -right-10 -top-10 bg-indigo-200/60 w-40 h-40 blur-[50px] rounded-full"></div>
             <div className="flex items-center gap-3 mb-2">
               <Sparkles size={20} className="text-indigo-600" />
-              <h4 className="text-lg font-black text-slate-900">Nexus AI</h4>
+              <h4 className="text-lg font-black text-slate-900">Nexus AI para te orientar</h4>
             </div>
             <p className="text-slate-600 text-xs mb-4 leading-relaxed">Consultoria inteligente baseada nos seus dados. Pergunte e obtenha respostas sobre seus gastos.</p>
             <div className="bg-white/80 border border-indigo-200 p-3 rounded-xl">
                <p className="text-[10px] text-indigo-700 font-mono">"Baseado na sua meta, você precisa aportar R$ 500 a mais este mês."</p>
             </div>
           </div>
-
+            <p className="text-slate-600 text-xs mb-4 leading-relaxed">Use a IA como apoio para entender prioridades, juros e próximos passos sem se perder em termos técnicos.</p>
+            <div className="bg-white/80 border border-indigo-200 p-3 rounded-xl">
+               <p className="text-[10px] text-indigo-700 font-mono">"Com os dados que você trouxe, esta dívida parece ser a prioridade número 1."</p>
+            </div>
           {/* Cards Menores: Ferramentas dinâmicas */}
           {toolsByPersona.map((tool) => {
-            console.log('tool:', tool);
             return (
               <ToolCard
                 key={tool.route}
@@ -913,17 +1068,18 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
         </div>
       </section>
       {/* --- SEÇÃO DE CURSOS --- */}
+      {heroPersona === 'patrimonio' && (
       <section className="px-4 lg:px-12 py-16 max-w-[1600px] mx-auto w-full">
 		<div className="mb-12 text-center md:text-left">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-100 border border-indigo-200 text-indigo-700 text-xs font-bold uppercase tracking-widest mb-4">
             <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
-            Academia Pro
+            Aprenda no seu ritmo
           </div>
           <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 mb-4 tracking-tight">
-            Evolua seus <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-600 to-indigo-700">Investimentos</span>
+            Primeiro a clareza. <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-600 to-indigo-700">Depois a evolução.</span>
           </h2>
           <p className="text-slate-600 max-w-2xl text-sm md:text-base mx-auto md:mx-0">
-            Trilhas de conhecimento exclusivas. Do zero à maestria no mercado financeiro com a metodologia Finanças Pro Invest.
+            Conteúdos diretos para entender dívidas, organizar a vida financeira e evoluir com mais segurança.
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -965,7 +1121,12 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
                     {course.duration}
                   </div>
                 </div>
-
+                <p className="text-xs text-slate-500 mt-3 max-w-md">
+                  Comece sem precisar organizar tudo antes. Use os dados que você tiver em mãos.
+                </p>
+                <p className="text-xs text-slate-400 mt-2 max-w-md">
+                  Sem promessas milagrosas, sem fórmula mágica — apenas mais clareza para decidir melhor.
+                </p>
                 {/* Micro-interação: Botão de Ação à direita */}
                 <div className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-500 group-hover:bg-indigo-500 group-hover:text-white transition-all duration-300 transform group-hover:translate-x-1 shadow-none group-hover:shadow-[0_0_15px_rgba(99,102,241,0.25)]">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -977,18 +1138,18 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
           ))}
         </div>
       </section>
-      
-    {/* --- 3. RADAR PRO INVEST (NOTÍCIAS) - REFINADO --- */}
+      )}
+    {/* --- 3. Conteúdo para evoluir (NOTÍCIAS) - REFINADO --- */}
     <section className="bg-white border-y border-slate-200 py-16">
       <div className="max-w-[1600px] mx-auto px-4 lg:px-12">
         <div className="flex items-center justify-between mb-8">
           <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter flex items-center gap-2">
             <Newspaper size={20} className="text-emerald-500" />
-            Radar Pro Invest
+            {heroPersona === 'dividas' ? 'Conteúdo para organizar' : 'Conteúdo para evoluir'}
           </h3>
           <div className="flex items-center gap-4">
             <span className="text-xs md:text-sm font-bold text-slate-600 uppercase">
-              Atualizado Semanalmente
+              {heroPersona === 'dividas' ? 'Leitura simples' : 'Leitura prática'}
             </span>
             {isAuthenticated && userMeta?.email === 'leolimacr@hotmail.com' && (
               <button
@@ -1196,148 +1357,186 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
         </div>
       </div>
     </section>  
-          {/* --- 4. TERMINAL DE MERCADO (DADOS) --- */}
-          <section className="py-16 bg-slate-50">
-        <div className="max-w-[1600px] mx-auto px-4 lg:px-12">
-		  <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-6">
-		    <div>
-			  <h2 className="text-2xl font-black text-slate-900 tracking-tighter mb-2 flex items-center gap-2">
-			    <BarChart3 className="text-slate-400"/>
-			    Terminal de Mercado
-			  </h2>
-			  <p className="text-slate-500 text-xs uppercase tracking-wide font-bold">Monitoramento B3, Cripto e Câmbio</p>
-		    </div>
+            {/* --- 4. TERMINAL DE MERCADO (DADOS) --- */}
+            <section className="py-12 bg-slate-50">
+              <div className="max-w-[1600px] mx-auto px-4 lg:px-12">
+                <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-6">
+                  <div>
+                    <h2 className="text-xl font-black text-slate-900 tracking-tighter mb-2 flex items-center gap-2">
+                      <BarChart3 className="text-slate-400" />
+                      Mercado para aprofundar
+                    </h2>
+                    <p className="text-slate-500 text-xs uppercase tracking-wide font-bold">
+                      B3, cripto, câmbio e indicadores para consultar depois de organizar sua base financeira
+                    </p>
+                  </div>
 
-		    {/* DOIS CAMPOS LADO A LADO */}
-		    <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
-			  {/* Campo B3 */}
-			  <div className="relative flex-1">
-          <input
-            type="text"
-            placeholder="Pesquisar Ativo B3 (ex: PETR4)"
-            className="w-full bg-white border border-slate-300 rounded-xl py-3 pl-10 pr-4 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 transition-all uppercase outline-none shadow-sm"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && searchTerm && handleSelectSuggestion(searchTerm.toUpperCase())}
-          />
-			    <Search className="absolute left-3 top-3 text-slate-500" size={16} />
-			    {suggestions.length > 0 && (
-				  <div className="mt-2 bg-white border border-slate-200 rounded-xl overflow-hidden absolute w-full z-50 shadow-xl">
-				    {suggestions.map((t, i) => (
-					  <div
-					    key={i}
-					    className="p-3 hover:bg-slate-50 cursor-pointer border-t border-slate-200 font-bold text-xs text-slate-900"
-					    onClick={() => handleSelectSuggestion(t)}
-					  >
-					    {t}
-					  </div>
-				    ))}
-				  </div>
-			    )}
-			  </div>
+                  {/* DOIS CAMPOS LADO A LADO */}
+                  <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+                    {/* Campo B3 */}
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        placeholder="Pesquisar Ativo B3 (ex: PETR4)"
+                        className="w-full bg-white border border-slate-300 rounded-xl py-3 pl-10 pr-4 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 transition-all uppercase outline-none shadow-sm"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && searchTerm && handleSelectSuggestion(searchTerm.toUpperCase())}
+                      />
+                      <Search className="absolute left-3 top-3 text-slate-500" size={16} />
+                      {suggestions.length > 0 && (
+                        <div className="mt-2 bg-white border border-slate-200 rounded-xl overflow-hidden absolute w-full z-50 shadow-xl">
+                          {suggestions.map((t, i) => (
+                            <div
+                              key={i}
+                              className="p-3 hover:bg-slate-50 cursor-pointer border-t border-slate-200 font-bold text-xs text-slate-900"
+                              onClick={() => handleSelectSuggestion(t)}
+                            >
+                              {t}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
-			  {/* Campo Cripto */}
-			  <div className="relative flex-1">
-          <input
-            type="text"
-            placeholder="Buscar Cripto (ex: BTC, LTC, AVAX)"
-            className="w-full bg-white border border-slate-300 rounded-xl py-3 pl-10 pr-4 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:border-purple-500 transition-all uppercase outline-none shadow-sm"
-            value={cryptoSymbol}
-            onChange={(e) => setCryptoSymbol(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleCryptoSearch()}
-          />
-			    <Search className="absolute left-3 top-3 text-slate-500" size={16} />
-			  </div>
-		    </div>
-		  </div>
-		  {(searchPreview || cryptoPreview) && (
-		    <div
-			  onClick={() => {
-			    const preview = searchPreview || cryptoPreview;
-			    if (preview) {				  
-				  setSelectedAsset({ symbol: preview.symbol, category: preview.type });
-			    }
-			  }}
-			  className="bg-white border border-slate-200 p-4 rounded-xl mb-8 flex items-center justify-between animate-in fade-in slide-in-from-top-2 shadow-sm cursor-pointer hover:border-slate-300 transition-all"
-		    >
-		   	  <div className="flex items-center gap-4">
-			    <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700 font-black text-xs border border-emerald-200">
-				  {(searchPreview?.symbol || cryptoPreview?.symbol)?.substring(0, 3)}
-			    </div>
-			    <div>
-				  <h3 className="font-black text-slate-900 text-lg">{searchPreview?.symbol || cryptoPreview?.symbol}</h3>
-				  <p className="text-slate-500 text-[10px] uppercase font-bold">
-				    {searchPreview ? 'Ativo B3 Encontrado' : 'Criptomoeda Encontrada'}
-				  </p>
-			    </div>
-			  </div>
-			  <div className="text-right">
-			    <div className="text-xl font-bold text-slate-900">
-				  {searchPreview?.price !== null && searchPreview?.price !== undefined
-				    ? `R$ ${Number(searchPreview.price).toFixed(2).replace('.', ',')}`
-				    : cryptoPreview?.price !== null && cryptoPreview?.price !== undefined
-				    ? `R$ ${Number(cryptoPreview.price).toFixed(2).replace('.', ',')}`
-				    : 'Buscando...'}
-			    </div>
-          <div className={`text-xs font-black ${(searchPreview?.up ?? cryptoPreview?.up) ? 'text-emerald-700' : 'text-rose-700'}`}>
-            {searchPreview?.change !== null && searchPreview?.change !== undefined
-              ? `${searchPreview.change > 0 ? '+' : ''}${Number(searchPreview.change).toFixed(2).replace('.', ',')}%`
-              : cryptoPreview?.change !== null && cryptoPreview?.change !== undefined
-              ? `${cryptoPreview.change > 0 ? '+' : ''}${Number(cryptoPreview.change).toFixed(2).replace('.', ',')}%`
-              : '0,00%'}
-          </div>
-			  </div>
-			  <button
-			    onClick={(e) => {
-				  e.stopPropagation();
-				  setSearchPreview(null);
-				  setCryptoPreview(null);
-			    }}
-			    className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-900 transition-colors"
-			  >
-			    <LogOut size={16} />
-			  </button>
-		    </div>
-		  )}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-             {/* Painéis de Mercado Estilizados */}
-			 <MarketPanel 
-			   title="Índices Globais e Indicadores" 
-			   items={indicesComIndicadores} 
-			   onItemClick={(symbol, category) => {
-			     console.log('MarketPanel clicado:', { symbol, category });
-			     setSelectedAsset({ symbol, category });
-			   }} 
-		     />
-		     <MarketPanel
-			   title="Câmbio & Moedas" 
-			   items={marketData.currencies} 
-			   onItemClick={(symbol, category) => {
-			     console.log('MarketPanel clicado:', { symbol, category });
-			     setSelectedAsset({ symbol, category });
-			   }} 
-		     />
-		     <MarketPanel
-			   title="Criptoativos" 
-			   items={marketData.cryptos} 
-			   onItemClick={(symbol, category) => {
-			     console.log('MarketPanel clicado:', { symbol, category });
-			     setSelectedAsset({ symbol, category });
-			   }} 
-		     />
-		     <MarketPanel
-			   title="Destaques B3" 
-			   items={marketData.stocks.slice(0, 5)} 
-			   onItemClick={(symbol, category) => {
-			     console.log('MarketPanel clicado:', { symbol, category });
-			     setSelectedAsset({ symbol, category });
-			   }} 
-			 />
-          </div>
+                    {/* Campo Cripto */}
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        placeholder="Buscar Cripto (ex: BTC, LTC, AVAX)"
+                        className="w-full bg-white border border-slate-300 rounded-xl py-3 pl-10 pr-4 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:border-purple-500 transition-all uppercase outline-none shadow-sm"
+                        value={cryptoSymbol}
+                        onChange={(e) => setCryptoSymbol(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleCryptoSearch()}
+                      />
+                      <Search className="absolute left-3 top-3 text-slate-500" size={16} />
+                    </div>
+                  </div>
+                </div>
 
-        </div>
-      </section>
-	
+                {(searchPreview || cryptoPreview) && (
+                  <div
+                    onClick={() => {
+                      const preview = searchPreview || cryptoPreview;
+                      if (preview) {
+                        setSelectedAsset({ symbol: preview.symbol, category: preview.type });
+                      }
+                    }}
+                    className="bg-white border border-slate-200 p-4 rounded-xl mb-8 flex items-center justify-between animate-in fade-in slide-in-from-top-2 shadow-sm cursor-pointer hover:border-slate-300 transition-all"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700 font-black text-xs border border-emerald-200">
+                        {(searchPreview?.symbol || cryptoPreview?.symbol)?.substring(0, 3)}
+                      </div>
+                      <div>
+                        <h3 className="font-black text-slate-900 text-lg">{searchPreview?.symbol || cryptoPreview?.symbol}</h3>
+                        <p className="text-slate-500 text-[10px] uppercase font-bold">
+                          {searchPreview ? 'Ativo B3 Encontrado' : 'Criptomoeda Encontrada'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xl font-bold text-slate-900">
+                        {searchPreview?.price !== null && searchPreview?.price !== undefined
+                          ? `R$ ${Number(searchPreview.price).toFixed(2).replace('.', ',')}`
+                          : cryptoPreview?.price !== null && cryptoPreview?.price !== undefined
+                          ? `R$ ${Number(cryptoPreview.price).toFixed(2).replace('.', ',')}`
+                          : 'Buscando...'}
+                      </div>
+                      <div
+                        className={`text-xs font-black ${
+                          (searchPreview?.up ?? cryptoPreview?.up) ? 'text-emerald-700' : 'text-rose-700'
+                        }`}
+                      >
+                        {searchPreview?.change !== null && searchPreview?.change !== undefined
+                          ? `${searchPreview.change > 0 ? '+' : ''}${Number(searchPreview.change).toFixed(2).replace('.', ',')}%`
+                          : cryptoPreview?.change !== null && cryptoPreview?.change !== undefined
+                          ? `${cryptoPreview.change > 0 ? '+' : ''}${Number(cryptoPreview.change).toFixed(2).replace('.', ',')}%`
+                          : '0,00%'}
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSearchPreview(null);
+                        setCryptoPreview(null);
+                      }}
+                      className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-900 transition-colors"
+                    >
+                      <LogOut size={16} />
+                    </button>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <MarketPanel
+                    title="Índices Globais e Indicadores"
+                    items={indicesComIndicadores}
+                    onItemClick={(symbol, category) => {
+                      setSelectedAsset({ symbol, category });
+                    }}
+                  />
+                  <MarketPanel
+                    title="Câmbio & Moedas"
+                    items={marketData.currencies}
+                    onItemClick={(symbol, category) => {
+                      setSelectedAsset({ symbol, category });
+                    }}
+                  />
+                  <MarketPanel
+                    title="Criptoativos"
+                    items={marketData.cryptos}
+                    onItemClick={(symbol, category) => {
+                      setSelectedAsset({ symbol, category });
+                    }}
+                  />
+                  <MarketPanel
+                    title="Destaques B3"
+                    items={marketData.stocks.slice(0, 5)}
+                    onItemClick={(symbol, category) => {
+                      setSelectedAsset({ symbol, category });
+                    }}
+                  />
+                </div>
+              </div>
+            </section>
+
+            {/* --- CTA FINAL --- */}
+            <section className="px-4 lg:px-12 py-16 max-w-[1600px] mx-auto w-full">
+              <div className="bg-white border border-slate-200 rounded-3xl p-8 md:p-10 text-center shadow-sm">
+                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-widest mb-4">
+                  Comece sem complicação
+                </span>
+                <h3 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tight mb-4">
+                  Suas dívidas têm solução. <br className="hidden md:block" />
+                  O próximo passo pode começar hoje.
+                </h3>
+                <p className="text-slate-600 text-sm md:text-base max-w-2xl mx-auto mb-6">
+                  Comece com os dados que você tiver, entenda suas prioridades e veja um caminho mais claro para sair das dívidas.
+                </p>
+                <p className="text-xs text-slate-500 max-w-xl mx-auto mb-6">
+                  Você pode começar mesmo com informações incompletas e organizar os detalhes depois.
+                </p>
+                <div className="flex flex-wrap justify-center gap-2 mb-6">
+                  <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-bold text-slate-600">
+                    Entenda sua situação
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-bold text-slate-600">
+                    Veja suas prioridades
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-bold text-slate-600">
+                    Comece sem complicação
+                  </span>
+                </div>
+                <button
+                  onClick={() => onNavigate('tool-debt')}
+                  className="bg-emerald-500 hover:bg-emerald-600 text-white font-black px-8 py-4 rounded-2xl transition-all shadow-[0_16px_35px_-18px_rgba(16,185,129,0.65)] inline-flex items-center justify-center gap-2"
+                >
+                  <span>Montar meu plano para sair das dívidas</span>
+                  <ArrowRight size={20} />
+                </button>
+              </div>
+            </section>
       {/* --- FOOTER PROFISSIONAL --- */}
       <footer className="bg-white border-t border-slate-200 py-16 px-6">
         <div className="max-w-[1400px] mx-auto grid grid-cols-1 md:grid-cols-12 gap-12">
@@ -1347,8 +1546,22 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
                    <span className="text-sm font-black tracking-tighter text-slate-900 uppercase">Finanças Pro Invest</span>
                 </div>
                 <p className="text-slate-600 text-xs leading-relaxed max-w-xs font-medium">
-                   Plataforma analítica e educacional. Construímos ferramentas para quem leva o dinheiro a sério.
+                  Ferramentas para entender dívidas, organizar prioridades e retomar o controle com mais clareza.
                 </p>
+                <p className="text-xs text-slate-500 max-w-xl mx-auto mb-6">
+                  Você pode começar mesmo com informações incompletas e organizar os detalhes depois.
+                </p>
+                <div className="flex flex-wrap justify-center gap-2 mb-6">
+                  <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-bold text-slate-600">
+                    Entenda sua situação
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-bold text-slate-600">
+                    Veja suas prioridades
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-bold text-slate-600">
+                    Comece sem complicação
+                  </span>
+                </div>
                 <div className="flex gap-4 text-slate-500 pt-2">
                    <Instagram size={18} className="hover:text-emerald-500 cursor-pointer transition-colors"/>
                    <Linkedin size={18} className="hover:text-emerald-500 cursor-pointer transition-colors"/>
@@ -1357,11 +1570,11 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
             </div>
             
             <div className="md:col-span-2 md:col-start-7">
-                <h4 className="text-slate-700 font-black text-[10px] uppercase tracking-widest mb-4">Navegação</h4>
+                <h4 className="text-slate-700 font-black text-[10px] uppercase tracking-widest mb-4">Navegação</h4>                
                 <ul className="space-y-2 text-slate-600 text-xs font-bold">
-                    <li><button onClick={() => isAuthenticated ? onNavigate('manager') : onStartNow()} className="hover:text-emerald-600 transition-colors">Login / Entrar</button></li>
-                    <li><button onClick={onStartNow} className="hover:text-emerald-600 transition-colors">Criar Conta</button></li>
-                    <li><button onClick={() => onNavigate('tool-juros')} className="hover:text-emerald-600 transition-colors">Calculadoras</button></li>
+                    <li><button onClick={() => onNavigate('tool-debt')} className="hover:text-emerald-600 transition-colors">Começar diagnóstico</button></li>
+                    <li><button onClick={() => isAuthenticated ? onNavigate('manager') : onStartNow()} className="hover:text-emerald-600 transition-colors">Entrar na minha área</button></li>
+                    <li><button onClick={() => onNavigate('tool-juros')} className="hover:text-emerald-600 transition-colors">Entender os juros</button></li>
                 </ul>
             </div>
 
@@ -1391,7 +1604,7 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
 };
 
 // --- SUB-COMPONENTES PARA ORGANIZAÇÃO VISUAL ---
-const ToolCard = ({ icon: Icon, title, desc, route, onNavigate, bgColor = 'blue' }) => {
+const ToolCard = ({ icon: Icon, title, desc, route, onNavigate, bgColor = 'blue', highlight = false }) => {
   const colorMap = {
     amber: {
       card: 'bg-amber-100',
@@ -1458,9 +1671,16 @@ const ToolCard = ({ icon: Icon, title, desc, route, onNavigate, bgColor = 'blue'
         relative ${styles.card} ${styles.cardHover} border ${styles.border} ${styles.borderHover}
         rounded-2xl p-6 transition-all duration-300 cursor-pointer group
         flex flex-col justify-between h-40 shadow-lg hover:shadow-xl hover:-translate-y-1
-        overflow-hidden
+        overflow-hidden ${highlight ? 'ring-2 ring-amber-300 shadow-[0_10px_30px_-12px_rgba(251,191,36,0.45)]' : ''}
       `}
     >
+    {highlight && (
+        <div className="absolute top-3 right-3 z-20">
+          <span className="inline-flex items-center rounded-full bg-white/90 border border-amber-300 px-2 py-1 text-[9px] font-black uppercase tracking-widest text-amber-700">
+            Recomendado
+          </span>
+        </div>
+      )}
       <div className="relative z-10">
         <div className={`
           p-2 ${styles.iconBg} ${styles.iconHoverBg} rounded-lg w-fit
