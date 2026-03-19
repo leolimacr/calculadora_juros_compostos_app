@@ -1,6 +1,6 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Calculator, Bot, Copy } from 'lucide-react';
+import { useNavigation } from '../../../../hooks/useNavigation';
 
 interface Props {
   tool: 'debt-calculator' | 'nexus-ai' | 'budget-tool';
@@ -19,7 +19,7 @@ const toolConfig = {
     btnClass:
       'bg-violet-600 hover:bg-violet-700 text-white',
     // App renderiza esta ferramenta como `currentTool === 'tool-dividas'`
-    defaultHref: '/tool-dividas',
+    defaultTargetTool: 'tool-dividas',
   },
   'nexus-ai': {
     icon: <Bot size={18} className="text-sky-500 shrink-0" />,
@@ -27,7 +27,7 @@ const toolConfig = {
     titleColor: 'text-sky-700',
     btnClass: 'bg-sky-600 hover:bg-sky-700 text-white',
     // App renderiza esta ferramenta como `currentTool === 'chat'`
-    defaultHref: '/chat',
+    defaultTargetTool: 'chat',
   },
   'budget-tool': {
     icon: <Calculator size={18} className="text-teal-500 shrink-0" />,
@@ -36,7 +36,7 @@ const toolConfig = {
     btnClass: 'bg-teal-600 hover:bg-teal-700 text-white',
     // Mapeamento mais próximo da tool de "orçamento/planejamento" disponível hoje.
     // Se você usar outra ferramenta nesse bloco depois, ajuste aqui.
-    defaultHref: '/tool-alugar',
+    defaultTargetTool: 'tool-alugar',
   },
 };
 
@@ -48,9 +48,17 @@ const ToolCTA: React.FC<Props> = ({
   buttonHref,
   prompt,
 }) => {
-  const navigate = useNavigate();
+  const { navigateTo } = useNavigation();
   const config = toolConfig[tool];
-  const href = buttonHref ?? config.defaultHref;
+
+  const normalizeTargetTool = (value?: string, fallback?: string) => {
+    const raw = value ?? fallback ?? '';
+    if (!raw) return raw;
+    // aceita tanto '/chat' quanto 'chat'
+    return raw.startsWith('/') ? raw.slice(1) : raw;
+  };
+
+  const targetTool = normalizeTargetTool(buttonHref, config.defaultTargetTool);
 
   const copyPrompt = () => {
     if (prompt) navigator.clipboard.writeText(prompt);
@@ -81,7 +89,7 @@ const ToolCTA: React.FC<Props> = ({
       )}
       <button
         type="button"
-        onClick={() => navigate(href)}
+        onClick={() => navigateTo(targetTool)}
         className={`inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg transition-colors ${config.btnClass}`}
       >
         {buttonLabel}
