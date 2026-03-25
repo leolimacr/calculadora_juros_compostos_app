@@ -131,6 +131,30 @@ class DiscretionEngine {
                 decision.includeClosingQuestion = true;
                 decision.includeDateTime = 'both';
                 break;
+            case 'cashflow_query':
+                decision.responseDepth = 'detailed';
+                decision.includeGoals = userData.hasGoals;
+                decision.includeTransactions = userData.hasRecentTransactions;
+                decision.includeSimulations = false;
+                decision.shouldSuggestActions = true;
+                decision.useBulletPoints = true;
+                decision.formalityLevel = 'medium';
+                decision.useFirstNameFrequency = 'occasional';
+                decision.includeClosingQuestion = true;
+                decision.shouldBeExtraPolite = true;
+                break;
+            case 'patrimony_query':
+                decision.responseDepth = 'detailed';
+                decision.includeGoals = userData.hasGoals;
+                decision.includeTransactions = false;
+                decision.includeSimulations = false;
+                decision.shouldSuggestActions = true;
+                decision.useBulletPoints = true;
+                decision.formalityLevel = 'medium';
+                decision.useFirstNameFrequency = 'occasional';
+                decision.includeClosingQuestion = true;
+                decision.shouldBeExtraPolite = true;
+                break;
             case 'user_data_query':
                 decision.responseDepth = 'detailed';
                 decision.includeGoals = userData.hasGoals;
@@ -139,8 +163,9 @@ class DiscretionEngine {
                 decision.shouldSuggestActions = true;
                 decision.useBulletPoints = true;
                 decision.formalityLevel = 'medium';
-                decision.useFirstNameFrequency = 'frequent';
+                decision.useFirstNameFrequency = 'occasional';
                 decision.includeClosingQuestion = true;
+                decision.shouldBeExtraPolite = true;
                 break;
             case 'explanation_query':
                 decision.responseDepth = 'detailed';
@@ -198,18 +223,39 @@ class DiscretionEngine {
         const messageLower = message.toLowerCase();
         if (this.isSimpleGreeting(messageLower, ''))
             return 'greeting';
-        const marketKeywords = ['dólar', 'ibov', 'ação', 'ações', 'bitcoin', 'mercado', 'cotação', 'preço', 'valor'];
-        const investmentKeywords = ['investir', 'aplicar', 'onde colocar', 'melhor investimento', 'onde investir', 'recomende investimento'];
-        const identityKeywords = ['quem é você', 'seu nome', 'você é', 'o que é nexus'];
-        const dateKeywords = ['que dia é hoje', 'qual a data', 'que horas são', 'dia atual', 'hora atual'];
-        const userDataKeywords = [
-            'minhas despesas', 'minhas receitas', 'meu orçamento', 'meus gastos', 'minha situação',
-            'meus lançamentos', 'minhas transações', 'meu saldo', 'meus registros',
-            'meus dados', 'minha conta', 'como estão meus', 'lançamentos de despesas'
+        const cashflowKeywords = [
+            'minhas despesas', 'minhas receitas', 'meu orçamento', 'meus gastos',
+            'meus lançamentos', 'minhas transações', 'minhas transacoes',
+            'meu saldo', 'meus registros', 'entradas e saídas', 'entradas e saidas',
+            'fluxo de caixa', 'lançamentos de despesas', 'lancamentos de despesas',
+            'receitas e despesas', 'analisar meus lançamentos', 'analise meus lançamentos',
+            'analisar minhas despesas', 'analise minhas despesas', 'meu fluxo financeiro'
         ];
-        const explanationKeywords = ['o que é', 'como funciona', 'diferença entre', 'significa', 'qual a diferença'];
-        const followUpKeywords = ['e', 'também', 'além disso', 'outra coisa', 'certo', 'então'];
-        if (userDataKeywords.some(k => messageLower.includes(k)))
+        const patrimonyKeywords = [
+            'meus ativos', 'meus passivos', 'meu patrimônio', 'meu patrimonio',
+            'meus bens', 'minha carteira patrimonial', 'meus imóveis', 'meus imoveis',
+            'meus veículos', 'meus veiculos', 'meus terrenos', 'composição patrimonial',
+            'composicao patrimonial', 'patrimônio ativo', 'patrimonio ativo',
+            'patrimônio passivo', 'patrimonio passivo'
+        ];
+        const marketKeywords = [
+            'dólar', 'dolar', 'ibov', 'ação', 'ações', 'acao', 'acoes',
+            'bitcoin', 'mercado', 'cotação', 'cotacao', 'preço', 'preco', 'valor'
+        ];
+        const investmentKeywords = [
+            'investir', 'aplicar', 'onde colocar', 'melhor investimento',
+            'onde investir', 'recomende investimento'
+        ];
+        const identityKeywords = ['quem é você', 'seu nome', 'você é', 'voce é', 'o que é nexus', 'o que e nexus'];
+        const dateKeywords = ['que dia é hoje', 'que dia e hoje', 'qual a data', 'que horas são', 'que horas sao', 'dia atual', 'hora atual'];
+        const explanationKeywords = ['o que é', 'o que e', 'como funciona', 'diferença entre', 'diferenca entre', 'significa', 'qual a diferença', 'qual a diferenca'];
+        const followUpKeywords = ['e', 'também', 'tambem', 'além disso', 'alem disso', 'outra coisa', 'certo', 'então', 'entao'];
+        const genericUserDataKeywords = ['meus dados', 'minha situação', 'minha situacao', 'como estão meus', 'como estao meus'];
+        if (cashflowKeywords.some(k => messageLower.includes(k)))
+            return 'cashflow_query';
+        if (patrimonyKeywords.some(k => messageLower.includes(k)))
+            return 'patrimony_query';
+        if (genericUserDataKeywords.some(k => messageLower.includes(k)))
             return 'user_data_query';
         if (explanationKeywords.some(k => messageLower.includes(k)))
             return 'explanation_query';
@@ -301,7 +347,7 @@ class DiscretionEngine {
             return false;
         if (intent === 'investment_advice')
             return true;
-        if (intent === 'user_data_query')
+        if (intent === 'cashflow_query' || intent === 'patrimony_query' || intent === 'user_data_query')
             return true;
         if (history.length > 10)
             return false;

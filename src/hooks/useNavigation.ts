@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 export const useNavigation = () => {
   const isNative = Capacitor.isNativePlatform();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const getToolFromPath = () => {
     if (location.pathname.includes('/curso')) return null;
@@ -20,13 +21,13 @@ export const useNavigation = () => {
 
   const [homeKey, setHomeKey] = useState(0);
 
-  const navigateTo = (tool: string) => {
+  const navigateTo = (tool: string, state?: any) => {
     if (tool === 'home') setHomeKey(prev => prev + 1);
     setCurrentTool(tool);
     window.scrollTo(0, 0);
     if (!isNative) {
       const path = tool === 'home' ? '/' : `/${tool}`;
-      window.history.pushState({}, '', path);
+      navigate(path, { state });
     }
   };
 

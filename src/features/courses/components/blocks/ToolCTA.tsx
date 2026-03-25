@@ -34,9 +34,8 @@ const toolConfig = {
     bg: 'bg-teal-50 border-teal-200',
     titleColor: 'text-teal-700',
     btnClass: 'bg-teal-600 hover:bg-teal-700 text-white',
-    // Mapeamento mais próximo da tool de "orçamento/planejamento" disponível hoje.
-    // Se você usar outra ferramenta nesse bloco depois, ajuste aqui.
-    defaultTargetTool: 'tool-alugar',
+    // Mapeamento para o Gerenciador Financeiro (Dashboard/Budget).
+    defaultTargetTool: 'manager',
   },
 };
 
@@ -89,7 +88,9 @@ const ToolCTA: React.FC<Props> = ({
       )}
       <button
         type="button"
-        onClick={() => navigateTo(targetTool)}
+        onClick={() =>
+          navigateTo(targetTool, prompt ? { initialPrompt: prompt } : undefined)
+        }
         className={`inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg transition-colors ${config.btnClass}`}
       >
         {buttonLabel}

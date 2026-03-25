@@ -10,6 +10,10 @@ import { useSubscriptionAccess } from './hooks/useSubscriptionAccess';
 import { useAppSecurity } from './hooks/useAppSecurity';
 import { useNavigation } from './hooks/useNavigation';
 import { NotificationService } from './services/NotificationService';
+import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { CourseTrackPage } from './features/courses/pages/CourseTrackPage';
+import { ModuleOverviewPage } from './features/courses/pages/ModuleOverviewPage';
+import { LessonPage } from './features/courses/pages/LessonPage';
 
 interface ToastMessage {
   id: string;
@@ -66,7 +70,7 @@ import GoalManager from './components/tools/goals/GoalManager';
 // Tools
 
 const App: React.FC = () => {
-  const { user, isAuthenticated, loading: authLoading, logout } = useAuth();
+  const { user, isAuthenticated, loading: authLoading, logout } = useAuth();   
   const {
     lancamentos,
     categories,
@@ -81,8 +85,9 @@ const App: React.FC = () => {
   const { isPro, isPremium } = useSubscriptionAccess();
   const { isAppLocked, storedPin, handleUnlockSuccess } = useAppSecurity(user?.uid, isAuthenticated);
   const { currentTool, homeKey, navigateTo } = useNavigation();
-
-  const isNative = Capacitor.isNativePlatform();
+    const routerNavigate = useNavigate();
+    const location = useLocation();
+    const isNative = Capacitor.isNativePlatform();
 
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [toasts] = useState<ToastMessage[]>([]);
@@ -124,6 +129,11 @@ const App: React.FC = () => {
       setPostAuthRedirect(currentTool);
     }
 
+    // Se estivermos saindo do curso, limpamos a URL para o app voltar ao normal
+    if (location.pathname.includes('/curso')) {
+      routerNavigate('/');
+    }
+
     navigateTo(tool);
     setMobileMenuOpen(false);
   };
@@ -161,6 +171,25 @@ const App: React.FC = () => {
   }
 
   const renderContent = () => {
+    // Intercepta rotas de curso
+    if (location.pathname.includes('/curso')) {
+      if (!isAuthenticated) {
+        handleNavigate('login');
+        return null;
+      }
+
+      return (
+        <div className="pt-16 pb-24 min-h-screen h-full bg-slate-50 w-full relative z-0 overflow-y-auto">
+          <Routes>
+            <Route path="/curso/:courseSlug" element={<CourseTrackPage />} />
+            <Route path="/curso/:courseSlug/modulo/:moduleSlug" element={<ModuleOverviewPage />} />
+            <Route path="/curso/:courseSlug/modulo/:moduleSlug/aula/:lessonSlug" element={<LessonPage />} />
+            <Route path="*" element={<CourseTrackPage />} />
+          </Routes>
+        </div>
+      );
+    }
+
     if (isAppLocked && isAuthenticated && storedPin) {
       return <SecurityLock storedPin={storedPin} useBiometrics={false} onSuccess={handleUnlockSuccess} />;
     }
@@ -407,6 +436,34 @@ const App: React.FC = () => {
                 </div>
               </button>
 
+              {/* Botão para acessar o Curso */}
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  if (isAuthenticated) {
+                    routerNavigate('/curso/dividas');
+                  } else {
+                    handleNavigate('login');
+                  }
+                }}
+                className="w-full group relative p-px rounded-2xl bg-gradient-to-b from-emerald-500/40 to-transparent transition-all active:scale-95 shadow-lg shadow-emerald-950/20 mb-4"
+              >
+                <div className="bg-[#0f172a] rounded-[15px] p-4 flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 text-white shadow-lg">
+                    <Sparkles size={20} strokeWidth={2.5} />
+                  </div>
+                  <div className="flex-1 text-left leading-tight">
+                    <span className="block text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-0.5">
+                      Novo Curso
+                    </span>
+                    <span className="block text-[13px] font-bold text-white uppercase tracking-tight">
+                      Sair das Dívidas
+                    </span>
+                  </div>
+                  <ChevronRight size={16} className="text-slate-600 group-hover:text-emerald-400" />
+                </div>
+              </button>
+
               <button
                 onClick={() => {
                   setMobileMenuOpen(false);
@@ -423,6 +480,24 @@ const App: React.FC = () => {
                 </span>
                 <ChevronRight size={16} className="text-slate-700" />
               </button>
+              
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  if (isAuthenticated) handleNavigate('settings');
+                  else handleNavigate('login');
+                }}
+                className="w-full flex items-center gap-3 p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all active:scale-95 text-left group"
+              >
+                <div className="p-2 bg-slate-800 rounded-lg text-slate-400 group-hover:text-white transition-colors">
+                  <Settings size={18} />
+                </div>
+                <span className="flex-1 text-[13px] font-bold text-slate-300 uppercase tracking-widest">
+                  Configurações
+                </span>
+                <ChevronRight size={16} className="text-slate-700" />
+              </button>
+              
             </div>
 
             {isAuthenticated && (

@@ -6,7 +6,9 @@ import {
   BarChart3, 
   Lock,
   Eye,
-  EyeOff
+  EyeOff,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import UsageIndicator from './UsageIndicator';
 import TransactionHistory from './TransactionHistory';
@@ -41,6 +43,7 @@ const Dashboard: React.FC<any> = (props) => {
   const [sortMode, setSortMode] = useState<'date-desc' | 'date-asc' | 'category-asc' | 'category-desc'>('date-desc');
   const [showCategorySummary, setShowCategorySummary] = useState(false);
   const [openCategory, setOpenCategory] = useState<string | null>(null);
+  const [showTransactions, setShowTransactions] = useState(true);
   const safeTransactions = Array.isArray(transactions) ? transactions : [];
   
   const changeDate = (offset: number) => {
@@ -311,27 +314,66 @@ const Dashboard: React.FC<any> = (props) => {
       </div>
       {/* FILTROS E TABELA */}
       <div className="space-y-6">
-          <FilterBar 
-            selectedCategories={selectedCategories} 
-            setSelectedCategories={setSelectedCategories}
-            typeFilter={typeFilter}
-            setTypeFilter={setTypeFilter}
-            categories={categoryNames}
-            viewMode={viewMode}
-            setViewMode={setViewMode}
-            changeDate={changeDate}
-            periodLabel={periodLabel}
-            onExportPDF={handleExportPDF}
-            startDate={startDate}
-            endDate={endDate}
-            setStartDate={setStartDate}
-            setEndDate={setEndDate}
-            onOpenCategoryManager={() => setIsCategoryModalOpen(true)}
-            onDateSelect={handleDateSelect}
-            sortMode={sortMode}
-            setSortMode={setSortMode}
-          />
-          <TransactionHistory transactions={filtered} onDelete={onDeleteTransaction} onEdit={onEditTransaction} isPrivacyMode={isPrivacyMode} />
+          <div className="space-y-3">
+            <FilterBar 
+              selectedCategories={selectedCategories} 
+              setSelectedCategories={setSelectedCategories}
+              typeFilter={typeFilter}
+              setTypeFilter={setTypeFilter}
+              categories={categoryNames}
+              viewMode={viewMode}
+              setViewMode={setViewMode}
+              changeDate={changeDate}
+              periodLabel={periodLabel}
+              onExportPDF={handleExportPDF}
+              startDate={startDate}
+              endDate={endDate}
+              setStartDate={setStartDate}
+              setEndDate={setEndDate}
+              onOpenCategoryManager={() => setIsCategoryModalOpen(true)}
+              onDateSelect={handleDateSelect}
+              sortMode={sortMode}
+              setSortMode={setSortMode}
+            />
+
+            {/* Toggle para ocultar/expandir a tabela de lançamentos */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-1">
+              <button
+                type="button"
+                onClick={() => setShowTransactions((prev) => !prev)}
+                className={`flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] border transition-all active:scale-95 w-full sm:w-auto ${
+                  showTransactions
+                    ? 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
+                    : 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
+                }`}
+              >
+                {showTransactions ? 'Recolher lançamentos' : 'Mostrar lançamentos'}
+                {showTransactions ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </button>
+
+              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center sm:text-right">
+                {filtered.length} lançamento{filtered.length !== 1 ? 's' : ''}{showTransactions ? '' : ' oculto(s)'}
+              </div>
+            </div>
+
+            {showTransactions ? (
+              <TransactionHistory
+                transactions={filtered}
+                onDelete={onDeleteTransaction}
+                onEdit={onEditTransaction}
+                isPrivacyMode={isPrivacyMode}
+              />
+            ) : (
+              <div className="bg-white border border-slate-200 rounded-[2rem] px-6 py-8 shadow-sm">
+                <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">
+                  Lançamentos ocultos
+                </p>
+                <p className="text-[11px] text-slate-600 mt-2">
+                  Use o botão acima para mostrar novamente.
+                </p>
+              </div>
+            )}
+          </div>
           {categorySummary.length > 0 && (
             <div className="bg-white border border-slate-200 rounded-[2rem] p-5 shadow-sm">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">

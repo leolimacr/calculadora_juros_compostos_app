@@ -55,7 +55,7 @@ const Register: React.FC = () => {
             <input
               type="text"
               placeholder="Como gostaria de ser chamado?"
-              className="w-full bg-gray-900 text-white pl-10 p-3.5 rounded-xl border border-gray-800 focus:border-green-500 outline-none transition-colors"
+              className="w-full bg-white text-gray-800 pl-10 p-3.5 rounded-xl border border-gray-800 focus:border-green-500 outline-none transition-colors"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -66,7 +66,7 @@ const Register: React.FC = () => {
             <input
               type="email"
               placeholder="Seu melhor e-mail"
-              className="w-full bg-gray-900 text-white pl-10 p-3.5 rounded-xl border border-gray-800 focus:border-green-500 outline-none transition-colors"
+              className="w-full bg-white text-gray-800 pl-10 p-3.5 rounded-xl border border-gray-800 focus:border-green-500 outline-none transition-colors"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
@@ -77,7 +77,7 @@ const Register: React.FC = () => {
             <input
               type={showPassword ? "text" : "password"}
               placeholder="Crie uma senha forte"
-              className="w-full bg-gray-900 text-white pl-10 p-3.5 rounded-xl border border-gray-800 focus:border-green-500 outline-none transition-colors"
+              className="w-full bg-white text-gray-800 pl-10 p-3.5 rounded-xl border border-gray-800 focus:border-green-500 outline-none transition-colors"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />

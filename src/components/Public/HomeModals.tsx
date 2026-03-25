@@ -19,30 +19,49 @@ export const ContentModal = ({ title, icon: Icon, children, onClose }: any) => (
 );
 export const AssetModal = ({ asset, onClose }: { asset: { symbol: string; category: string }, onClose: () => void }) => {  	
   const [isFull, setIsFull] = useState(false); // ✅ Estado para controlar o tamanho da tela
-  const getTradingViewSymbol = (s: string, cat: string) => {
-    const sym = s.toUpperCase();
+  
+  const normalizeCryptoPair = (raw: string) => {
+    const value = raw.toUpperCase().trim();
 
-    // Índices
+    const slashMatch = value.match(/^([A-Z0-9]+)\/(BRL|USD|USDT)$/);
+    if (slashMatch) {
+      return { base: slashMatch[1], quote: slashMatch[2] as 'BRL' | 'USD' | 'USDT' };
+    }
+
+    const dashMatch = value.match(/^([A-Z0-9]+)-(BRL|USD|USDT)$/);
+    if (dashMatch) {
+      return { base: dashMatch[1], quote: dashMatch[2] as 'BRL' | 'USD' | 'USDT' };
+    }
+
+    return { base: value.replace('.SA', ''), quote: 'BRL' as const };
+  };
+
+  const getTradingViewSymbol = (s: string, cat: string) => {
+    const sym = s.toUpperCase().trim();
+
     if (cat === 'index') {
       if (sym.includes('IBOV') || sym === '^BVSP') return 'BMFBOVESPA:IBOV';
       if (sym.includes('S&P') || sym === '^GSPC') return 'SP:SPX';
     }
 
-    // Câmbio (moedas)
     if (cat === 'currency') {
       if (sym === 'USD' || sym === 'USDBRL') return 'FX_IDC:USDBRL';
       if (sym === 'EUR' || sym === 'EURBRL') return 'FX_IDC:EURBRL';
     }
 
-    // Criptomoedas
     if (cat === 'crypto') {
-      // Tenta o formato mais comum: BINANCE:SYMBOLUSDT
-      return `BINANCE:${sym}USDT`;
+      const { base, quote } = normalizeCryptoPair(sym);
+
+      if (quote === 'BRL') return `BINANCE:${base}BRL`;
+      if (quote === 'USD') return `COINBASE:${base}USD`;
+      if (quote === 'USDT') return `BINANCE:${base}USDT`;
+
+      return `BINANCE:${base}BRL`;
     }
 
-    // Ações B3 (stock)
     return `BMFBOVESPA:${sym.replace('.SA', '')}`;
   };
+  
   return (
     <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/95 backdrop-blur-sm p-4">
       

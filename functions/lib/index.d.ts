@@ -4,6 +4,18 @@ export declare const askAiAdvisor: import("firebase-functions/v2/https").Callabl
     context: {
         intent: string;
         model: string;
+        hasTransactions?: undefined;
+        hasGoals?: undefined;
+    };
+    error?: undefined;
+} | {
+    success: boolean;
+    answer: string;
+    context: {
+        model: string;
+        intent: string;
+        hasTransactions: boolean;
+        hasGoals: boolean;
     };
     error?: undefined;
 } | {

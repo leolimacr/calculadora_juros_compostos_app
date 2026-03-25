@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useAiAgent } from '../../../hooks/useAiAgent';
 import { useSubscriptionAccess } from '../../../hooks/useSubscriptionAccess';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Send,
   PlusCircle,
@@ -35,6 +36,7 @@ interface Message {
   text: string;
   timestamp: Date;
   isIntro?: boolean;
+  isSpecialIntro?: boolean;
 }
 
 const formatMarkdown = (text: string) => {
@@ -70,12 +72,15 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
   const { sendToNexus, isLoading: isAiLoading } = useAiAgent();
   const { isPro, isPremium } = useSubscriptionAccess();
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const [conversationHistory, setConversationHistory] = useState<ChatHistoryItem[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [dailyCount, setDailyCount] = useState(0);
   const [input, setInput] = useState('');
+  const hasProcessedRef = useRef(false);
 
   const FREE_DAILY_LIMIT = 5;
 
@@ -94,6 +99,111 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
       text: `=== NEXUS CONSULTOR ===\nUsuário: ${capitalizedName}\nStatus: Conexão Segura Ativa`,
       timestamp: new Date()
     }
+  ]);
+
+  const handleSend = useCallback(async (customText?: unknown) => {
+    const rawValue =
+      typeof customText === 'string'
+        ? customText
+        : typeof input === 'string'
+        ? input
+        : '';
+
+    const textToSend = rawValue.trim();
+    if (!textToSend || isAiLoading || !user) return;
+
+    if (!isPro && !isPremium && dailyCount >= FREE_DAILY_LIMIT) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'ai',
+          text: '**LIMITE DIÁRIO ATINGIDO**\n\nAtualize para o plano Pro para continuar.',
+          timestamp: new Date()
+        }
+      ]);
+      return;
+    }
+
+    const newMessages: Message[] = [
+      ...messages,
+      { role: 'user', text: textToSend, timestamp: new Date() }
+    ];
+
+    setMessages(newMessages);
+    setInput('');
+    await incrementDailyCount();
+
+    const response = await sendToNexus(
+      textToSend,
+      {
+        transactions,
+        simulations: currentCalcResult,
+        goals,
+        assets,
+        passives,
+        currentTool
+      },
+      capitalizedName,
+      newMessages
+        .filter((m) => !m.isIntro)
+        .map((m) => ({ role: m.role, text: m.text })),
+      newMessages.length === 2
+    );
+
+    if (response) {
+      const updatedWithAi: Message[] = [
+        ...newMessages,
+        { role: 'ai', text: response.answer, timestamp: new Date() }
+      ];
+
+      setMessages(updatedWithAi);
+
+      if (!currentChatId) {
+        await saveToHistory(`Análise: ${textToSend.substring(0, 20)}...`, updatedWithAi);
+      } else {
+        await updateCurrentChat(updatedWithAi);
+      }
+    }
+  }, [
+    input,
+    isAiLoading,
+    user,
+    messages,
+    dailyCount,
+    isPro,
+    isPremium,
+    transactions,
+    currentCalcResult,
+    goals,
+    assets,
+    passives,
+    currentTool,
+    capitalizedName,
+    currentChatId,
+    sendToNexus
+  ]);
+
+  useEffect(() => {
+    const state = location.state as { initialPrompt?: string } | null;
+    if (state?.initialPrompt && !hasProcessedRef.current && user) {
+      hasProcessedRef.current = true;
+      setInput(state.initialPrompt);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'ai',
+          text: 'Sua pergunta do curso de dívidas já está aqui. Clique em "Enviar" para ver a resposta do Nexus, ou sinta-se à vontade para editar antes de enviar.',
+          timestamp: new Date(),
+          isSpecialIntro: true
+        }
+      ]);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [
+    location.state,
+    user,
+    location.pathname,
+    navigate
   ]);
 
   useEffect(() => {
@@ -201,64 +311,6 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
     });
   };
 
-  const handleSend = async () => {
-    if (!input.trim() || isAiLoading || !user) return;
-
-    if (!isPro && !isPremium && dailyCount >= FREE_DAILY_LIMIT) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'ai',
-          text: '**LIMITE DIÁRIO ATINGIDO**\n\nAtualize para o plano Pro para continuar.',
-          timestamp: new Date()
-        }
-      ]);
-      return;
-    }
-
-    const userMsg = input.trim();
-    const newMessages: Message[] = [
-      ...messages,
-      { role: 'user', text: userMsg, timestamp: new Date() }
-    ];
-
-    setMessages(newMessages);
-    setInput('');
-    await incrementDailyCount();
-
-    const response = await sendToNexus(
-      userMsg,
-      {
-        transactions,
-        simulations: currentCalcResult,
-        goals,
-        assets,
-        passives,
-        currentTool
-      },
-      capitalizedName,
-      newMessages
-        .filter((m) => !m.isIntro)
-        .map((m) => ({ role: m.role, text: m.text })),
-      newMessages.length === 2
-    );
-
-    if (response) {
-      const updatedWithAi: Message[] = [
-        ...newMessages,
-        { role: 'ai', text: response.answer, timestamp: new Date() }
-      ];
-
-      setMessages(updatedWithAi);
-
-      if (!currentChatId) {
-        await saveToHistory(`Análise: ${userMsg.substring(0, 20)}...`, updatedWithAi);
-      } else {
-        await updateCurrentChat(updatedWithAi);
-      }
-    }
-  };
-
   const startNewConversation = () => {
     setCurrentChatId(null);
     setMessages([
@@ -342,6 +394,12 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
                     </div>
                   </div>
                 </div>
+              </div>
+            ) : msg.isSpecialIntro ? (
+              <div className="w-full max-w-lg bg-sky-50 border border-sky-300 rounded-2xl p-4 shadow-md text-center">
+                <p className="text-sm text-sky-800 leading-relaxed font-medium">
+                  {msg.text}
+                </p>
               </div>
             ) : (
               <div

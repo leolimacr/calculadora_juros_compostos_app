@@ -14,10 +14,12 @@ const MarketTicker: React.FC<MarketTickerProps> = ({ onAssetClick }) => {
   const loadData = async () => {
     const { quotes: data } = await fetchMarketQuotes(false);
     // Filtrar ativos relevantes para a fita
+    
     const relevant = data.filter(q => 
-        ['USD', 'EUR', 'IBOV', 'BTC', 'ETH', 'VALE3', 'PETR4', 'ITUB4'].includes(q.symbol) || 
+        ['USD', 'EUR', 'IBOV', 'BTC/BRL', 'ETH/BRL', 'VALE3', 'PETR4', 'ITUB4'].includes(q.symbol) || 
         q.symbol.includes('/USD')
     );
+    
     setQuotes(relevant);
     setLoading(false);
   };
@@ -38,7 +40,7 @@ const MarketTicker: React.FC<MarketTickerProps> = ({ onAssetClick }) => {
       <div className="flex animate-ticker whitespace-nowrap hover:pause-animation">
         {displayItems.map((item, index) => {
             const isPositive = item.changePercent >= 0;
-            const symbol = item.symbol.replace('/USD', '');
+            const symbol = item.symbol;
             const price = item.category === 'index' 
                 ? item.price.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
                 : item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });

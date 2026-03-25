@@ -453,21 +453,52 @@ exports.askAiAdvisor = (0, https_1.onCall)({
             console.log("🔍 Primeira goal:", JSON.stringify(userData.goals[0]));
         }
         console.log("🔍 userData.hasData:", userData?.hasData);
-        const assetsSummary = assets && assets.length > 0
-            ? `\n📊 PATRIMÔNIO ATIVO (${assets.length} itens):\n` + assets.map((a) => `  • ${a.name} (${a.category || 'Outros'}): R$ ${(a.currentValue || 0).toFixed(2)}`).join('\n')
-            : '\n📊 Patrimônio ativo: Nenhum ativo registrado.';
-        const passivesSummary = passives && passives.length > 0
-            ? `\n📉 PATRIMÔNIO PASSIVO (${passives.length} itens):\n` + passives.map((p) => `  • ${p.description || p.name} (${p.category || 'Outros'}): R$ ${(p.currentValue || 0).toFixed(2)}`).join('\n')
-            : '\n📉 Patrimônio passivo: Nenhum passivo registrado.';
         const totalAssets = assets.reduce((sum, a) => sum + (a.currentValue || 0), 0);
         const totalPassives = passives.reduce((sum, p) => sum + (p.currentValue || 0), 0);
-        const patrimonioLiquido = (totalAssets - totalPassives).toFixed(2);
-        const patrimonioLiquidoStr = `💰 Patrimônio Líquido: R$ ${patrimonioLiquido}`;
+        const patrimonioTotalMonitorado = totalAssets + totalPassives;
+        const assetsSummary = assets && assets.length > 0
+            ? `\n📊 ATIVOS PATRIMONIAIS / PRODUTIVOS (${assets.length} itens):\n` +
+                assets.map((a) => {
+                    const nome = a.name || a.description || 'Item sem nome';
+                    const categoria = a.category || 'Outros';
+                    const valor = Number(a.currentValue || 0).toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    });
+                    return `  • ${nome} (${categoria}): R$ ${valor}`;
+                }).join('\n')
+            : '\n📊 Ativos patrimoniais / produtivos: Nenhum ativo registrado.';
+        const passivesSummary = passives && passives.length > 0
+            ? `\n📉 PASSIVOS PATRIMONIAIS / IMOBILIZADOS (${passives.length} itens):\n` +
+                passives.map((p) => {
+                    const nome = p.description || p.name || 'Item sem nome';
+                    const categoria = p.category || 'Outros';
+                    const valor = Number(p.currentValue || 0).toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    });
+                    return `  • ${nome} (${categoria}): R$ ${valor}`;
+                }).join('\n')
+            : '\n📉 Passivos patrimoniais / imobilizados: Nenhum passivo registrado.';
+        const patrimonioVisaoGerencialStr = `📌 VISÃO PATRIMONIAL DO APP:\n` +
+            `• Total em ativos patrimoniais / produtivos: R$ ${totalAssets.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            })}\n` +
+            `• Total em passivos patrimoniais / imobilizados: R$ ${totalPassives.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            })}\n` +
+            `• Patrimônio total monitorado no app: R$ ${patrimonioTotalMonitorado.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            })}\n` +
+            `⚠️ No Finanças Pro Invest, "passivos" são bens patrimoniais que exigem manutenção/aportes e não devem ser tratados automaticamente como dívidas.`;
         console.log("📌 assets recebidos:", JSON.stringify(assets));
         console.log("📌 passives recebidos:", JSON.stringify(passives));
         console.log("📌 assetsSummary:", assetsSummary);
         console.log("📌 passivesSummary:", passivesSummary);
-        console.log("📌 patrimonioLiquidoStr:", patrimonioLiquidoStr);
+        console.log("📌 patrimonioVisaoGerencialStr:", patrimonioVisaoGerencialStr);
         const validHistory = Array.isArray(history) ? history.filter((h) => h && h.text && h.text.trim()) : [];
         let marketData = "";
         const extracted = extractTickersFallback(prompt);
@@ -501,14 +532,28 @@ exports.askAiAdvisor = (0, https_1.onCall)({
             hasRecentTransactions: userData.recentTransactions.length > 0,
             hasSimulations: userData.simulations.length > 0
         });
+        const promptLower = String(prompt || '').toLowerCase();
+        const isCashflowRequest = /(lançamento|lançamentos|transaç|receita|receitas|despesa|despesas|gasto|gastos|entrada|entradas|saída|saídas|saldo|orçamento|fluxo de caixa|movimentação|movimentacoes|movimentações)/i.test(promptLower);
+        const isPatrimonyRequest = /(ativo|ativos|passivo|passivos|patrimônio|patrimonio|bens|imóveis|imoveis|veículos|veiculos|terrenos|carteira patrimonial)/i.test(promptLower);
         let transactionsForPrompt = "Nenhuma transação registrada.";
+        if (userData.recentTransactions && userData.recentTransactions.length > 0) {
+            transactionsForPrompt = data_integrator_1.DataIntegrator.formatTransactionsForPrompt(userData.recentTransactions, {
+                ...context,
+                requestedFocus: isCashflowRequest ? 'cashflow' : isPatrimonyRequest ? 'patrimony' : 'general'
+            });
+        }
+        console.log("🔍 transactionsForPrompt:", transactionsForPrompt);
         let goalsForPrompt = "Nenhuma meta definida.";
         if (goals && goals.length > 0) {
             const mappedGoals = goals.map((g) => {
                 const nome = g.nome || g.name || 'Meta sem nome';
-                const valor = g.valor || g.targetAmount || 0;
+                const valorBruto = g.valor ?? g.targetAmount ?? 0;
+                const valorNumerico = typeof valorBruto === 'number' ? valorBruto : parseFloat(valorBruto || '0');
                 const frequencia = g.frequencia || g.frequency || 'N/A';
-                return `• ${nome}: R$ ${typeof valor === 'number' ? valor.toFixed(2) : parseFloat(valor).toFixed(2)} (${frequencia})`;
+                return `• ${nome}: R$ ${valorNumerico.toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                })} (${frequencia})`;
             }).join('\n');
             goalsForPrompt = `**METAS DO USUÁRIO (${goals.length}):**\n${mappedGoals}`;
             console.log("🔍 goalsForPrompt GERADO (frontend):", goalsForPrompt);
@@ -521,10 +566,22 @@ exports.askAiAdvisor = (0, https_1.onCall)({
             console.log("🔍 goalsForPrompt permaneceu como padrão: 'Nenhuma meta definida.'");
         }
         console.log("🔍 goalsForPrompt:", goalsForPrompt);
+        const focusInstructions = isCashflowRequest && !isPatrimonyRequest
+            ? `\n# FOCO OBRIGATÓRIO DESTA RESPOSTA
+O usuário está pedindo análise de lançamentos, receitas, despesas, saldo, orçamento ou fluxo de caixa.
+Priorize TRANSAÇÕES e METAS.
+NÃO troque esta análise por análise patrimonial.
+Só mencione ativos ou passivos se o usuário pedir explicitamente ou se isso for indispensável para esclarecer algo.`
+            : isPatrimonyRequest && !isCashflowRequest
+                ? `\n# FOCO OBRIGATÓRIO DESTA RESPOSTA
+O usuário está pedindo análise patrimonial.
+Priorize ATIVOS e PASSIVOS patrimoniais do app.
+NÃO trate passivos patrimoniais como dívidas, salvo se o usuário mencionar explicitamente dívida, saldo devedor, financiamento, parcelas, juros ou obrigação em aberto.`
+                : '';
         console.log("🚀 Chamando getSystemPrompt com assetsSummary:", assetsSummary);
         console.log("🚀 passivesSummary:", passivesSummary);
-        console.log("🚀 patrimonioLiquidoStr:", patrimonioLiquidoStr);
-        const systemPrompt = identity_1.NexusIdentity.getSystemPrompt(safeUserName, context, marketData, assetsSummary, passivesSummary, patrimonioLiquido, transactionsForPrompt, goalsForPrompt, "", isFirst, userData, historyDescription);
+        console.log("🚀 patrimonioVisaoGerencialStr:", patrimonioVisaoGerencialStr);
+        const systemPrompt = `${identity_1.NexusIdentity.getSystemPrompt(safeUserName, context, marketData, transactionsForPrompt, goalsForPrompt, "", assetsSummary, passivesSummary, patrimonioVisaoGerencialStr, isFirst, userData, historyDescription)}${focusInstructions}`;
         const messages = [
             ...validHistory.slice(-6).map((h) => ({
                 role: h.role === 'ai' || h.role === 'assistant' ? 'assistant' : 'user',
@@ -633,7 +690,12 @@ ${isUserCorrection ? "\n**ATENÇÃO:** O usuário está CORRIGINDO uma informaç
         return {
             success: true,
             answer: finalAnswer,
-            context: { model: firstResponse.provider, intent: context.intent }
+            context: {
+                model: firstResponse.provider,
+                intent: context.intent,
+                hasTransactions: userData.recentTransactions.length > 0,
+                hasGoals: userData.goals.length > 0
+            }
         };
     }
     catch (error) {
