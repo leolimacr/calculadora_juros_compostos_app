@@ -6,6 +6,7 @@ interface Props {
   correctIndex: number;
   feedbackCorrect: string;
   feedbackIncorrect: string;
+  onCompleted?: () => void;             
 }
 
 const QuizBlock: React.FC<Props> = ({
@@ -14,6 +15,7 @@ const QuizBlock: React.FC<Props> = ({
   correctIndex,
   feedbackCorrect,
   feedbackIncorrect,
+  onCompleted,                            
 }) => {
   const [selected, setSelected] = useState<number | null>(null);
   const answered = selected !== null;
@@ -38,7 +40,12 @@ const QuizBlock: React.FC<Props> = ({
             <button
               key={i}
               disabled={answered}
-              onClick={() => setSelected(i)}
+              onClick={() => {
+                setSelected(i);
+                if (i === correctIndex && onCompleted) {
+                  onCompleted();
+                }
+              }}
               className={`w-full text-left text-sm px-4 py-2.5 rounded-lg transition-all ${style}`}
             >
               {option}

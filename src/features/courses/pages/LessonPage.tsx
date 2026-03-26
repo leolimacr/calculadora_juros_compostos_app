@@ -1,6 +1,6 @@
 // src/features/courses/pages/LessonPage.tsx
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle, ChevronRight, Loader2 } from 'lucide-react';
 
@@ -21,22 +21,47 @@ export const LessonPage: React.FC = () => {
 
   const { progress, isLoading, markLessonAsCompleted, isLessonCompleted } = useCourseProgress(safeCourseSlug);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [canComplete, setCanComplete] = useState(false);
 
   // Busca os dados do módulo e da aula atual
-  const { moduleData, lessonData, lessonIndex, nextLesson } = useMemo(() => {
+  
+  const { moduleData, lessonData, lessonIndex, previousLesson, nextLesson } = useMemo(() => {
     const mod = course?.modules.find(m => m.slug === moduleSlug);
     const idx = mod?.lessons.findIndex(l => l.slug === activeLessonSlug) ?? -1;
     const currentLesson = idx !== -1 ? mod?.lessons[idx] : null;
-    const nextLess = mod && idx !== -1 && idx + 1 < mod.lessons.length ? mod.lessons[idx + 1] : null;
+    const previousLess =
+      mod && idx > 0 ? mod.lessons[idx - 1] : null;
+    const nextLess =
+      mod && idx !== -1 && idx + 1 < mod.lessons.length ? mod.lessons[idx + 1] : null;
 
     return {
       moduleData: mod,
       lessonData: currentLesson,
       lessonIndex: idx,
+      previousLesson: previousLess,
       nextLesson: nextLess,
     };
   }, [course, moduleSlug, activeLessonSlug]);
+  // Sempre que trocar de aula, zera o canComplete
+  useEffect(() => {
+    if (!lessonData) return;
+    setCanComplete(false);
+  }, [lessonData?.slug]);
 
+  // Se a aula não tiver quiz, permite concluir sem bloqueio extra
+  useEffect(() => {
+    if (!lessonData) return;
+
+    const hasQuizBlock =
+      Array.isArray(lessonData.blocks) &&
+      lessonData.blocks.some((block: any) => block?.type === 'quiz');
+
+    if (!hasQuizBlock) {
+      setCanComplete(true);
+    }
+  }, [lessonData]);
+
+  
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-white">
@@ -44,7 +69,6 @@ export const LessonPage: React.FC = () => {
       </div>
     );
   }
-
   if (!course || !moduleData || !lessonData) {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
@@ -55,7 +79,6 @@ export const LessonPage: React.FC = () => {
       </div>
     );
   }
-
   // Verifica se o usuário já havia concluído esta aula antes
   const alreadyCompleted = isLessonCompleted(lessonData.slug);
 
@@ -84,12 +107,17 @@ export const LessonPage: React.FC = () => {
   const currentStep = lessonIndex + 1;
   const progressPercentage = (currentStep / totalLessons) * 100;
 
+  const hasQuizBlockHard =
+    Array.isArray(lessonData.blocks) &&
+    lessonData.blocks.some((block: any) => block?.type === 'quiz');
+
+  const isDisabled = isCompleting || (hasQuizBlockHard && !canComplete);
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100 flex flex-col">
       
       {/* NAVEGAÇÃO SUPERIOR (Fixa) */}
-      <header className="sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-gray-100 px-4 py-3">
-        <div className="max-w-xl mx-auto flex items-center justify-between mb-3">
+      <header className="sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b border-slate-200 px-4 md:px-6 py-4 shadow-sm">
+        <div className="max-w-6xl mx-auto flex items-center justify-between mb-4">
           <button 
             onClick={() => navigate(`/curso/${safeCourseSlug}/modulo/${moduleSlug}`)}
             className="p-2 -ml-2 text-gray-500 active:bg-gray-100 rounded-full transition-colors"
@@ -105,7 +133,7 @@ export const LessonPage: React.FC = () => {
         </div>
 
         {/* Barra de progresso linear fina no topo */}
-        <div className="max-w-xl mx-auto w-full bg-gray-100 rounded-full h-1">
+        <div className="max-w-6xl mx-auto w-full bg-slate-200 rounded-full h-1.5">
           <div 
             className="bg-blue-600 h-full rounded-full transition-all duration-500"
             style={{ width: `${progressPercentage}%` }}
@@ -114,30 +142,60 @@ export const LessonPage: React.FC = () => {
       </header>
 
       {/* ÁREA DE CONTEÚDO */}
-      <main className="flex-1 px-5 pt-8 pb-32 max-w-xl mx-auto w-full">
-        <h1 className="text-2xl font-extrabold text-gray-900 mb-8 leading-tight">
-          {lessonData.title}
-        </h1>
+      <main className="flex-1 w-full px-4 md:px-6 lg:px-8 pt-8 md:pt-10 pb-36 md:pb-40">
+        <div className="max-w-6xl mx-auto">
+          <div className="mb-8 md:mb-10">
+            <p className="text-sm md:text-base font-semibold text-blue-600 uppercase tracking-wide mb-3">
+              {moduleData.title}
+            </p>
 
-        {/* ITERAÇÃO SOBRE OS BLOCOS */}
-        <div className="flex flex-col gap-6">
-          {lessonData.blocks?.map((block: any, index: number) => (
-            // O BlockRenderer é o responsável por saber se é TextBlock, ToolCTA, ActionBlock, etc.
-            <BlockRenderer key={index} block={block} />
-          ))}
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-slate-900 leading-tight tracking-tight max-w-4xl">
+              {lessonData.title}
+            </h1>
+          </div>
+
+          {/* ITERAÇÃO SOBRE OS BLOCOS */}
+          <div className="flex flex-col gap-6 md:gap-8 max-w-4xl">
+            {lessonData.blocks?.map((block: any, index: number) => (
+              <BlockRenderer
+                key={index}
+                block={block}
+                // callback opcional que blocos interativos podem usar
+                onQuizCompleted={() => setCanComplete(true)}
+              />
+            ))}
+          </div>
         </div>
       </main>
-
       {/* FOOTER DE AÇÃO (Fixo na base) */}
       <footer className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-100 p-4 pb-8 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)]">
-        <div className="max-w-xl mx-auto">
+        <div className="max-w-6xl mx-auto flex gap-3">
+          {previousLesson && (
+            <button
+              onClick={() =>
+                navigate(`/curso/${safeCourseSlug}/modulo/${moduleSlug}/aula/${previousLesson.slug}`)
+              }
+              className="px-4 py-4 rounded-xl border border-gray-300 text-gray-700 font-semibold bg-white hover:bg-gray-50 transition-all active:scale-95"
+            >
+              Aula anterior
+            </button>
+          )}
+
           <button
-            onClick={handleCompleteLesson}
-            disabled={isCompleting}
-            className={`w-full py-4 rounded-xl shadow-md flex items-center justify-center gap-2 font-semibold transition-all active:scale-95 ${
+            onClick={() => {
+              if (isDisabled) {
+                alert('Antes de avançar, responda ao quiz desta aula.');
+                return;
+              }
+              handleCompleteLesson();
+            }}
+            aria-disabled={isDisabled}
+            className={`flex-1 py-4 rounded-xl shadow-md flex items-center justify-center gap-2 font-semibold transition-all active:scale-95 ${
               alreadyCompleted
                 ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                : 'bg-blue-600 text-white hover:bg-blue-700'
+                : isDisabled
+                  ? 'bg-blue-300 text-white cursor-not-allowed'
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
             }`}
           >
             {isCompleting ? (
@@ -156,7 +214,6 @@ export const LessonPage: React.FC = () => {
           </button>
         </div>
       </footer>
-
     </div>
   );
 };

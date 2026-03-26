@@ -47,29 +47,31 @@ const ToolCTA: React.FC<Props> = ({
   buttonHref,
   prompt,
 }) => {
+  
   const { navigateTo } = useNavigation();
   const config = toolConfig[tool];
+
+  // se o tool vindo do bloco for inválido, usa 'debt-calculator' como padrão
+  const safeConfig = config ?? toolConfig['debt-calculator'];
 
   const normalizeTargetTool = (value?: string, fallback?: string) => {
     const raw = value ?? fallback ?? '';
     if (!raw) return raw;
-    // aceita tanto '/chat' quanto 'chat'
     return raw.startsWith('/') ? raw.slice(1) : raw;
   };
 
-  const targetTool = normalizeTargetTool(buttonHref, config.defaultTargetTool);
-
+  const targetTool = normalizeTargetTool(buttonHref, safeConfig.defaultTargetTool);
   const copyPrompt = () => {
     if (prompt) navigator.clipboard.writeText(prompt);
   };
 
   return (
     <div
-      className={`mb-5 border rounded-xl p-4 ${config.bg}`}
+      className={`mb-5 border rounded-xl p-4 ${safeConfig.bg}`}
     >
       <div className="flex items-start gap-2 mb-2">
-        {config.icon}
-        <p className={`text-sm font-semibold ${config.titleColor}`}>{title}</p>
+        {safeConfig.icon}
+        <p className={`text-sm font-semibold ${safeConfig.titleColor}`}>{title}</p>
       </div>
       <p className="text-sm text-slate-600 mb-3 leading-relaxed">{content}</p>
       {prompt && (
@@ -91,7 +93,7 @@ const ToolCTA: React.FC<Props> = ({
         onClick={() =>
           navigateTo(targetTool, prompt ? { initialPrompt: prompt } : undefined)
         }
-        className={`inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg transition-colors ${config.btnClass}`}
+        className={`inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg transition-colors ${safeConfig.btnClass}`}
       >
         {buttonLabel}
       </button>

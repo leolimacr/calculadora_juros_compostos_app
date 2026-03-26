@@ -51,6 +51,7 @@ import {
   RentVsFinanceTool,
   DebtOptimizerTool,
   DividendsTool,
+  BuyCashOrInstallInvestTool,
 } from './components/tools';
 import TransactionForm from './components/tools/finance/TransactionForm';
 import ContentModal from './components/ContentModal';
@@ -304,7 +305,15 @@ const App: React.FC = () => {
 
       case 'tool-dividendos':
         return wrap(<DividendsTool onNavigate={handleNavigate} isAuthenticated={isAuthenticated} />);
-
+      
+      case 'tool-buy-cash-or-installments':
+        return wrap(
+          <BuyCashOrInstallInvestTool
+            onNavigate={handleNavigate}
+            isAuthenticated={isAuthenticated}
+          />
+        );
+      
       case 'investimentos':
         if (!isAuthenticated) {
           handleNavigate('login');

@@ -169,10 +169,28 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
     return [...(marketData.indices || []), ...(marketData.indicators || [])];
   }, [marketData.indices, marketData.indicators]);
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   const toolsByPersona = useMemo(() => {
     if (heroPersona === 'dividas') {
       return [
         { icon: Zap, title: 'Sair das dívidas', desc: 'Comece por aqui', route: 'tool-debt', color: 'text-amber-400', highlight: true, bgColor: 'amber' },
+        { icon: Building2, title: 'À vista ou parcelado?', desc: 'Compare antes de comprar', route: 'tool-buy-cash-or-installments', color: 'text-sky-400', highlight: false, bgColor: 'sky' },
         { icon: TrendingUp, title: 'Entender os juros', desc: 'Por que a dívida cresce', route: 'tool-juros', color: 'text-emerald-400', highlight: false, bgColor: 'emerald' },
         { icon: Building2, title: 'Organizar moradia', desc: 'Aluguel ou compra', route: 'tool-alugar', color: 'text-sky-400', highlight: false, bgColor: 'sky' },
         { icon: PieChart, title: 'Próximo passo', desc: 'Depois da organização', route: 'tool-dividendos', color: 'text-purple-400', highlight: false, bgColor: 'purple' },
@@ -1179,6 +1197,8 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
             const isDebtCourse = course.id === 'dividas' || course.slug === 'dividas';
             const isFeaturedDebtCourse = heroPersona === 'dividas' && isDebtCourse;
 
+            console.log('CLICAR-CARD-CURSO', course.id, course.slug);
+
             return (
               <div
                 key={course.id}
@@ -1187,13 +1207,34 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
                     ? 'md:col-span-2 lg:col-span-2 bg-gradient-to-br from-emerald-50 via-white to-sky-50 border-2 border-emerald-300 hover:border-emerald-400 hover:shadow-[0_0_40px_rgba(16,185,129,0.12)]'
                     : 'bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 hover:shadow-[0_0_30px_rgba(0,0,0,0.05)]'
                 }`}
+                
+                
+                
+                
+                
                 onClick={() => {
-                  if (isDebtCourse) {
-                    navigate('/curso/dividas');
+                  // mapeia o slug do card para o slug interno usado no coursesRegistry
+                  let internalSlug: string | null = null;
+
+                  if (course.slug === 'plano-realista-para-sair-das-dividas') {
+                    internalSlug = 'dividas';
+                  } else if (course.slug === 'investidor-iniciante-seus-primeiros-passos') {
+                    internalSlug = 'investidor-iniciante'; // ajuste esse nome para o slug REAL do curso iniciante na registry
+                  }
+
+                  if (internalSlug) {
+                    navigate(`/curso/${internalSlug}`);
                   } else {
+                    // fallback: mantém o comportamento antigo se aparecer algum outro curso
                     setSelectedCourse(course);
                   }
                 }}
+                
+                
+                
+                
+                
+                
               >
                 <div className={`absolute top-0 left-0 w-full ${isFeaturedDebtCourse ? 'h-1 opacity-100' : 'h-[2px] opacity-0 group-hover:opacity-100'} transition-opacity duration-500 ${
                   heroPersona === 'dividas'

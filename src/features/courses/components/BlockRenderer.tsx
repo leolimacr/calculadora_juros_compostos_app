@@ -11,9 +11,10 @@ import ToolCTA from './blocks/ToolCTA';
 
 interface Props {
   block: CourseLessonBlock;
+  onQuizCompleted?: () => void;
 }
 
-const BlockRenderer: React.FC<Props> = ({ block }) => {
+const BlockRenderer: React.FC<Props> = ({ block, onQuizCompleted }) => {
   switch (block.type) {
     case 'text':
       return <TextBlock title={block.title} content={block.content} />;
@@ -41,6 +42,7 @@ const BlockRenderer: React.FC<Props> = ({ block }) => {
           correctIndex={block.correctIndex}
           feedbackCorrect={block.feedbackCorrect}
           feedbackIncorrect={block.feedbackIncorrect}
+          onCompleted={onQuizCompleted}
         />
       );
 

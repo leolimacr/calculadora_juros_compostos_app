@@ -18,18 +18,30 @@ export const CourseTrackPage: React.FC = () => {
     if (!progress || !course) {
       return { currentModuleSlug: '', currentLessonSlug: '', moduleStates: [] };
     }
-
     let foundCurrent = false;
     let nextMod = '';
     let nextLess = '';
 
-    const states = course.modules.map((mod) => {
+    const states = course.modules.map((mod, index) => {
       const completedLessonsInMod = mod.lessons.filter((l) =>
         progress.completedLessons.includes(l.slug)
       ).length;
 
       const isCompleted = completedLessonsInMod === mod.lessons.length;
-      const isUnlocked = true; // Para o curso de investidor iniciante, todos os módulos são desbloqueados
+
+      // regra de desbloqueio por módulo
+      let isUnlocked = false;
+      if (index === 0) {
+        // primeiro módulo sempre desbloqueado
+        isUnlocked = true;
+      } else {
+        const prevModule = course.modules[index - 1];
+        const prevCompletedLessons = prevModule.lessons.filter((l) =>
+          progress.completedLessons.includes(l.slug)
+        ).length;
+        const prevIsCompleted = prevCompletedLessons === prevModule.lessons.length;
+        isUnlocked = prevIsCompleted;
+      }
 
       if (isUnlocked && !isCompleted && !foundCurrent) {
         foundCurrent = true;
@@ -46,7 +58,6 @@ export const CourseTrackPage: React.FC = () => {
         totalCount: mod.lessons.length,
       };
     });
-
     return {
       currentModuleSlug: nextMod || course.modules[0]?.slug || '',
       currentLessonSlug: nextLess || course.modules[0]?.lessons[0]?.slug || '',

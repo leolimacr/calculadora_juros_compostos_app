@@ -13,7 +13,14 @@ export const ModuleOverviewPage: React.FC = () => {
   const { courseSlug, moduleSlug } = useParams<{ courseSlug: string; moduleSlug: string }>();
   const navigate = useNavigate();
   const { progress, isLoading } = useCourseProgress(courseSlug || 'dividas');
-
+  // Descobre a posição (1, 2, 3...) do módulo dentro do curso
+  const moduleIndex = useMemo(() => {
+    if (!courseSlug || !moduleSlug) return null;
+    const course = coursesRegistry[courseSlug as CourseSlug];
+    if (!course) return null;
+    const idx = course.modules.findIndex((m) => m.slug === moduleSlug);
+    return idx >= 0 ? idx + 1 : null; // +1 para ficar 1-based
+  }, [courseSlug, moduleSlug]);
   // Encontra os dados do módulo atual na Registry
   const moduleData = useMemo(() => {
     if (!courseSlug) return null;
@@ -33,7 +40,6 @@ export const ModuleOverviewPage: React.FC = () => {
     let foundCurrent = false;
     let nextSlug: string | null = null;
     let completed = 0;
-
     const states = moduleData.lessons.map((lesson) => {
       const isCompleted = progress.completedLessons.includes(lesson.slug);
 
@@ -41,20 +47,23 @@ export const ModuleOverviewPage: React.FC = () => {
         completed++;
       }
 
-      let status: 'completed' | 'current' | 'unlocked' = 'unlocked';
+      // novo tipo inclui 'locked'
+      let status: 'completed' | 'current' | 'unlocked' | 'locked' = 'locked';
 
       if (isCompleted) {
         status = 'completed';
       } else if (!foundCurrent) {
+        // primeira não-concluída vira aula atual
         status = 'current';
         foundCurrent = true;
         nextSlug = lesson.slug;
+      } else {
+        // aulas depois da atual ficam travadas
+        status = 'locked';
       }
-      // Se não for concluída e não for a aula atual, permanece 'unlocked'
 
       return { ...lesson, status };
     });
-
     return {
       lessonsState: states,
       nextLessonSlug: nextSlug,
@@ -95,8 +104,12 @@ export const ModuleOverviewPage: React.FC = () => {
           <ArrowLeft className="w-5 h-5 mr-2" />
           <span className="text-sm font-medium">Voltar para a trilha</span>
         </button>
-
         <h1 className="text-2xl font-bold text-gray-900 mb-2 leading-tight">
+          {moduleIndex && (
+            <span className="text-xs font-black uppercase tracking-[0.18em] text-gray-400 block mb-1">
+              Módulo {moduleIndex}
+            </span>
+          )}
           {moduleData.title}
         </h1>
         <p className="text-gray-600 text-sm leading-relaxed">
@@ -107,30 +120,40 @@ export const ModuleOverviewPage: React.FC = () => {
       {/* LISTA DE AULAS */}
       <main className="px-4 mt-8 max-w-lg mx-auto">
         <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">
-          Aulas do Módulo ({completedCount}/{moduleData.lessons.length})
+          {/* Nome do módulo + progresso */}
+          <span className="text-[11px] text-gray-500 font-semibold normal-case">
+            {moduleData.title}
+          </span>
+          <span className="mx-2 text-gray-300">·</span>
+          <span>
+            {completedCount}/{moduleData.lessons.length} aulas concluídas
+          </span>
         </h2>
-
         <div className="flex flex-col gap-3">
           {lessonsState.map((lesson, index) => {
             // isLocked aqui se refere a se o módulo está bloqueado, não a aula individualmente
             // A aula só é "bloqueada" se o módulo pai estiver bloqueado (tratado na CourseTrackPage)
             // ou se for uma aula futura em um módulo que exige sequência estrita.
             // Para este caso, vamos considerar que todas as aulas de um módulo acessível são clicáveis.
-            const isLocked = false; // Aulas dentro de um módulo acessível são sempre clicáveis
+            const isLocked = lesson.status === 'locked';
 
             const isCompleted = lesson.status === 'completed';
             const isCurrent = lesson.status === 'current';
-
             return (
               <Link
                 key={lesson.slug}
-                to={`/curso/${courseSlug}/modulo/${moduleSlug}/aula/${lesson.slug}`}
+                to={isLocked ? '#' : `/curso/${courseSlug}/modulo/${moduleSlug}/aula/${lesson.slug}`}
+                onClick={(e) => {
+                  if (isLocked) e.preventDefault();
+                }}
                 className={`flex items-center p-4 rounded-2xl border transition-all ${
-                  isCompleted
-                    ? 'bg-white border-emerald-200 shadow-sm'
-                    : isCurrent
-                      ? 'bg-white border-blue-300 shadow-md ring-2 ring-blue-50'
-                      : 'bg-white border-slate-200 shadow-sm hover:bg-slate-50' // Aulas desbloqueadas mas não atuais/completas
+                  isLocked
+                    ? 'bg-slate-50 border-slate-200 opacity-60 cursor-not-allowed'
+                    : isCompleted
+                      ? 'bg-white border-emerald-200 shadow-sm'
+                      : isCurrent
+                        ? 'bg-white border-blue-300 shadow-md ring-2 ring-blue-50'
+                        : 'bg-white border-slate-200 shadow-sm hover:bg-slate-50'
                 }`}
               >
                 {/* ÍCONE DE STATUS */}

@@ -13,3 +13,4 @@ export { default as Dashboard } from './finance';
 
 // Nexus IA – exporta o AiChatPage como padrão desta subpasta
 export { default as AiChatPage } from './nexus';
+export { default as BuyCashOrInstallInvestTool } from './buy-cash-or-installments/BuyCashOrInstallInvestTool';
