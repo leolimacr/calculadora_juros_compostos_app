@@ -169,27 +169,10 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
     return [...(marketData.indices || []), ...(marketData.indicators || [])];
   }, [marketData.indices, marketData.indicators]);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   const toolsByPersona = useMemo(() => {
     if (heroPersona === 'dividas') {
       return [
-        { icon: Zap, title: 'Sair das dívidas', desc: 'Comece por aqui', route: 'tool-debt', color: 'text-amber-400', highlight: true, bgColor: 'amber' },
+        { icon: Zap, title: 'Sair das dívidas', desc: 'Comece por aqui', route: 'tool-dividas', color: 'text-amber-400', highlight: true, bgColor: 'amber' },
         { icon: Building2, title: 'À vista ou parcelado?', desc: 'Compare antes de comprar', route: 'tool-buy-cash-or-installments', color: 'text-sky-400', highlight: false, bgColor: 'sky' },
         { icon: TrendingUp, title: 'Entender os juros', desc: 'Por que a dívida cresce', route: 'tool-juros', color: 'text-emerald-400', highlight: false, bgColor: 'emerald' },
         { icon: Building2, title: 'Organizar moradia', desc: 'Aluguel ou compra', route: 'tool-alugar', color: 'text-sky-400', highlight: false, bgColor: 'sky' },
@@ -472,7 +455,7 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
             
             {/* SOLUÇÃO 3: Eyebrow Text (Ponte mental) */}
             <div className="mb-6 inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border border-slate-200 text-slate-600 text-[10px] sm:text-xs font-bold uppercase tracking-widest shadow-sm animate-in fade-in slide-in-from-bottom-6 duration-1000">
-              O ecossistema da quitação de dívidas à liberdade financeira
+              Diagnóstico rápido para entender, priorizar e quitar suas dívidas
             </div>
 
             {/* SOLUÇÃO 2: Seletor de Persona Elevado (Abas) */}
@@ -502,13 +485,14 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
             <h1 className="text-5xl md:text-6xl lg:text-[5.2rem] font-black text-slate-950 leading-[0.98] tracking-[-0.04em] mb-5 animate-in fade-in slide-in-from-bottom-6 duration-1000 delay-150">
               {heroPersona === 'dividas' ? (
                 <>
-                  Suas{' '}
+                  Descubra a melhor forma de sair das{' '}
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-700 via-emerald-500 to-sky-600">
                     dívidas
                   </span>{' '}
-                  têm solução. <br />
-                  Aqui começa o seu plano.
-                </>   
+                  sem adivinhação. <br />
+                  Veja o que fazer primeiro.
+                </>
+
               ) : (
                 <>
                   Liberdade Financeira não é sorte. <br />
@@ -521,89 +505,60 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
             
             <p className="text-lg md:text-xl text-slate-600 max-w-lg mb-8 leading-relaxed font-medium animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200">
               {heroPersona === 'dividas'
-                ? 'Em poucos minutos você entende o tamanho real das suas dívidas, quanto está pagando de juros e qual o caminho mais rápido para quitar tudo.'
+                ? 'Em poucos minutos, você identifica o peso real dos juros, descobre qual dívida priorizar e monta um plano simples para começar a quitar.'
                 : 'Assuma o controle absoluto do seu patrimônio. Utilize nossa tecnologia para organizar contas, projetar o futuro e tomar decisões baseadas em dados, não em achismos.'}
             </p>
-
             <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-300">
-              {!isAuthenticated ? (
-                <>
-                  <button
-                    onClick={() => onNavigate(heroPersona === 'dividas' ? 'tool-debt' : 'tool-fire')}
-                    className="bg-emerald-500 hover:bg-emerald-600 text-white font-black px-8 py-4 rounded-2xl transition-all shadow-[0_16px_35px_-18px_rgba(16,185,129,0.65)] flex items-center justify-center gap-2 w-full sm:w-auto"
-                  >
-                    <span>
-                      {heroPersona === 'dividas'
-                        ? 'Montar meu plano grátis para sair das dívidas'
-                        : 'Descobrir minha data FIRE'}
-                    </span>
-                    <ArrowRight size={20} />
-                  </button>
-
-                  {heroPersona === 'dividas' && (
-                    <button
-                      onClick={() => navigate('/curso/dividas')}
-                      className="bg-white hover:bg-slate-100 text-slate-900 font-black px-8 py-4 rounded-2xl transition-all border border-slate-300 shadow-sm flex items-center justify-center gap-2 w-full sm:w-auto"
-                    >
-                      <span>Acessar curso</span>
-                      <ArrowRight size={20} />
-                    </button>
-                  )}
-                </>
-              ) : (
-                <>
-                  <div className="relative group flex items-center justify-center w-full sm:w-auto">
-                    <button
-                      onClick={() => onNavigate('chat')}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white font-black px-8 py-4 rounded-2xl transition-all shadow-[0_16px_35px_-18px_rgba(79,70,229,0.55)] flex items-center justify-center gap-2 w-full border border-indigo-400/20"
-                    >
-                      <Sparkles size={20} className="text-indigo-200" />
-                      <span>
-                        {heroPersona === 'dividas'
-                          ? 'Pedir orientação ao Nexus AI'
-                          : 'Analisar com Nexus AI'}
-                      </span>
-                    </button>
-
-                    <div className="absolute bottom-full mb-3 hidden sm:group-hover:block w-64 bg-white border border-slate-200 text-slate-600 text-xs rounded-lg p-3 shadow-xl animate-in fade-in zoom-in-95 duration-200 z-50 text-center">
-                      <p>
-                        {heroPersona === 'dividas'
-                          ? 'Descubra quanto suas dívidas realmente pesam, quanto você paga de juros e qual caminho seguir para começar a sair dessa com clareza.'
-                          : 'Descubra onde otimizar seus aportes e receba análises instantâneas sobre sua jornada financeira.'}
-                      </p>
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-white" />
-                    </div>
-                  </div>
-
-                  {heroPersona === 'dividas' && (
-                    <button
-                      onClick={() => {
-                        document.getElementById('secao-cursos')?.scrollIntoView({
-                          behavior: 'smooth',
-                          block: 'start',
-                        });
-                      }}
-                      className="bg-white hover:bg-slate-100 text-slate-900 font-black px-8 py-4 rounded-2xl transition-all border border-slate-300 shadow-sm flex items-center justify-center gap-2 w-full sm:w-auto"
-                    >
-                      <span>Ver cursos</span>
-                      <ArrowRight size={20} />
-                    </button>
-                  )}
-                </>
-              )}
+              <button
+                onClick={() => onNavigate(heroPersona === 'dividas' ? 'tool-dividas' : 'tool-fire')}
+                className="bg-emerald-500 hover:bg-emerald-600 text-white font-black px-8 py-4 rounded-2xl transition-all shadow-[0_16px_35px_-18px_rgba(16,185,129,0.65)] flex items-center justify-center gap-2 w-full sm:w-auto"
+              >
+                <span>
+                  {heroPersona === 'dividas'
+                    ? 'Acessar o Simulador de Quitação agora'
+                    : 'Descobrir minha data FIRE'}
+                </span>
+                <ArrowRight size={20} />
+              </button>
+              <button
+                onClick={() => {
+                  const el = document.getElementById('como-funciona');
+                  if (el) {
+                    const y = el.getBoundingClientRect().top + window.scrollY - 90; // ajuste fino
+                    window.scrollTo({ top: y, behavior: 'smooth' });
+                  }
+                }}
+                className="bg-white hover:bg-slate-100 text-slate-900 font-black px-8 py-4 rounded-2xl transition-all border border-slate-300 shadow-sm flex items-center justify-center gap-2 w-full sm:w-auto"
+              >
+                <span>Ver como funciona</span>
+                <ArrowRight size={20} />
+              </button>
             </div>
-          
+
+            {heroPersona === 'dividas' && (
+              <div className="mt-4 text-sm text-slate-500 animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-500">
+                Ainda está em dúvida?{' '}
+                <button
+                  onClick={() => onNavigate('chat')}
+                  className="font-bold text-indigo-600 hover:text-indigo-700 transition-colors"
+                >
+                  Falar com o Nexus AI
+                </button>
+              </div>
+            )}
+            
             <div className="flex flex-wrap justify-center lg:justify-start gap-2 mt-6 w-full sm:w-auto animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-500">
               <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">
-                Sem planilhas complicadas
+                Descubra qual dívida vem primeiro
               </span>
               <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">
-                Sem linguagem difícil
+                Entenda o peso real dos juros
               </span>
               <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">
-                Comece com os dados que você tiver
+                Monte um plano inicial em minutos
               </span>
-            </div>    
+            </div>
+            
           </div> {/* FIM DA COLUNA ESQUERDA */}
 
           {/* Coluna Direita: Elemento Visual Abstrato (O "Anti-Vazio") */}
@@ -614,29 +569,20 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
             <div className="relative bg-white/95 backdrop-blur-xl border border-slate-200 rounded-[2rem] p-5 xl:p-6 shadow-[0_25px_60px_-30px_rgba(15,23,42,0.22)] overflow-hidden transition-all duration-700 group-hover/card:-translate-y-1 group-hover/card:shadow-[0_28px_65px_-28px_rgba(15,23,42,0.24)] group-hover/card:border-slate-300">
               
               <div className="flex items-center justify-between border-b border-slate-200 pb-4 mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded bg-emerald-100 flex items-center justify-center">
-                    <Wallet size={16} className="text-emerald-600" />
-                  </div>
-                  <div className="h-4 w-24 bg-slate-200 rounded" />
+                
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                    Visão geral
+                  </span>
+                  <span className="h-4 w-16 bg-slate-200 rounded-full" />
                 </div>
-                <div className="h-4 w-16 bg-slate-200 rounded" />
               </div>
 				
               <div className="grid gap-4 mb-4">
-                <div
-                  onClick={() =>
-                    heroPersona === 'dividas'
-                      ? onNavigate('tool-debt')
-                      : isAuthenticated
-                        ? onNavigate('investimentos')
-                        : onStartNow()
-                  }
-                  className="bg-gradient-to-br from-emerald-50 via-white to-slate-50 backdrop-blur-md rounded-2xl p-5 md:p-6 border border-emerald-200 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_10px_30px_-10px_rgba(16,185,129,0.18)] cursor-pointer relative overflow-hidden group/ativo"
-                >
-                  <div className="absolute -right-10 -top-10 w-40 h-40 bg-emerald-300/30 rounded-full blur-3xl group-hover/ativo:bg-emerald-300/40 transition-all duration-500" />
-                  
-                  <div className="flex items-center gap-2 mb-2 relative z-10">
+                <div className="bg-gradient-to-br from-emerald-50 via-white to-slate-50 backdrop-blur-md rounded-2xl p-5 md:p-6 border border-emerald-200 relative overflow-hidden">
+                  <div className="absolute -right-10 -top-10 w-40 h-40 bg-emerald-300/20 rounded-full blur-3xl" />
+
+                  <div className="flex items-center gap-2 mb-3 relative z-10">
                     <span className="relative flex h-3 w-3">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
@@ -645,18 +591,27 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
                       {heroPersona === 'dividas' ? 'Seu Plano de Quitação' : 'Patrimônio Ativo'}
                     </p>
                   </div>
+
                   {heroPersona === 'dividas' ? (
-                    <>                    
-                      <p className="text-3xl md:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight my-2 relative z-10">
-                        Plano de Saída
-                      </p>
-                      <span className="inline-block bg-white/60 border border-emerald-200/50 text-emerald-700 text-[9px] font-bold px-2 py-0.5 rounded mt-1 mb-2 relative z-10">
-                        100% Confidencial
+                    <div className="relative z-10 space-y-3">
+                      <div className="flex flex-col gap-2">
+                        {[
+                          { step: '1', label: 'Mapeie todas as dívidas', done: true },
+                          { step: '2', label: 'Veja qual custa mais caro', done: true },
+                          { step: '3', label: 'Monte o plano de quitação', done: false },
+                        ].map(({ step, label, done }) => (
+                          <div key={step} className={`flex items-center gap-3 p-2.5 rounded-xl border ${done ? 'bg-white border-emerald-200' : 'bg-slate-50 border-slate-200 border-dashed'}`}>
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black flex-shrink-0 ${done ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                              {done ? '✓' : step}
+                            </div>
+                            <p className={`text-xs font-semibold ${done ? 'text-slate-700' : 'text-slate-400'}`}>{label}</p>
+                          </div>
+                        ))}
+                      </div>
+                      <span className="inline-block bg-white/80 border border-emerald-200 text-emerald-700 text-[9px] font-bold px-2 py-1 rounded">
+                        100% Confidencial · Gratuito
                       </span>
-                      <p className="text-xs md:text-sm text-emerald-800 font-medium relative z-10">
-                        Descubra qual dívida atacar primeiro e como retomar o controle.
-                      </p>                     
-                    </>
+                    </div>
                   ) : isAuthenticated && typeof patrimonioAtivo !== 'undefined' && patrimonioAtivo !== null ? (
                     <>
                       <p className="text-3xl md:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight my-2 relative z-10">
@@ -676,31 +631,22 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
                       </p>
                     </>
                   )}
-
-                  <div className="absolute bottom-2 right-2 opacity-0 group-hover/ativo:opacity-100 transition-opacity">
-                    <span className="text-[8px] text-slate-400 flex items-center gap-1">
-                      <ArrowRight size={10} /> acessar
-                    </span>
-                  </div>
                 </div>
 
                 <div className={`grid gap-4 ${heroPersona === 'dividas' ? 'grid-cols-1' : 'grid-cols-2'}`}>
                   
-                  <div 
-                    onClick={() => onNavigate(heroPersona === 'dividas' ? 'tool-debt' : 'metas')}
-                    className="h-full bg-gradient-to-b from-blue-50 to-white backdrop-blur-md rounded-xl p-4 md:p-5 border border-blue-200 transition-all duration-300 ease-out hover:-translate-y-1 shadow-sm hover:shadow-md cursor-pointer flex flex-col justify-center"
-                  >
+                  <div className="h-full bg-gradient-to-b from-blue-50 to-white backdrop-blur-md rounded-xl p-4 md:p-5 border border-blue-200 shadow-sm flex flex-col justify-center">
                     <p className="text-[10px] md:text-xs text-blue-800 font-bold uppercase mb-2 tracking-wider">
-                      {heroPersona === 'dividas' ? 'O Próximo Passo' : 'Próximo Aporte'}
+                      {heroPersona === 'dividas' ? 'Impacto estimado' : 'Próximo Aporte'}
                     </p>
                     <p className="text-xl md:text-2xl lg:text-3xl font-black text-slate-900 truncate mb-1">
-                      {heroPersona === 'dividas' ? 'Simular Quitação' : userMeta ? formatValue(valorProximoAporte) : 'R$ 1.200,00'}
+                      {heroPersona === 'dividas' ? 'Até –40% em juros' : userMeta ? formatValue(valorProximoAporte) : 'R$ 1.200,00'}
                     </p>
                     <div className="mt-auto pt-3">
                       {heroPersona === 'dividas' ? (
-                         <span className="inline-block bg-blue-100 border border-blue-300 text-blue-800 text-[10px] font-bold px-2 py-1 rounded-md">
-                           Totalmente Gratuito
-                         </span>
+                        <span className="inline-block bg-blue-100 border border-blue-300 text-blue-800 text-[10px] font-bold px-2 py-1 rounded-md">
+                          Com a ordem certa de quitação
+                        </span>
                       ) : userMeta ? (
                         metasAtivas.length === 0 ? (
                           <span className="inline-block bg-amber-100 border border-amber-300 text-amber-800 text-[10px] font-bold px-2 py-1 rounded-md">
@@ -771,7 +717,7 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
           <div
             onClick={() =>
               heroPersona === 'dividas'
-                ? onNavigate('tool-debt')
+                ? onNavigate('tool-dividas')
                 : isAuthenticated
                   ? onNavigate('investimentos')
                   : onStartNow()
@@ -804,7 +750,7 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
           </div>
 
           <div
-            onClick={() => onNavigate(heroPersona === 'dividas' ? 'tool-debt' : 'metas')}
+            onClick={() => onNavigate(heroPersona === 'dividas' ? 'tool-dividas' : 'metas')}
             className="bg-gradient-to-b from-blue-50 to-white backdrop-blur-md rounded-xl p-4 border border-blue-200 cursor-pointer shadow-sm"
           >
             <p className="text-[10px] text-blue-700 font-bold uppercase mb-1">
@@ -820,7 +766,7 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
             <div className="mt-2">
               {heroPersona === 'dividas' ? (
                 <span className="bg-blue-100 text-blue-700 text-[9px] font-bold px-2 py-1 rounded border border-blue-200">
-                  Comece gratuitamente
+                  Abrir Simulador de Quitação
                 </span>
               ) : userMeta ? (
                 metasAtivas.length === 0 ? (
@@ -846,61 +792,45 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
             </div>
           </div>
 
-          <div
-            onClick={() =>
-              heroPersona === 'dividas'
-                ? onNavigate('tool-debt')
-                : isAuthenticated
-                  ? onNavigate('passivos')
-                  : onStartNow()
-            }
-            className="bg-white backdrop-blur-md rounded-xl p-4 border border-slate-200 cursor-pointer shadow-sm"
-          >
-            <p className="text-[9px] text-slate-300 font-bold uppercase mb-1">
-              {heroPersona === 'dividas' ? 'Peso dos juros' : 'Passivo'}
-            </p>
-            <p className="text-base font-bold text-slate-900 truncate">
-              {heroPersona === 'dividas'
-                ? 'Veja o impacto real'
-                : isAuthenticated && typeof patrimonioPassivo !== 'undefined' && patrimonioPassivo !== null
-                  ? formatValue(patrimonioPassivo)
-                  : 'R$ 350.000,00'}
-            </p>
-          </div>
-
-          <div className="bg-slate-50 backdrop-blur-md rounded-xl p-4 border border-slate-300 border-dashed">
-            <p className="text-[9px] text-slate-500 font-bold uppercase mb-1">
-              {heroPersona === 'dividas' ? 'Economia Potencial' : 'Total'}
-            </p>     
-            <p className="text-sm font-bold text-slate-700 truncate">
-              {heroPersona === 'dividas'
-                ? 'R$ 9.600,00'
-                : isAuthenticated && typeof patrimonioAtivo !== 'undefined' && typeof patrimonioPassivo !== 'undefined'
-                  ? formatValue(patrimonioTotal)
-                  : 'R$ 492.500,00'}
-            </p>
-          </div>
+          {heroPersona === 'dividas' ? (
+            <div className="col-span-2 bg-slate-50 rounded-xl p-4 border border-slate-200 border-dashed">
+              <p className="text-[9px] text-slate-500 font-bold uppercase mb-1 tracking-wider">Próximo passo</p>
+              <p className="text-sm font-semibold text-slate-700">
+                Depois do diagnóstico, você avança para metas e patrimônio no mesmo lugar.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div
+                onClick={() => isAuthenticated ? onNavigate('passivos') : onStartNow()}
+                className="bg-white backdrop-blur-md rounded-xl p-4 border border-slate-200 cursor-pointer shadow-sm"
+              >
+                <p className="text-[9px] text-slate-300 font-bold uppercase mb-1">Passivo</p>
+                <p className="text-base font-bold text-slate-900 truncate">
+                  {isAuthenticated && typeof patrimonioPassivo !== 'undefined' && patrimonioPassivo !== null
+                    ? formatValue(patrimonioPassivo)
+                    : 'R$ 350.000,00'}
+                </p>
+              </div>
+              <div className="bg-slate-50 backdrop-blur-md rounded-xl p-4 border border-slate-300 border-dashed">
+                <p className="text-[9px] text-slate-500 font-bold uppercase mb-1">Total</p>
+                <p className="text-sm font-bold text-slate-700 truncate">
+                  {isAuthenticated && typeof patrimonioAtivo !== 'undefined' && typeof patrimonioPassivo !== 'undefined'
+                    ? formatValue(patrimonioTotal)
+                    : 'R$ 492.500,00'}
+                </p>
+              </div>
+            </>
+          )}
         </div>
 
-        {heroPersona === 'dividas' && (
-          <div className="mt-4">
-            <button
-              onClick={() => {
-                document.getElementById('secao-cursos')?.scrollIntoView({
-                  behavior: 'smooth',
-                  block: 'start',
-                });
-              }}
-              className="w-full bg-white hover:bg-slate-100 text-slate-900 font-black px-6 py-4 rounded-2xl transition-all border border-slate-300 shadow-sm flex items-center justify-center gap-2"
-            >
-              <span>Ver cursos</span>
-              <ArrowRight size={18} />
-            </button>
-          </div>
-        )}
+        {/* removido: botão "Ver cursos" não pertence à jornada de dívidas */}
       </section>
       {/* --- JORNADA: COMO COMEÇAR --- */}
-      <section className="px-4 lg:px-12 pb-10 max-w-[1600px] mx-auto w-full">
+      <section
+        id="como-funciona"
+        className="px-4 lg:px-12 pb-10 max-w-[1600px] mx-auto w-full"
+      >
         <div className="bg-white border border-slate-200 rounded-3xl p-6 md:p-8 shadow-sm">
           <div className="mb-8 text-center md:text-left">
             <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-widest mb-4">
@@ -925,11 +855,11 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
                 1
               </div>
               <h4 className="text-slate-900 font-black text-lg mb-2">
-                {heroPersona === 'dividas' ? 'Entenda' : 'Mapeie'}
+                {heroPersona === 'dividas' ? 'Cadastre suas dívidas' : 'Mapeie'}
               </h4>
               <p className="text-slate-600 text-sm leading-relaxed">
                 {heroPersona === 'dividas'
-                  ? 'Veja sua situação com clareza, mesmo que hoje você ainda tenha só parte das informações.'
+                  ? 'Informe nome, valor, taxa de juros e parcelas. Leva menos de 3 minutos e não exige conta bancária.'
                   : 'Consolide seus ativos e passivos para ter uma visão exata e centralizada do seu patrimônio atual.'}
               </p>
             </div>
@@ -939,11 +869,11 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
                 2
               </div>
               <h4 className="text-slate-900 font-black text-lg mb-2">
-                {heroPersona === 'dividas' ? 'Organize' : 'Projete'}
+                {heroPersona === 'dividas' ? 'Veja o ranking de prioridade' : 'Projete'}
               </h4>
               <p className="text-slate-600 text-sm leading-relaxed">
                 {heroPersona === 'dividas'
-                  ? 'Veja qual dívida atacar primeiro e monte um plano simples para retomar o controle.'
+                  ? 'A ferramenta calcula o custo real de cada dívida e mostra qual atacar primeiro para economizar mais.'
                   : 'Utilize calculadoras e inteligência artificial para descobrir sua data FIRE e traçar metas claras.'}
               </p>
             </div>
@@ -953,17 +883,61 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
                 3
               </div>
               <h4 className="text-slate-900 font-black text-lg mb-2">
-                {heroPersona === 'dividas' ? 'Evolua' : 'Acelere'}
+                {heroPersona === 'dividas' ? 'Siga o plano gerado' : 'Acelere'}
               </h4>
               <p className="text-slate-600 text-sm leading-relaxed">
                 {heroPersona === 'dividas'
-                  ? 'Depois da organização, avance para metas, patrimônio e decisões financeiras melhores.'
+                  ? 'Você recebe uma sequência clara de quitação com estimativa de economia em juros e prazo de conclusão.'
                   : 'Acompanhe a evolução, entenda a magia dos juros compostos e alcance a liberdade financeira.'}
               </p>
             </div>
           </div>
         </div>
       </section>     
+      
+      {/* --- PONTE DE AÇÃO: O QUE FAZER AGORA --- */}
+      {heroPersona === 'dividas' && (
+        <section className="px-4 lg:px-12 pb-10 max-w-[1600px] mx-auto w-full">
+          <div className="bg-gradient-to-br from-emerald-50 via-white to-sky-50 border border-emerald-200 rounded-3xl p-6 md:p-8 shadow-sm">
+            <div className="max-w-3xl">
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-widest mb-4">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                Vamos começar agora
+              </span>
+
+              <h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight mb-3">
+                O próximo passo é abrir o Simulador de Quitação.
+              </h3>
+
+              <p className="text-slate-600 text-sm md:text-base max-w-2xl mb-6 leading-relaxed">
+                Você já viu como funciona. Agora, entre na ferramenta para informar suas dívidas, descobrir qual deve ser priorizada e receber uma sequência clara de quitação.
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={() => onNavigate('tool-dividas')}
+                  className="bg-emerald-500 hover:bg-emerald-600 text-white font-black px-8 py-4 rounded-2xl transition-all shadow-[0_16px_35px_-18px_rgba(16,185,129,0.65)] inline-flex items-center justify-center gap-2 w-full sm:w-auto"
+                >
+                  <span>Acessar o Simulador de Quitação</span>
+                  <ArrowRight size={20} />
+                </button>
+
+                <button
+                  onClick={() => onNavigate('chat')}
+                  className="bg-white hover:bg-slate-100 text-slate-900 font-black px-8 py-4 rounded-2xl transition-all border border-slate-300 shadow-sm inline-flex items-center justify-center gap-2 w-full sm:w-auto"
+                >
+                  <span>Tirar dúvidas com o Nexus AI</span>
+                  <Sparkles size={18} />
+                </button>
+              </div>
+
+              <p className="text-xs text-slate-500 mt-4">
+                Se você tiver só parte das informações, pode começar assim mesmo e completar depois.
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
       
       {/* --- POR QUE FAZ SENTIDO --- */}
       <section className="px-4 lg:px-12 pb-10 max-w-[1600px] mx-auto w-full">
@@ -1081,7 +1055,7 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
         </p>
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 relative z-10">
           
-          <div onClick={() => isAuthenticated ? onNavigate('manager') : onNavigate('tool-debt')} className="md:col-span-2 lg:col-span-2 row-span-2 bg-gradient-to-br from-white to-slate-100 border border-slate-200 rounded-3xl p-8 relative overflow-hidden group cursor-pointer hover:border-slate-300 transition-all shadow-sm">
+          <div onClick={() => isAuthenticated ? onNavigate('manager') : onNavigate('tool-dividas')} className="md:col-span-2 lg:col-span-2 row-span-2 bg-gradient-to-br from-white to-slate-100 border border-slate-200 rounded-3xl p-8 relative overflow-hidden group cursor-pointer hover:border-slate-300 transition-all shadow-sm">
             <div className="absolute right-0 bottom-0 opacity-10 group-hover:opacity-20 transition-opacity">
               <Wallet size={180} />
             </div>
@@ -1539,15 +1513,22 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
           </span>
           <h3 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tight mb-4">
             {heroPersona === 'dividas' ? (
-              <>Suas dívidas têm solução. <br className="hidden md:block" />O próximo passo pode começar hoje.</>
+              <>
+                Pare de adiar o diagnóstico. <br className="hidden md:block" />
+                Descubra hoje o que fazer primeiro.
+              </>
             ) : (
-              <>Sua liberdade financeira é possível. <br className="hidden md:block" />E nós temos o método.</>
+              <>
+                Sua liberdade financeira é possível. <br className="hidden md:block" />E nós temos o método.
+              </>
             )}
           </h3>
           <p className="text-slate-600 text-sm md:text-base max-w-2xl mx-auto mb-6">
-            {heroPersona === 'dividas'
-              ? 'Comece com os dados que você tiver, entenda suas prioridades e veja um caminho mais claro para sair das dívidas.'
-              : 'Otimize seus aportes mensais, descubra quando poderá parar de trabalhar e tome decisões lógicas com seu dinheiro.'}
+            {heroPersona === 'dividas' ? (
+              'Você não precisa resolver tudo agora. Basta dar o primeiro passo, organizar suas dívidas e enxergar com clareza qual prioridade atacar antes.'
+            ) : (
+              'Otimize seus aportes mensais, descubra quando poderá parar de trabalhar e tome decisões lógicas com seu dinheiro.'
+            )}
           </p>
           <div className="flex flex-wrap justify-center gap-2 mb-6">
             <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-bold text-slate-600">
@@ -1559,21 +1540,20 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
           </div>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <button
-              onClick={() => onNavigate(heroPersona === 'dividas' ? 'tool-debt' : 'tool-fire')}
+              onClick={() => onNavigate(heroPersona === 'dividas' ? 'tool-dividas' : 'tool-fire')}
               className="bg-emerald-500 hover:bg-emerald-600 text-white font-black px-8 py-4 rounded-2xl transition-all shadow-[0_16px_35px_-18px_rgba(16,185,129,0.65)] inline-flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <span>{heroPersona === 'dividas' ? 'Montar meu plano para sair das dívidas' : 'Descobrir minha data FIRE'}</span>
               <ArrowRight size={20} />
             </button>
-
-            {heroPersona === 'dividas' && (
+            {heroPersona !== 'dividas' && (
               <button
-                onClick={() => {
+                onClick={() =>
                   document.getElementById('secao-cursos')?.scrollIntoView({
                     behavior: 'smooth',
                     block: 'start',
-                  });
-                }}
+                  })
+                }
                 className="bg-white hover:bg-slate-100 text-slate-900 font-black px-8 py-4 rounded-2xl transition-all border border-slate-300 shadow-sm inline-flex items-center justify-center gap-2 w-full sm:w-auto"
               >
                 <span>Ver cursos</span>
@@ -1606,7 +1586,7 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
             <div className="md:col-span-2 md:col-start-7">
                 <h4 className="text-slate-700 font-black text-[10px] uppercase tracking-widest mb-4">Navegação</h4>                
                 <ul className="space-y-2 text-slate-600 text-xs font-bold">
-                    <li><button onClick={() => onNavigate('tool-debt')} className="hover:text-emerald-600 transition-colors">Começar diagnóstico</button></li>
+                    <li><button onClick={() => onNavigate('tool-dividas')} className="hover:text-emerald-600 transition-colors">Começar diagnóstico</button></li>
                     <li>
                       <button
                         onClick={() => {
