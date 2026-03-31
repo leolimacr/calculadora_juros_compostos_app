@@ -1,3 +1,4 @@
+import { DebtPlanSimulator } from "./DebtPlanSimulator";
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ToolLayout, Input } from './ToolComponents';
 import {
@@ -418,7 +419,6 @@ export const DebtOptimizerTool = ({ onNavigate, isAuthenticated }: any) => {
 
   const hasRotativeData =
     hasDebtAmount &&
-    hasRateValue &&
     hasCurrentPaymentValue;
 
   const canCalculate =
@@ -717,6 +717,102 @@ export const DebtOptimizerTool = ({ onNavigate, isAuthenticated }: any) => {
         insight: 'Os resultados só serão exibidos depois da sua confirmação.',
         risk: '',
       };
+
+  // Dados para o Nexus (plano de quitação)
+  const hasValidResult = hasCalculated && canCalculate;
+
+  const dividasParaNexus = hasValidResult
+    ? [
+        {
+          id: "divida_unica",
+          nome:
+            system === "rotativo"
+              ? "Dívida rotativa atual"
+              : system === "sac"
+              ? "Financiamento (SAC)"
+              : "Financiamento (Price)",
+          saldoAtual: Number(debtAmount || 0),
+          taxaJurosMes: hasRateValue
+            ? Number(monthlyRate || 0)
+            : Number(effectiveStructuredRate || 0),
+          parcelaMensal:
+            system === "rotativo"
+              ? Number(currentPayment || 0)
+              : activeSac?.valid || activePrice?.valid
+              ? (system === "sac" ? activeSac?.rows?.[0]?.payment : activePrice?.rows?.[0]?.payment) || 0
+              : undefined,
+          observacoes:
+            extra > 0
+              ? "Usuário informou que consegue pagar um valor extra mensal para acelerar a quitação."
+              : undefined,
+        },
+      ]
+    : [];
+
+  const simulacaoParaNexus = hasValidResult
+    ? {
+        rendaMensalEstimada: null,
+        totalDividas: Number(debtAmount || 0),
+        custoTotalJurosAtual:
+          system === "rotativo"
+            ? activeRotative?.totalInterest || 0
+            : system === "sac"
+            ? activeSac?.totalInterest || 0
+            : activePrice?.totalInterest || 0,
+        prazoEstimadoQuitacaoAtual:
+          system === "rotativo"
+            ? activeRotative?.months || null
+            : system === "sac"
+            ? activeSac?.rows?.length || null
+            : activePrice?.rows?.length || null,
+        prazoEstimadoQuitacaoOtimizado:
+          extra > 0
+            ? system === "rotativo"
+              ? rotativeOptimized?.months || null
+              : system === "sac"
+              ? sacOptimized?.rows?.length || null
+              : priceOptimized?.rows?.length || null
+            : null,
+        economiaEstimadaJuros:
+          extra > 0
+            ? (() => {
+                const baseInterest =
+                  system === "rotativo"
+                    ? activeRotative?.totalInterest
+                    : system === "sac"
+                    ? sacBase?.totalInterest
+                    : priceBase?.totalInterest;
+                const optimizedInterest =
+                  system === "rotativo"
+                    ? rotativeOptimized?.totalInterest
+                    : system === "sac"
+                    ? sacOptimized?.totalInterest
+                    : priceOptimized?.totalInterest;
+                if (
+                  baseInterest == null ||
+                  optimizedInterest == null
+                ) {
+                  return null;
+                }
+                return Math.max(baseInterest - optimizedInterest, 0);
+              })()
+            : null,
+      }
+    : {
+        rendaMensalEstimada: null,
+        totalDividas: 0,
+        custoTotalJurosAtual: null,
+        prazoEstimadoQuitacaoAtual: null,
+        prazoEstimadoQuitacaoOtimizado: null,
+        economiaEstimadaJuros: null,
+      };
+
+  console.log("NEXUS DEBUG", {
+    hasValidResult,
+    dividasParaNexus,
+    simulacaoParaNexus,
+  });
+
   const comparison = useMemo(() => {
     if (!activeSac?.valid || !activePrice?.valid) return null;
 
@@ -741,6 +837,20 @@ export const DebtOptimizerTool = ({ onNavigate, isAuthenticated }: any) => {
     if (system === 'price') return !!activePrice?.valid;
     return !!activeRotative?.valid;
   }, [hasCalculated, canCalculate, system, activeSac, activePrice, activeRotative]);
+
+
+  
+  console.log("NEXUS DEBUG 2", {
+    hasCalculated,
+    canCalculate,
+    system,
+    canShowDetailed,
+    activeSacValid: activeSac?.valid,
+    activePriceValid: activePrice?.valid,
+    activeRotativeValid: activeRotative?.valid,
+    debtAmount,
+    extra,
+  });
 
   const isDetailedLocked = !isAuthenticated && canShowDetailed;
 
@@ -1134,7 +1244,7 @@ export const DebtOptimizerTool = ({ onNavigate, isAuthenticated }: any) => {
                 </div>
               </div>
 
-              <div className="flex items-start gap-3">
+               <div className="flex items-start gap-3">
                 <div className="mt-1 p-2 rounded-xl bg-sky-50 text-sky-600 border border-sky-200">
                   <Receipt size={18} />
                 </div>
@@ -1162,6 +1272,13 @@ export const DebtOptimizerTool = ({ onNavigate, isAuthenticated }: any) => {
                   </p>
                 </div>
               </div>
+
+              {/* Plano detalhado gerado pelo Nexus */}
+              <DebtPlanSimulator
+                dividas={dividasParaNexus}
+                simulacao={simulacaoParaNexus}
+                usuarioPerfil="endividado_iniciante"
+              />
 
               {displayedSummary.risk && (
                 <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">

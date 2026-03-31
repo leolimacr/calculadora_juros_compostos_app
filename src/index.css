@@ -10,3 +10,19 @@ body {
   background-color: #020617; /* Slate 950 */
   color: #e2e8f0; /* Slate 200 */
 }
+
+@media print {
+  /* Esconde botões e elementos desnecessários */
+  button, .no-print {
+    display: none;
+  }
+  /* Garante que o conteúdo do plano ocupe a página */
+  #plano-content {
+    margin: 0;
+    padding: 20px;
+  }
+  /* Evita quebras de página dentro das seções */
+  section {
+    break-inside: avoid;
+  }
+}

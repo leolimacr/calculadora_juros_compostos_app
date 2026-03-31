@@ -1,0 +1,122 @@
+// functions/src/debtPlan.types.ts
+// Contratos de dados entre Simulador de Dívidas ↔ Nexus (plano guiado)
+
+import { z } from "zod";
+
+// ---------- REQUEST (Simulador → Nexus) ----------
+
+export interface DebtItem {
+  id: string;                   // id interno da calculadora
+  nome: string;                 // "Cartão X", "Empréstimo consignado"
+  saldoAtual: number;           // valor atual devido
+  taxaJurosMes: number;         // juros ao mês (em %)
+  parcelaMensal?: number;       // valor da parcela atual (se existir)
+  atrasoEmDias?: number;        // opcional
+  ehGarantida?: boolean;        // ex: financiamento com garantia
+  observacoes?: string;         // algo relevante que o usuário informou
+}
+
+export interface DebtSimulationSummary {
+  rendaMensalEstimada?: number;     
+  totalDividas: number;             
+  custoTotalJurosAtual?: number;    
+  prazoEstimadoQuitacaoAtual?: number;      
+  prazoEstimadoQuitacaoOtimizado?: number; 
+  economiaEstimadaJuros?: number;          
+}
+
+export type UsuarioPerfil = 'endividado_iniciante' | 'endividado_intermediario';
+
+export interface NexusDebtPlanRequest {
+  usuarioPerfil?: UsuarioPerfil;
+  dividas: DebtItem[];
+  simulacao: DebtSimulationSummary;
+}
+
+// ---------- RESPONSE (Nexus → Simulador) ----------
+
+export type HorizontePasso = '7_dias' | '30_dias' | '90_dias';
+
+export interface ActionStep {
+  ordem: number;
+  horizonte: HorizontePasso;
+  descricao: string;
+  observacoes?: string;
+}
+
+export interface PriorityExplanation {
+  idDividaPrioritaria: string;
+  nomeDividaPrioritaria: string;
+  motivo: string;
+  recomendacaoPrincipal: string;
+}
+
+export interface DebtPlanResponse {
+  resumo3Linhas: string[];
+  prioridade: PriorityExplanation;
+  planoHorizonte: {
+    prazoEstimadoQuitacaoMeses?: number | null;
+    economiaEstimadaJuros?: number | null;
+  };
+  passos7Dias: ActionStep[];
+  passos30Dias: ActionStep[];
+  alertasImportantes: string[];
+  tomGeral?: 'calmo' | 'direto' | 'motivador';
+}
+
+// ---------- SCHEMAS ZOD PARA VALIDAÇÃO ----------
+
+export const DebtItemSchema = z.object({
+  id: z.string(),
+  nome: z.string(),
+  saldoAtual: z.number(),
+  taxaJurosMes: z.number(),
+  parcelaMensal: z.number().optional(),
+  atrasoEmDias: z.number().optional(),
+  ehGarantida: z.boolean().optional(),
+  observacoes: z.string().optional(),
+});
+
+export const DebtSimulationSummarySchema = z.object({
+  rendaMensalEstimada: z.number().optional().nullable(),
+  totalDividas: z.number(),
+  custoTotalJurosAtual: z.number().optional().nullable(),
+  prazoEstimadoQuitacaoAtual: z.number().optional().nullable(),
+  prazoEstimadoQuitacaoOtimizado: z.number().optional().nullable(),
+  economiaEstimadaJuros: z.number().optional().nullable(),
+});
+
+export const NexusDebtPlanRequestSchema = z.object({
+  usuarioPerfil: z.enum(['endividado_iniciante', 'endividado_intermediario']).optional(),
+  dividas: z.array(DebtItemSchema).min(1),
+  simulacao: DebtSimulationSummarySchema,
+});
+
+export const ActionStepSchema = z.object({
+  ordem: z.number().int().nonnegative(),
+  horizonte: z.enum(['7_dias', '30_dias', '90_dias']),
+  descricao: z.string().min(3),
+  observacoes: z.string().optional(),
+});
+
+export const PriorityExplanationSchema = z.object({
+  idDividaPrioritaria: z.string(),
+  nomeDividaPrioritaria: z.string(),
+  motivo: z.string().min(3),
+  recomendacaoPrincipal: z.string().min(3),
+});
+
+export const DebtPlanResponseSchema = z.object({
+  resumo3Linhas: z.array(z.string()).min(2).max(3),
+  prioridade: PriorityExplanationSchema,
+  planoHorizonte: z.object({
+    prazoEstimadoQuitacaoMeses: z.number().nullable().optional(),
+    economiaEstimadaJuros: z.number().nullable().optional(),
+  }),
+  passos7Dias: z.array(ActionStepSchema).default([]),
+  passos30Dias: z.array(ActionStepSchema).default([]),
+  alertasImportantes: z.array(z.string()).default([]),
+  tomGeral: z.enum(['calmo', 'direto', 'motivador']).optional(),
+});
+
+export type DebtPlanResponseSafe = z.infer<typeof DebtPlanResponseSchema>;

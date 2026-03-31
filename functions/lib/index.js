@@ -33,7 +33,15 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.testMistral = exports.getMarketData = exports.getAssetQuote = exports.askAiAdvisor = void 0;
+exports.testMistral = exports.getMarketData = exports.getAssetQuote = exports.askAiAdvisor = exports.generateDebtPlan = void 0;
+process.on('uncaughtException', (err) => {
+    console.error('UNCAUGHT EXCEPTION:', err);
+    process.exit(1);
+});
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('UNHANDLED REJECTION:', reason);
+    process.exit(1);
+});
 const firestore_1 = require("firebase-admin/firestore");
 const https_1 = require("firebase-functions/v2/https");
 const logger = __importStar(require("firebase-functions/logger"));
@@ -42,6 +50,7 @@ const identity_1 = require("./nexus-core/identity");
 const discretion_engine_1 = require("./nexus-core/discretion-engine");
 const data_integrator_1 = require("./nexus-core/data-integrator");
 const MultiModelRouter_1 = require("./nexus-core/MultiModelRouter");
+const debtPlan_types_1 = require("./src/debtPlan.types");
 (0, app_1.initializeApp)();
 async function getUserPlan(userId) {
     try {
@@ -356,6 +365,166 @@ function extractTickersFallback(prompt) {
     result.crypto = [...new Set(result.crypto)];
     return result;
 }
+exports.generateDebtPlan = (0, https_1.onCall)({
+    memory: "512MiB",
+    timeoutSeconds: 90,
+    region: "us-central1",
+}, async (request) => {
+    if (request.rawRequest && request.rawRequest.method === 'OPTIONS') {
+        const res = request.rawRequest.res;
+        if (res) {
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+            res.status(204).send();
+            return;
+        }
+    }
+    try {
+        if (!request.auth) {
+            throw new https_1.HttpsError("unauthenticated", "Login necessário.");
+        }
+        const parseResult = debtPlan_types_1.NexusDebtPlanRequestSchema.safeParse(request.data);
+        if (!parseResult.success) {
+            logger.error("[generateDebtPlan] Payload inválido:", parseResult.error.flatten());
+            throw new https_1.HttpsError("invalid-argument", "Dados inválidos: " + JSON.stringify(parseResult.error.flatten()));
+        }
+        const dados = parseResult.data;
+        const userId = request.auth.uid;
+        const geminiApiKey = process.env.GEMINI_API_KEY;
+        const openrouterApiKey = process.env.OPENROUTER_API_KEY;
+        const mistralApiKey = process.env.MISTRAL_API_KEY;
+        const router = MultiModelRouter_1.MultiModelRouter.getInstance();
+        router.updateApiKeys({
+            gemini: geminiApiKey,
+            openrouter: openrouterApiKey,
+            mistral: mistralApiKey,
+        });
+        const systemPrompt = `
+Você é o Nexus, especialista em ajudar pessoas endividadas a montar planos claros e realistas de quitação de dívidas.
+
+Seu papel NÃO é fazer motivação genérica, nem pedir mais informações.
+Seu papel é:
+
+1. Analisar a lista de dívidas recebida (valores, juros, prazo).
+2. Definir qual dívida deve ser PRIORIDADE 1 e explicar o porquê.
+3. Transformar o diagnóstico em um plano de ação simples, dividido em:
+   - resumo em até 3 frases;
+   - explicação da prioridade;
+   - horizonte de quitação (prazo e economia estimada, se informado);
+   - passos concretos para os próximos 7 dias;
+   - passos concretos para os próximos 30 dias;
+   - alertas importantes (o que evitar).
+
+Restrições importantes:
+- Fale sempre em português do Brasil, linguagem simples, sem jargões.
+- Não ofereça aconselhamento jurídico ou individualizado; foque em educação financeira genérica.
+- Nunca peça dados novos ao usuário; use apenas os dados fornecidos.
+- Seja respeitoso e realista: não prometa milagres, mas mostre um caminho possível.
+
+Você deve SEMPRE responder em JSON válido, no formato exato de DebtPlanResponse:
+{
+  "resumo3Linhas": [...],
+  "prioridade": {
+    "idDividaPrioritaria": "...",
+    "nomeDividaPrioritaria": "...",
+    "motivo": "...",
+    "recomendacaoPrincipal": "..."
+  },
+  "planoHorizonte": {
+    "prazoEstimadoQuitacaoMeses": 0,
+    "economiaEstimadaJuros": 0
+  },
+  "passos7Dias": [
+    {
+      "ordem": 1,
+      "horizonte": "7_dias",
+      "descricao": "...",
+      "observacoes": "..."
+    }
+  ],
+  "passos30Dias": [
+    {
+      "ordem": 1,
+      "horizonte": "30_dias",
+      "descricao": "...",
+      "observacoes": "..."
+    }
+  ],
+  "alertasImportantes": [
+    "..."
+  ],
+  "tomGeral": "calmo"
+}
+
+Regras adicionais:
+- Não inclua comentários.
+- Não inclua texto fora do JSON.
+- Se algum campo numérico não vier preenchido nos dados do usuário, use null ou 0, mas nunca invente números.
+`;
+        const userMessage = `
+A seguir estão os dados de um usuário endividado e o resultado de uma simulação de dívidas.
+
+Use APENAS essas informações para montar um plano de quitação.
+Leve em conta que esse usuário provavelmente está ansioso e confuso, então você deve ser claro e organizado.
+
+DADOS (JSON):
+${JSON.stringify(dados)}
+
+Lembre-se:
+- "resumo3Linhas" deve ter entre 2 e 3 frases curtas.
+- "passos7Dias" e "passos30Dias" devem ser ações específicas, que possam ser executadas.
+- "alertasImportantes" deve focar em erros comuns (fazer novo empréstimo caro, ignorar juros altos, etc.).
+- Se algum campo numérico não vier preenchido, use null ou 0, mas nunca invente números.
+
+Responda apenas com o JSON no formato combinado.
+`;
+        const messages = [
+            { role: "user", content: userMessage },
+        ];
+        logger.info(`[generateDebtPlan] Chamando modelo para userId=${userId}`);
+        const llmResponse = await router.routeRequest(messages, systemPrompt, {
+            temperature: 0.4,
+            maxTokens: 1200,
+            fallbackContext: {
+                primaryIntent: "debt_plan",
+                userName: userId,
+            },
+        });
+        const raw = (llmResponse.content || "").trim();
+        let jsonText = raw;
+        if (jsonText.startsWith("```")) {
+            jsonText = jsonText.replace(/^```json/i, "").replace(/^```/i, "").replace(/```$/i, "").trim();
+        }
+        let parsed;
+        try {
+            parsed = JSON.parse(jsonText);
+        }
+        catch (e) {
+            logger.error("[generateDebtPlan] Falha ao fazer JSON.parse da resposta do modelo:", raw);
+            throw new https_1.HttpsError("internal", `Falha ao interpretar o plano. Resposta bruta: ${raw.substring(0, 500)}`);
+        }
+        const safeParsed = debtPlan_types_1.DebtPlanResponseSchema.safeParse(parsed);
+        if (!safeParsed.success) {
+            logger.error("[generateDebtPlan] Resposta do modelo fora do schema:", safeParsed.error.flatten());
+            throw new https_1.HttpsError("internal", "O plano retornado pelo assistente veio em formato inesperado.");
+        }
+        const plan = safeParsed.data;
+        return {
+            success: true,
+            plan,
+            model: llmResponse.model,
+            provider: llmResponse.provider,
+        };
+    }
+    catch (error) {
+        logger.error("[generateDebtPlan] Erro:", error);
+        if (error instanceof https_1.HttpsError) {
+            throw error;
+        }
+        throw new https_1.HttpsError("internal", "Erro interno ao gerar o plano de quitação.");
+    }
+});
 exports.askAiAdvisor = (0, https_1.onCall)({
     memory: "1GiB",
     timeoutSeconds: 120,

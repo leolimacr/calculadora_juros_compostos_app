@@ -1,4 +1,16 @@
-﻿import { getFirestore } from "firebase-admin/firestore";
+﻿// Capturar exceções não tratadas para debug
+process.on('uncaughtException', (err) => {
+  console.error('UNCAUGHT EXCEPTION:', err);
+  process.exit(1);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('UNHANDLED REJECTION:', reason);
+  process.exit(1);
+});
+
+
+
+import { getFirestore } from "firebase-admin/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import { initializeApp } from "firebase-admin/app";
@@ -6,7 +18,11 @@ import { NexusIdentity } from "./nexus-core/identity";
 import { DiscretionEngine } from "./nexus-core/discretion-engine";
 import { DataIntegrator, UserDataResult } from "./nexus-core/data-integrator";
 import { MultiModelRouter } from "./nexus-core/MultiModelRouter";
-
+import {
+  NexusDebtPlanRequestSchema,
+  DebtPlanResponseSchema,
+  DebtPlanResponseSafe,
+} from "./src/debtPlan.types";
 initializeApp();
 
 // Interfaces
@@ -357,6 +373,220 @@ function extractTickersFallback(prompt: string): { b3: string[], crypto: string[
   result.crypto = [...new Set(result.crypto)];
   return result;
 }
+
+// ============================================
+// FUNÇÃO: generateDebtPlan (Simulador → Nexus)
+// ============================================
+
+
+export const generateDebtPlan = onCall(
+  {
+    memory: "512MiB",
+    timeoutSeconds: 90,
+    region: "us-central1",
+  },
+  async (request) => {
+    // TRATAMENTO MANUAL DE PREFLIGHT (OPTIONS)
+    if (request.rawRequest && request.rawRequest.method === 'OPTIONS') {
+      const res = request.rawRequest.res;
+      if (res) {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        res.status(204).send();
+        return;
+      }
+    }
+
+    try {
+      if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Login necessário.");
+      }
+
+      // 1) Validar payload de entrada
+      const parseResult = NexusDebtPlanRequestSchema.safeParse(request.data);
+      if (!parseResult.success) {
+        logger.error("[generateDebtPlan] Payload inválido:", parseResult.error.flatten());
+        // Agora o erro inclui os detalhes do Zod
+        throw new HttpsError(
+          "invalid-argument",
+          "Dados inválidos: " + JSON.stringify(parseResult.error.flatten())
+        );
+      }
+
+
+
+
+      const dados = parseResult.data; // NexusDebtPlanRequest tipado
+      const userId = request.auth.uid;
+
+      // 2) Preparar router e chaves
+      const geminiApiKey = process.env.GEMINI_API_KEY as string;
+      const openrouterApiKey = process.env.OPENROUTER_API_KEY as string;
+      const mistralApiKey = process.env.MISTRAL_API_KEY as string;
+
+      const router = MultiModelRouter.getInstance();
+      router.updateApiKeys({
+        gemini: geminiApiKey,
+        openrouter: openrouterApiKey,
+        mistral: mistralApiKey,
+      });
+
+      // 3) Montar system prompt específico para plano de dívidas
+      const systemPrompt = `
+Você é o Nexus, especialista em ajudar pessoas endividadas a montar planos claros e realistas de quitação de dívidas.
+
+Seu papel NÃO é fazer motivação genérica, nem pedir mais informações.
+Seu papel é:
+
+1. Analisar a lista de dívidas recebida (valores, juros, prazo).
+2. Definir qual dívida deve ser PRIORIDADE 1 e explicar o porquê.
+3. Transformar o diagnóstico em um plano de ação simples, dividido em:
+   - resumo em até 3 frases;
+   - explicação da prioridade;
+   - horizonte de quitação (prazo e economia estimada, se informado);
+   - passos concretos para os próximos 7 dias;
+   - passos concretos para os próximos 30 dias;
+   - alertas importantes (o que evitar).
+
+Restrições importantes:
+- Fale sempre em português do Brasil, linguagem simples, sem jargões.
+- Não ofereça aconselhamento jurídico ou individualizado; foque em educação financeira genérica.
+- Nunca peça dados novos ao usuário; use apenas os dados fornecidos.
+- Seja respeitoso e realista: não prometa milagres, mas mostre um caminho possível.
+
+Você deve SEMPRE responder em JSON válido, no formato exato de DebtPlanResponse:
+{
+  "resumo3Linhas": [...],
+  "prioridade": {
+    "idDividaPrioritaria": "...",
+    "nomeDividaPrioritaria": "...",
+    "motivo": "...",
+    "recomendacaoPrincipal": "..."
+  },
+  "planoHorizonte": {
+    "prazoEstimadoQuitacaoMeses": 0,
+    "economiaEstimadaJuros": 0
+  },
+  "passos7Dias": [
+    {
+      "ordem": 1,
+      "horizonte": "7_dias",
+      "descricao": "...",
+      "observacoes": "..."
+    }
+  ],
+  "passos30Dias": [
+    {
+      "ordem": 1,
+      "horizonte": "30_dias",
+      "descricao": "...",
+      "observacoes": "..."
+    }
+  ],
+  "alertasImportantes": [
+    "..."
+  ],
+  "tomGeral": "calmo"
+}
+
+Regras adicionais:
+- Não inclua comentários.
+- Não inclua texto fora do JSON.
+- Se algum campo numérico não vier preenchido nos dados do usuário, use null ou 0, mas nunca invente números.
+`;
+
+      // 4) Mensagem "user" com os dados da simulação
+      const userMessage = `
+A seguir estão os dados de um usuário endividado e o resultado de uma simulação de dívidas.
+
+Use APENAS essas informações para montar um plano de quitação.
+Leve em conta que esse usuário provavelmente está ansioso e confuso, então você deve ser claro e organizado.
+
+DADOS (JSON):
+${JSON.stringify(dados)}
+
+Lembre-se:
+- "resumo3Linhas" deve ter entre 2 e 3 frases curtas.
+- "passos7Dias" e "passos30Dias" devem ser ações específicas, que possam ser executadas.
+- "alertasImportantes" deve focar em erros comuns (fazer novo empréstimo caro, ignorar juros altos, etc.).
+- Se algum campo numérico não vier preenchido, use null ou 0, mas nunca invente números.
+
+Responda apenas com o JSON no formato combinado.
+`;
+
+      const messages = [
+        { role: "user" as const, content: userMessage },
+      ];
+
+      // 5) Chamar o router (sem histórico, sem web search)
+      logger.info(`[generateDebtPlan] Chamando modelo para userId=${userId}`);
+      const llmResponse = await router.routeRequest(messages, systemPrompt, {
+        temperature: 0.4,
+        maxTokens: 1200,
+        fallbackContext: {
+          primaryIntent: "debt_plan",
+          userName: userId,
+        },
+      });
+
+      const raw = (llmResponse.content || "").trim();
+
+      // 6) Limpar eventual lixo e tentar parsear JSON
+      let jsonText = raw;
+
+      // Se o modelo vier com ```json ... ``` ou similares, limpar
+      if (jsonText.startsWith("```")) {
+        jsonText = jsonText.replace(/^```json/i, "").replace(/^```/i, "").replace(/```$/i, "").trim();
+      }
+
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(jsonText);
+      } catch (e) {
+        logger.error("[generateDebtPlan] Falha ao fazer JSON.parse da resposta do modelo:", raw);
+        // Envia a resposta bruta (primeiros 500 caracteres) no erro para debug
+        throw new HttpsError(
+          "internal",
+          `Falha ao interpretar o plano. Resposta bruta: ${raw.substring(0, 500)}`
+        );
+      }
+
+      // 7) Validar contra schema
+      const safeParsed = DebtPlanResponseSchema.safeParse(parsed);
+      if (!safeParsed.success) {
+        logger.error(
+          "[generateDebtPlan] Resposta do modelo fora do schema:",
+          safeParsed.error.flatten()
+        );
+        throw new HttpsError(
+          "internal",
+          "O plano retornado pelo assistente veio em formato inesperado."
+        );
+      }
+
+      const plan: DebtPlanResponseSafe = safeParsed.data;
+
+      // 8) Retornar plano validado para o front
+      return {
+        success: true,
+        plan,
+        model: llmResponse.model,
+        provider: llmResponse.provider,
+      };
+    } catch (error: any) {
+      logger.error("[generateDebtPlan] Erro:", error);
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+      throw new HttpsError(
+        "internal",
+        "Erro interno ao gerar o plano de quitação."
+      );
+    }
+  }
+);
+
 // --- FUNÇÃO PRINCIPAL ---
 export const askAiAdvisor = onCall(
   {
