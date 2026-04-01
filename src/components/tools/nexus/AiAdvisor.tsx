@@ -11,7 +11,13 @@ import {
   Activity,
   X,
   Trash2,
-  Lock
+  Lock,
+  AlertTriangle,
+  LayoutDashboard,
+  TrendingUp,
+  Target,
+  ChevronRight,
+  Sparkles
 } from 'lucide-react';
 import {
   saveChatHistory,
@@ -37,6 +43,7 @@ interface Message {
   timestamp: Date;
   isIntro?: boolean;
   isSpecialIntro?: boolean;
+  isGuided?: boolean;
 }
 
 const formatMarkdown = (text: string) => {
@@ -60,6 +67,118 @@ const formatMarkdown = (text: string) => {
   });
 };
 
+const HUB_ACTIONS = [
+  {
+    group: 'Dívidas',
+    color: 'border-rose-200 bg-rose-50',
+    headerColor: 'text-rose-700 bg-rose-100 border-rose-200',
+    icon: <AlertTriangle size={14} className="text-rose-600" />,
+    actions: [
+      'Qual dívida devo atacar primeiro?',
+      'Gere meu plano detalhado para sair das dívidas',
+      'O que devo fazer nos próximos 7 dias para sair do sufoco?',
+      'Quanto estou pagando de juros sem perceber?'
+    ]
+  },
+  {
+    group: 'Organização do mês',
+    color: 'border-sky-200 bg-sky-50',
+    headerColor: 'text-sky-700 bg-sky-100 border-sky-200',
+    icon: <LayoutDashboard size={14} className="text-sky-600" />,
+    actions: [
+      'Onde estou gastando mais do que deveria?',
+      'Monte um orçamento realista para mim',
+      'Como aumentar minha sobra mensal?',
+      'Quais gastos devo cortar primeiro?'
+    ]
+  },
+  {
+    group: 'Patrimônio e investimentos',
+    color: 'border-emerald-200 bg-emerald-50',
+    headerColor: 'text-emerald-700 bg-emerald-100 border-emerald-200',
+    icon: <TrendingUp size={14} className="text-emerald-600" />,
+    actions: [
+      'Analise meus investimentos e diga o que ajustar',
+      'Meu patrimônio está produtivo ou parado?',
+      'Como reequilibrar minha carteira?',
+      'Estou exagerando no risco?'
+    ]
+  },
+  {
+    group: 'Liberdade financeira',
+    color: 'border-amber-200 bg-amber-50',
+    headerColor: 'text-amber-700 bg-amber-100 border-amber-200',
+    icon: <Target size={14} className="text-amber-600" />,
+    actions: [
+      'O que mais atrasa minha liberdade financeira hoje?',
+      'O que devo priorizar agora: quitar dívidas, reserva ou investir?',
+      'Quanto precisaria investir por mês para acelerar meu patrimônio?'
+    ]
+  }
+];
+
+const SECTION_COLORS: Record<string, string> = {
+  'diagnóstico':     'bg-slate-100 border-slate-300 text-slate-700',
+  'interpretação':   'bg-sky-50 border-sky-200 text-sky-800',
+  'plano de ação':   'bg-emerald-50 border-emerald-200 text-emerald-800',
+  'próximos passos': 'bg-amber-50 border-amber-200 text-amber-800',
+  'alertas':         'bg-rose-50 border-rose-200 text-rose-800',
+};
+
+const SECTION_ICONS: Record<string, string> = {
+  'diagnóstico':     '🔍',
+  'interpretação':   '💡',
+  'plano de ação':   '📋',
+  'próximos passos': '✅',
+  'alertas':         '⚠️',
+};
+
+const formatGuidedResponse = (text: string) => {
+  const sectionKeys = Object.keys(SECTION_COLORS);
+  const regex = new RegExp(
+    `\\*{0,2}(${sectionKeys.join('|')})\\*{0,2}[:\\s]*`,
+    'gi'
+  );
+
+  const parts = text.split(regex).filter(Boolean);
+  const blocks: { title: string; content: string }[] = [];
+
+  for (let i = 0; i < parts.length; i++) {
+    const lower = parts[i].toLowerCase().trim();
+    if (sectionKeys.includes(lower)) {
+      blocks.push({ title: lower, content: parts[i + 1]?.trim() || '' });
+      i++;
+    }
+  }
+
+  if (blocks.length === 0) {
+    return (
+      <div className="text-sm text-slate-800 leading-relaxed">
+        {formatMarkdown(text)}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3 w-full">
+      {blocks.map((block) => (
+        <div
+          key={block.title}
+          className={`border rounded-xl p-4 ${SECTION_COLORS[block.title]}`}
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <span>{SECTION_ICONS[block.title]}</span>
+            <span className="text-xs font-black uppercase tracking-widest">
+              {block.title}
+            </span>
+          </div>
+          <div className="text-sm leading-relaxed">{formatMarkdown(block.content)}</div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const AiAdvisor: React.FC<AiAdvisorProps> = ({
   transactions = [],
   currentCalcResult = [],
@@ -80,7 +199,9 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [dailyCount, setDailyCount] = useState(0);
   const [input, setInput] = useState('');
+  const [hubVisible, setHubVisible] = useState(true);
   const hasProcessedRef = useRef(false);
+  const isFromHubRef = useRef(false);
 
   const FREE_DAILY_LIMIT = 5;
 
@@ -153,8 +274,9 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
     if (response) {
       const updatedWithAi: Message[] = [
         ...newMessages,
-        { role: 'ai', text: response.answer, timestamp: new Date() }
+        { role: 'ai', text: response.answer, timestamp: new Date(), isGuided: isFromHubRef.current }
       ];
+      isFromHubRef.current = false;
 
       setMessages(updatedWithAi);
 
@@ -187,6 +309,7 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
     const state = location.state as { initialPrompt?: string } | null;
     if (state?.initialPrompt && !hasProcessedRef.current && user) {
       hasProcessedRef.current = true;
+      setHubVisible(false);
       setInput(state.initialPrompt);
       setMessages((prev) => [
         ...prev,
@@ -313,6 +436,7 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
 
   const startNewConversation = () => {
     setCurrentChatId(null);
+    setHubVisible(true);
     setMessages([
       {
         role: 'ai',
@@ -368,65 +492,159 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
           </button>
         </div>
       </div>
+      {hubVisible ? (
+        <div className="flex-grow overflow-y-auto p-4 md:p-6 custom-scrollbar bg-slate-50">
+          <div className="max-w-2xl mx-auto py-4">
 
-      <div className="flex-grow overflow-y-auto p-4 md:p-8 space-y-8 custom-scrollbar bg-slate-50">
-        {messages.map((msg: Message, i: number) => (
-          <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            {msg.isIntro ? (
-              <div className="w-full max-w-lg bg-white border border-slate-300 rounded-3xl p-6 shadow-md relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-sky-500 to-transparent"></div>
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-1">
+                <Sparkles size={16} className="text-sky-600" />
+                <span className="text-xs font-bold text-sky-700 uppercase tracking-widest">
+                  Nexus Guiado
+                </span>
+              </div>
+              <h2 className="text-lg font-black text-slate-900">
+                Olá, {capitalizedName}. O que você quer resolver agora?
+              </h2>
+              <p className="text-xs text-slate-500 mt-1">
+                Escolha uma ação ou escreva sua pergunta no campo abaixo.
+              </p>
+            </div>
 
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between bg-slate-100 p-3 rounded-xl border border-slate-300">
-                    <span className="text-[10px] text-slate-600 font-bold uppercase">Usuário</span>
-                    <span className="text-xs text-slate-900 font-mono font-semibold">
-                      {capitalizedName}
+            <div className="space-y-4">
+              {HUB_ACTIONS.map((group) => (
+                <div
+                  key={group.group}
+                  className={`border rounded-2xl overflow-hidden ${group.color}`}
+                >
+                  <div
+                    className={`flex items-center gap-2 px-4 py-2.5 border-b ${group.headerColor}`}
+                  >
+                    {group.icon}
+                    <span className="text-xs font-black uppercase tracking-widest">
+                      {group.group}
                     </span>
                   </div>
+                  <div className="divide-y divide-white/60">
+                    {group.actions.map((action) => (
+                      <button
+                        key={action}
+                        type="button"
+                        disabled={isAiLoading}
+                        onClick={() => {
+                          isFromHubRef.current = true;
+                          setHubVisible(false);
+                          handleSend(action);
+                        }}
+                        className="w-full text-left px-4 py-3 text-sm text-slate-800 hover:bg-white/70 active:bg-white transition-all flex items-center justify-between group disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <span>{action}</span>
+                        <ChevronRight
+                          size={14}
+                          className="text-slate-400 group-hover:text-slate-700 transition-colors shrink-0 ml-2"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
 
-                  <div className="flex items-center justify-between bg-emerald-50 p-3 rounded-xl border border-emerald-300">
-                    <span className="text-[10px] text-emerald-800 font-bold uppercase">Status</span>
-                    <div className="flex items-center gap-2">
-                      <Activity size={12} className="text-emerald-600" />
-                      <span className="text-xs text-emerald-700 font-mono font-bold">
-                        CONNECTED
+            <p className="text-center text-xs text-slate-400 mt-6 pb-2">
+              Ou use o campo de texto abaixo para uma pergunta livre
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="flex-grow overflow-y-auto p-4 md:p-8 space-y-8 custom-scrollbar bg-slate-50">
+          {messages.filter((msg) => !msg.isIntro).map((msg: Message, i: number) => (
+            <div
+              key={i}
+              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            >
+              {msg.isIntro ? (
+                <div className="w-full max-w-lg bg-white border border-slate-300 rounded-3xl p-6 shadow-md relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-sky-500 to-transparent"></div>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between bg-slate-100 p-3 rounded-xl border border-slate-300">
+                      <span className="text-[10px] text-slate-600 font-bold uppercase">Usuário</span>
+                      <span className="text-xs text-slate-900 font-mono font-semibold">
+                        {capitalizedName}
                       </span>
+                    </div>
+                    <div className="flex items-center justify-between bg-emerald-50 p-3 rounded-xl border border-emerald-300">
+                      <span className="text-[10px] text-emerald-800 font-bold uppercase">Status</span>
+                      <div className="flex items-center gap-2">
+                        <Activity size={12} className="text-emerald-600" />
+                        <span className="text-xs text-emerald-700 font-mono font-bold">
+                          CONNECTED
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ) : msg.isSpecialIntro ? (
-              <div className="w-full max-w-lg bg-sky-50 border border-sky-300 rounded-2xl p-4 shadow-md text-center">
-                <p className="text-sm text-sky-800 leading-relaxed font-medium">
-                  {msg.text}
-                </p>
-              </div>
-            ) : (
-              <div
-                className={`max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed shadow-sm ${
-                  msg.role === 'user'
-                    ? 'bg-sky-600 text-white rounded-tr-none'
-                    : 'bg-white text-slate-800 rounded-tl-none border border-slate-300'
-                }`}
-              >
-                <div className="markdown-container">{formatMarkdown(msg.text)}</div>
-              </div>
-            )}
-          </div>
-        ))}
-
-        {isAiLoading && (
-          <div className="flex justify-start">
-            <div className="bg-white p-4 rounded-2xl border border-slate-300 shadow-sm flex items-center gap-3">
-              <span className="text-[10px] text-slate-700 font-black uppercase tracking-widest animate-pulse">
-                Analisando dados...
-              </span>
+              ) : msg.isSpecialIntro ? (
+                <div className="w-full max-w-lg bg-sky-50 border border-sky-300 rounded-2xl p-4 shadow-md text-center">
+                  <p className="text-sm text-sky-800 leading-relaxed font-medium">{msg.text}</p>
+                </div>
+              ) : (
+                <div
+                  className={`p-4 rounded-2xl text-sm leading-relaxed shadow-sm ${
+                    msg.role === 'user'
+                      ? 'max-w-[85%] bg-sky-600 text-white rounded-tr-none'
+                      : msg.isGuided
+                      ? 'w-full bg-white rounded-tl-none border border-slate-200'
+                      : 'max-w-[85%] bg-white text-slate-800 rounded-tl-none border border-slate-300'
+                  }`}
+                >
+                  <div className="markdown-container">
+                    {msg.isGuided ? formatGuidedResponse(msg.text) : formatMarkdown(msg.text)}
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          ))}
 
-        <div ref={chatEndRef} />
-      </div>
+          {isAiLoading && (
+            <div className="flex justify-start">
+              <div className="bg-white p-4 rounded-2xl border border-slate-300 shadow-sm flex items-center gap-3">
+                <span className="text-[10px] text-slate-700 font-black uppercase tracking-widest animate-pulse">
+                  Analisando dados...
+                </span>
+              </div>
+            </div>
+          )}
+
+          <div ref={chatEndRef} />
+        </div>
+      )}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
       <div className="p-4 md:p-6 bg-white border-t border-slate-300">
         <div className="max-w-4xl mx-auto relative">
