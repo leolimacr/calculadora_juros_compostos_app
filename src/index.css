@@ -12,17 +12,31 @@ body {
 }
 
 @media print {
-  /* Esconde botões e elementos desnecessários */
-  button, .no-print {
-    display: none;
+  /* Oculta absolutamente tudo */
+  body * {
+    visibility: hidden;
   }
-  /* Garante que o conteúdo do plano ocupe a página */
+  /* Mostra apenas o conteúdo do plano Nexus */
+  #plano-content,
+  #plano-content * {
+    visibility: visible;
+  }
+  /* Posiciona o plano no topo da página */
   #plano-content {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 32px;
     margin: 0;
-    padding: 20px;
   }
-  /* Evita quebras de página dentro das seções */
-  section {
+  /* Evita quebras de página dentro dos cards */
+  #plano-content section,
+  #plano-content > div {
     break-inside: avoid;
+  }
+  /* Remove sombras e bordas coloridas para impressão limpa */
+  #plano-content .shadow-sm {
+    box-shadow: none !important;
   }
 }

@@ -31,24 +31,10 @@ export interface PerfilContexto {
   reservaAtual: number;
   metaReservaEmMeses: number;
 }
-export interface PatrimonioContexto {
-  valorTotalInvestimentosFinanceiros: number;
-  valorPatrimonioLiquido?: number;
-}
-
-export interface CustoOportunidadeContexto {
-  selicAno?: number;
-  cdiAno?: number;
-  retornoLiquidoEstimadoAno?: number;
-  estrategiaSugerida?: string;
-}
-
 
 export interface NexusDebtPlanRequest {
   usuarioPerfil?: UsuarioPerfil;
   perfilContexto?: PerfilContexto;
-  patrimonioContexto?: PatrimonioContexto;
-  custoOportunidadeContexto?: CustoOportunidadeContexto;
   dividas: DebtItem[];
   simulacao: DebtSimulationSummary;
 }

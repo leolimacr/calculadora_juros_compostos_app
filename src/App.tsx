@@ -1,7 +1,8 @@
 import { PassiveWealthManager } from './components/tools/wealth/PassiveWealthManager';
+import { DebtManager } from './components/tools/wealth/DebtManager';
 import { TermsPage } from './components/TermsPage';
 import { PrivacyPage } from './components/PrivacyPage';
-import { LayoutDashboard, Sparkles, Settings, X, LogOut, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, Sparkles, Settings, X, LogOut, ChevronRight, CreditCard } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { useAuth } from './contexts/AuthContext';
@@ -202,7 +203,7 @@ const App: React.FC = () => {
           currentTool === 'settings' ||
           currentTool === 'pricing' ||
           currentTool === 'chat' ||
-          currentTool.startsWith('tool-')
+          currentTool.startsWith('tool-')|| currentTool === 'minhas-dividas' || currentTool === 'passivos' || currentTool === 'investimentos' || currentTool === 'metas'
             ? 'bg-slate-50'
             : 'bg-[#020617]'
         }`}
@@ -327,7 +328,11 @@ const App: React.FC = () => {
           return null;
         }
         return wrap(<PassiveWealthManager userMeta={userMeta} />);
-
+        
+      case 'minhas-dividas':
+        if (!isAuthenticated) { handleNavigate('login'); return null; }
+        return wrap(<DebtManager userMeta={userMeta} />);
+        
       case 'termos':
         return wrap(<TermsPage />);
 
@@ -418,6 +423,22 @@ const App: React.FC = () => {
                     </span>
                   </div>
                   <ChevronRight size={16} className="text-slate-600 group-hover:text-amber-400" />
+                </div>
+              </button>
+
+              <button
+                onClick={() => { setMobileMenuOpen(false); if (isAuthenticated) handleNavigate('minhas-dividas'); else handleNavigate('login'); }}
+                className="w-full group relative p-px rounded-2xl bg-gradient-to-b from-rose-500/40 to-transparent transition-all active:scale-95 shadow-lg shadow-rose-950/20"
+              >
+                <div className="bg-[#0f172a] rounded-[15px] p-4 flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-rose-400 to-rose-600 text-white shadow-lg">
+                    <CreditCard size={20} strokeWidth={2.5} />
+                  </div>
+                  <div className="flex-1 text-left leading-tight">
+                    <span className="block text-[9px] font-black text-rose-400 uppercase tracking-widest mb-0.5">Gestão</span>
+                    <span className="block text-[13px] font-bold text-white uppercase tracking-tight">Minhas Dívidas</span>
+                  </div>
+                  <ChevronRight size={16} className="text-slate-600 group-hover:text-rose-400" />
                 </div>
               </button>
 

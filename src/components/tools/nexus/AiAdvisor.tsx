@@ -34,6 +34,7 @@ interface AiAdvisorProps {
   goals: any[];
   assets?: any[];
   passives?: any[];
+  debts?: any[];
   currentTool: string;
 }
 
@@ -178,13 +179,13 @@ const formatGuidedResponse = (text: string) => {
     </div>
   );
 };
-
 const AiAdvisor: React.FC<AiAdvisorProps> = ({
   transactions = [],
   currentCalcResult = [],
   goals = [],
   assets = [],
   passives = [],
+  debts = [],
   currentTool
 }) => {
   const { user } = useAuth();
@@ -262,6 +263,7 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
         goals,
         assets,
         passives,
+        debts,
         currentTool
       },
       capitalizedName,
@@ -299,6 +301,7 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
     goals,
     assets,
     passives,
+    debts,
     currentTool,
     capitalizedName,
     currentChatId,
@@ -310,23 +313,16 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
     if (state?.initialPrompt && !hasProcessedRef.current && user) {
       hasProcessedRef.current = true;
       setHubVisible(false);
-      setInput(state.initialPrompt);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'ai',
-          text: 'Sua pergunta do curso de dívidas já está aqui. Clique em "Enviar" para ver a resposta do Nexus, ou sinta-se à vontade para editar antes de enviar.',
-          timestamp: new Date(),
-          isSpecialIntro: true
-        }
-      ]);
+      isFromHubRef.current = true;
       navigate(location.pathname, { replace: true, state: {} });
+      handleSend(state.initialPrompt);
     }
   }, [
     location.state,
     user,
     location.pathname,
-    navigate
+    navigate,
+    handleSend
   ]);
 
   useEffect(() => {

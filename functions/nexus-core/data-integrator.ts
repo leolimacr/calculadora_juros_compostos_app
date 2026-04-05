@@ -1,4 +1,24 @@
 import { getDatabase } from "firebase-admin/database";
+import { getFirestore } from "firebase-admin/firestore"; // <-- Novo Import
+
+export interface FinancialProfile {
+    monthlyIncome: number;
+    emergencyReserveTarget: number;
+    emergencyReserveCurrent: number;
+}
+
+// ... (mantenha as interfaces UserGoal, UserTransaction, UserSimulation como estão)
+
+export interface UserDataResult {
+    goals: UserGoal[];
+    recentTransactions: UserTransaction[];
+    simulations: UserSimulation[];
+    financialProfile?: FinancialProfile; // <-- Novo Campo
+    summary: string;
+    hasData: boolean;
+    dataStatus: 'ok' | 'empty' | 'error';
+    error?: string;
+}
 import * as logger from "firebase-functions/logger";
 
 export interface UserGoal {
@@ -51,6 +71,7 @@ export class DataIntegrator {
             let goals: UserGoal[] = [];
             let transactions: UserTransaction[] = [];
             let simulations: UserSimulation[] = [];
+            let financialProfile: FinancialProfile | undefined = undefined; // <-- Nova variável
             let summary = '';
             let hasData = false;
             let dataStatus: 'ok' | 'empty' | 'error' = 'ok';
@@ -59,15 +80,23 @@ export class DataIntegrator {
             try {
                 logger.info(`[DataIntegrator] Iniciando coleta para userId: ${userId}`);
                 
-                [transactions, goals] = await Promise.all([
+                const [txs, glds, userDoc] = await Promise.all([
                     this.fetchRecentTransactionsWithTimeout(userId, 2500, userPlan),
-                    this.fetchUserGoalsWithTimeout(userId, 2500)
+                    this.fetchUserGoalsWithTimeout(userId, 2500),
+                    getFirestore().doc(`users/${userId}`).get() // <-- Busca o perfil
                 ]);
+                transactions = txs;
+                goals = glds;
+                
+                if (userDoc.exists) {
+                    const userData = userDoc.data();
+                    financialProfile = userData?.financialProfile;
+                }
 
                 const totalItems = goals.length + transactions.length;
                 hasData = totalItems > 0;
                 dataStatus = hasData ? 'ok' : 'empty';
-                summary = this.generateDataSummary(goals, transactions, simulations);
+                summary = this.generateDataSummary(goals, transactions, simulations, financialProfile);
                 
                 logger.info(`[DataIntegrator] Sucesso. userId=${userId}, transações=${transactions.length}, metas=${goals.length}, status=${dataStatus}`);
 
@@ -78,7 +107,7 @@ export class DataIntegrator {
                 summary = 'Erro técnico ao acessar os dados.';
             }
 
-            return { goals, recentTransactions: transactions, simulations, summary, hasData, dataStatus, error };
+            return { goals, recentTransactions: transactions, simulations, summary, hasData, dataStatus, error, financialProfile };
         })();
 
         try {
@@ -247,12 +276,26 @@ export class DataIntegrator {
 
 	   return `${period}:\n• Receitas: R$ ${income.toLocaleString('pt-BR')}\n• Despesas: R$ ${expenses.toLocaleString('pt-BR')} (${expenseCount})\n• Saldo: R$ ${savings.toLocaleString('pt-BR')}\n• Economia: ${income>0?((savings/income)*100).toFixed(1):0}%`;
     }
-
-    private static generateDataSummary(goals: UserGoal[], transactions: UserTransaction[], simulations: UserSimulation[]): string {
+    private static generateDataSummary(goals: UserGoal[], transactions: UserTransaction[], simulations: UserSimulation[], financialProfile?: FinancialProfile): string {
         const activeGoals = goals.filter(g => new Date(g.deadline) > new Date() && g.currentAmount < g.targetAmount).length;
-        return `Usuário tem ${activeGoals} metas ativas e ${transactions.length} transações recentes.`;
-    }
+        
+        let summaryText = "";
 
+        // Colocamos o Perfil Financeiro no TOPO para ser a primeira coisa que a IA lê
+        if (financialProfile) {
+            summaryText += `### PERFIL FINANCEIRO DECLARADO (PRIORIDADE MÁXIMA) ###\n`;
+            summaryText += `ESTE É O DADO OFICIAL PARA O PLANO. IGNORE MÉDIAS DE LANÇAMENTOS ANTERIORES SE CONFLITAREM COM ISTO:\n`;
+            summaryText += `- Renda Mensal Líquida: R$ ${financialProfile.monthlyIncome}\n`;
+            summaryText += `- Meta da Reserva de Emergência: ${financialProfile.emergencyReserveTarget} meses de custo de vida\n`;
+            summaryText += `- Saldo Atual da Reserva: R$ ${financialProfile.emergencyReserveCurrent}\n`;
+            summaryText += `\nINSTRUÇÃO: Use a 'Renda Mensal Líquida' acima como a base de cálculo para o fôlego financeiro e amortizações extras. Não pergunte a renda ao usuário.\n\n`;
+        }
+
+        summaryText += `### CONTEXTO SECUNDÁRIO (HISTÓRICO) ###\n`;
+        summaryText += `Usuário possui ${activeGoals} metas ativas e ${transactions.length} transações recentes no gerenciador financeiro.`;
+
+        return summaryText;
+    }
     private static mapGoalCategory(category: string): UserGoal['category'] {
         const valid: UserGoal['category'][] = ['retirement','travel','property','education','emergency','investment'];
         return valid.includes(category as any) ? (category as UserGoal['category']) : 'investment';

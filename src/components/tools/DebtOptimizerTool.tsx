@@ -1,16 +1,8 @@
 import { DebtPlanSimulator } from "./DebtPlanSimulator";
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ToolLayout, Input } from './ToolComponents';
-import {
-  Lock,
-  ArrowRight,
-  CalendarClock,
-  Receipt,
-  TrendingDown,
-  Info,
-  CheckCircle2,
-  AlertTriangle,
-} from 'lucide-react';
+import { Lock, ArrowRight, CalendarClock, Receipt, TrendingDown, Info, CheckCircle2, AlertTriangle, Sparkles, } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 type DebtSystem = 'sac' | 'price' | 'rotativo';
 
@@ -363,7 +355,7 @@ export const DebtOptimizerTool = ({ onNavigate, isAuthenticated }: any) => {
   const [hasCalculated, setHasCalculated] = useState(false);
   const [hasRestoredSimulation, setHasRestoredSimulation] = useState(false);
   const skipFirstAutoResetRef = useRef(true);
-
+  const navigate = useNavigate();
   const hasDebtAmount =
     debtAmount !== '' &&
     Number(debtAmount) > 0;
@@ -1280,6 +1272,30 @@ export const DebtOptimizerTool = ({ onNavigate, isAuthenticated }: any) => {
                 usuarioPerfil="endividado_iniciante"
               />
 
+              {/* CTA — Nexus Guiado */}
+              <div className="mt-6 rounded-2xl border border-teal-200 bg-gradient-to-br from-teal-50 to-slate-50 p-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm font-semibold text-teal-800 flex items-center gap-2">
+                    <Sparkles size={16} className="text-teal-600" />
+                    Seu diagnóstico está pronto.
+                  </p>
+                  <p className="text-sm text-slate-600">
+                    Quer que o Nexus interprete esses dados e gere seu plano de ação?
+                  </p>
+                </div>
+                <button
+                  onClick={() =>
+                    navigate('/chat', {
+                      state: { initialPrompt: 'Gere meu plano detalhado para sair das dívidas' },
+                    })
+                  }
+                  className="flex items-center justify-center gap-2 rounded-xl bg-teal-600 px-5 py-3 text-sm font-semibold text-white hover:bg-teal-700 transition-colors whitespace-nowrap"
+                >
+                  <Sparkles size={15} />
+                  Gerar meu plano com o Nexus
+                </button>
+              </div>
+              
               {displayedSummary.risk && (
                 <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
                   <p className="text-rose-700 text-sm font-bold">{displayedSummary.risk}</p>

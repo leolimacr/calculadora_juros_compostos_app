@@ -18,8 +18,15 @@ export interface DebtSimulationSummary {
     economiaEstimadaJuros?: number;
 }
 export type UsuarioPerfil = 'endividado_iniciante' | 'endividado_intermediario';
+export type Estabilidade = 'estavel' | 'regular' | 'volatil';
+export interface PerfilContexto {
+    estabilidade: Estabilidade;
+    reservaAtual: number;
+    metaReservaEmMeses: number;
+}
 export interface NexusDebtPlanRequest {
     usuarioPerfil?: UsuarioPerfil;
+    perfilContexto?: PerfilContexto;
     dividas: DebtItem[];
     simulacao: DebtSimulationSummary;
 }
@@ -66,11 +73,29 @@ export declare const DebtSimulationSummarySchema: z.ZodObject<{
     prazoEstimadoQuitacaoOtimizado: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
     economiaEstimadaJuros: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
 }, z.core.$strip>;
+export declare const PerfilContextoSchema: z.ZodObject<{
+    estabilidade: z.ZodEnum<{
+        estavel: "estavel";
+        regular: "regular";
+        volatil: "volatil";
+    }>;
+    reservaAtual: z.ZodNumber;
+    metaReservaEmMeses: z.ZodNumber;
+}, z.core.$strip>;
 export declare const NexusDebtPlanRequestSchema: z.ZodObject<{
     usuarioPerfil: z.ZodOptional<z.ZodEnum<{
         endividado_iniciante: "endividado_iniciante";
         endividado_intermediario: "endividado_intermediario";
     }>>;
+    perfilContexto: z.ZodOptional<z.ZodObject<{
+        estabilidade: z.ZodEnum<{
+            estavel: "estavel";
+            regular: "regular";
+            volatil: "volatil";
+        }>;
+        reservaAtual: z.ZodNumber;
+        metaReservaEmMeses: z.ZodNumber;
+    }, z.core.$strip>>;
     dividas: z.ZodArray<z.ZodObject<{
         id: z.ZodString;
         nome: z.ZodString;

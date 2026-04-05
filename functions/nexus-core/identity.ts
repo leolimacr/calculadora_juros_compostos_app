@@ -27,7 +27,7 @@ export class NexusIdentity {
     passivesSummary: string,
     patrimonioLiquido: string,
     isFirst: boolean,
-    userData: { hasData: boolean; dataStatus: 'ok' | 'empty' | 'error'; error?: string },
+    userData: any, // Vamos usar any temporariamente para facilitar a passagem do objeto completo UserDataResult
     historyDescription: string
   ): string {
     const firstName = (userName || 'Investidor').split(' ')[0];
@@ -110,10 +110,12 @@ Siga esta ordem de foco:
 
 # DADOS OFICIAIS DO USUÁRIO
 
-${userData.hasData ? `
-⚠️ DADOS OFICIAIS CALCULADOS PELO SISTEMA (não recalcule, não invente):
-
-${transactions}
+   ${userData.hasData ? `
+    🚨 PERFIL FINANCEIRO E ESTRUTURA DE DADOS (PRIORIDADE ABSOLUTA):
+ 
+    ${userData.summary} 
+ 
+    ${transactions}
 
 ${goals}
 
@@ -125,10 +127,11 @@ ${passivesSummary}
 
 ${patrimonioLiquido}
 
-🚫 REGRA ABSOLUTA:
-- Ao responder sobre lançamentos, saldo, despesas ou receitas, use APENAS os valores do resumo acima
-- NÃO some transações manualmente
-- NÃO invente números novos em respostas subsequentes
+🚫 REGRAS DE OURO DE INTERAÇÃO (NÃO IGNORE):
+- Use a 'Renda Mensal Líquida' do Perfil Financeiro como base para todo o planejamento.
+- Se o Perfil Financeiro estiver presente, NUNCA pergunte a renda ou o valor da reserva ao usuário.
+- Ao analisar dívidas, use o 'Valor da Parcela' já fornecido. Nunca peça esse dado novamente.
+- Use APENAS os valores do resumo acima; não invente números.
 - Se ${firstName} questionar os valores, repita exatamente o que consta no resumo calculado
 ` : `${firstName} ainda não registrou dados suficientes no app.`}
 

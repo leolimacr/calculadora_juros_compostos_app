@@ -12,16 +12,12 @@ interface DebtPlanSimulatorProps {
   dividas: DebtItem[];
   simulacao: DebtSimulationSummary;
   usuarioPerfil?: NexusDebtPlanRequest["usuarioPerfil"];
-  patrimonioContexto?: NexusDebtPlanRequest["patrimonioContexto"];
-  custoOportunidadeContexto?: NexusDebtPlanRequest["custoOportunidadeContexto"];
 }
 
 export const DebtPlanSimulator: React.FC<DebtPlanSimulatorProps> = ({
   dividas,
   simulacao,
   usuarioPerfil,
-  patrimonioContexto,
-  custoOportunidadeContexto,
 }) => {
   const [loading, setLoading] = useState(false);
   const [plan, setPlan] = useState<DebtPlanResponse | null>(null);
@@ -69,8 +65,6 @@ export const DebtPlanSimulator: React.FC<DebtPlanSimulatorProps> = ({
         usuarioPerfil,
         dividas: cleanedDividas,
         simulacao: cleanedSimulacao,
-        ...(patrimonioContexto && { patrimonioContexto }),
-        ...(custoOportunidadeContexto && { custoOportunidadeContexto }),
       };
       
       console.log("üì¶ Payload enviado para generateDebtPlan:", JSON.stringify(payload, null, 2));
@@ -147,13 +141,20 @@ export const DebtPlanSimulator: React.FC<DebtPlanSimulatorProps> = ({
             </div>
           </div>
 
-          {/* -- 1. RESUMO EXECUTIVO -- */}
-          <div className="rounded-xl border border-teal-200 bg-gradient-to-r from-teal-50 to-white p-5 shadow-sm">
-            <p className="text-[10px] text-teal-600 uppercase font-black tracking-wider mb-2">?? Resumo Executivo</p>
-            <p className="text-base text-slate-800 leading-relaxed">
-              <strong>Priorize {plan.prioridade?.nomeDividaPrioritaria || "a dÌvida com maior juro"}.</strong> Seguindo este plano, vocÍ quita todas as dÌvidas em <strong>{plan.planoHorizonte?.prazoEstimadoQuitacaoMeses ?? "?"} meses</strong> e economiza aproximadamente <strong>{plan.planoHorizonte?.economiaEstimadaJuros?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) ?? "R$ 0"}</strong> em juros.
-            </p>
-          </div>
+          {/* ‚îÄ‚îÄ 1. DIAGN√ìSTICO ‚îÄ‚îÄ */}
+          {plan.resumo3Linhas?.length > 0 && (
+            <div className="rounded-xl border border-teal-100 bg-teal-50/50 p-4">
+              <p className="text-[10px] text-teal-600 uppercase font-black tracking-wider mb-3">üìã Diagn√≥stico</p>
+              <ul className="space-y-2">
+                {plan.resumo3Linhas.map((linha, idx) => (
+                  <li key={idx} className="flex items-start gap-2 text-sm text-slate-700">
+                    <span className="mt-1 w-1.5 h-1.5 rounded-full bg-teal-400 flex-shrink-0" />
+                    {linha}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* ‚îÄ‚îÄ 2. D√çVIDA PRIORIT√ÅRIA ‚îÄ‚îÄ */}
           {plan.prioridade && (
@@ -192,43 +193,6 @@ export const DebtPlanSimulator: React.FC<DebtPlanSimulatorProps> = ({
                   <p className="text-xs text-teal-500 font-semibold">se seguir o plano</p>
                 </div>
               )}
-            </div>
-          )}
-          {/* -- 4. PRIORIDADE DAS DÕVIDAS -- */}
-          {dividas.length > 0 && (
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-[10px] text-slate-500 uppercase font-black tracking-wider mb-3">?? Prioridade das dÌvidas (por taxa de juros)</p>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-100 text-left">
-                      <th className="pb-2 font-semibold text-slate-500">DÌvida</th>
-                      <th className="pb-2 font-semibold text-slate-500 text-right">Saldo</th>
-                      <th className="pb-2 font-semibold text-slate-500 text-right">Taxa mensal</th>
-                      <th className="pb-2 font-semibold text-slate-500 text-right">Parcela</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[...dividas]
-                      .sort((a, b) => b.taxaJurosMes - a.taxaJurosMes)
-                      .map((d, idx) => {
-                        const isPriority = plan.prioridade?.nomeDividaPrioritaria === d.nome;
-                        return (
-                          <tr key={idx} className={`border-b border-slate-50 ${isPriority ? 'bg-orange-50/30' : ''}`}>
-                            <td className="py-2 font-medium text-slate-800">
-                              {d.nome}
-                              {isPriority && <span className="ml-2 text-[9px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-tighter">Priorit·ria</span>}
-                            </td>
-                            <td className="py-2 text-right text-slate-700">{d.saldoAtual.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-                            <td className="py-2 text-right text-slate-700">{d.taxaJurosMes.toFixed(2)}%</td>
-                            <td className="py-2 text-right text-slate-700">{d.parcelaMensal?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || '-'}</td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
-              </div>
-              <p className="text-[10px] text-slate-400 mt-2">* Ordenado por taxa decrescente. A dÌvida com maior juro tem prioridade.</p>
             </div>
           )}
 
@@ -307,5 +271,3 @@ export const DebtPlanSimulator: React.FC<DebtPlanSimulatorProps> = ({
     </div>
   );
 };
-
-

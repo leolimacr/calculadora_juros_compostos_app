@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DataIntegrator = void 0;
 const database_1 = require("firebase-admin/database");
+const firestore_1 = require("firebase-admin/firestore");
 const logger = __importStar(require("firebase-functions/logger"));
 class DataIntegrator {
     static async gatherUserData(userId, userPlan) {
@@ -44,20 +45,28 @@ class DataIntegrator {
             let goals = [];
             let transactions = [];
             let simulations = [];
+            let financialProfile = undefined;
             let summary = '';
             let hasData = false;
             let dataStatus = 'ok';
             let error = undefined;
             try {
                 logger.info(`[DataIntegrator] Iniciando coleta para userId: ${userId}`);
-                [transactions, goals] = await Promise.all([
+                const [txs, glds, userDoc] = await Promise.all([
                     this.fetchRecentTransactionsWithTimeout(userId, 2500, userPlan),
-                    this.fetchUserGoalsWithTimeout(userId, 2500)
+                    this.fetchUserGoalsWithTimeout(userId, 2500),
+                    (0, firestore_1.getFirestore)().doc(`users/${userId}`).get()
                 ]);
+                transactions = txs;
+                goals = glds;
+                if (userDoc.exists) {
+                    const userData = userDoc.data();
+                    financialProfile = userData?.financialProfile;
+                }
                 const totalItems = goals.length + transactions.length;
                 hasData = totalItems > 0;
                 dataStatus = hasData ? 'ok' : 'empty';
-                summary = this.generateDataSummary(goals, transactions, simulations);
+                summary = this.generateDataSummary(goals, transactions, simulations, financialProfile);
                 logger.info(`[DataIntegrator] Sucesso. userId=${userId}, transações=${transactions.length}, metas=${goals.length}, status=${dataStatus}`);
             }
             catch (err) {
@@ -66,7 +75,7 @@ class DataIntegrator {
                 error = err.message;
                 summary = 'Erro técnico ao acessar os dados.';
             }
-            return { goals, recentTransactions: transactions, simulations, summary, hasData, dataStatus, error };
+            return { goals, recentTransactions: transactions, simulations, summary, hasData, dataStatus, error, financialProfile };
         })();
         try {
             return await Promise.race([dataPromise, timeoutPromise]);
@@ -214,9 +223,20 @@ class DataIntegrator {
         const expenseCount = recent.filter(t => t.type === 'expense').length;
         return `${period}:\n• Receitas: R$ ${income.toLocaleString('pt-BR')}\n• Despesas: R$ ${expenses.toLocaleString('pt-BR')} (${expenseCount})\n• Saldo: R$ ${savings.toLocaleString('pt-BR')}\n• Economia: ${income > 0 ? ((savings / income) * 100).toFixed(1) : 0}%`;
     }
-    static generateDataSummary(goals, transactions, simulations) {
+    static generateDataSummary(goals, transactions, simulations, financialProfile) {
         const activeGoals = goals.filter(g => new Date(g.deadline) > new Date() && g.currentAmount < g.targetAmount).length;
-        return `Usuário tem ${activeGoals} metas ativas e ${transactions.length} transações recentes.`;
+        let summaryText = "";
+        if (financialProfile) {
+            summaryText += `### PERFIL FINANCEIRO DECLARADO (PRIORIDADE MÁXIMA) ###\n`;
+            summaryText += `ESTE É O DADO OFICIAL PARA O PLANO. IGNORE MÉDIAS DE LANÇAMENTOS ANTERIORES SE CONFLITAREM COM ISTO:\n`;
+            summaryText += `- Renda Mensal Líquida: R$ ${financialProfile.monthlyIncome}\n`;
+            summaryText += `- Meta da Reserva de Emergência: ${financialProfile.emergencyReserveTarget} meses de custo de vida\n`;
+            summaryText += `- Saldo Atual da Reserva: R$ ${financialProfile.emergencyReserveCurrent}\n`;
+            summaryText += `\nINSTRUÇÃO: Use a 'Renda Mensal Líquida' acima como a base de cálculo para o fôlego financeiro e amortizações extras. Não pergunte a renda ao usuário.\n\n`;
+        }
+        summaryText += `### CONTEXTO SECUNDÁRIO (HISTÓRICO) ###\n`;
+        summaryText += `Usuário possui ${activeGoals} metas ativas e ${transactions.length} transações recentes no gerenciador financeiro.`;
+        return summaryText;
     }
     static mapGoalCategory(category) {
         const valid = ['retirement', 'travel', 'property', 'education', 'emergency', 'investment'];

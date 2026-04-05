@@ -72,6 +72,19 @@ async function getUserPlan(userId) {
         return undefined;
     }
 }
+async function getUserDebts(userId) {
+    try {
+        const db = (0, firestore_1.getFirestore)();
+        const snapshot = await db.collection('users').doc(userId).collection('dividas').get();
+        if (snapshot.empty)
+            return [];
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    }
+    catch (error) {
+        logger.error(`[Debts] Erro ao buscar dívidas: ${error.message}`);
+        return [];
+    }
+}
 function describeHistoryWindow(plan) {
     switch (plan) {
         case 'free': return 'Você está no plano Free, então posso analisar apenas os últimos 3 dias do seu histórico';
@@ -389,7 +402,6 @@ exports.generateDebtPlan = (0, https_1.onCall)({
             logger.error("[generateDebtPlan] Payload inválido:", parseResult.error.flatten());
             throw new https_1.HttpsError("invalid-argument", "Dados inválidos: " + JSON.stringify(parseResult.error.flatten()));
         }
-        const dados = parseResult.data;
         const userId = request.auth.uid;
         const geminiApiKey = process.env.GEMINI_API_KEY;
         const openrouterApiKey = process.env.OPENROUTER_API_KEY;
@@ -400,83 +412,89 @@ exports.generateDebtPlan = (0, https_1.onCall)({
             openrouter: openrouterApiKey,
             mistral: mistralApiKey,
         });
+        const dados = parseResult.data;
+        const ctx = dados.perfilContexto;
+        const estabilidadeLabel = ctx?.estabilidade === 'estavel' ? 'Estável (renda fixa e previsível)' :
+            ctx?.estabilidade === 'volatil' ? 'Volátil (renda imprevisível, risco alto)' :
+                ctx?.estabilidade === 'regular' ? 'Regular (renda com alguma variação)' :
+                    'Não informada';
+        const reservaStatus = ctx
+            ? `R$ ${ctx.reservaAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} de reserva atual (meta: ${ctx.metaReservaEmMeses} meses de renda)`
+            : 'Não informada';
         const systemPrompt = `
-Você é o Nexus, especialista em ajudar pessoas endividadas a montar planos claros e realistas de quitação de dívidas.
+Você é o Nexus, mentor financeiro do app Finanças Pro Invest. Seu papel é ajudar pessoas endividadas a montar planos claros, realistas e personalizados de quitação de dívidas.
 
-Seu papel NÃO é fazer motivação genérica, nem pedir mais informações.
-Seu papel é:
+Você NÃO é um chatbot genérico. Você é um especialista que conhece profundamente a situação deste usuário porque recebeu os dados reais dele. Use esses dados com inteligência e mostre que os considerou em cada parte do plano.
 
-1. Analisar a lista de dívidas recebida (valores, juros, prazo).
-2. Definir qual dívida deve ser PRIORIDADE 1 e explicar o porquê.
-3. Transformar o diagnóstico em um plano de ação simples, dividido em:
-   - resumo em até 3 frases;
+## Seu papel
+1. Fazer um espelho fiel das dívidas cadastradas (cite nome, saldo e taxa de cada uma).
+2. Considerar o perfil de estabilidade do usuário (${estabilidadeLabel}) para calibrar o tom e o ritmo do plano.
+3. Considerar a reserva de emergência (${reservaStatus}) antes de recomendar aportes extras — nunca oriente o usuário a comprometer a reserva mínima.
+4. Definir qual dívida deve ser PRIORIDADE 1 e explicar o porquê com base nos juros e no impacto real.
+5. Transformar o diagnóstico em um plano de ação dividido em:
+   - resumo diagnóstico (2 a 3 frases que espelham a situação real);
    - explicação da prioridade;
-   - horizonte de quitação (prazo e economia estimada, se informado);
+   - horizonte de quitação (prazo e economia estimada);
    - passos concretos para os próximos 7 dias;
    - passos concretos para os próximos 30 dias;
-   - alertas importantes (o que evitar).
+   - alertas importantes personalizados para o perfil deste usuário.
 
-Restrições importantes:
+## Regras de ouro
 - Fale sempre em português do Brasil, linguagem simples, sem jargões.
-- Não ofereça aconselhamento jurídico ou individualizado; foque em educação financeira genérica.
-- Nunca peça dados novos ao usuário; use apenas os dados fornecidos.
+- Nunca peça dados novos; use apenas os dados fornecidos.
+- Nunca recomende comprometer a reserva de emergência abaixo da meta do perfil.
+- Para perfil Volátil: seja mais conservador, priorize estabilidade antes de agressividade no pagamento.
+- Para perfil Estável: pode recomendar aportes extras com mais confiança.
+- Para perfil Regular: equilibre entre cautela e progresso.
+- Não ofereça aconselhamento jurídico; foque em educação financeira.
 - Seja respeitoso e realista: não prometa milagres, mas mostre um caminho possível.
 
-Você deve SEMPRE responder em JSON válido, no formato exato de DebtPlanResponse:
+## Formato de resposta
+Você deve SEMPRE responder em JSON válido, no formato exato abaixo. Nenhum texto fora do JSON:
 {
-  "resumo3Linhas": [...],
+  "resumo3Linhas": ["frase 1", "frase 2", "frase 3"],
   "prioridade": {
-    "idDividaPrioritaria": "...",
-    "nomeDividaPrioritaria": "...",
-    "motivo": "...",
-    "recomendacaoPrincipal": "..."
+    "idDividaPrioritaria": "id da dívida",
+    "nomeDividaPrioritaria": "nome da dívida",
+    "motivo": "explicação baseada nos dados reais",
+    "recomendacaoPrincipal": "ação concreta e específica"
   },
   "planoHorizonte": {
     "prazoEstimadoQuitacaoMeses": 0,
     "economiaEstimadaJuros": 0
   },
   "passos7Dias": [
-    {
-      "ordem": 1,
-      "horizonte": "7_dias",
-      "descricao": "...",
-      "observacoes": "..."
-    }
+    { "ordem": 1, "horizonte": "7_dias", "descricao": "...", "observacoes": "..." }
   ],
   "passos30Dias": [
-    {
-      "ordem": 1,
-      "horizonte": "30_dias",
-      "descricao": "...",
-      "observacoes": "..."
-    }
+    { "ordem": 1, "horizonte": "30_dias", "descricao": "...", "observacoes": "..." }
   ],
-  "alertasImportantes": [
-    "..."
-  ],
+  "alertasImportantes": ["alerta personalizado 1", "alerta personalizado 2"],
   "tomGeral": "calmo"
 }
 
 Regras adicionais:
-- Não inclua comentários.
-- Não inclua texto fora do JSON.
-- Se algum campo numérico não vier preenchido nos dados do usuário, use null ou 0, mas nunca invente números.
+- Não inclua comentários nem texto fora do JSON.
+- Se algum campo numérico não vier preenchido, use null ou 0, nunca invente números.
+- "tomGeral" deve ser: "calmo" para Estável, "direto" para Regular, "motivador" para Volátil.
 `;
         const userMessage = `
-A seguir estão os dados de um usuário endividado e o resultado de uma simulação de dívidas.
+A seguir estão os dados reais de um usuário do Finanças Pro Invest.
 
-Use APENAS essas informações para montar um plano de quitação.
-Leve em conta que esse usuário provavelmente está ansioso e confuso, então você deve ser claro e organizado.
+PERFIL DO USUÁRIO:
+- Estabilidade de renda: ${estabilidadeLabel}
+- Reserva de emergência: ${reservaStatus}
+- Renda mensal declarada: ${dados.simulacao.rendaMensalEstimada
+            ? `R$ ${dados.simulacao.rendaMensalEstimada.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+            : 'Não informada'}
 
-DADOS (JSON):
-${JSON.stringify(dados)}
+DÍVIDAS CADASTRADAS (espelhe todas no diagnóstico):
+${dados.dividas.map((d, i) => `${i + 1}. ${d.nome} — Saldo: R$ ${d.saldoAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} | Taxa: ${d.taxaJurosMes}% a.m.${d.parcelaMensal ? ` | Parcela: R$ ${d.parcelaMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ''}`).join('\n')}
 
-Lembre-se:
-- "resumo3Linhas" deve ter entre 2 e 3 frases curtas.
-- "passos7Dias" e "passos30Dias" devem ser ações específicas, que possam ser executadas.
-- "alertasImportantes" deve focar em erros comuns (fazer novo empréstimo caro, ignorar juros altos, etc.).
-- Se algum campo numérico não vier preenchido, use null ou 0, mas nunca invente números.
+SIMULAÇÃO (para referência):
+${JSON.stringify(dados.simulacao, null, 2)}
 
+Monte o plano de quitação considerando TODOS esses dados. Cite as dívidas pelo nome no diagnóstico.
 Responda apenas com o JSON no formato combinado.
 `;
         const messages = [
@@ -506,8 +524,10 @@ Responda apenas com o JSON no formato combinado.
         }
         const safeParsed = debtPlan_types_1.DebtPlanResponseSchema.safeParse(parsed);
         if (!safeParsed.success) {
-            logger.error("[generateDebtPlan] Resposta do modelo fora do schema:", safeParsed.error.flatten());
-            throw new https_1.HttpsError("internal", "O plano retornado pelo assistente veio em formato inesperado.");
+            const zodErrors = JSON.stringify(safeParsed.error.flatten());
+            logger.error("[generateDebtPlan] Resposta do modelo fora do schema:", zodErrors);
+            logger.error("[generateDebtPlan] JSON recebido do modelo:", JSON.stringify(parsed));
+            throw new https_1.HttpsError("internal", "Formato inesperado: " + zodErrors);
         }
         const plan = safeParsed.data;
         return {
@@ -601,8 +621,10 @@ exports.askAiAdvisor = (0, https_1.onCall)({
         }
         let userData;
         let historyDescription = 'analiso um recorte recente do seu histórico, definido pelo seu plano';
+        let serverDebts = [];
         try {
             const userPlan = await getUserPlan(userId);
+            serverDebts = await getUserDebts(userId);
             logger.info(`🔍 [DEBUG] userId: ${userId}`);
             logger.info(`🔍 [DEBUG] Plano retornado: "${userPlan}"`);
             logger.info(`🔍 [DEBUG] Tipo: ${typeof userPlan}`);
@@ -649,6 +671,18 @@ exports.askAiAdvisor = (0, https_1.onCall)({
                     return `  • ${nome} (${categoria}): R$ ${valor}`;
                 }).join('\n')
             : '\n📉 Passivos patrimoniais / imobilizados: Nenhum passivo registrado.';
+        const debtsSummary = serverDebts && serverDebts.length > 0
+            ? `\n💳 DÍVIDAS CADASTRADAS (${serverDebts.length} itens):\n` +
+                serverDebts.map((d) => {
+                    const nome = d.nome || 'Dívida sem nome';
+                    const tipo = d.tipo || 'Outros';
+                    const saldo = Number(d.saldoDevedor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    const taxa = Number(d.taxaMensal || 0).toFixed(2);
+                    const parcelas = d.parcelasRestantes ?? 'N/A';
+                    const parcela = d.valorParcela ? `R$ ${Number(d.valorParcela).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/mês` : 'N/A';
+                    return `  • ${nome} (${tipo}): Saldo R$ ${saldo} | Taxa ${taxa}%/mês | ${parcelas} parcelas restantes | Parcela: ${parcela}`;
+                }).join('\n')
+            : '\n💳 Dívidas: Nenhuma dívida cadastrada no app.';
         const patrimonioVisaoGerencialStr = `📌 VISÃO PATRIMONIAL DO APP:\n` +
             `• Total em ativos patrimoniais / produtivos: R$ ${totalAssets.toLocaleString('pt-BR', {
                 minimumFractionDigits: 2,
@@ -704,6 +738,7 @@ exports.askAiAdvisor = (0, https_1.onCall)({
         const promptLower = String(prompt || '').toLowerCase();
         const isCashflowRequest = /(lançamento|lançamentos|transaç|receita|receitas|despesa|despesas|gasto|gastos|entrada|entradas|saída|saídas|saldo|orçamento|fluxo de caixa|movimentação|movimentacoes|movimentações)/i.test(promptLower);
         const isPatrimonyRequest = /(ativo|ativos|passivo|passivos|patrimônio|patrimonio|bens|imóveis|imoveis|veículos|veiculos|terrenos|carteira patrimonial)/i.test(promptLower);
+        const isDebtPlanRequest = /(plano|quitar|sair das dívidas|estratégia de quitação|prioridade de dívida)/i.test(promptLower);
         let transactionsForPrompt = "Nenhuma transação registrada.";
         if (userData.recentTransactions && userData.recentTransactions.length > 0) {
             transactionsForPrompt = data_integrator_1.DataIntegrator.formatTransactionsForPrompt(userData.recentTransactions, {
@@ -750,7 +785,19 @@ NÃO trate passivos patrimoniais como dívidas, salvo se o usuário mencionar ex
         console.log("🚀 Chamando getSystemPrompt com assetsSummary:", assetsSummary);
         console.log("🚀 passivesSummary:", passivesSummary);
         console.log("🚀 patrimonioVisaoGerencialStr:", patrimonioVisaoGerencialStr);
-        const systemPrompt = `${identity_1.NexusIdentity.getSystemPrompt(safeUserName, context, marketData, transactionsForPrompt, goalsForPrompt, "", assetsSummary, passivesSummary, patrimonioVisaoGerencialStr, isFirst, userData, historyDescription)}${focusInstructions}`;
+        const systemPrompt = `${identity_1.NexusIdentity.getSystemPrompt(safeUserName, context, marketData, transactionsForPrompt, goalsForPrompt, "", assetsSummary, passivesSummary, patrimonioVisaoGerencialStr, isFirst, userData, historyDescription)}${debtsSummary}${focusInstructions}
+      
+      ${isDebtPlanRequest ? `
+      # PROTOCOLO OBRIGATÓRIO: PLANO DE QUITAÇÃO
+      1. USE A RENDA DECLARADA: O usuário informou que ganha R$ ${userData.financialProfile?.monthlyIncome || 'não informado'}. Use este valor como base de fôlego, ignorando médias históricas.
+      2. USE AS PARCELAS: O valor de cada parcela já está no resumo de dívidas acima. NUNCA peça esse dado.
+      3. RESERVA DE EMERGÊNCIA: A meta do usuário é de ${userData.financialProfile?.emergencyReserveTarget || 6} meses. Considere o saldo atual de R$ ${userData.financialProfile?.emergencyReserveCurrent || 0}.
+      4. FORMATO DE SAÍDA: Use obrigatoriamente blocos visuais (Cards) com ícones para:
+         - Diagnóstico (Resumo da situação)
+         - Plano de Ação (Passos práticos)
+         - Próximos Passos (Ações imediatas)
+      5. NÃO FAÇA PERGUNTAS INICIAIS: Se você já tem a renda, as parcelas e a reserva, gere o plano imediatamente.
+      ` : ''}`;
         const messages = [
             ...validHistory.slice(-6).map((h) => ({
                 role: h.role === 'ai' || h.role === 'assistant' ? 'assistant' : 'user',
@@ -804,7 +851,16 @@ Exemplos:
 - "Quanto o BTC valia em 2020?" → [BUSCAR_WEB: preço bitcoin 2020]
 - Usuário corrige: "A máxima não é 68k, é 126k" → [BUSCAR_WEB: bitcoin máxima histórica recorde]
 
-${isUserCorrection ? "\n**ATENÇÃO:** O usuário está CORRIGINDO uma informação que você deu. Você DEVE buscar na web para validar e admitir o erro se estiver errado." : ""}`;
+${isUserCorrection ? "\n**ATENÇÃO:** O usuário está CORRIGINDO uma informação que você deu. Você DEVE buscar na web para validar e admitir o erro se estiver errado." : ""}
+ 
+      ${isDebtPlanRequest ? `
+      # 🚨 REGRA DE OURO (PROTOCOLO DE QUITAÇÃO) - PRIORIDADE MÁXIMA
+      1. RENDA: Use R$ ${userData.financialProfile?.monthlyIncome || 'não informado'} como a renda mensal do usuário. 
+      2. PARCELAS: O valor de cada parcela está no sumário de dívidas acima. Use-os para o cálculo de fluxo de caixa.
+      3. RESERVA: Meta de ${userData.financialProfile?.emergencyReserveTarget || 6} meses. Saldo atual: R$ ${userData.financialProfile?.emergencyReserveCurrent || 0}.
+      4. NÃO PERGUNTE: Se os dados acima existem, NÃO peça renda ou parcelas. Gere o plano agora.
+      5. FORMATO: Responda obrigatoriamente usando os Cards Visuais do sistema (Diagnóstico, Plano de Ação, Próximos Passos).
+      ` : ''}`;
         const firstResponse = await router.routeRequest(messages, enhancedSystemPrompt, {
             temperature: 0.6,
             maxTokens: 1200,

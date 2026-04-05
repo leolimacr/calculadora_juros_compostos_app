@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DebtPlanResponseSchema = exports.PriorityExplanationSchema = exports.ActionStepSchema = exports.NexusDebtPlanRequestSchema = exports.DebtSimulationSummarySchema = exports.DebtItemSchema = void 0;
+exports.DebtPlanResponseSchema = exports.PriorityExplanationSchema = exports.ActionStepSchema = exports.NexusDebtPlanRequestSchema = exports.PerfilContextoSchema = exports.DebtSimulationSummarySchema = exports.DebtItemSchema = void 0;
 const zod_1 = require("zod");
 exports.DebtItemSchema = zod_1.z.object({
     id: zod_1.z.string(),
@@ -20,8 +20,14 @@ exports.DebtSimulationSummarySchema = zod_1.z.object({
     prazoEstimadoQuitacaoOtimizado: zod_1.z.number().optional().nullable(),
     economiaEstimadaJuros: zod_1.z.number().optional().nullable(),
 });
+exports.PerfilContextoSchema = zod_1.z.object({
+    estabilidade: zod_1.z.enum(['estavel', 'regular', 'volatil']),
+    reservaAtual: zod_1.z.number(),
+    metaReservaEmMeses: zod_1.z.number(),
+});
 exports.NexusDebtPlanRequestSchema = zod_1.z.object({
     usuarioPerfil: zod_1.z.enum(['endividado_iniciante', 'endividado_intermediario']).optional(),
+    perfilContexto: exports.PerfilContextoSchema.optional(),
     dividas: zod_1.z.array(exports.DebtItemSchema).min(1),
     simulacao: exports.DebtSimulationSummarySchema,
 });
@@ -38,7 +44,7 @@ exports.PriorityExplanationSchema = zod_1.z.object({
     recomendacaoPrincipal: zod_1.z.string().min(3),
 });
 exports.DebtPlanResponseSchema = zod_1.z.object({
-    resumo3Linhas: zod_1.z.array(zod_1.z.string()).min(2).max(3),
+    resumo3Linhas: zod_1.z.array(zod_1.z.string()).min(1),
     prioridade: exports.PriorityExplanationSchema,
     planoHorizonte: zod_1.z.object({
         prazoEstimadoQuitacaoMeses: zod_1.z.number().nullable().optional(),

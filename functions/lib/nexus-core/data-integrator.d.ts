@@ -1,3 +1,18 @@
+export interface FinancialProfile {
+    monthlyIncome: number;
+    emergencyReserveTarget: number;
+    emergencyReserveCurrent: number;
+}
+export interface UserDataResult {
+    goals: UserGoal[];
+    recentTransactions: UserTransaction[];
+    simulations: UserSimulation[];
+    financialProfile?: FinancialProfile;
+    summary: string;
+    hasData: boolean;
+    dataStatus: 'ok' | 'empty' | 'error';
+    error?: string;
+}
 export interface UserGoal {
     id: string;
     name: string;

@@ -1,1 +1,12 @@
-export interface Transaction { id: string; amount: number; type: 'income' | 'expense'; category: string; description: string; date: string; } export type ToolView = 'manager' | 'home' | 'settings'; export interface UserMeta { plan: string; launchLimit: number; launchCount: number; }
+export interface FinancialProfile {
+  monthlyIncome: number;
+  emergencyReserveTarget: number;
+  emergencyReserveCurrent: number;
+}
+
+export interface UserMeta {
+  plan: string;
+  launchLimit: number;
+  launchCount: number;
+  financialProfile?: FinancialProfile;
+}

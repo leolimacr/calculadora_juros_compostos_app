@@ -1,10 +1,7 @@
 import React from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
-import { 
-  LogOut, Settings, Sparkles, Eye, EyeOff, Menu, Globe 
-} from 'lucide-react';
-
+import { LogOut, Settings, Sparkles, Eye, EyeOff, Menu, Globe, CreditCard } from 'lucide-react';
 interface UserMetaInfo {
   nickname?: string;
   plan?: string;
@@ -125,6 +122,12 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             <div className="hidden md:flex items-center gap-2">
               <button onClick={() => onNavigate('chat')} className="flex items-center gap-2 px-6 py-2 rounded-full border text-[10px] font-black uppercase transition-all bg-slate-300 border-slate-800 text-sky-800 hover:bg-slate-100">
                 <Sparkles size={14} /> Nexus IA
+              </button>
+              <button
+                onClick={() => onNavigate('minhas-dividas')}
+                className="flex items-center gap-2 px-5 py-2 rounded-full border text-[10px] font-black uppercase transition-all bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100"
+              >
+                <CreditCard size={14} /> Minhas Dívidas
               </button>
               <button onClick={() => onNavigate('settings')} className="p-2 text-slate-400 hover:text-white transition-colors"><Settings size={18} /></button>
               <button onClick={onLogout} className="p-2 text-slate-500 hover:text-red-400 transition-colors"><LogOut size={18} /></button>

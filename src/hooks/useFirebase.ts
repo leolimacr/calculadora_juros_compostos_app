@@ -13,7 +13,7 @@ import {
   deleteDoc 
 } from 'firebase/firestore';
 import { db, firestore } from '../firebase';
-import { Transaction, Category, UserMeta } from '../types';
+import { Transaction, Category, UserMeta, FinancialProfile } from '../types';
 
 const DEFAULT_CATEGORIES: Omit<Category, 'id' | 'userId'>[] = [
   { name: 'Moradia', type: 'expense', color: '#EF4444', icon: 'home' },
@@ -202,7 +202,16 @@ export const useFirebase = (userId?: string) => {
     const newList = categories.filter(c => c.id !== categoryId);
     await setDoc(categoriesRef, { list: newList }, { merge: true });
   };
-
+  const saveFinancialProfile = async (profile: FinancialProfile) => {
+    if (!userId) return;
+    try {
+      const userDocRef = doc(firestore, 'users', userId);
+      await setDoc(userDocRef, { financialProfile: profile }, { merge: true });
+    } catch (error) {
+      console.error("Erro ao salvar perfil financeiro:", error);
+      throw error;
+    }
+  };
   const wipeUserData = async () => {
     if (!userId) return;
     try {
@@ -226,6 +235,7 @@ export const useFirebase = (userId?: string) => {
     deleteLancamento,
     saveCategory,
     deleteCategory,
+    saveFinancialProfile,
     wipeUserData, 
     isLimitReached,
     usagePercentage

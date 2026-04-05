@@ -35,7 +35,7 @@ export interface PerfilContexto {
 }
 
 export interface PatrimonioContexto {
-  valorTotalInvestimentosFinanceiros: number;
+  valorInvestimentosLiquidos: number;
   valorPatrimonioLiquido?: number;
   valorDisponivelAcimaReserva?: number;
   usaReservaParaQuitar?: boolean;
@@ -118,7 +118,7 @@ export const PerfilContextoSchema = z.object({
 });
 
 export const PatrimonioContextoSchema = z.object({
-  valorTotalInvestimentosFinanceiros: z.number(),
+  valorInvestimentosLiquidos: z.number(),
   valorPatrimonioLiquido: z.number().optional().nullable(),
   valorDisponivelAcimaReserva: z.number().optional().nullable(),
   usaReservaParaQuitar: z.boolean().optional(),

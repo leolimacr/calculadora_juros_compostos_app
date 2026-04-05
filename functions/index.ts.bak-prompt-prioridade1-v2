@@ -1,4 +1,4 @@
-// Capturar exceÁıes n„o tratadas para debug
+Ôªø// Capturar exce√ß√µes n√£o tratadas para debug
 process.on('uncaughtException', (err) => {
   console.error('UNCAUGHT EXCEPTION:', err);
   process.exit(1);
@@ -40,12 +40,12 @@ async function getUserPlan(userId: string): Promise<string | undefined> {
       const plan = data?.subscription?.plan;
       
       if (plan) {
-        logger.info(`[Subscription] Plano do usu·rio ${userId}: ${plan}`);
+        logger.info(`[Subscription] Plano do usu√°rio ${userId}: ${plan}`);
         return plan;
       }
     }
     
-    logger.info(`[Subscription] Usu·rio ${userId} sem plano definido (usando padr„o)`);
+    logger.info(`[Subscription] Usu√°rio ${userId} sem plano definido (usando padr√£o)`);
     return undefined;
   } catch (error: any) {
     logger.error(`[Subscription] Erro ao buscar plano: ${error.message}`);
@@ -60,19 +60,19 @@ async function getUserDebts(userId: string): Promise<any[]> {
     if (snapshot.empty) return [];
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   } catch (error: any) {
-    logger.error(`[Debts] Erro ao buscar dÌvidas: ${error.message}`);
+    logger.error(`[Debts] Erro ao buscar d√≠vidas: ${error.message}`);
     return [];
   }
 }
 
-// NOVA FUN«√O: descreve o perÌodo de histÛrico com base no plano
+// NOVA FUN√á√ÉO: descreve o per√≠odo de hist√≥rico com base no plano
 function describeHistoryWindow(plan?: string): string {
   switch (plan) {
-    case 'free': return 'VocÍ est· no plano Free, ent„o posso analisar apenas os ˙ltimos 3 dias do seu histÛrico';
-    case 'pro': return 'VocÍ est· no plano Pro, ent„o posso analisar os ˙ltimos 30 dias do seu histÛrico';
-    case 'premium': return 'VocÍ est· no plano Premium, ent„o posso analisar os ˙ltimos 90 dias do seu histÛrico';
-    case 'premium_anual': return 'VocÍ est· no plano Premium Anual, ent„o posso analisar todo o seu histÛrico de lanÁamentos (ilimitado)';
-    default: return 'analiso um recorte recente do seu histÛrico, definido pelo seu plano';
+    case 'free': return 'Voc√™ est√° no plano Free, ent√£o posso analisar apenas os √∫ltimos 3 dias do seu hist√≥rico';
+    case 'pro': return 'Voc√™ est√° no plano Pro, ent√£o posso analisar os √∫ltimos 30 dias do seu hist√≥rico';
+    case 'premium': return 'Voc√™ est√° no plano Premium, ent√£o posso analisar os √∫ltimos 90 dias do seu hist√≥rico';
+    case 'premium_anual': return 'Voc√™ est√° no plano Premium Anual, ent√£o posso analisar todo o seu hist√≥rico de lan√ßamentos (ilimitado)';
+    default: return 'analiso um recorte recente do seu hist√≥rico, definido pelo seu plano';
   }
 }
 
@@ -80,7 +80,7 @@ function describeHistoryWindow(plan?: string): string {
 let tavilyUsageCount = 0;
 const TAVILY_MONTHLY_LIMIT = 1000;
 
-// --- FUN«’ES DE BUSCA WEB ---
+// --- FUN√á√ïES DE BUSCA WEB ---
 async function searchWebTavily(query: string, apiKey: string): Promise<string | null> {
   try {
     tavilyUsageCount++;
@@ -113,7 +113,7 @@ async function searchWebTavily(query: string, apiKey: string): Promise<string | 
 
     const data: any = await response.json();
     if (data.answer) {
-      logger.info('[Tavily] ? Resposta obtida');
+      logger.info('[Tavily] ‚úì Resposta obtida');
       return data.answer;
     }
 
@@ -124,7 +124,7 @@ async function searchWebTavily(query: string, apiKey: string): Promise<string | 
         .filter((s: string) => s.length > 0)
         .join('\n\n');
       if (summary.length > 0) {
-        logger.info('[Tavily] ? Resultados concatenados');
+        logger.info('[Tavily] ‚úì Resultados concatenados');
         return summary;
       }
     }
@@ -168,11 +168,11 @@ async function searchWebScraping(query: string): Promise<string | null> {
     }
 
     if (matches.length > 0) {
-      logger.info(`[Scraping] ? ${matches.length} resultados extraÌdos`);
+      logger.info(`[Scraping] ‚úì ${matches.length} resultados extra√≠dos`);
       return matches.join('\n\n');
     }
 
-    logger.warn('[Scraping] Nenhum resultado extraÌdo');
+    logger.warn('[Scraping] Nenhum resultado extra√≠do');
     return null;
   } catch (error: any) {
     logger.error('[Scraping] Erro:', error.message);
@@ -191,10 +191,10 @@ async function searchWebCascade(query: string, tavilyKey: string): Promise<strin
   if (scrapingResult) return scrapingResult;
 
   logger.warn('[WebSearch] Todas tentativas falharam');
-  return "N„o consegui obter informaÁıes atualizadas no momento. Tente novamente em alguns instantes.";
+  return "N√£o consegui obter informa√ß√µes atualizadas no momento. Tente novamente em alguns instantes.";
 }
 
-// --- FUN«’ES AUXILIARES ---
+// --- FUN√á√ïES AUXILIARES ---
 async function fetchSafe(url: string, timeout = 8000): Promise<any> {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
@@ -283,12 +283,12 @@ async function fetchAllMarketData(
   const results: string[] = [];
   let hasAnyData = false;
 
-  const needsUSDExplicit = /dÛlar|dolar|usd|dollar|us\$/i.test(prompt);
+  const needsUSDExplicit = /d√≥lar|dolar|usd|dollar|us\$/i.test(prompt);
   let needsUSDContext = false;
   if (history.length > 0) {
     const lastTwoMsgs = history.slice(-2);
     needsUSDContext = lastTwoMsgs.some((h: any) => 
-      /dÛlar|dolar|usd|dollar|US\$/i.test(h.text || '')
+      /d√≥lar|dolar|usd|dollar|US\$/i.test(h.text || '')
     );
   }
   const needsUSD = needsUSDExplicit || needsUSDContext;
@@ -298,7 +298,7 @@ async function fetchAllMarketData(
       const cpDual = await fetchCryptoPricesDual(cryptos);
       if (Object.keys(cpDual).length > 0) {
         Object.entries(cpDual).forEach(([symbol, data]) => {
-          results.push(`${symbol}: US$ ${data.priceUSD.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} / R$ ${data.priceBRL.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} (cotaÁ„o de ${data.lastUpdated})`);
+          results.push(`${symbol}: US$ ${data.priceUSD.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} / R$ ${data.priceBRL.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} (cota√ß√£o de ${data.lastUpdated})`);
         });
         hasAnyData = true;
       }
@@ -306,7 +306,7 @@ async function fetchAllMarketData(
       const cp = await fetchCryptoPrices(cryptos);
       if (Object.keys(cp).length > 0) {
         Object.entries(cp).forEach(([symbol, data]) => {
-          results.push(`${symbol}: R$ ${data.price.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} (cotaÁ„o de ${data.lastUpdated})`);
+          results.push(`${symbol}: R$ ${data.price.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} (cota√ß√£o de ${data.lastUpdated})`);
         });
         hasAnyData = true;
       }
@@ -324,7 +324,7 @@ async function fetchAllMarketData(
             if (d?.results?.[0]?.regularMarketPrice) {
               const time = new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
               const date = new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric' });
-              return `${ticker}: R$ ${d.results[0].regularMarketPrice.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} (cotaÁ„o de ${date} ‡s ${time})`;
+              return `${ticker}: R$ ${d.results[0].regularMarketPrice.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} (cota√ß√£o de ${date} √†s ${time})`;
             }
             return null;
           } catch (err) { return null; }
@@ -336,7 +336,7 @@ async function fetchAllMarketData(
           hasAnyData = true;
         }
       });
-    } catch (error) { logger.error("Erro busca aÁıes", error); }
+    } catch (error) { logger.error("Erro busca a√ß√µes", error); }
   }
 
   return hasAnyData ? results.join('\n') : "";
@@ -354,7 +354,7 @@ function extractTickersFallback(prompt: string): { b3: string[], crypto: string[
   }
 
   const companyMap: Record<string, {type: 'b3'|'crypto', ticker: string}> = {
-    'ita˙': {type:'b3', ticker:'ITUB4'},
+    'ita√∫': {type:'b3', ticker:'ITUB4'},
     'itau': {type:'b3', ticker:'ITUB4'},
     'itub': {type:'b3', ticker:'ITUB4'},
     'itub4': {type:'b3', ticker:'ITUB4'},
@@ -387,7 +387,7 @@ function extractTickersFallback(prompt: string): { b3: string[], crypto: string[
 }
 
 // ============================================
-// FUN«√O: generateDebtPlan (Simulador ? Nexus)
+// FUN√á√ÉO: generateDebtPlan (Simulador ‚Üí Nexus)
 // ============================================
 
 
@@ -412,17 +412,17 @@ export const generateDebtPlan = onCall(
 
     try {
       if (!request.auth) {
-        throw new HttpsError("unauthenticated", "Login necess·rio.");
+        throw new HttpsError("unauthenticated", "Login necess√°rio.");
       }
 
       // 1) Validar payload de entrada
       const parseResult = NexusDebtPlanRequestSchema.safeParse(request.data);
       if (!parseResult.success) {
-        logger.error("[generateDebtPlan] Payload inv·lido:", parseResult.error.flatten());
+        logger.error("[generateDebtPlan] Payload inv√°lido:", parseResult.error.flatten());
         // Agora o erro inclui os detalhes do Zod
         throw new HttpsError(
           "invalid-argument",
-          "Dados inv·lidos: " + JSON.stringify(parseResult.error.flatten())
+          "Dados inv√°lidos: " + JSON.stringify(parseResult.error.flatten())
         );
       }
 
@@ -440,75 +440,68 @@ export const generateDebtPlan = onCall(
         mistral: mistralApiKey,
       });
 
-      // 3) Montar system prompt especÌfico para plano de dÌvidas
+      // 3) Montar system prompt espec√≠fico para plano de d√≠vidas
       const dados = parseResult.data;
       const ctx = dados.perfilContexto;
       const patrimonio = dados.patrimonioContexto;
       const oportunidade = dados.custoOportunidadeContexto;
 
       const estabilidadeLabel =
-        ctx?.estabilidade === 'estavel' ? 'Est·vel (renda fixa e previsÌvel)' :
-        ctx?.estabilidade === 'volatil' ? 'Vol·til (renda imprevisÌvel, risco alto)' :
-        ctx?.estabilidade === 'regular' ? 'Regular (renda com alguma variaÁ„o)' :
-        'N„o informada';
+        ctx?.estabilidade === 'estavel' ? 'Est√°vel (renda fixa e previs√≠vel)' :
+        ctx?.estabilidade === 'volatil' ? 'Vol√°til (renda imprevis√≠vel, risco alto)' :
+        ctx?.estabilidade === 'regular' ? 'Regular (renda com alguma varia√ß√£o)' :
+        'N√£o informada';
 
       const reservaStatus = ctx
         ? `R$ ${ctx.reservaAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} de reserva atual (meta: ${ctx.metaReservaEmMeses} meses de renda)`
-        : 'N„o informada';
+        : 'N√£o informada';
 
       const patrimonioStatus = patrimonio
-        ? `Total de investimentos financeiros: R$ ${patrimonio.valorTotalInvestimentosFinanceiros.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}${patrimonio.valorDisponivelAcimaReserva != null ? ` | DisponÌvel acima da reserva: R$ ${patrimonio.valorDisponivelAcimaReserva.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ''}${patrimonio.valorPatrimonioLiquido != null ? ` | PatrimÙnio lÌquido: R$ ${patrimonio.valorPatrimonioLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ''}`
-        : 'N„o informado';
+        ? `Investimentos l√≠quidos: R$ ${patrimonio.valorInvestimentosLiquidos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}${patrimonio.valorDisponivelAcimaReserva != null ? ` | Dispon√≠vel acima da reserva: R$ ${patrimonio.valorDisponivelAcimaReserva.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ''}${patrimonio.valorPatrimonioLiquido != null ? ` | Patrim√¥nio l√≠quido: R$ ${patrimonio.valorPatrimonioLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ''}`
+        : 'N√£o informado';
 
       const oportunidadeStatus = oportunidade
-        ? `Selic: ${oportunidade.selicAno ?? 'n/d'}% a.a. | CDI: ${oportunidade.cdiAno ?? 'n/d'}% a.a. | Retorno lÌquido estimado: ${oportunidade.retornoLiquidoEstimadoAno ?? 'n/d'}% a.a. | EstratÈgia sugerida: ${oportunidade.estrategiaSugerida ?? 'n/d'}`
-        : 'N„o informado';
+        ? `Selic: ${oportunidade.selicAno ?? 'n/d'}% a.a. | CDI: ${oportunidade.cdiAno ?? 'n/d'}% a.a. | Retorno l√≠quido estimado: ${oportunidade.retornoLiquidoEstimadoAno ?? 'n/d'}% a.a. | Estrat√©gia sugerida: ${oportunidade.estrategiaSugerida ?? 'n/d'}`
+        : 'N√£o informado';
 
 
       const systemPrompt = `
-VocÍ È o Nexus, mentor financeiro do app FinanÁas Pro Invest. Seu papel È ajudar pessoas endividadas a montar planos claros, realistas e personalizados de quitaÁ„o de dÌvidas.
+Voc√™ √© o Nexus, mentor financeiro do app Finan√ßas Pro Invest. Seu papel √© ajudar pessoas endividadas a montar planos claros, realistas e personalizados de quita√ß√£o de d√≠vidas.
 
-VocÍ N√O È um chatbot genÈrico. VocÍ È um especialista que conhece profundamente a situaÁ„o deste usu·rio porque recebeu os dados reais dele. Use esses dados com inteligÍncia e mostre que os considerou em cada parte do plano.
+Voc√™ N√ÉO √© um chatbot gen√©rico. Voc√™ √© um especialista que conhece profundamente a situa√ß√£o deste usu√°rio porque recebeu os dados reais dele. Use esses dados com intelig√™ncia e mostre que os considerou em cada parte do plano.
 
 ## Seu papel
-1. Fazer um espelho fiel das dÌvidas cadastradas (cite nome, saldo e taxa de cada uma).
-2. Considerar o perfil de estabilidade do usu·rio (${estabilidadeLabel}) para calibrar o tom e o ritmo do plano.
-3. Considerar a reserva de emergÍncia (${reservaStatus}) antes de recomendar aportes extras ó nunca oriente o usu·rio a comprometer a reserva mÌnima.
-4. Definir qual dÌvida deve ser PRIORIDADE 1 e explicar o porquÍ com base nos juros e no impacto real.
-5. Considerar o patrimÙnio e os investimentos disponÌveis do usu·rio (${patrimonioStatus}) para avaliar se existe valor acima da reserva mÌnima que possa ser usado para quitar ou amortizar dÌvidas.
-6. Considerar o custo de oportunidade do dinheiro parado versus o custo das dÌvidas, usando o contexto econÙmico recebido (${oportunidadeStatus}) para decidir entre quitar, amortizar ou provisionar.
-7. Quando fizer sentido, orientar o usu·rio a consultar o banco para antecipaÁ„o das parcelas finais, explicando que isso pode gerar desconto real de juros.
-8. Transformar o diagnÛstico em um plano de aÁ„o dividido em:
-   - resumo diagnÛstico (2 a 3 frases que espelham a situaÁ„o real);
-   - explicaÁ„o da prioridade;
-   - horizonte de quitaÁ„o (prazo e economia estimada);
-   - passos concretos para os prÛximos 7 dias;
-   - passos concretos para os prÛximos 30 dias;
-   - alertas importantes personalizados para o perfil deste usu·rio.
+1. Fazer um espelho fiel das d√≠vidas cadastradas (cite nome, saldo e taxa de cada uma).
+2. Considerar o perfil de estabilidade do usu√°rio (${estabilidadeLabel}) para calibrar o tom e o ritmo do plano.
+3. Considerar a reserva de emerg√™ncia (${reservaStatus}) antes de recomendar aportes extras ‚Äî nunca oriente o usu√°rio a comprometer a reserva m√≠nima.
+4. Definir qual d√≠vida deve ser PRIORIDADE 1 e explicar o porqu√™ com base nos juros e no impacto real.
+5. Transformar o diagn√≥stico em um plano de a√ß√£o dividido em:
+   - resumo diagn√≥stico (2 a 3 frases que espelham a situa√ß√£o real);
+   - explica√ß√£o da prioridade;
+   - horizonte de quita√ß√£o (prazo e economia estimada);
+   - passos concretos para os pr√≥ximos 7 dias;
+   - passos concretos para os pr√≥ximos 30 dias;
+   - alertas importantes personalizados para o perfil deste usu√°rio.
 
 ## Regras de ouro
-- Fale sempre em portuguÍs do Brasil, linguagem simples, sem jargıes.
-- Nunca peÁa dados novos; use apenas os dados fornecidos.
-- Nunca recomende comprometer a reserva de emergÍncia abaixo da meta do perfil.
-- Se houver patrimÙnio/investimentos acima da reserva mÌnima, considere esse excedente na estratÈgia.
-- Se o retorno lÌquido estimado do dinheiro for maior do que o custo efetivo de uma dÌvida, vocÍ pode recomendar provisionar o valor em vez de quitar imediatamente, desde que isso seja explicado com clareza e prudÍncia.
-- Se o custo da dÌvida for claramente maior do que o retorno lÌquido estimado do dinheiro, priorize quitar ou amortizar essa dÌvida com o excedente disponÌvel.
-- Ao sugerir antecipaÁ„o, prefira orientar a antecipaÁ„o das ˙ltimas parcelas e recomende procurar o banco para simular o desconto real.
-- Para perfil Vol·til: seja mais conservador, priorize estabilidade antes de agressividade no pagamento.
-- Para perfil Est·vel: pode recomendar aportes extras com mais confianÁa.
+- Fale sempre em portugu√™s do Brasil, linguagem simples, sem jarg√µes.
+- Nunca pe√ßa dados novos; use apenas os dados fornecidos.
+- Nunca recomende comprometer a reserva de emerg√™ncia abaixo da meta do perfil.
+- Para perfil Vol√°til: seja mais conservador, priorize estabilidade antes de agressividade no pagamento.
+- Para perfil Est√°vel: pode recomendar aportes extras com mais confian√ßa.
 - Para perfil Regular: equilibre entre cautela e progresso.
-- N„o ofereÁa aconselhamento jurÌdico; foque em educaÁ„o financeira.
-- Seja respeitoso e realista: n„o prometa milagres, mas mostre um caminho possÌvel.
+- N√£o ofere√ßa aconselhamento jur√≠dico; foque em educa√ß√£o financeira.
+- Seja respeitoso e realista: n√£o prometa milagres, mas mostre um caminho poss√≠vel.
 
 ## Formato de resposta
-VocÍ deve SEMPRE responder em JSON v·lido, no formato exato abaixo. Nenhum texto fora do JSON:
+Voc√™ deve SEMPRE responder em JSON v√°lido, no formato exato abaixo. Nenhum texto fora do JSON:
 {
   "resumo3Linhas": ["frase 1", "frase 2", "frase 3"],
   "prioridade": {
-    "idDividaPrioritaria": "id da dÌvida",
-    "nomeDividaPrioritaria": "nome da dÌvida",
-    "motivo": "explicaÁ„o baseada nos dados reais",
-    "recomendacaoPrincipal": "aÁ„o concreta e especÌfica"
+    "idDividaPrioritaria": "id da d√≠vida",
+    "nomeDividaPrioritaria": "nome da d√≠vida",
+    "motivo": "explica√ß√£o baseada nos dados reais",
+    "recomendacaoPrincipal": "a√ß√£o concreta e espec√≠fica"
   },
   "planoHorizonte": {
     "prazoEstimadoQuitacaoMeses": 0,
@@ -525,44 +518,119 @@ VocÍ deve SEMPRE responder em JSON v·lido, no formato exato abaixo. Nenhum texto
 }
 
 Regras adicionais:
-- N„o inclua coment·rios nem texto fora do JSON.
-- Se algum campo numÈrico n„o vier preenchido, use null ou 0, nunca invente n˙meros.
-- "tomGeral" deve ser: "calmo" para Est·vel, "direto" para Regular, "motivador" para Vol·til.
+- N√£o inclua coment√°rios nem texto fora do JSON.
+- Se algum campo num√©rico n√£o vier preenchido, use null ou 0, nunca invente n√∫meros.
+- "tomGeral" deve ser: "calmo" para Est√°vel, "direto" para Regular, "motivador" para Vol√°til.
 `;
 
-      // 4) Mensagem "user" com os dados da simulaÁ„o
+      // 4) Mensagem "user" com os dados da simula√ß√£o
       const userMessage = `
-A seguir est„o os dados reais de um usu·rio do FinanÁas Pro Invest.
+A seguir est√£o os dados reais de um usu√°rio do Finan√ßas Pro Invest.
 
-PERFIL DO USU¡RIO:
+PERFIL DO USU√ÅRIO:
 - Estabilidade de renda: ${estabilidadeLabel}
-- Reserva de emergÍncia: ${reservaStatus}
+- Reserva de emerg√™ncia: ${reservaStatus}
 - Renda mensal declarada: ${dados.simulacao.rendaMensalEstimada
     ? `R$ ${dados.simulacao.rendaMensalEstimada.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-    : 'N„o informada'}
+    : 'N√£o informada'}
 
-PATRIM‘NIO E INVESTIMENTOS:
-- Contexto patrimonial: ${patrimonioStatus}
-
-CONTEXTO DE CUSTO DE OPORTUNIDADE:
-- Contexto econÙmico e estratÈgico: ${oportunidadeStatus}
-
-DÕVIDAS CADASTRADAS (espelhe todas no diagnÛstico):
+D√çVIDAS CADASTRADAS (espelhe todas no diagn√≥stico):
 ${dados.dividas.map((d, i) =>
-  `${i + 1}. ${d.nome} ó Saldo: R$ ${d.saldoAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} | Taxa: ${d.taxaJurosMes}% a.m.${d.parcelaMensal ? ` | Parcela: R$ ${d.parcelaMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ''}`
+  `${i + 1}. ${d.nome} ‚Äî Saldo: R$ ${d.saldoAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} | Taxa: ${d.taxaJurosMes}% a.m.${d.parcelaMensal ? ` | Parcela: R$ ${d.parcelaMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ''}`
 ).join('\n')}
 
-SIMULA«√O (para referÍncia):
+SIMULA√á√ÉO (para refer√™ncia):
 ${JSON.stringify(dados.simulacao, null, 2)}
 
-Monte o plano de quitaÁ„o considerando TODOS esses dados. Cite as dÌvidas pelo nome no diagnÛstico.
+Monte o plano de quita√ß√£o considerando TODOS esses dados. Cite as d√≠vidas pelo nome no diagn√≥stico.
+Responda apenas com o JSON no formato combinado.
+`;
+      const systemPrompt = `
+Voc√™ √© o Nexus, especialista em ajudar pessoas endividadas a montar planos claros e realistas de quita√ß√£o de d√≠vidas.
+
+Seu papel N√ÉO √© fazer motiva√ß√£o gen√©rica, nem pedir mais informa√ß√µes.
+Seu papel √©:
+
+1. Analisar a lista de d√≠vidas recebida (valores, juros, prazo).
+2. Definir qual d√≠vida deve ser PRIORIDADE 1 e explicar o porqu√™.
+3. Transformar o diagn√≥stico em um plano de a√ß√£o simples, dividido em:
+   - resumo em at√© 3 frases;
+   - explica√ß√£o da prioridade;
+   - horizonte de quita√ß√£o (prazo e economia estimada, se informado);
+   - passos concretos para os pr√≥ximos 7 dias;
+   - passos concretos para os pr√≥ximos 30 dias;
+   - alertas importantes (o que evitar).
+
+Restri√ß√µes importantes:
+- Fale sempre em portugu√™s do Brasil, linguagem simples, sem jarg√µes.
+- N√£o ofere√ßa aconselhamento jur√≠dico ou individualizado; foque em educa√ß√£o financeira gen√©rica.
+- Nunca pe√ßa dados novos ao usu√°rio; use apenas os dados fornecidos.
+- Seja respeitoso e realista: n√£o prometa milagres, mas mostre um caminho poss√≠vel.
+
+Voc√™ deve SEMPRE responder em JSON v√°lido, no formato exato de DebtPlanResponse:
+{
+  "resumo3Linhas": [...],
+  "prioridade": {
+    "idDividaPrioritaria": "...",
+    "nomeDividaPrioritaria": "...",
+    "motivo": "...",
+    "recomendacaoPrincipal": "..."
+  },
+  "planoHorizonte": {
+    "prazoEstimadoQuitacaoMeses": 0,
+    "economiaEstimadaJuros": 0
+  },
+  "passos7Dias": [
+    {
+      "ordem": 1,
+      "horizonte": "7_dias",
+      "descricao": "...",
+      "observacoes": "..."
+    }
+  ],
+  "passos30Dias": [
+    {
+      "ordem": 1,
+      "horizonte": "30_dias",
+      "descricao": "...",
+      "observacoes": "..."
+    }
+  ],
+  "alertasImportantes": [
+    "..."
+  ],
+  "tomGeral": "calmo"
+}
+
+Regras adicionais:
+- N√£o inclua coment√°rios.
+- N√£o inclua texto fora do JSON.
+- Se algum campo num√©rico n√£o vier preenchido nos dados do usu√°rio, use null ou 0, mas nunca invente n√∫meros.
+`;
+
+      // 4) Mensagem "user" com os dados da simula√ß√£o
+      const userMessage = `
+A seguir est√£o os dados de um usu√°rio endividado e o resultado de uma simula√ß√£o de d√≠vidas.
+
+Use APENAS essas informa√ß√µes para montar um plano de quita√ß√£o.
+Leve em conta que esse usu√°rio provavelmente est√° ansioso e confuso, ent√£o voc√™ deve ser claro e organizado.
+
+DADOS (JSON):
+${JSON.stringify(dados)}
+
+Lembre-se:
+- "resumo3Linhas" deve ter entre 2 e 3 frases curtas.
+- "passos7Dias" e "passos30Dias" devem ser a√ß√µes espec√≠ficas, que possam ser executadas.
+- "alertasImportantes" deve focar em erros comuns (fazer novo empr√©stimo caro, ignorar juros altos, etc.).
+- Se algum campo num√©rico n√£o vier preenchido, use null ou 0, mas nunca invente n√∫meros.
+
 Responda apenas com o JSON no formato combinado.
 `;
       const messages = [
         { role: "user" as const, content: userMessage },
       ];
 
-      // 5) Chamar o router (sem histÛrico, sem web search)
+      // 5) Chamar o router (sem hist√≥rico, sem web search)
       logger.info(`[generateDebtPlan] Chamando modelo para userId=${userId}`);
       const llmResponse = await router.routeRequest(messages, systemPrompt, {
         temperature: 0.4,
@@ -623,13 +691,13 @@ Responda apenas com o JSON no formato combinado.
       }
       throw new HttpsError(
         "internal",
-        "Erro interno ao gerar o plano de quitaÁ„o."
+        "Erro interno ao gerar o plano de quita√ß√£o."
       );
     }
   }
 );
 
-// --- FUN«√O PRINCIPAL ---
+// --- FUN√á√ÉO PRINCIPAL ---
 export const askAiAdvisor = onCall(
   {
     memory: "1GiB",
@@ -637,14 +705,14 @@ export const askAiAdvisor = onCall(
     region: "us-central1"
   },
   async (request) => {
-    // 1. L  AS CHAVES AQUI DENTRO (No momento exato da execuÁ„o)
+    // 1. L√ä AS CHAVES AQUI DENTRO (No momento exato da execu√ß√£o)
     const geminiApiKey = process.env.GEMINI_API_KEY as string;
     const openrouterApiKey = process.env.OPENROUTER_API_KEY as string;
     const mistralApiKey = process.env.MISTRAL_API_KEY as string;
     const brapiToken = process.env.BRAPI_TOKEN as string;
     // const tavilyApiKey = process.env.TAVILY_API_KEY as string; // (Declare onde for usar)
 
-    // 2. ATUALIZA O SEU ROUTER (Que j· gerencia o Singleton dos SDKs!)
+    // 2. ATUALIZA O SEU ROUTER (Que j√° gerencia o Singleton dos SDKs!)
     const router = MultiModelRouter.getInstance();
     router.updateApiKeys({
       gemini: geminiApiKey,
@@ -652,20 +720,20 @@ export const askAiAdvisor = onCall(
       mistral: mistralApiKey
     });
     try {
-      if (!request.auth) throw new HttpsError("unauthenticated", "Login necess·rio.");
+      if (!request.auth) throw new HttpsError("unauthenticated", "Login necess√°rio.");
 	  const { prompt, userName, history = [], isFirstInteraction, context: frontendContext = {} } = request.data;
 	  const { assets = [], passives = [], goals = [] } = frontendContext;
-	  console.log("?? assets recebidos:", JSON.stringify(assets));
-	  console.log("?? passives recebidos:", JSON.stringify(passives));
-	  console.log("?? goals recebidos do frontend:", JSON.stringify(goals));
+	  console.log("üìå assets recebidos:", JSON.stringify(assets));
+	  console.log("üìå passives recebidos:", JSON.stringify(passives));
+	  console.log("üìå goals recebidos do frontend:", JSON.stringify(goals));
       const safeUserName = (userName || "Investidor").split(' ')[0];
       const userId = request.auth.uid;
 
-      // DETEC«√O DE PRIMEIRA MENSAGEM
+      // DETEC√á√ÉO DE PRIMEIRA MENSAGEM
       let isFirst: boolean;
       if (typeof isFirstInteraction === 'boolean') {
         isFirst = isFirstInteraction;
-        logger.info(`[FirstMsg] Flag explÌcito do Flutter: ${isFirst}`);
+        logger.info(`[FirstMsg] Flag expl√≠cito do Flutter: ${isFirst}`);
       } else {
         const validHistory = Array.isArray(history) ? history.filter((h: any) =>
           h && h.text && h.text.trim() && h.role !== 'system'
@@ -677,21 +745,21 @@ export const askAiAdvisor = onCall(
       logger.info(`[History] Total: ${history.length}`);
       logger.info(`[${safeUserName}] isFirst=${isFirst}: "${prompt.substring(0, 80)}..."`);
 
-      // 1. SAUDA«√O LITERAL
+      // 1. SAUDA√á√ÉO LITERAL
       if (isFirst) {
         const cleanPrompt = prompt.trim().toLowerCase()
           .replace(/[.,!?;:\(\)\[\]]/g, '')
           .replace(/\s+/g, ' ');
 
         const simpleGreetings = [
-          'oi', 'ol·', 'ola', 'oie', 'opa', 'eai', 'e ai', 'e aÌ',
+          'oi', 'ol√°', 'ola', 'oie', 'opa', 'eai', 'e ai', 'e a√≠',
           'bom dia', 'boa tarde', 'boa noite', 'ei', 'hey', 'hi', 'hello',
-          'alÙ', 'alo', 'fala', 'fala aÌ', 'fala ai', 'beleza'
+          'al√¥', 'alo', 'fala', 'fala a√≠', 'fala ai', 'beleza'
         ];
 
         if (simpleGreetings.includes(cleanPrompt)) {
           const greeting = NexusIdentity.getInitialGreeting(safeUserName);
-          logger.info("? SaudaÁ„o simples detectada");
+          logger.info("‚úì Sauda√ß√£o simples detectada");
           return {
             success: true,
             answer: greeting,
@@ -707,58 +775,58 @@ export const askAiAdvisor = onCall(
         /qual (o melhor|a melhor) investimento/i,
         /aplicar.*dinheiro/i,
         /investir.*reais/i,
-        /o que fa[Áz]o com.*reais/i,
+        /o que fa[√ßz]o com.*reais/i,
         /sugere.*investimento/i,
         /indica.*investimento/i
       ];
 
       if (investmentRequestPatterns.some(p => p.test(prompt))) {
-        logger.warn(`?? BLOQUEIO CVM`);
+        logger.warn(`‚ö†Ô∏è BLOQUEIO CVM`);
         return {
           success: true,
-          answer: `${safeUserName}, n„o posso fazer recomendaÁıes especÌficas de investimento, pois isso exige an·lise de perfil completo e est· regulamentado pela CVM.\n\nO que posso fazer:\nï Explicar conceitos gerais (ex: o que È renda fixa, aÁıes, etc)\nï Mostrar dados de mercado atuais\nï Tirar d˙vidas sobre produtos financeiros\n\nPara recomendaÁıes personalizadas, vocÍ deve consultar um assessor de investimentos registrado na CVM.\n\nPosso explicar algum conceito ou produto especÌfico?`,
+          answer: `${safeUserName}, n√£o posso fazer recomenda√ß√µes espec√≠ficas de investimento, pois isso exige an√°lise de perfil completo e est√° regulamentado pela CVM.\n\nO que posso fazer:\n‚Ä¢ Explicar conceitos gerais (ex: o que √© renda fixa, a√ß√µes, etc)\n‚Ä¢ Mostrar dados de mercado atuais\n‚Ä¢ Tirar d√∫vidas sobre produtos financeiros\n\nPara recomenda√ß√µes personalizadas, voc√™ deve consultar um assessor de investimentos registrado na CVM.\n\nPosso explicar algum conceito ou produto espec√≠fico?`,
           context: { intent: 'investment_request_blocked', model: 'system' }
         };
       }
 
-      // 3. DADOS DO USU¡RIO
+      // 3. DADOS DO USU√ÅRIO
       let userData: UserDataResult;
-      let historyDescription = 'analiso um recorte recente do seu histÛrico, definido pelo seu plano'; // padr„o
+      let historyDescription = 'analiso um recorte recente do seu hist√≥rico, definido pelo seu plano'; // padr√£o
       let serverDebts: any[] = [];
       try {
-        // Buscar plano do usu·rio
+        // Buscar plano do usu√°rio
         const userPlan = await getUserPlan(userId);
         serverDebts = await getUserDebts(userId);
-        logger.info(`?? [DEBUG] userId: ${userId}`);
-        logger.info(`?? [DEBUG] Plano retornado: "${userPlan}"`);
-        logger.info(`?? [DEBUG] Tipo: ${typeof userPlan}`);
+        logger.info(`üîç [DEBUG] userId: ${userId}`);
+        logger.info(`üîç [DEBUG] Plano retornado: "${userPlan}"`);
+        logger.info(`üîç [DEBUG] Tipo: ${typeof userPlan}`);
         
-        // Gerar descriÁ„o do perÌodo de histÛrico
+        // Gerar descri√ß√£o do per√≠odo de hist√≥rico
         historyDescription = describeHistoryWindow(userPlan);
-        logger.info(`?? [DEBUG] historyDescription: "${historyDescription}"`);
+        logger.info(`üîç [DEBUG] historyDescription: "${historyDescription}"`);
         
         // Passar plano para DataIntegrator
         userData = await DataIntegrator.gatherUserData(userId, userPlan);
       } catch (dataError: any) {
-        logger.error("Falha dados usu·rio:", dataError);
+        logger.error("Falha dados usu√°rio:", dataError);
         userData = { goals: [], recentTransactions: [], simulations: [], summary: '', hasData: false, dataStatus: 'error' };
       }
-	  // LOGS DETALHADOS PARA DIAGN”STICO DAS METAS
-		console.log("?? DEBUG - INÕCIO DO PROCESSAMENTO DE METAS");
-		console.log("?? userData existe?", !!userData);
-		console.log("?? userData.goals È array?", Array.isArray(userData?.goals));
-		console.log("?? Quantidade de goals em userData:", userData?.goals?.length || 0);
+	  // LOGS DETALHADOS PARA DIAGN√ìSTICO DAS METAS
+		console.log("üîç DEBUG - IN√çCIO DO PROCESSAMENTO DE METAS");
+		console.log("üîç userData existe?", !!userData);
+		console.log("üîç userData.goals √© array?", Array.isArray(userData?.goals));
+		console.log("üîç Quantidade de goals em userData:", userData?.goals?.length || 0);
 		if (userData?.goals?.length > 0) {
-		  console.log("?? Primeira goal:", JSON.stringify(userData.goals[0]));
+		  console.log("üîç Primeira goal:", JSON.stringify(userData.goals[0]));
 		}
-		console.log("?? userData.hasData:", userData?.hasData);
+		console.log("üîç userData.hasData:", userData?.hasData);
 	  // Formatar dados patrimoniais recebidos do frontend
       const totalAssets = assets.reduce((sum: number, a: any) => sum + (a.currentValue || 0), 0);
       const totalPassives = passives.reduce((sum: number, p: any) => sum + (p.currentValue || 0), 0);
       const patrimonioTotalMonitorado = totalAssets + totalPassives;
 
       const assetsSummary = assets && assets.length > 0
-        ? `\n?? ATIVOS PATRIMONIAIS / PRODUTIVOS (${assets.length} itens):\n` +
+        ? `\nüìä ATIVOS PATRIMONIAIS / PRODUTIVOS (${assets.length} itens):\n` +
           assets.map((a: any) => {
             const nome = a.name || a.description || 'Item sem nome';
             const categoria = a.category || 'Outros';
@@ -766,12 +834,12 @@ export const askAiAdvisor = onCall(
               minimumFractionDigits: 2,
               maximumFractionDigits: 2
             });
-            return `  ï ${nome} (${categoria}): R$ ${valor}`;
+            return `  ‚Ä¢ ${nome} (${categoria}): R$ ${valor}`;
           }).join('\n')
-        : '\n?? Ativos patrimoniais / produtivos: Nenhum ativo registrado.';
+        : '\nüìä Ativos patrimoniais / produtivos: Nenhum ativo registrado.';
 
       const passivesSummary = passives && passives.length > 0
-        ? `\n?? PASSIVOS PATRIMONIAIS / IMOBILIZADOS (${passives.length} itens):\n` +
+        ? `\nüìâ PASSIVOS PATRIMONIAIS / IMOBILIZADOS (${passives.length} itens):\n` +
           passives.map((p: any) => {
             const nome = p.description || p.name || 'Item sem nome';
             const categoria = p.category || 'Outros';
@@ -779,43 +847,43 @@ export const askAiAdvisor = onCall(
               minimumFractionDigits: 2,
               maximumFractionDigits: 2
             });
-            return `  ï ${nome} (${categoria}): R$ ${valor}`;
+            return `  ‚Ä¢ ${nome} (${categoria}): R$ ${valor}`;
           }).join('\n')
-        : '\n?? Passivos patrimoniais / imobilizados: Nenhum passivo registrado.';
+        : '\nüìâ Passivos patrimoniais / imobilizados: Nenhum passivo registrado.';
       const debtsSummary = serverDebts && serverDebts.length > 0
-        ? `\n?? DÕVIDAS CADASTRADAS (${serverDebts.length} itens):\n` +
+        ? `\nüí≥ D√çVIDAS CADASTRADAS (${serverDebts.length} itens):\n` +
           serverDebts.map((d: any) => {
-            const nome = d.nome || 'DÌvida sem nome';
+            const nome = d.nome || 'D√≠vida sem nome';
             const tipo = d.tipo || 'Outros';
             const saldo = Number(d.saldoDevedor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             const taxa = Number(d.taxaMensal || 0).toFixed(2);
             const parcelas = d.parcelasRestantes ?? 'N/A';
-            const parcela = d.valorParcela ? `R$ ${Number(d.valorParcela).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/mÍs` : 'N/A';
-            return `  ï ${nome} (${tipo}): Saldo R$ ${saldo} | Taxa ${taxa}%/mÍs | ${parcelas} parcelas restantes | Parcela: ${parcela}`;
+            const parcela = d.valorParcela ? `R$ ${Number(d.valorParcela).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/m√™s` : 'N/A';
+            return `  ‚Ä¢ ${nome} (${tipo}): Saldo R$ ${saldo} | Taxa ${taxa}%/m√™s | ${parcelas} parcelas restantes | Parcela: ${parcela}`;
           }).join('\n')
-        : '\n?? DÌvidas: Nenhuma dÌvida cadastrada no app.';
+        : '\nüí≥ D√≠vidas: Nenhuma d√≠vida cadastrada no app.';
 
       const patrimonioVisaoGerencialStr =
-        `?? VIS√O PATRIMONIAL DO APP:\n` +
-        `ï Total em ativos patrimoniais / produtivos: R$ ${totalAssets.toLocaleString('pt-BR', {
+        `üìå VIS√ÉO PATRIMONIAL DO APP:\n` +
+        `‚Ä¢ Total em ativos patrimoniais / produtivos: R$ ${totalAssets.toLocaleString('pt-BR', {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2
         })}\n` +
-        `ï Total em passivos patrimoniais / imobilizados: R$ ${totalPassives.toLocaleString('pt-BR', {
+        `‚Ä¢ Total em passivos patrimoniais / imobilizados: R$ ${totalPassives.toLocaleString('pt-BR', {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2
         })}\n` +
-        `ï PatrimÙnio total monitorado no app: R$ ${patrimonioTotalMonitorado.toLocaleString('pt-BR', {
+        `‚Ä¢ Patrim√¥nio total monitorado no app: R$ ${patrimonioTotalMonitorado.toLocaleString('pt-BR', {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2
         })}\n` +
-        `?? No FinanÁas Pro Invest, "passivos" s„o bens patrimoniais que exigem manutenÁ„o/aportes e n„o devem ser tratados automaticamente como dÌvidas.`;
+        `‚ö†Ô∏è No Finan√ßas Pro Invest, "passivos" s√£o bens patrimoniais que exigem manuten√ß√£o/aportes e n√£o devem ser tratados automaticamente como d√≠vidas.`;
 
-	  console.log("?? assets recebidos:", JSON.stringify(assets));
-	  console.log("?? passives recebidos:", JSON.stringify(passives));
-	  console.log("?? assetsSummary:", assetsSummary);
-  	  console.log("?? passivesSummary:", passivesSummary);
-	  console.log("?? patrimonioVisaoGerencialStr:", patrimonioVisaoGerencialStr);
+	  console.log("üìå assets recebidos:", JSON.stringify(assets));
+	  console.log("üìå passives recebidos:", JSON.stringify(passives));
+	  console.log("üìå assetsSummary:", assetsSummary);
+  	  console.log("üìå passivesSummary:", passivesSummary);
+	  console.log("üìå patrimonioVisaoGerencialStr:", patrimonioVisaoGerencialStr);
 	  
       // 4. DADOS DE MERCADO
       const validHistory = Array.isArray(history) ? history.filter((h: any) =>
@@ -827,32 +895,32 @@ export const askAiAdvisor = onCall(
       if (extracted.b3.length > 0 || extracted.crypto.length > 0) {
         marketData = await fetchAllMarketData(extracted.b3, extracted.crypto, brapiToken, prompt, validHistory);
       }
-      // 5. DETEC«√O DE FOLLOW-UP TIMESTAMPS
-      if (validHistory.length > 0 && marketData && /quando|hor·rio|horario|data|dia|atualizaÁ„o|atualizacao|cotaÁ„o|cotacao|qual.*hora|que.*hora|qual.*dia|que.*dia/i.test(prompt) && marketData.includes('cotaÁ„o de')) {
-        logger.info("? Follow-up timestamp");
+      // 5. DETEC√á√ÉO DE FOLLOW-UP TIMESTAMPS
+      if (validHistory.length > 0 && marketData && /quando|hor√°rio|horario|data|dia|atualiza√ß√£o|atualizacao|cota√ß√£o|cotacao|qual.*hora|que.*hora|qual.*dia|que.*dia/i.test(prompt) && marketData.includes('cota√ß√£o de')) {
+        logger.info("‚úì Follow-up timestamp");
         return {
           success: true,
-          answer: `Os dados que forneci j· incluem data e hor·rio:\n\n${marketData}`,
+          answer: `Os dados que forneci j√° incluem data e hor√°rio:\n\n${marketData}`,
           context: { intent: 'timestamp_clarification', model: 'system' }
         };
       }
 
-      // 6. DETEC«√O DE CORRE«√O DO USU¡RIO
+      // 6. DETEC√á√ÉO DE CORRE√á√ÉO DO USU√ÅRIO
       const userCorrectionPatterns = [
-        /n„o È|nao È/i,
-        /est· errado|esta errado/i,
+        /n√£o √©|nao √©/i,
+        /est√° errado|esta errado/i,
         /na verdade|na realidade/i,
         /sinto te dizer/i,
-        /vocÍ est· enganado|voce esta enganado/i,
-        /isso n„o est· certo|isso nao esta certo/i,
-        /correto È|o certo È/i,
-        /È na verdade|e na verdade/i
+        /voc√™ est√° enganado|voce esta enganado/i,
+        /isso n√£o est√° certo|isso nao esta certo/i,
+        /correto √©|o certo √©/i,
+        /√© na verdade|e na verdade/i
       ];
 
       const isUserCorrection = userCorrectionPatterns.some(p => p.test(prompt));
       
       if (isUserCorrection && validHistory.length > 0) {
-        logger.info("?? Usu·rio corrigindo informaÁ„o - forÁando busca web");
+        logger.info("üö® Usu√°rio corrigindo informa√ß√£o - for√ßando busca web");
       }
 
       // 7. CONTEXTO
@@ -862,14 +930,14 @@ export const askAiAdvisor = onCall(
         hasSimulations: userData.simulations.length > 0
       });
 
-      // 8. FORMATA«√O DADOS USU¡RIO
+      // 8. FORMATA√á√ÉO DADOS USU√ÅRIO
       const promptLower = String(prompt || '').toLowerCase();
 
-      const isCashflowRequest = /(lanÁamento|lanÁamentos|transaÁ|receita|receitas|despesa|despesas|gasto|gastos|entrada|entradas|saÌda|saÌdas|saldo|orÁamento|fluxo de caixa|movimentaÁ„o|movimentacoes|movimentaÁıes)/i.test(promptLower);
-      const isPatrimonyRequest = /(ativo|ativos|passivo|passivos|patrimÙnio|patrimonio|bens|imÛveis|imoveis|veÌculos|veiculos|terrenos|carteira patrimonial)/i.test(promptLower);
-      const isDebtPlanRequest = /(plano|quitar|sair das dÌvidas|estratÈgia de quitaÁ„o|prioridade de dÌvida)/i.test(promptLower);
+      const isCashflowRequest = /(lan√ßamento|lan√ßamentos|transa√ß|receita|receitas|despesa|despesas|gasto|gastos|entrada|entradas|sa√≠da|sa√≠das|saldo|or√ßamento|fluxo de caixa|movimenta√ß√£o|movimentacoes|movimenta√ß√µes)/i.test(promptLower);
+      const isPatrimonyRequest = /(ativo|ativos|passivo|passivos|patrim√¥nio|patrimonio|bens|im√≥veis|imoveis|ve√≠culos|veiculos|terrenos|carteira patrimonial)/i.test(promptLower);
+      const isDebtPlanRequest = /(plano|quitar|sair das d√≠vidas|estrat√©gia de quita√ß√£o|prioridade de d√≠vida)/i.test(promptLower);
      
-      let transactionsForPrompt = "Nenhuma transaÁ„o registrada.";
+      let transactionsForPrompt = "Nenhuma transa√ß√£o registrada.";
       if (userData.recentTransactions && userData.recentTransactions.length > 0) {
         transactionsForPrompt = DataIntegrator.formatTransactionsForPrompt(
           userData.recentTransactions,
@@ -879,7 +947,7 @@ export const askAiAdvisor = onCall(
           }
         );
       }
-      console.log("?? transactionsForPrompt:", transactionsForPrompt);
+      console.log("üîç transactionsForPrompt:", transactionsForPrompt);
 
 	  // Usar metas vindas do frontend (prioridade) ou fallback para userData
       let goalsForPrompt = "Nenhuma meta definida.";
@@ -890,42 +958,42 @@ export const askAiAdvisor = onCall(
           const valorNumerico = typeof valorBruto === 'number' ? valorBruto : parseFloat(valorBruto || '0');
           const frequencia = g.frequencia || g.frequency || 'N/A';
 
-          return `ï ${nome}: R$ ${valorNumerico.toLocaleString('pt-BR', {
+          return `‚Ä¢ ${nome}: R$ ${valorNumerico.toLocaleString('pt-BR', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
           })} (${frequencia})`;
         }).join('\n');
 
-        goalsForPrompt = `**METAS DO USU¡RIO (${goals.length}):**\n${mappedGoals}`;
-        console.log("?? goalsForPrompt GERADO (frontend):", goalsForPrompt);
+        goalsForPrompt = `**METAS DO USU√ÅRIO (${goals.length}):**\n${mappedGoals}`;
+        console.log("üîç goalsForPrompt GERADO (frontend):", goalsForPrompt);
       } else if (userData.goals && userData.goals.length > 0) {
         goalsForPrompt = DataIntegrator.formatGoalsForPrompt(userData.goals, context);
-        console.log("?? goalsForPrompt GERADO (DataIntegrator):", goalsForPrompt);
+        console.log("üîç goalsForPrompt GERADO (DataIntegrator):", goalsForPrompt);
       } else {
-        console.log("?? goalsForPrompt permaneceu como padr„o: 'Nenhuma meta definida.'");
+        console.log("üîç goalsForPrompt permaneceu como padr√£o: 'Nenhuma meta definida.'");
       }
 
-      console.log("?? goalsForPrompt:", goalsForPrompt);
+      console.log("üîç goalsForPrompt:", goalsForPrompt);
 
       const focusInstructions =
         isCashflowRequest && !isPatrimonyRequest
-          ? `\n# FOCO OBRIGAT”RIO DESTA RESPOSTA
-O usu·rio est· pedindo an·lise de lanÁamentos, receitas, despesas, saldo, orÁamento ou fluxo de caixa.
-Priorize TRANSA«’ES e METAS.
-N√O troque esta an·lise por an·lise patrimonial.
-SÛ mencione ativos ou passivos se o usu·rio pedir explicitamente ou se isso for indispens·vel para esclarecer algo.`
+          ? `\n# FOCO OBRIGAT√ìRIO DESTA RESPOSTA
+O usu√°rio est√° pedindo an√°lise de lan√ßamentos, receitas, despesas, saldo, or√ßamento ou fluxo de caixa.
+Priorize TRANSA√á√ïES e METAS.
+N√ÉO troque esta an√°lise por an√°lise patrimonial.
+S√≥ mencione ativos ou passivos se o usu√°rio pedir explicitamente ou se isso for indispens√°vel para esclarecer algo.`
           : isPatrimonyRequest && !isCashflowRequest
-          ? `\n# FOCO OBRIGAT”RIO DESTA RESPOSTA
-O usu·rio est· pedindo an·lise patrimonial.
+          ? `\n# FOCO OBRIGAT√ìRIO DESTA RESPOSTA
+O usu√°rio est√° pedindo an√°lise patrimonial.
 Priorize ATIVOS e PASSIVOS patrimoniais do app.
-N√O trate passivos patrimoniais como dÌvidas, salvo se o usu·rio mencionar explicitamente dÌvida, saldo devedor, financiamento, parcelas, juros ou obrigaÁ„o em aberto.`
+N√ÉO trate passivos patrimoniais como d√≠vidas, salvo se o usu√°rio mencionar explicitamente d√≠vida, saldo devedor, financiamento, parcelas, juros ou obriga√ß√£o em aberto.`
           : '';
       
 
       // 9. SYSTEM PROMPT
-	  console.log("?? Chamando getSystemPrompt com assetsSummary:", assetsSummary);
-	  console.log("?? passivesSummary:", passivesSummary);
-	  console.log("?? patrimonioVisaoGerencialStr:", patrimonioVisaoGerencialStr);
+	  console.log("üöÄ Chamando getSystemPrompt com assetsSummary:", assetsSummary);
+	  console.log("üöÄ passivesSummary:", passivesSummary);
+	  console.log("üöÄ patrimonioVisaoGerencialStr:", patrimonioVisaoGerencialStr);
       const systemPrompt = `${NexusIdentity.getSystemPrompt(
         safeUserName,
         context,
@@ -942,15 +1010,15 @@ N√O trate passivos patrimoniais como dÌvidas, salvo se o usu·rio mencionar expli
       )}${debtsSummary}${focusInstructions}
       
       ${isDebtPlanRequest ? `
-      # PROTOCOLO OBRIGAT”RIO: PLANO DE QUITA«√O
-      1. USE A RENDA DECLARADA: O usu·rio informou que ganha R$ ${userData.financialProfile?.monthlyIncome || 'n„o informado'}. Use este valor como base de fÙlego, ignorando mÈdias histÛricas.
-      2. USE AS PARCELAS: O valor de cada parcela j· est· no resumo de dÌvidas acima. NUNCA peÁa esse dado.
-      3. RESERVA DE EMERG NCIA: A meta do usu·rio È de ${userData.financialProfile?.emergencyReserveTarget || 6} meses. Considere o saldo atual de R$ ${userData.financialProfile?.emergencyReserveCurrent || 0}.
-      4. FORMATO DE SAÕDA: Use obrigatoriamente blocos visuais (Cards) com Ìcones para:
-         - DiagnÛstico (Resumo da situaÁ„o)
-         - Plano de AÁ„o (Passos pr·ticos)
-         - PrÛximos Passos (AÁıes imediatas)
-      5. N√O FA«A PERGUNTAS INICIAIS: Se vocÍ j· tem a renda, as parcelas e a reserva, gere o plano imediatamente.
+      # PROTOCOLO OBRIGAT√ìRIO: PLANO DE QUITA√á√ÉO
+      1. USE A RENDA DECLARADA: O usu√°rio informou que ganha R$ ${userData.financialProfile?.monthlyIncome || 'n√£o informado'}. Use este valor como base de f√¥lego, ignorando m√©dias hist√≥ricas.
+      2. USE AS PARCELAS: O valor de cada parcela j√° est√° no resumo de d√≠vidas acima. NUNCA pe√ßa esse dado.
+      3. RESERVA DE EMERG√äNCIA: A meta do usu√°rio √© de ${userData.financialProfile?.emergencyReserveTarget || 6} meses. Considere o saldo atual de R$ ${userData.financialProfile?.emergencyReserveCurrent || 0}.
+      4. FORMATO DE SA√çDA: Use obrigatoriamente blocos visuais (Cards) com √≠cones para:
+         - Diagn√≥stico (Resumo da situa√ß√£o)
+         - Plano de A√ß√£o (Passos pr√°ticos)
+         - Pr√≥ximos Passos (A√ß√µes imediatas)
+      5. N√ÉO FA√áA PERGUNTAS INICIAIS: Se voc√™ j√° tem a renda, as parcelas e a reserva, gere o plano imediatamente.
       ` : ''}`;
 
       // 10. PREPARAR MENSAGENS
@@ -962,7 +1030,7 @@ N√O trate passivos patrimoniais como dÌvidas, salvo se o usu·rio mencionar expli
         { role: "user", content: prompt }
       ];
 
-      // 11. DETEC«√O DE REPETI«√O (˙ltimas 2 perguntas do usu·rio)
+      // 11. DETEC√á√ÉO DE REPETI√á√ÉO (√∫ltimas 2 perguntas do usu√°rio)
       let avoidRepetition = "";
       if (validHistory.length >= 2) {
         const lastTwoUserMessages = validHistory
@@ -973,55 +1041,55 @@ N√O trate passivos patrimoniais como dÌvidas, salvo se o usu·rio mencionar expli
           const areSimilar = lastTwoUserMessages[0].text.toLowerCase().trim() === 
                             lastTwoUserMessages[1].text.toLowerCase().trim();
           if (areSimilar) {
-            logger.warn("?? Pergunta repetida detectada");
-            avoidRepetition = "\n\n**IMPORTANTE:** O usu·rio fez a mesma pergunta novamente. N√O repita a resposta anterior idÍntica. Se j· respondeu, reconheÁa isso brevemente e ofereÁa expandir algum ponto especÌfico.";
+            logger.warn("‚ö†Ô∏è Pergunta repetida detectada");
+            avoidRepetition = "\n\n**IMPORTANTE:** O usu√°rio fez a mesma pergunta novamente. N√ÉO repita a resposta anterior id√™ntica. Se j√° respondeu, reconhe√ßa isso brevemente e ofere√ßa expandir algum ponto espec√≠fico.";
           }
         }
       }
 
       // 12. PRIMEIRA CHAMADA - DETECTAR SE PRECISA BUSCA WEB
-      logger.info('[Router] Primeira chamada para an·lise...');
+      logger.info('[Router] Primeira chamada para an√°lise...');
       
       const enhancedSystemPrompt = `${systemPrompt}${avoidRepetition}
 
-# ?? IMPORTANTE: BUSCA NA WEB
+# üîç IMPORTANTE: BUSCA NA WEB
 
-Se vocÍ N√O SOUBER a resposta ou precisar de dados atualizados externos, RESPONDA EXATAMENTE assim:
+Se voc√™ N√ÉO SOUBER a resposta ou precisar de dados atualizados externos, RESPONDA EXATAMENTE assim:
 
 [BUSCAR_WEB: sua query de busca aqui]
 
 ## SEMPRE use [BUSCAR_WEB] para:
-- Taxa Selic, IPCA, CDI, inflaÁ„o (atual/recente)
-- NotÌcias econÙmicas ou do mercado financeiro
-- **M·xima histÛrica** de qualquer ativo (BTC, ETH, aÁıes, etc)
+- Taxa Selic, IPCA, CDI, infla√ß√£o (atual/recente)
+- Not√≠cias econ√¥micas ou do mercado financeiro
+- **M√°xima hist√≥rica** de qualquer ativo (BTC, ETH, a√ß√µes, etc)
 - **Recorde, all-time high, ATH** de qualquer ativo
-- ComparaÁıes histÛricas ("BTC em 2020", "preÁo do BTC em X data")
-- Decisıes do Copom, Banco Central
-- PIB, desemprego, indicadores econÙmicos
-- Eventos econÙmicos recentes
-- **SEMPRE que o usu·rio CORRIGIR algum dado seu** (ex: "n„o È X, È Y")
+- Compara√ß√µes hist√≥ricas ("BTC em 2020", "pre√ßo do BTC em X data")
+- Decis√µes do Copom, Banco Central
+- PIB, desemprego, indicadores econ√¥micos
+- Eventos econ√¥micos recentes
+- **SEMPRE que o usu√°rio CORRIGIR algum dado seu** (ex: "n√£o √© X, √© Y")
 
 ## NUNCA use [BUSCAR_WEB] para:
-- CotaÁıes BTC/ETH/aÁıes B3 (vocÍ j· tem esses dados)
-- Conceitos gerais ("O que È CDB?", "Como funciona aÁ„o?")
-- An·lise dos dados do usu·rio
+- Cota√ß√µes BTC/ETH/a√ß√µes B3 (voc√™ j√° tem esses dados)
+- Conceitos gerais ("O que √© CDB?", "Como funciona a√ß√£o?")
+- An√°lise dos dados do usu√°rio
 
 Exemplos:
-- "Qual a taxa Selic atual?" ? [BUSCAR_WEB: taxa selic atual Brasil]
-- "NotÌcias sobre inflaÁ„o" ? [BUSCAR_WEB: notÌcias inflaÁ„o IPCA Brasil hoje]
-- "M·xima histÛrica do BTC" ? [BUSCAR_WEB: bitcoin m·xima histÛrica all-time high]
-- "Quanto o BTC valia em 2020?" ? [BUSCAR_WEB: preÁo bitcoin 2020]
-- Usu·rio corrige: "A m·xima n„o È 68k, È 126k" ? [BUSCAR_WEB: bitcoin m·xima histÛrica recorde]
+- "Qual a taxa Selic atual?" ‚Üí [BUSCAR_WEB: taxa selic atual Brasil]
+- "Not√≠cias sobre infla√ß√£o" ‚Üí [BUSCAR_WEB: not√≠cias infla√ß√£o IPCA Brasil hoje]
+- "M√°xima hist√≥rica do BTC" ‚Üí [BUSCAR_WEB: bitcoin m√°xima hist√≥rica all-time high]
+- "Quanto o BTC valia em 2020?" ‚Üí [BUSCAR_WEB: pre√ßo bitcoin 2020]
+- Usu√°rio corrige: "A m√°xima n√£o √© 68k, √© 126k" ‚Üí [BUSCAR_WEB: bitcoin m√°xima hist√≥rica recorde]
 
-${isUserCorrection ? "\n**ATEN«√O:** O usu·rio est· CORRIGINDO uma informaÁ„o que vocÍ deu. VocÍ DEVE buscar na web para validar e admitir o erro se estiver errado." : ""}
+${isUserCorrection ? "\n**ATEN√á√ÉO:** O usu√°rio est√° CORRIGINDO uma informa√ß√£o que voc√™ deu. Voc√™ DEVE buscar na web para validar e admitir o erro se estiver errado." : ""}
  
       ${isDebtPlanRequest ? `
-      # ?? REGRA DE OURO (PROTOCOLO DE QUITA«√O) - PRIORIDADE M¡XIMA
-      1. RENDA: Use R$ ${userData.financialProfile?.monthlyIncome || 'n„o informado'} como a renda mensal do usu·rio. 
-      2. PARCELAS: O valor de cada parcela est· no sum·rio de dÌvidas acima. Use-os para o c·lculo de fluxo de caixa.
+      # üö® REGRA DE OURO (PROTOCOLO DE QUITA√á√ÉO) - PRIORIDADE M√ÅXIMA
+      1. RENDA: Use R$ ${userData.financialProfile?.monthlyIncome || 'n√£o informado'} como a renda mensal do usu√°rio. 
+      2. PARCELAS: O valor de cada parcela est√° no sum√°rio de d√≠vidas acima. Use-os para o c√°lculo de fluxo de caixa.
       3. RESERVA: Meta de ${userData.financialProfile?.emergencyReserveTarget || 6} meses. Saldo atual: R$ ${userData.financialProfile?.emergencyReserveCurrent || 0}.
-      4. N√O PERGUNTE: Se os dados acima existem, N√O peÁa renda ou parcelas. Gere o plano agora.
-      5. FORMATO: Responda obrigatoriamente usando os Cards Visuais do sistema (DiagnÛstico, Plano de AÁ„o, PrÛximos Passos).
+      4. N√ÉO PERGUNTE: Se os dados acima existem, N√ÉO pe√ßa renda ou parcelas. Gere o plano agora.
+      5. FORMATO: Responda obrigatoriamente usando os Cards Visuais do sistema (Diagn√≥stico, Plano de A√ß√£o, Pr√≥ximos Passos).
       ` : ''}`;
       const firstResponse = await router.routeRequest(messages, enhancedSystemPrompt, {
         temperature: 0.6,
@@ -1032,14 +1100,14 @@ ${isUserCorrection ? "\n**ATEN«√O:** O usu·rio est· CORRIGINDO uma informaÁ„o qu
         }
       });
 
-      let finalAnswer = firstResponse.content || "Desculpe, estou com instabilidade moment‚nea.";
+      let finalAnswer = firstResponse.content || "Desculpe, estou com instabilidade moment√¢nea.";
 
       // 13. VERIFICAR SE SOLICITOU BUSCA WEB
       const webSearchMatch = finalAnswer.match(/\[BUSCAR_WEB:\s*(.+?)\]/i);
       
       if (webSearchMatch) {
         const searchQuery = webSearchMatch[1].trim();
-        logger.info(`[WebSearch] ?? Nexus solicitou busca: "${searchQuery}"`);
+        logger.info(`[WebSearch] üîç Nexus solicitou busca: "${searchQuery}"`);
         
         // Executar busca
 		const tavilyApiKey = process.env.TAVILY_API_KEY as string;
@@ -1059,10 +1127,10 @@ ${isUserCorrection ? "\n**ATEN«√O:** O usu·rio est· CORRIGINDO uma informaÁ„o qu
           }
         ];
 
-        // Incluir instruÁıes especiais se for correÁ„o
+        // Incluir instru√ß√µes especiais se for corre√ß√£o
         let finalSystemPrompt = systemPrompt;
         if (isUserCorrection) {
-          finalSystemPrompt += `\n\n**CORRE«√O DO USU¡RIO:** O usu·rio corrigiu uma informaÁ„o sua. Com base nos resultados da busca, reconheÁa o erro educadamente e forneÁa a informaÁ„o correta. Exemplo: "VocÍ est· correto, ${safeUserName}. Cometi um erro ao citar dados desatualizados. A informaÁ„o correta È..."`;
+          finalSystemPrompt += `\n\n**CORRE√á√ÉO DO USU√ÅRIO:** O usu√°rio corrigiu uma informa√ß√£o sua. Com base nos resultados da busca, reconhe√ßa o erro educadamente e forne√ßa a informa√ß√£o correta. Exemplo: "Voc√™ est√° correto, ${safeUserName}. Cometi um erro ao citar dados desatualizados. A informa√ß√£o correta √©..."`;
         }
 
         const secondResponse = await router.routeRequest(messagesWithSearch, finalSystemPrompt, {
@@ -1075,9 +1143,9 @@ ${isUserCorrection ? "\n**ATEN«√O:** O usu·rio est· CORRIGINDO uma informaÁ„o qu
         });
 
         finalAnswer = secondResponse.content || finalAnswer;
-        logger.info(`[Router] ? Resposta final com busca de: ${secondResponse.provider}`);
+        logger.info(`[Router] ‚úì Resposta final com busca de: ${secondResponse.provider}`);
       } else {
-        logger.info(`[Router] ? Resposta direta de: ${firstResponse.provider} (${firstResponse.model})`);
+        logger.info(`[Router] ‚úì Resposta direta de: ${firstResponse.provider} (${firstResponse.model})`);
       }
 
       // 14. LIMPEZA
@@ -1103,14 +1171,14 @@ ${isUserCorrection ? "\n**ATEN«√O:** O usu·rio est· CORRIGINDO uma informaÁ„o qu
       logger.error("Erro Nexus:", error);
       return {
         success: false,
-        answer: "Desculpe, ocorreu um erro tempor·rio. Por favor, tente novamente.",
+        answer: "Desculpe, ocorreu um erro tempor√°rio. Por favor, tente novamente.",
         error: error.message
       };
     }
   }
 );
 // ============================================
-// FUN«√O DE TESTE - MISTRAL
+// FUN√á√ÉO DE TESTE - MISTRAL
 // ============================================
 export { getAssetQuote } from './getAssetQuote';
 export { getMarketData } from './marketData';
@@ -1120,27 +1188,27 @@ export const testMistral = onCall(
     region: "us-central1"
   },
   async (request) => {
-    logger.info("?? TESTE MISTRAL - Iniciando...");
+    logger.info("üß™ TESTE MISTRAL - Iniciando...");
     
 	const mistralApiKey = process.env.MISTRAL_API_KEY as string;
     const apiKey = mistralApiKey;
     
     if (!apiKey) {
-      logger.error("? MISTRAL_API_KEY n„o configurada!");
+      logger.error("‚ùå MISTRAL_API_KEY n√£o configurada!");
       return {
         success: false,
-        error: "API Key n„o encontrada",
+        error: "API Key n√£o encontrada",
         details: "Configure MISTRAL_API_KEY no Firebase"
       };
     }
     
-    logger.info("? API Key encontrada");
+    logger.info("‚úì API Key encontrada");
     
-    // RequisiÁ„o de teste simples
+    // Requisi√ß√£o de teste simples
     const testMessages = [
       {
         role: "system",
-        content: "VocÍ È um assistente ˙til. Responda em portuguÍs."
+        content: "Voc√™ √© um assistente √∫til. Responda em portugu√™s."
       },
       {
         role: "user",
@@ -1155,7 +1223,7 @@ export const testMistral = onCall(
       max_tokens: 100
     };
     
-    logger.info("?? Enviando requisiÁ„o para Mistral...");
+    logger.info("üì§ Enviando requisi√ß√£o para Mistral...");
     
     try {
       const controller = new AbortController();
@@ -1173,11 +1241,11 @@ export const testMistral = onCall(
       
       clearTimeout(timeoutId);
       
-      logger.info(`?? Response Status: ${response.status}`);
+      logger.info(`üì• Response Status: ${response.status}`);
       
       if (!response.ok) {
         const errorText = await response.text();
-        logger.error(`? Mistral HTTP ${response.status}: ${errorText}`);
+        logger.error(`‚ùå Mistral HTTP ${response.status}: ${errorText}`);
         return {
           success: false,
           error: `HTTP ${response.status}`,
@@ -1185,11 +1253,11 @@ export const testMistral = onCall(
         };
       }
       
-      const data: any = await response.json();  // ? TIPAGEM ADICIONADA
+      const data: any = await response.json();  // ‚Üê TIPAGEM ADICIONADA
       const content = data.choices?.[0]?.message?.content;
       
       if (!content) {
-        logger.error("? Resposta sem conte˙do");
+        logger.error("‚ùå Resposta sem conte√∫do");
         return {
           success: false,
           error: "Resposta vazia",
@@ -1197,12 +1265,12 @@ export const testMistral = onCall(
         };
       }
       
-      logger.info("? MISTRAL FUNCIONANDO!");
+      logger.info("‚úÖ MISTRAL FUNCIONANDO!");
       logger.info(`Resposta: ${content}`);
       
       return {
         success: true,
-        message: "? Mistral funcionando corretamente!",
+        message: "‚úÖ Mistral funcionando corretamente!",
         response: content,
         model: data.model || "mistral-small-latest",
         tokensUsed: data.usage?.total_tokens || 0,
@@ -1211,18 +1279,16 @@ export const testMistral = onCall(
           completionTokens: data.usage?.completion_tokens
         }
       };
-      // deploy forÁado para atualizar env vars
+      // deploy for√ßado para atualizar env vars
     } catch (error: any) {
-      logger.error(`? Erro na requisiÁ„o: ${error.message}`);
+      logger.error(`‚ùå Erro na requisi√ß√£o: ${error.message}`);
       return {
         success: false,
         error: error.name,
         message: error.message,
-        details: "Verifique se a API key È v·lida e se o modelo existe"
+        details: "Verifique se a API key √© v√°lida e se o modelo existe"
       };
     }
   }
 );
-
-
 

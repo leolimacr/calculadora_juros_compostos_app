@@ -4,6 +4,7 @@ import AiAdvisor from './AiAdvisor';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useFirebase } from '../../../hooks/useFirebase';
 import { Capacitor } from '@capacitor/core';
+import { useDebts } from '../../../hooks/useDebts';
 
 interface AiChatPageProps {
   onNavigate: (tool: string) => void;
@@ -23,27 +24,21 @@ const AiChatPage: React.FC<AiChatPageProps> = ({
     passives,
     goals: wealthGoals
   } = useWealthData();
+  const { debts } = useDebts(user?.uid);
 
   const isNative = Capacitor.isNativePlatform();
 
   return (
-    <div
-      className={`mt-16 bg-slate-100 flex items-center justify-center p-0 md:p-4 overflow-hidden font-sans ${
-        isNative ? 'h-[calc(100vh-190px)]' : 'h-[calc(100vh-64px)]'
-      }`}
-    >
-      <div className="w-full max-w-4xl h-full relative">
-        <div className="absolute inset-0 md:relative md:h-full bg-white border-0 md:border md:border-slate-200 md:rounded-3xl overflow-hidden shadow-xl">
-          <AiAdvisor
-            transactions={filteredTransactions}
-            currentCalcResult={simulations}
-            goals={wealthGoals}
-            assets={assets}
-            passives={passives}
-            currentTool="chat_web"
-          />
-        </div>
-      </div>
+    <div className="w-full h-full flex flex-col">
+      <AiAdvisor
+        transactions={filteredTransactions}
+        currentCalcResult={simulations}
+        goals={wealthGoals}
+        assets={assets}
+        passives={passives}
+        debts={debts}
+        currentTool="chat"
+      />
     </div>
   );
 };
