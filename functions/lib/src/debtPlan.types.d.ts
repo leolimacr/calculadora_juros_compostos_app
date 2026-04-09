@@ -24,9 +24,25 @@ export interface PerfilContexto {
     reservaAtual: number;
     metaReservaEmMeses: number;
 }
+export interface PatrimonioContexto {
+    valorTotalInvestimentosFinanceiros: number;
+    valorPatrimonioLiquido?: number;
+    valorDisponivelAcimaReserva?: number;
+    usaReservaParaQuitar?: boolean;
+}
+export interface CustoOportunidadeContexto {
+    selicAno?: number;
+    cdiAno?: number;
+    retornoLiquidoEstimadoAno?: number;
+    estrategiaSugerida?: 'quitar' | 'amortizar' | 'provisionar';
+    justificativaBase?: string;
+}
 export interface NexusDebtPlanRequest {
     usuarioPerfil?: UsuarioPerfil;
     perfilContexto?: PerfilContexto;
+    patrimonioContexto?: PatrimonioContexto;
+    custoOportunidadeContexto?: CustoOportunidadeContexto;
+    forceRegenerate?: boolean;
     dividas: DebtItem[];
     simulacao: DebtSimulationSummary;
 }
@@ -50,6 +66,9 @@ export interface DebtPlanResponse {
         prazoEstimadoQuitacaoMeses?: number | null;
         economiaEstimadaJuros?: number | null;
     };
+    explicacaoCenarioAtual?: string;
+    explicacaoMetaPlano?: string;
+    explicacaoEsforcoMensal?: string;
     passos7Dias: ActionStep[];
     passos30Dias: ActionStep[];
     alertasImportantes: string[];
@@ -82,6 +101,23 @@ export declare const PerfilContextoSchema: z.ZodObject<{
     reservaAtual: z.ZodNumber;
     metaReservaEmMeses: z.ZodNumber;
 }, z.core.$strip>;
+export declare const PatrimonioContextoSchema: z.ZodObject<{
+    valorTotalInvestimentosFinanceiros: z.ZodNumber;
+    valorPatrimonioLiquido: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
+    valorDisponivelAcimaReserva: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
+    usaReservaParaQuitar: z.ZodOptional<z.ZodBoolean>;
+}, z.core.$strip>;
+export declare const CustoOportunidadeContextoSchema: z.ZodObject<{
+    selicAno: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
+    cdiAno: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
+    retornoLiquidoEstimadoAno: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
+    estrategiaSugerida: z.ZodOptional<z.ZodEnum<{
+        quitar: "quitar";
+        amortizar: "amortizar";
+        provisionar: "provisionar";
+    }>>;
+    justificativaBase: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
 export declare const NexusDebtPlanRequestSchema: z.ZodObject<{
     usuarioPerfil: z.ZodOptional<z.ZodEnum<{
         endividado_iniciante: "endividado_iniciante";
@@ -96,6 +132,24 @@ export declare const NexusDebtPlanRequestSchema: z.ZodObject<{
         reservaAtual: z.ZodNumber;
         metaReservaEmMeses: z.ZodNumber;
     }, z.core.$strip>>;
+    patrimonioContexto: z.ZodOptional<z.ZodObject<{
+        valorTotalInvestimentosFinanceiros: z.ZodNumber;
+        valorPatrimonioLiquido: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
+        valorDisponivelAcimaReserva: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
+        usaReservaParaQuitar: z.ZodOptional<z.ZodBoolean>;
+    }, z.core.$strip>>;
+    custoOportunidadeContexto: z.ZodOptional<z.ZodObject<{
+        selicAno: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
+        cdiAno: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
+        retornoLiquidoEstimadoAno: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
+        estrategiaSugerida: z.ZodOptional<z.ZodEnum<{
+            quitar: "quitar";
+            amortizar: "amortizar";
+            provisionar: "provisionar";
+        }>>;
+        justificativaBase: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>>;
+    forceRegenerate: z.ZodOptional<z.ZodBoolean>;
     dividas: z.ZodArray<z.ZodObject<{
         id: z.ZodString;
         nome: z.ZodString;
@@ -143,6 +197,9 @@ export declare const DebtPlanResponseSchema: z.ZodObject<{
         prazoEstimadoQuitacaoMeses: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
         economiaEstimadaJuros: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
     }, z.core.$strip>;
+    explicacaoCenarioAtual: z.ZodOptional<z.ZodString>;
+    explicacaoMetaPlano: z.ZodOptional<z.ZodString>;
+    explicacaoEsforcoMensal: z.ZodOptional<z.ZodString>;
     passos7Dias: z.ZodDefault<z.ZodArray<z.ZodObject<{
         ordem: z.ZodNumber;
         horizonte: z.ZodEnum<{

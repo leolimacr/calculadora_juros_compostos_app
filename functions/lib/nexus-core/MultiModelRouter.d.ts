@@ -19,6 +19,7 @@ export interface RouterResponse {
     model: string;
     tokensUsed: number;
     cached: boolean;
+    isContingency?: boolean;
 }
 export declare class MultiModelRouter {
     private static instance;

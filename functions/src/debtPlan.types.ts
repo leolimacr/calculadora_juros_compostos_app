@@ -54,6 +54,7 @@ export interface NexusDebtPlanRequest {
   perfilContexto?: PerfilContexto;
   patrimonioContexto?: PatrimonioContexto;
   custoOportunidadeContexto?: CustoOportunidadeContexto;
+  forceRegenerate?: boolean;
   dividas: DebtItem[];
   simulacao: DebtSimulationSummary;
 }
@@ -83,6 +84,9 @@ export interface DebtPlanResponse {
     prazoEstimadoQuitacaoMeses?: number | null;
     economiaEstimadaJuros?: number | null;
   };
+  explicacaoCenarioAtual?: string;
+  explicacaoMetaPlano?: string;
+  explicacaoEsforcoMensal?: string;
   passos7Dias: ActionStep[];
   passos30Dias: ActionStep[];
   alertasImportantes: string[];
@@ -137,6 +141,7 @@ export const NexusDebtPlanRequestSchema = z.object({
   perfilContexto: PerfilContextoSchema.optional(),
   patrimonioContexto: PatrimonioContextoSchema.optional(),
   custoOportunidadeContexto: CustoOportunidadeContextoSchema.optional(),
+  forceRegenerate: z.boolean().optional(),
   dividas: z.array(DebtItemSchema).min(1),
   simulacao: DebtSimulationSummarySchema,
 });
@@ -162,6 +167,9 @@ export const DebtPlanResponseSchema = z.object({
     prazoEstimadoQuitacaoMeses: z.number().nullable().optional(),
     economiaEstimadaJuros: z.number().nullable().optional(),
   }),
+  explicacaoCenarioAtual: z.string().optional(),
+  explicacaoMetaPlano: z.string().optional(),
+  explicacaoEsforcoMensal: z.string().optional(),
   passos7Dias: z.array(ActionStepSchema).default([]),
   passos30Dias: z.array(ActionStepSchema).default([]),
   alertasImportantes: z.array(z.string()).default([]),

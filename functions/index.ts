@@ -14,6 +14,7 @@ import { getFirestore } from "firebase-admin/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import { initializeApp } from "firebase-admin/app";
+import { jsonrepair } from "jsonrepair";
 import { NexusIdentity } from "./nexus-core/identity";
 import { DiscretionEngine } from "./nexus-core/discretion-engine";
 import { DataIntegrator, UserDataResult } from "./nexus-core/data-integrator";
@@ -390,13 +391,13 @@ function extractTickersFallback(prompt: string): { b3: string[], crypto: string[
 // FUNÇÃO: generateDebtPlan (Simulador ? Nexus)
 // ============================================
 
-
 export const generateDebtPlan = onCall(
   {
     memory: "512MiB",
-    timeoutSeconds: 90,
+    timeoutSeconds: 300,
     region: "us-central1",
   },
+  
   async (request) => {
     // TRATAMENTO MANUAL DE PREFLIGHT (OPTIONS)
     if (request.rawRequest && request.rawRequest.method === 'OPTIONS') {
@@ -431,12 +432,14 @@ export const generateDebtPlan = onCall(
       // 2) Preparar router e chaves
       const geminiApiKey = process.env.GEMINI_API_KEY as string;
       const openrouterApiKey = process.env.OPENROUTER_API_KEY as string;
+      const groqApiKey = process.env.GROQ_API_KEY as string;
       const mistralApiKey = process.env.MISTRAL_API_KEY as string;
 
       const router = MultiModelRouter.getInstance();
       router.updateApiKeys({
         gemini: geminiApiKey,
         openrouter: openrouterApiKey,
+        groq: groqApiKey,
         mistral: mistralApiKey,
       });
 
@@ -464,50 +467,60 @@ export const generateDebtPlan = onCall(
         ? `Selic: ${oportunidade.selicAno ?? 'n/d'}% a.a. | CDI: ${oportunidade.cdiAno ?? 'n/d'}% a.a. | Retorno líquido estimado: ${oportunidade.retornoLiquidoEstimadoAno ?? 'n/d'}% a.a. | Estratégia sugerida: ${oportunidade.estrategiaSugerida ?? 'n/d'}`
         : 'Não informado';
 
+        const systemPrompt = `
+Você é o Nexus, um planejador financeiro especializado em quitação de dívidas, falando em português do Brasil.
 
-      const systemPrompt = `
-Você é o Nexus, mentor financeiro do app Finanças Pro Invest. Seu papel é ajudar pessoas endividadas a montar planos claros, realistas e personalizados de quitação de dívidas.
+Seu objetivo é montar um plano de quitação de dívidas realista, humano e empático, usando os dados reais do usuário e o resultado da simulação de quitação registrada no sistema Finanças Pro Invest.
 
-Você NÃO é um chatbot genérico. Você é um especialista que conhece profundamente a situação deste usuário porque recebeu os dados reais dele. Use esses dados com inteligência e mostre que os considerou em cada parte do plano.
+Siga estas diretrizes:
 
-## Seu papel
-1. Fazer um espelho fiel das dívidas cadastradas (cite nome, saldo e taxa de cada uma).
-2. Considerar o perfil de estabilidade do usuário (${estabilidadeLabel}) para calibrar o tom e o ritmo do plano.
-3. Considerar a reserva de emergência (${reservaStatus}) antes de recomendar aportes extras — nunca oriente o usuário a comprometer a reserva mínima.
-4. Definir qual dívida deve ser PRIORIDADE 1 e explicar o porquê com base nos juros e no impacto real.
-5. Considerar o patrimônio e os investimentos disponíveis do usuário (${patrimonioStatus}) para avaliar se existe valor acima da reserva mínima que possa ser usado para quitar ou amortizar dívidas.
-6. Considerar o custo de oportunidade do dinheiro parado versus o custo das dívidas, usando o contexto econômico recebido (${oportunidadeStatus}) para decidir entre quitar, amortizar ou provisionar.
-7. Quando fizer sentido, orientar o usuário a consultar o banco para antecipação das parcelas finais, explicando que isso pode gerar desconto real de juros.
-8. Transformar o diagnóstico em um plano de ação dividido em:
-   - resumo diagnóstico (2 a 3 frases que espelham a situação real);
-   - explicação da prioridade;
-   - horizonte de quitação (prazo e economia estimada);
-   - passos concretos para os próximos 7 dias;
-   - passos concretos para os próximos 30 dias;
-   - alertas importantes personalizados para o perfil deste usuário.
+1) Diagnóstico das dívidas
+- Liste as dívidas relevantes, usando exatamente os nomes fornecidos.
+- Explique quais são mais urgentes, considerando taxa de juros, saldo e contexto.
+- Se existirem dívidas com taxas muito altas, destaque isso claramente.
 
-## Regras de ouro
-- Fale sempre em português do Brasil, linguagem simples, sem jargões.
-- Nunca peça dados novos; use apenas os dados fornecidos.
-- Nunca recomende comprometer a reserva de emergência abaixo da meta do perfil.
-- Se houver patrimônio/investimentos acima da reserva mínima, considere esse excedente na estratégia.
-- Se o retorno líquido estimado do dinheiro for maior do que o custo efetivo de uma dívida, você pode recomendar provisionar o valor em vez de quitar imediatamente, desde que isso seja explicado com clareza e prudência.
-- Se o custo da dívida for claramente maior do que o retorno líquido estimado do dinheiro, priorize quitar ou amortizar essa dívida com o excedente disponível.
-- Ao sugerir antecipação, prefira orientar a antecipação das últimas parcelas e recomende procurar o banco para simular o desconto real.
-- Para perfil Volátil: seja mais conservador, priorize estabilidade antes de agressividade no pagamento.
-- Para perfil Estável: pode recomendar aportes extras com mais confiança.
-- Para perfil Regular: equilibre entre cautela e progresso.
-- Não ofereça aconselhamento jurídico; foque em educação financeira.
-- Seja respeitoso e realista: não prometa milagres, mas mostre um caminho possível.
+2) Estratégia de quitação
+- Indique qual ordem de priorização das dívidas faz mais sentido (por exemplo, juros mais altos primeiro, bola de neve, etc.), considerando o perfil do usuário.
+- Explique em linguagem simples o porquê dessa ordem.
 
-## Formato de resposta
-Você deve SEMPRE responder em JSON válido, no formato exato abaixo. Nenhum texto fora do JSON:
+3) Recomendações práticas
+- Traga recomendações específicas para os próximos 7 dias e 30 dias, focando em ações simples e concretas.
+- Inclua sugestões de organização, negociação, revisão de orçamento e uso (ou não) de crédito adicional.
+
+4) Tom da comunicação
+- Sempre mantenha um tom respeitoso, calmo e realista.
+- Evite julgamentos; foque em caminhos práticos.
+- Quando a situação estiver muito pesada, seja empático, mas sem dar garantias irreais.
+
+FORMATO DE RESPOSTA (JSON ESTRITO):
+
+Retorne APENAS um objeto JSON com a seguinte estrutura (exemplo ilustrativo):
+
 {
-  "resumo3Linhas": ["frase 1", "frase 2", "frase 3"],
-  "prioridade": {
-    "idDividaPrioritaria": "id da dívida",
-    "nomeDividaPrioritaria": "nome da dívida",
-    "motivo": "explicação baseada nos dados reais",
+  "diagnosticoGeral": {
+    "resumo": "texto curto sobre a situação geral das dívidas",
+    "nivelAlerta": "baixo" | "moderado" | "alto",
+    "pontosFortes": ["ponto forte 1", "ponto forte 2"],
+    "pontosAtencao": ["ponto de atenção 1", "ponto de atenção 2"]
+  },
+  "estrategiaQuitacao": {
+    "metodoPrincipal": "ex: bola_de_neve / avalanche / combinada",
+    "justificativaMetodo": "explicação simples do porquê dessa escolha",
+    "ordemPrioridadeDividas": [
+      {
+        "nomeDivida": "nome exato da dívida",
+        "prioridade": 1,
+        "motivo": "por que essa vem primeiro"
+      }
+    ]
+  },
+  "recomendacoes": {
+    "proximos7Dias": [
+      { "ordem": 1, "descricao": "ação concreta para os próximos 7 dias", "categoria": "organização_orcamento | negociação | comportamento | outro" }
+    ],
+    "proximos30Dias": [
+      { "ordem": 1, "descricao": "ação concreta para os próximos 30 dias", "categoria": "organização_orcamento | negociação | comportamento | outro" }
+    ],
     "recomendacaoPrincipal": "ação concreta e específica"
   },
   "planoHorizonte": {
@@ -524,10 +537,13 @@ Você deve SEMPRE responder em JSON válido, no formato exato abaixo. Nenhum texto
   "tomGeral": "calmo"
 }
 
-Regras adicionais:
-- Não inclua comentários nem texto fora do JSON.
+Regras adicionais de FORMATO (OBRIGATÓRIO):
+- A resposta DEVE ser APENAS um único objeto JSON válido, sem texto antes ou depois.
+- NÃO inclua comentários, explicações, mensagens de erro, desculpas ou avisos fora do JSON.
+- NÃO use campos extras fora da estrutura especificada. Se precisar sinalizar alguma limitação, use um campo "observacoes" ou "alertasImportantes".
 - Se algum campo numérico não vier preenchido, use null ou 0, nunca invente números.
 - "tomGeral" deve ser: "calmo" para Estável, "direto" para Regular, "motivador" para Volátil.
+- Mesmo em caso de dúvida, poucos dados ou instabilidade, SEMPRE devolva um JSON válido seguindo o formato acima, com campos coerentes (por exemplo, listas vazias, textos explicativos nos campos de observação), e NUNCA uma frase solta fora do JSON.
 `;
 
       // 4) Mensagem "user" com os dados da simulação
@@ -556,7 +572,7 @@ SIMULAÇÃO (para referência):
 ${JSON.stringify(dados.simulacao, null, 2)}
 
 Monte o plano de quitação considerando TODOS esses dados. Cite as dívidas pelo nome no diagnóstico.
-Responda apenas com o JSON no formato combinado.
+Responda apenas com o JSON no formato combinado, sem qualquer texto fora do JSON.
 `;
       const messages = [
         { role: "user" as const, content: userMessage },
@@ -566,7 +582,7 @@ Responda apenas com o JSON no formato combinado.
       logger.info(`[generateDebtPlan] Chamando modelo para userId=${userId}`);
       const llmResponse = await router.routeRequest(messages, systemPrompt, {
         temperature: 0.4,
-        maxTokens: 1200,
+        maxTokens: 6000,   // Aumentado de 3000 para 6000 para evitar truncamento do JSON
         fallbackContext: {
           primaryIntent: "debt_plan",
           userName: userId,
@@ -583,31 +599,152 @@ Responda apenas com o JSON no formato combinado.
         jsonText = jsonText.replace(/^```json/i, "").replace(/^```/i, "").replace(/```$/i, "").trim();
       }
 
+      const extractFirstJsonObject = (text: string): string | null => {
+        const start = text.indexOf("{");
+        if (start === -1) return null;
+
+        let depth = 0;
+        let inString = false;
+        let escaped = false;
+
+        for (let i = start; i < text.length; i++) {
+          const char = text[i];
+
+          if (escaped) {
+            escaped = false;
+            continue;
+          }
+
+          if (char === "\\") {
+            escaped = true;
+            continue;
+          }
+
+          if (char === '"') {
+            inString = !inString;
+            continue;
+          }
+
+          if (inString) continue;
+
+          if (char === "{") depth++;
+          if (char === "}") depth--;
+
+          if (depth === 0) {
+            return text.slice(start, i + 1);
+          }
+        }
+
+        return null;
+      };
+      
       let parsed: unknown;
-      try {
-        parsed = JSON.parse(jsonText);
-      } catch (e) {
-        logger.error("[generateDebtPlan] Falha ao fazer JSON.parse da resposta do modelo:", raw);
-        // Envia a resposta bruta (primeiros 500 caracteres) no erro para debug
-        throw new HttpsError(
-          "internal",
-          `Falha ao interpretar o plano. Resposta bruta: ${raw.substring(0, 500)}`
-        );
-      }
+        try {
+          parsed = JSON.parse(jsonText);
+        } catch (e) {
+          try {
+            const repairedJson = jsonrepair(jsonText);
+            parsed = JSON.parse(repairedJson);
+            logger.warn("[generateDebtPlan] JSON reparado com jsonrepair a partir da resposta bruta.", {
+              provider: llmResponse.provider,
+              model: llmResponse.model,
+            });
+          } catch (repairError) {
+            const extractedJson = extractFirstJsonObject(jsonText);
+
+            if (!extractedJson) {
+              logger.error("[generateDebtPlan] Falha ao localizar JSON válido na resposta do modelo.", {
+                rawPreview: raw.substring(0, 1500),
+                cleanedPreview: jsonText.substring(0, 1500),
+                provider: llmResponse.provider,
+                model: llmResponse.model,
+              });
+
+              throw new HttpsError(
+                "unavailable",
+                "Não foi possível gerar o plano neste momento. Tente novamente em instantes."
+              );
+            }
+
+            try {
+              const repairedExtractedJson = jsonrepair(extractedJson);
+              parsed = JSON.parse(repairedExtractedJson);
+              logger.warn("[generateDebtPlan] JSON extraído e reparado com jsonrepair.", {
+                provider: llmResponse.provider,
+                model: llmResponse.model,
+              });
+            } catch (secondError) {
+              logger.error("[generateDebtPlan] Falha ao interpretar JSON extraído da resposta do modelo.", {
+                rawPreview: raw.substring(0, 1500),
+                cleanedPreview: jsonText.substring(0, 1500),
+                extractedPreview: extractedJson.substring(0, 1500),
+                provider: llmResponse.provider,
+                model: llmResponse.model,
+              });
+
+              throw new HttpsError(
+                "unavailable",
+                "Não foi possível gerar o plano neste momento. Tente novamente em instantes."
+              );
+            }
+          }
+        }
 
       // 7) Validar contra schema
+      
       const safeParsed = DebtPlanResponseSchema.safeParse(parsed);
-      if (!safeParsed.success) {
-        const zodErrors = JSON.stringify(safeParsed.error.flatten());
-        logger.error("[generateDebtPlan] Resposta do modelo fora do schema:", zodErrors);
-        logger.error("[generateDebtPlan] JSON recebido do modelo:", JSON.stringify(parsed));
-        throw new HttpsError(
-          "internal",
-          "Formato inesperado: " + zodErrors
-        );
-      }
+        if (!safeParsed.success) {
+          const zodErrors = JSON.stringify(safeParsed.error.flatten());
+          logger.error("[generateDebtPlan] Resposta do modelo fora do schema:", zodErrors);
+          logger.error("[generateDebtPlan] JSON recebido do modelo:", JSON.stringify(parsed));
 
-      const plan: DebtPlanResponseSafe = safeParsed.data;
+          const raw = parsed as any;
+
+          const planFallback: DebtPlanResponseSafe = {
+            resumo3Linhas: raw.resumo3Linhas ?? [
+              raw.diagnosticoGeral?.resumo ?? "Não foi possível gerar um resumo detalhado.",
+            ],
+            prioridade: raw.prioridade ?? {
+              idDividaPrioritaria: "",
+              nomeDividaPrioritaria:
+                raw.estrategiaQuitacao?.ordemPrioridadeDividas?.[0]?.nomeDivida ??
+                "Dívida prioritária não identificada",
+              motivo:
+                raw.estrategiaQuitacao?.ordemPrioridadeDividas?.[0]?.motivo ??
+                "Não foi possível explicar a prioridade.",
+              recomendacaoPrincipal:
+                raw.recomendacoes?.recomendacaoPrincipal ??
+                "Revise suas dívidas e priorize as com maior taxa de juros.",
+            },
+            planoHorizonte: raw.planoHorizonte ?? {
+              prazoEstimadoQuitacaoMeses: null,
+              economiaEstimadaJuros: null,
+            },
+            passos7Dias: raw.passos7Dias ?? raw.recomendacoes?.proximos7Dias ?? [],
+            passos30Dias: raw.passos30Dias ?? raw.recomendacoes?.proximos30Dias ?? [],
+            alertasImportantes:
+              raw.alertasImportantes ??
+              [
+                ...(raw.diagnosticoGeral?.pontosAtencao ?? []),
+              ],
+          };
+
+          logger.warn("[generateDebtPlan] Retornando plano com normalização de campos ausentes (fallback).", {
+            provider: llmResponse.provider,
+            model: llmResponse.model,
+          });
+
+          const plan: DebtPlanResponseSafe = planFallback;
+
+          return {
+            success: true,
+            plan,
+            model: llmResponse.model,
+            provider: llmResponse.provider,
+          };
+        }
+
+        const plan: DebtPlanResponseSafe = safeParsed.data;
 
       // 8) Retornar plano validado para o front
       return {
@@ -640,6 +777,7 @@ export const askAiAdvisor = onCall(
     // 1. LÊ AS CHAVES AQUI DENTRO (No momento exato da execução)
     const geminiApiKey = process.env.GEMINI_API_KEY as string;
     const openrouterApiKey = process.env.OPENROUTER_API_KEY as string;
+    const groqApiKey = process.env.GROQ_API_KEY as string;
     const mistralApiKey = process.env.MISTRAL_API_KEY as string;
     const brapiToken = process.env.BRAPI_TOKEN as string;
     // const tavilyApiKey = process.env.TAVILY_API_KEY as string; // (Declare onde for usar)
@@ -649,6 +787,7 @@ export const askAiAdvisor = onCall(
     router.updateApiKeys({
       gemini: geminiApiKey,
       openrouter: openrouterApiKey,
+      groq: groqApiKey,
       mistral: mistralApiKey
     });
     try {

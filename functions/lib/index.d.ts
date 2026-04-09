@@ -25,6 +25,9 @@ export declare const generateDebtPlan: import("firebase-functions/v2/https").Cal
             observacoes?: string | undefined;
         }[];
         alertasImportantes: string[];
+        explicacaoCenarioAtual?: string | undefined;
+        explicacaoMetaPlano?: string | undefined;
+        explicacaoEsforcoMensal?: string | undefined;
         tomGeral?: "calmo" | "direto" | "motivador" | undefined;
     };
     model: string;

@@ -27,6 +27,7 @@ export interface RouterResponse {
   model: string;
   tokensUsed: number;
   cached: boolean;
+  isContingency?: boolean;
 }
 
 export class MultiModelRouter {
@@ -47,78 +48,95 @@ export class MultiModelRouter {
   }
 
   private initializeProviders(): void {
-    // 1º TIER: OpenRouter (Hub com múltiplos modelos) - PRIORIDADE MÁXIMA
-    this.providers.set('openrouter', {
-      name: 'openrouter',
-      apiKey: '',
-      baseURL: 'https://openrouter.ai/api/v1',
-      models: {
-        primary: 'deepseek/deepseek-v3.1:free',
-        fallbacks: [
-          'xiaomi/mimo-v2-flash:free',
-          'meta-llama/llama-3.3-70b-instruct:free'
-        ]
-      },
-      priority: 1,  // ← PRIMEIRA TENTATIVA
-      isAvailable: true,
-      errorCount: 0,
-      maxTokens: 8000,
-      headers: {
-        'HTTP-Referer': 'https://financas-pro-invest.web.app',
-        'X-Title': 'Nexus Financial'
-      }
-    });
+    
+      // 1º TIER: Groq - INFERÊNCIA ULTRARRÁPIDA (prioridade máxima)
+      this.providers.set('groq', {
+        name: 'groq',
+        apiKey: '',
+        baseURL: 'https://api.groq.com/openai/v1',
+        models: {
+          primary: 'llama-3.3-70b-versatile',
+          fallbacks: ['llama-3.1-8b-instant']
+        },
+        priority: 1,  // ← PRIMEIRA TENTATIVA
+        isAvailable: true,
+        errorCount: 0,
+        maxTokens: 8000
+      });
 
-    // 2º TIER: Mistral Direto - BACKUP ROBUSTO
-    this.providers.set('mistral', {
-      name: 'mistral',
-      apiKey: '',
-      baseURL: 'https://api.mistral.ai/v1',
-      models: {
-        primary: 'mistral-small-latest'
-      },
-      priority: 2,  // ← SEGUNDA TENTATIVA
-      isAvailable: true,
-      errorCount: 0,
-      maxTokens: 8000
-    });
+      // 2º TIER: OpenRouter - BACKUP (caso Groq falhe)
+      this.providers.set('openrouter', {
+        name: 'openrouter',
+        apiKey: '',
+        baseURL: 'https://openrouter.ai/api/v1',
+        models: {
+          primary: 'openrouter/free',
+          fallbacks: []
+        },
+        priority: 2,
+        isAvailable: true,
+        errorCount: 0,
+        maxTokens: 8000,
+        headers: {
+          'HTTP-Referer': 'https://financas-pro-invest.web.app',
+          'X-Title': 'Nexus Financial'
+        }
+      });
 
-    // 3º TIER: Gemini (Google) - CASO VOLTE A FUNCIONAR
-    this.providers.set('gemini', {
-      name: 'gemini',
-      apiKey: '',
-      baseURL: 'https://generativelanguage.googleapis.com/v1beta',
-      models: {
-        primary: 'gemini-2.0-flash-exp'
-      },
-      priority: 3,  // ← ÚLTIMA TENTATIVA (atualmente com erro 404)
-      isAvailable: true,
-      errorCount: 0,
-      maxTokens: 8000
-    });
-  }
+      // 3Âº TIER: Mistral - SEGUNDO BACKUP
+      this.providers.set('mistral', {
+        name: 'mistral',
+        apiKey: '',
+        baseURL: 'https://api.mistral.ai/v1',
+        models: {
+          primary: 'mistral-small-latest'
+        },
+        priority: 3,
+        isAvailable: true,
+        errorCount: 0,
+        maxTokens: 8000
+      });
+
+      // 4Âº TIER: Gemini (Google) - CASO VOLTE A FUNCIONAR
+      this.providers.set('gemini', {
+        name: 'gemini',
+        apiKey: '',
+        baseURL: 'https://generativelanguage.googleapis.com/v1beta',
+        models: {
+          primary: 'gemini-2.0-flash-exp'
+        },
+        priority: 4,  // â† ÚLTIMA TENTATIVA (atualmente com erro 404)
+        isAvailable: true,
+        errorCount: 0,
+        maxTokens: 8000
+      });
+    }
 
   public updateApiKeys(keys: {
-    gemini?: string;
-    openrouter?: string;
-    mistral?: string;
-    // Manter compatibilidade
-    groq?: string;
-    deepseek?: string;
-  }): void {
-    if (keys.gemini) {
-      const p = this.providers.get('gemini');
-      if (p) p.apiKey = keys.gemini;
+      gemini?: string;
+      openrouter?: string;
+      mistral?: string;
+      // Manter compatibilidade
+      groq?: string;
+      deepseek?: string;
+    }): void {
+      if (keys.gemini) {
+        const p = this.providers.get('gemini');
+        if (p) p.apiKey = keys.gemini;
+      }
+      if (keys.openrouter) {
+        const p = this.providers.get('openrouter');
+        if (p) p.apiKey = keys.openrouter;
+      }
+      if (keys.groq) {
+        const p = this.providers.get('groq');
+        if (p) p.apiKey = keys.groq;
+      }
+      if (keys.mistral) {
+        const p = this.providers.get('mistral');
+        if (p) p.apiKey = keys.mistral;
+      }
     }
-    if (keys.openrouter) {
-      const p = this.providers.get('openrouter');
-      if (p) p.apiKey = keys.openrouter;
-    }
-    if (keys.mistral) {
-      const p = this.providers.get('mistral');
-      if (p) p.apiKey = keys.mistral;
-    }
-  }
 
   async routeRequest(
     messages: any[],
@@ -261,7 +279,7 @@ export class MultiModelRouter {
     };
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
 
     try {
       const response = await fetch(
@@ -329,7 +347,7 @@ export class MultiModelRouter {
     };
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
 
     try {
       const response = await fetch(`${provider.baseURL}/chat/completions`, {
@@ -411,7 +429,8 @@ export class MultiModelRouter {
       provider: 'contingency',
       model: 'fallback',
       tokensUsed: 0,
-      cached: false
+      cached: false,
+      isContingency: true
     };
   }
 

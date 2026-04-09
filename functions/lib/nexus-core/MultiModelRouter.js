@@ -49,18 +49,28 @@ class MultiModelRouter {
         return MultiModelRouter.instance;
     }
     initializeProviders() {
+        this.providers.set('groq', {
+            name: 'groq',
+            apiKey: '',
+            baseURL: 'https://api.groq.com/openai/v1',
+            models: {
+                primary: 'llama-3.3-70b-versatile',
+                fallbacks: ['llama-3.1-8b-instant']
+            },
+            priority: 1,
+            isAvailable: true,
+            errorCount: 0,
+            maxTokens: 8000
+        });
         this.providers.set('openrouter', {
             name: 'openrouter',
             apiKey: '',
             baseURL: 'https://openrouter.ai/api/v1',
             models: {
-                primary: 'deepseek/deepseek-v3.1:free',
-                fallbacks: [
-                    'xiaomi/mimo-v2-flash:free',
-                    'meta-llama/llama-3.3-70b-instruct:free'
-                ]
+                primary: 'openrouter/free',
+                fallbacks: []
             },
-            priority: 1,
+            priority: 2,
             isAvailable: true,
             errorCount: 0,
             maxTokens: 8000,
@@ -76,7 +86,7 @@ class MultiModelRouter {
             models: {
                 primary: 'mistral-small-latest'
             },
-            priority: 2,
+            priority: 3,
             isAvailable: true,
             errorCount: 0,
             maxTokens: 8000
@@ -88,7 +98,7 @@ class MultiModelRouter {
             models: {
                 primary: 'gemini-2.0-flash-exp'
             },
-            priority: 3,
+            priority: 4,
             isAvailable: true,
             errorCount: 0,
             maxTokens: 8000
@@ -104,6 +114,11 @@ class MultiModelRouter {
             const p = this.providers.get('openrouter');
             if (p)
                 p.apiKey = keys.openrouter;
+        }
+        if (keys.groq) {
+            const p = this.providers.get('groq');
+            if (p)
+                p.apiKey = keys.groq;
         }
         if (keys.mistral) {
             const p = this.providers.get('mistral');
@@ -195,7 +210,7 @@ class MultiModelRouter {
             }
         };
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 25000);
+        const timeoutId = setTimeout(() => controller.abort(), 20000);
         try {
             const response = await fetch(`${provider.baseURL}/models/${modelName}:generateContent?key=${provider.apiKey}`, {
                 method: 'POST',
@@ -245,7 +260,7 @@ class MultiModelRouter {
             ...(provider.headers || {})
         };
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 25000);
+        const timeoutId = setTimeout(() => controller.abort(), 20000);
         try {
             const response = await fetch(`${provider.baseURL}/chat/completions`, {
                 method: 'POST',
@@ -314,7 +329,8 @@ class MultiModelRouter {
             provider: 'contingency',
             model: 'fallback',
             tokensUsed: 0,
-            cached: false
+            cached: false,
+            isContingency: true
         };
     }
     generateCacheKey(messages) {

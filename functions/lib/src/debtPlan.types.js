@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DebtPlanResponseSchema = exports.PriorityExplanationSchema = exports.ActionStepSchema = exports.NexusDebtPlanRequestSchema = exports.PerfilContextoSchema = exports.DebtSimulationSummarySchema = exports.DebtItemSchema = void 0;
+exports.DebtPlanResponseSchema = exports.PriorityExplanationSchema = exports.ActionStepSchema = exports.NexusDebtPlanRequestSchema = exports.CustoOportunidadeContextoSchema = exports.PatrimonioContextoSchema = exports.PerfilContextoSchema = exports.DebtSimulationSummarySchema = exports.DebtItemSchema = void 0;
 const zod_1 = require("zod");
 exports.DebtItemSchema = zod_1.z.object({
     id: zod_1.z.string(),
@@ -25,9 +25,25 @@ exports.PerfilContextoSchema = zod_1.z.object({
     reservaAtual: zod_1.z.number(),
     metaReservaEmMeses: zod_1.z.number(),
 });
+exports.PatrimonioContextoSchema = zod_1.z.object({
+    valorTotalInvestimentosFinanceiros: zod_1.z.number(),
+    valorPatrimonioLiquido: zod_1.z.number().optional().nullable(),
+    valorDisponivelAcimaReserva: zod_1.z.number().optional().nullable(),
+    usaReservaParaQuitar: zod_1.z.boolean().optional(),
+});
+exports.CustoOportunidadeContextoSchema = zod_1.z.object({
+    selicAno: zod_1.z.number().optional().nullable(),
+    cdiAno: zod_1.z.number().optional().nullable(),
+    retornoLiquidoEstimadoAno: zod_1.z.number().optional().nullable(),
+    estrategiaSugerida: zod_1.z.enum(['quitar', 'amortizar', 'provisionar']).optional(),
+    justificativaBase: zod_1.z.string().optional(),
+});
 exports.NexusDebtPlanRequestSchema = zod_1.z.object({
     usuarioPerfil: zod_1.z.enum(['endividado_iniciante', 'endividado_intermediario']).optional(),
     perfilContexto: exports.PerfilContextoSchema.optional(),
+    patrimonioContexto: exports.PatrimonioContextoSchema.optional(),
+    custoOportunidadeContexto: exports.CustoOportunidadeContextoSchema.optional(),
+    forceRegenerate: zod_1.z.boolean().optional(),
     dividas: zod_1.z.array(exports.DebtItemSchema).min(1),
     simulacao: exports.DebtSimulationSummarySchema,
 });
@@ -50,6 +66,9 @@ exports.DebtPlanResponseSchema = zod_1.z.object({
         prazoEstimadoQuitacaoMeses: zod_1.z.number().nullable().optional(),
         economiaEstimadaJuros: zod_1.z.number().nullable().optional(),
     }),
+    explicacaoCenarioAtual: zod_1.z.string().optional(),
+    explicacaoMetaPlano: zod_1.z.string().optional(),
+    explicacaoEsforcoMensal: zod_1.z.string().optional(),
     passos7Dias: zod_1.z.array(exports.ActionStepSchema).default([]),
     passos30Dias: zod_1.z.array(exports.ActionStepSchema).default([]),
     alertasImportantes: zod_1.z.array(zod_1.z.string()).default([]),
