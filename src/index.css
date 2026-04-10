@@ -1,4 +1,4 @@
-@tailwind base;
+﻿@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -11,32 +11,35 @@ body {
   color: #e2e8f0; /* Slate 200 */
 }
 
+@page { margin: 10mm; }
+
 @media print {
   /* Oculta absolutamente tudo */
   body * {
     visibility: hidden;
   }
-  /* Mostra apenas o conteúdo do plano Nexus */
+  /* Mostra apenas o conteÃºdo do plano Nexus */
   #plano-content,
   #plano-content * {
     visibility: visible;
   }
-  /* Posiciona o plano no topo da página */
+  /* Posiciona o plano no topo da pÃ¡gina */
   #plano-content {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
-    padding: 32px;
-    margin: 0;
+    padding: 0 !important;
+    margin: 0 !important;
   }
-  /* Evita quebras de página dentro dos cards */
+  /* Evita quebras de pÃ¡gina dentro dos cards */
   #plano-content section,
   #plano-content > div {
     break-inside: avoid;
   }
-  /* Remove sombras e bordas coloridas para impressão limpa */
+  /* Remove sombras e bordas coloridas para impressÃ£o limpa */
   #plano-content .shadow-sm {
     box-shadow: none !important;
   }
 }
+

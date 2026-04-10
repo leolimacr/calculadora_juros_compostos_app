@@ -9,7 +9,7 @@ export interface DebtItem {
   saldoDevedor: number;
   taxaMensal: number;
   parcelasRestantes: number;
-  valorParcela?: number;
+  valorParcela: number;
   createdAt?: any;
 }
 

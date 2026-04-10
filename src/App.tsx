@@ -1,4 +1,4 @@
-import { PassiveWealthManager } from './components/tools/wealth/PassiveWealthManager';
+﻿import { PassiveWealthManager } from './components/tools/wealth/PassiveWealthManager';
 import { DebtManager } from './components/tools/wealth/DebtManager';
 import { TermsPage } from './components/TermsPage';
 import { PrivacyPage } from './components/PrivacyPage';
@@ -600,3 +600,5 @@ const App: React.FC = () => {
 };
 
 export default App;
+
+

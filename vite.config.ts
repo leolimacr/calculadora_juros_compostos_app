@@ -13,6 +13,12 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/api\/market/, '')
+      },
+      // 👇 NOVO: proxy para o Banco Central
+      '/api-bcb': {
+        target: 'https://api.bcb.gov.br',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api-bcb/, '')
       }
     }
   }

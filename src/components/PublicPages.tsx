@@ -25,8 +25,8 @@ import { getLatestNews } from '../services/newsService';
 const CLOUD_API_URL = '/api/market';
 const TICKER_API_URL = 'https://gettickerprice-5auxvdzm3q-uc.a.run.app';
 const AWESOME_API_URL = 'https://economia.awesomeapi.com.br/last/USD-BRL,EUR-BRL,BTC-BRL,ETH-BRL,BNB-BRL,SOL-BRL,BTC-USD,ETH-USD,SOL-USD';
-const BCB_SELIC_URL = 'https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados/ultimos/1?formato=json';
-const BCB_IPCA_URL = 'https://api.bcb.gov.br/dados/serie/bcdata.sgs.13522/dados/ultimos/1?formato=json';
+const BCB_SELIC_URL = '/api-bcb/dados/serie/bcdata.sgs.432/dados/ultimos/1?formato=json';
+const BCB_IPCA_URL  = '/api-bcb/dados/serie/bcdata.sgs.13522/dados/ultimos/1?formato=json';
 
 const RADAR_NEWS = [
   {

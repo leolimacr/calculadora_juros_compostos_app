@@ -9,9 +9,9 @@ function formatDate(date: Date): string {
 export async function fetchCurrentSelicRate(): Promise<number> {
   const end = new Date();
   const start = new Date();
-  start.setMonth(start.getMonth() - 6);
-
-  const url = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.${SELIC_SERIES_CODE}/dados?formato=json&dataInicial=${formatDate(start)}&dataFinal=${formatDate(end)}`;
+  start.setMonth(start.getMonth() - 6);  
+  const url = `/api-bcb/dados/serie/bcdata.sgs.${SELIC_SERIES_CODE}/dados?formato=json&dataInicial=${formatDate(start)}&dataFinal=${formatDate(end)}`;
+    
   const response = await fetch(url, {
     headers: {
       Accept: 'application/json',

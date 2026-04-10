@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   collection, query, onSnapshot,
   addDoc, doc, updateDoc, deleteDoc,
@@ -32,14 +32,14 @@ interface DebtManagerProps {
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
-// Função "HP12c" para calcular o CET (Taxa Interna de Retorno mensal)
+// Funçío "HP12c" para calcular o CET (Taxa Interna de Retorno mensal)
 const calculateCET = (pv: number, n: number, pmt: number): number => {
   if (pv <= 0 || n <= 0 || pmt <= 0 || (pmt * n) <= pv) return 0;
   let low = 0, high = 100; // Até 100% ao mês
   for (let i = 0; i < 50; i++) {
     let mid = (low + high) / 2;
     let rate = mid / 100;
-    // Fórmula de Prestação (Tabela Price): PMT = PV * [i(1+i)^n] / [(1+i)^n - 1]
+    // Fórmula de Prestaçío (Tabela Price): PMT = PV * [i(1+i)^n] / [(1+i)^n - 1]
     let pmtCalc = (pv * rate) / (1 - Math.pow(1 + rate, -n));
     if (pmtCalc > pmt) high = mid;
     else low = mid;
@@ -98,15 +98,15 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta }) => {
   const [tempCurrentReserve, setTempCurrentReserve] = useState<number>(0);
   const [displayTempCurrentReserve, setDisplayTempCurrentReserve] = useState('');
 
-  // 3. Efeito para controlar a exibição do guia
+  // 3. Efeito para controlar a exibiçío do guia
     useEffect(() => {
     // Só dispara o passo 1 automaticamente se for a primeira vez (step === 0)
-    // e se realmente não existir o perfil.
-    // Se o userMeta carregou, mas o perfil não existe, abre o guia
+    // e se realmente nío existir o perfil.
+    // Se o userMeta carregou, mas o perfil nío existe, abre o guia
     if (userMeta && !userMeta.financialProfile && setupStep === 0) {
       setSetupStep(1);
     }
-  }, [userMeta?.financialProfile]); // Agora ele só vigia o perfil, não o step.
+  }, [userMeta?.financialProfile]); // Agora ele só vigia o perfil, nío o step.
   // 4. Auto-cálculo do CET (HP12c style)
   useEffect(() => {
     const { saldoDevedor, parcelasRestantes, valorParcela } = form;
@@ -137,7 +137,7 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta }) => {
     return () => unsub();
   }, [userMeta]);
 
-  // 5. Helper de Input com Máscara (Versão Polimórfica)
+  // 5. Helper de Input com Máscara (Versío Polimórfica)
   const handleCurrencyInput = (
     raw: string,
     setDisplay: (v: string) => void,
@@ -169,7 +169,7 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta }) => {
     setEditingId(null);
   };
 
-  // ─── CRUD ────────────────────────────────────────────────────────────────
+  // ”€”€”€ CRUD ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€
   const handleSave = async (e: React.FormEvent) => {
       e.preventDefault();
       if (
@@ -178,7 +178,7 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta }) => {
         form.saldoDevedor <= 0 ||
         form.taxaMensal <= 0 ||
         form.parcelasRestantes <= 0 ||
-        !form.valorParcela ||          // <-- NOVA TRAVA: Parcela não pode ser vazia
+        !form.valorParcela ||          // <-- NOVA TRAVA: Parcela nío pode ser vazia
         form.valorParcela <= 0         // <-- NOVA TRAVA: Parcela tem que ser maior que zero
       ) {
         alert('Preencha todos os campos corretamente. O valor da parcela é essencial para o Nexus montar seu plano.');
@@ -235,24 +235,13 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta }) => {
       console.error('Erro ao excluir dívida:', err);
     }
   };
-
-  // ─── Nexus CTA ───────────────────────────────────────────────────────────
-  const [showDebtPlan, setShowDebtPlan] = useState(false);
-
-  const handleNexusCTA = () => {
-    setShowDebtPlan(true);
-    setTimeout(() => {
-      document.getElementById('nexus-debt-plan')?.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
-  };
-
   const totalSaldo = debts.reduce((acc, d) => acc + d.saldoDevedor, 0);
   console.log("DEBUG Nexus:", { profile: userMeta?.financialProfile, step: setupStep });
-  // ─── Render ──────────────────────────────────────────────────────────────
+  // ”€”€”€ Render ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€
   return (
     <div className="w-full max-w-6xl mx-auto p-4 md:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
-      {/* SEÇÃO DE PERFIL FINANCEIRO (MÉTODO GUIADO) */}
+      {/* SEÇíO DE PERFIL FINANCEIRO (MÉTODO GUIADO) */}
       {userMeta?.financialProfile && setupStep <= 0 ? (
         // CARD DE RESUMO (Feedback visual após salvar)
         <div className="mb-8 bg-white border border-teal-100 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row gap-6 items-center justify-between animate-in fade-in duration-500">
@@ -315,7 +304,7 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta }) => {
             <div className="flex-1">
               {setupStep === 1 && (
                 <div className="space-y-4">
-                  <h3 className="text-xl font-bold italic">Passo 1: Qual sua renda mensal líquida?</h3>
+                  <h3 className="text-xl font-bold italic">Passo 1: Qual sua renda mensal lí­quida?</h3>
                   <p className="text-teal-50 text-sm leading-relaxed">O Nexus usa esse dado para calcular o quanto você realmente pode usar para quitar dívidas sem passar sufoco.</p>
                   <div className="relative max-w-xs">
                     <span className="absolute left-4 top-[13px] text-teal-200 font-bold">R$</span>
@@ -340,8 +329,8 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta }) => {
               {setupStep === 2 && (
                 <div className="space-y-4">
                   <h3 className="text-xl font-bold italic">O que é a Reserva de Emergência?</h3>
-                  <p className="text-teal-50 text-sm leading-relaxed">É o seu <strong>balão de oxigênio</strong>. Ter um valor guardado evita que você faça novas dívidas em imprevistos. É a base da sua paz.</p>
-                  <p className="font-semibold text-sm pt-2">Como é a estabilidade da sua fonte de renda hoje?</p>
+                  <p className="text-teal-50 text-sm leading-relaxed">É o seu <strong>balío de oxigênio</strong>. Ter um valor guardado evita que você faça novas dívidas em imprevistos. É a base da sua paz.</p>
+                  <p className="font-semibold text-sm pt-2">Como í© a estabilidade da sua fonte de renda hoje?</p>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <button onClick={() => { setTempStability('stable'); setTempReserveMonths(4); setSetupStep(3); }} className="bg-white/10 hover:bg-white/20 p-4 rounded-xl border border-white/10 text-left text-sm transition-all group">
                       <ShieldCheck size={18} className="mb-2 text-teal-200 group-hover:text-white" />
@@ -365,7 +354,7 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta }) => {
               {setupStep === 3 && (
                 <div className="space-y-4">
                   <h3 className="text-xl font-bold italic">Definindo sua meta</h3>
-                  <p className="text-teal-50 text-sm leading-relaxed">Sugerimos <strong>{tempReserveMonths} meses</strong> de custo de vida. Você decide o que te traz paz.</p>
+                  <p className="text-teal-50 text-sm leading-relaxed">Sugerimos <strong>{tempReserveMonths} meses</strong> de custo de vida. você decide o que te traz paz.</p>
                   <div className="flex items-center gap-4 py-2">
                     <input 
                       type="range" min="1" max="24" step="1" 
@@ -509,7 +498,7 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta }) => {
               onClick={resetForm}
               className="text-xs font-bold text-slate-400 hover:text-slate-700 flex items-center gap-1 transition-colors"
             >
-              <X size={14} /> Cancelar edição
+              <X size={14} /> Cancelar ediçío
             </button>
           )}
         </div>
@@ -574,13 +563,13 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta }) => {
                   type="button"
                   onClick={() => setShowCetInfo((v) => !v)}
                   className="text-slate-400 hover:text-teal-600 transition-colors ml-1"
-                  aria-label="O que é CET?"
+                  aria-label="O que í© CET?"
                 >
                   <HelpCircle size={13} />
                 </button>
                 {showCetInfo && (
                   <div className="absolute left-0 top-6 z-20 w-72 bg-white border border-slate-200 rounded-xl shadow-lg p-4 text-xs text-slate-600 leading-relaxed animate-in fade-in zoom-in duration-200">
-                    <p className="font-bold text-slate-800 mb-1 text-sm">O que é CET?</p>
+                    <p className="font-bold text-slate-800 mb-1 text-sm">O que í© CET?</p>
                     <p className="mb-2">
                       É o <strong>custo real da sua dívida</strong>. O app calcula isso automaticamente cruzando o saldo, o prazo e o valor da sua parcela.
                     </p>
@@ -591,7 +580,7 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta }) => {
                       onClick={() => setShowCetInfo(false)}
                       className="mt-3 text-teal-600 font-bold text-[10px] uppercase tracking-wide"
                     >
-                      Entendido ✓
+                      Entendido œ“
                     </button>
                   </div>
                 )}
@@ -660,7 +649,7 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta }) => {
               }`}
             >
               {editingId
-                ? <><Pencil size={15} /> Salvar alterações</>
+                ? <><Pencil size={15} /> Salvar alteraçíµes</>
                 : <><Plus size={15} /> Adicionar dívida</>}
             </button>
           </div>
@@ -671,7 +660,7 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta }) => {
       <div className="mb-8">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-            Dívidas cadastradas
+            dívidas cadastradas
             <span className="text-xs font-bold bg-slate-100 text-slate-500 px-3 py-1 rounded-full border border-slate-200">
               {debts.length} {debts.length === 1 ? 'dívida' : 'dívidas'}
             </span>
@@ -755,68 +744,48 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta }) => {
           </div>
         )}
       </div>
-
-      {/* CTA Nexus — aparece quando há pelo menos 1 dívida cadastrada */}
-      {debts.length > 0 && (
-        <div className="rounded-2xl border border-teal-200 bg-gradient-to-br from-teal-50 to-slate-50 p-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-col gap-1">
-            <p className="text-sm font-semibold text-teal-800 flex items-center gap-2">
-              <Sparkles size={16} className="text-teal-600" />
-              Suas dívidas estão prontas para análise.
-            </p>
-            <p className="text-sm text-slate-600">
-              Quer que o Nexus monte seu plano de quitação com base nesses dados reais?
-            </p>
+      {/* ”€”€ NEXUS DEBT PLAN (inline) ”€”€ */}
+        {debts.length > 0 && (
+          <div id="nexus-debt-plan">
+            <DebtPlanSimulator
+              dividas={debts.map(d => ({
+                id: d.id ?? d.nome,
+                nome: d.nome,
+                saldoAtual: d.saldoDevedor,
+                taxaJurosMes: d.taxaMensal,
+                ...(d.valorParcela ? { parcelaMensal: d.valorParcela } : {}),
+              }))}
+              simulacao={{
+                totalDividas: debts.reduce((acc, d) => acc + d.saldoDevedor, 0),
+                prazoEstimadoQuitacaoAtual: debts.length > 0
+                  ? Math.max(...debts.map(d => d.parcelasRestantes))
+                  : 0,
+                ...(userMeta?.financialProfile?.monthlyIncome
+                  ? { rendaMensalEstimada: userMeta.financialProfile.monthlyIncome }
+                  : {}),
+              }}
+              usuarioPerfil="endividado_iniciante"
+              perfilContexto={userMeta?.financialProfile ? {
+                estabilidade:
+                  userMeta.financialProfile.emergencyReserveTarget <= 4 ? 'estavel' :
+                  userMeta.financialProfile.emergencyReserveTarget >= 12 ? 'volatil' : 'regular',
+                reservaAtual: userMeta.financialProfile.emergencyReserveCurrent ?? 0,
+                metaReservaEmMeses: userMeta.financialProfile.emergencyReserveTarget ?? 6,
+              } : undefined}
+              patrimonioContexto={{
+                valorTotalInvestimentosFinanceiros: totalAssets,
+                valorPatrimonioLiquido: patrimonioLiquido,
+              }}
+              custoOportunidadeContexto={undefined}
+            />
           </div>
-          <button
-            onClick={handleNexusCTA}
-            className="flex items-center justify-center gap-2 rounded-xl bg-teal-600 px-5 py-3 text-sm font-semibold text-white hover:bg-teal-700 transition-colors whitespace-nowrap shadow-sm"
-          >
-            <Sparkles size={15} />
-            Gerar meu plano com o Nexus
-          </button>
-        </div>
-      )}
-
-      {/* ── NEXUS DEBT PLAN (inline) ── */}
-      {showDebtPlan && (
-        <div id="nexus-debt-plan">
-          <DebtPlanSimulator
-            dividas={debts.map(d => ({
-              id: d.id ?? d.nome,
-              nome: d.nome,
-              saldoAtual: d.saldoDevedor,
-              taxaJurosMes: d.taxaMensal,
-              ...(d.valorParcela ? { parcelaMensal: d.valorParcela } : {}),
-            }))}
-            simulacao={{
-              totalDividas: debts.reduce((acc, d) => acc + d.saldoDevedor, 0),
-              prazoEstimadoQuitacaoAtual: debts.length > 0
-                ? Math.max(...debts.map(d => d.parcelasRestantes))
-                : 0,
-              ...(userMeta?.financialProfile?.monthlyIncome
-                ? { rendaMensalEstimada: userMeta.financialProfile.monthlyIncome }
-                : {}),
-            }}
-            usuarioPerfil="endividado_iniciante"
-            perfilContexto={userMeta?.financialProfile ? {
-              estabilidade:
-                userMeta.financialProfile.emergencyReserveTarget <= 4 ? 'estavel' :
-                userMeta.financialProfile.emergencyReserveTarget >= 12 ? 'volatil' : 'regular',
-              reservaAtual: userMeta.financialProfile.emergencyReserveCurrent ?? 0,
-              metaReservaEmMeses: userMeta.financialProfile.emergencyReserveTarget ?? 6,
-            } : undefined}
-             patrimonioContexto={{
-               valorTotalInvestimentosFinanceiros: totalAssets,
-               valorPatrimonioLiquido: patrimonioLiquido,
-             }}
-             custoOportunidadeContexto={undefined}
-          />
-        </div>
-      )}
-
+        )}
     </div>
   );
 };
 
 export default DebtManager;
+
+
+
+

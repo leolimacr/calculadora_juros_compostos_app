@@ -23,5 +23,6 @@ export const firestore = getFirestore(app);
 export const db = getDatabase(app);
 export const database = db;
 export const functions = getFunctions(app, "us-central1");
+
 export const storage = getStorage(app);
 export default app;

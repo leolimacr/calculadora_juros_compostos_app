@@ -200,8 +200,7 @@ export const RentVsFinanceTool = ({ onNavigate, isAuthenticated }) => {
     const fetchSelic = async () => {
       try {
         setSelicStatus('loading');
-
-        const url = 'https://api.bcb.gov.br/dados/serie/bcdata.sgs.11/dados/ultimos/20?formato=json';
+        const url = '/api-bcb/dados/serie/bcdata.sgs.11/dados/ultimos/20?formato=json';
         const res = await fetch(url);
         if (!res.ok) throw new Error('Falha ao consultar Selic no BCB');
 

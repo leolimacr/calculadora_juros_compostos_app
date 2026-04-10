@@ -43,12 +43,12 @@ export interface CustoOportunidadeContexto {
   estrategiaSugerida?: string;
 }
 
-
 export interface NexusDebtPlanRequest {
   usuarioPerfil?: UsuarioPerfil;
   perfilContexto?: PerfilContexto;
   patrimonioContexto?: PatrimonioContexto;
   custoOportunidadeContexto?: CustoOportunidadeContexto;
+  forceRegenerate?: boolean;
   dividas: DebtItem[];
   simulacao: DebtSimulationSummary;
 }
@@ -69,6 +69,37 @@ export interface PriorityExplanation {
   recomendacaoPrincipal: string;
 }
 
+export interface DiagnosticoFinanceiro {
+  patrimonioAtivo?: number | null;
+  patrimonioPassivo?: number | null;
+  patrimonioLiquido?: number | null;
+  rendaMensalConsiderada?: number | null;
+  reservaAtual?: number | null;
+  metaReservaEmMeses?: number | null;
+  diagnosticoResumo?: string;
+}
+
+export interface AnaliseCustoOportunidade {
+  taxaReferenciaAno?: number | null;
+  retornoLiquidoEstimadoAno?: number | null;
+  haVantagemEmAntecipar?: boolean | null;
+  resumoDecisao?: string;
+  justificativa?: string;
+}
+
+export interface DecisaoPorDivida {
+  ordem?: number;
+  nomeDivida: string;
+  acaoRecomendada:
+    | "quitar_agressivamente"
+    | "amortizar"
+    | "manter_parcelas"
+    | "renegociar"
+    | "nao_antecipar";
+  justificativa: string;
+  observacoes?: string;
+}
+
 export interface DebtPlanResponse {
   resumo3Linhas: string[];
   prioridade: PriorityExplanation;
@@ -76,8 +107,15 @@ export interface DebtPlanResponse {
     prazoEstimadoQuitacaoMeses?: number | null;
     economiaEstimadaJuros?: number | null;
   };
+  diagnosticoFinanceiro?: DiagnosticoFinanceiro;
+  analiseCustoOportunidade?: AnaliseCustoOportunidade;
+  decisoesPorDivida?: DecisaoPorDivida[];
+  explicacaoCenarioAtual?: string;
+  explicacaoMetaPlano?: string;
+  explicacaoEsforcoMensal?: string;
   passos7Dias: ActionStep[];
   passos30Dias: ActionStep[];
+  passos90Dias?: ActionStep[];
   alertasImportantes: string[];
   tomGeral?: "calmo" | "direto" | "motivador";
 }
@@ -87,26 +125,60 @@ interface GenerateDebtPlanCallableResponse {
   plan?: DebtPlanResponse;
   model?: string;
   provider?: string;
+  cacheStatus?: "fresh" | "stale_recommended" | "stale_expired";
+  cacheAgeDays?: number;
+  cacheUpdatedAt?: number;
+  needsUserConfirmationToRegenerate?: boolean;
+}
+
+export interface GenerateDebtPlanResult {
+  plan: DebtPlanResponse;
+  model?: string;
+  provider?: string;
+  cacheStatus?: "fresh" | "stale_recommended" | "stale_expired";
+  cacheAgeDays?: number;
+  cacheUpdatedAt?: number;
+  needsUserConfirmationToRegenerate?: boolean;
 }
 
 /**
  * Chama a Cloud Function generateDebtPlan com os dados do simulador.
  */
+ 
 export async function callGenerateDebtPlan(
   payload: NexusDebtPlanRequest
-): Promise<DebtPlanResponse> {
+): Promise<GenerateDebtPlanResult> {
+  try {
+    const fn = httpsCallable<NexusDebtPlanRequest, GenerateDebtPlanCallableResponse>(
+      functions,
+      "generateDebtPlan"
+    );
 
-  const fn = httpsCallable<NexusDebtPlanRequest, GenerateDebtPlanCallableResponse>(
-    functions,
-    "generateDebtPlan"
-  );
+    const result = await fn(payload);
+    const data = result.data;
 
-  const result = await fn(payload);
-  const data = result.data;
+    if (!data || !data.success || !data.plan) {
+      throw new Error("Falha ao gerar plano de quitação. Tente novamente.");
+    }
 
-  if (!data || !data.success || !data.plan) {
-    throw new Error("Falha ao gerar plano de quitação. Tente novamente.");
+    return {
+      plan: data.plan,
+      model: data.model,
+      provider: data.provider,
+      cacheStatus: data.cacheStatus,
+      cacheAgeDays: data.cacheAgeDays,
+      cacheUpdatedAt: data.cacheUpdatedAt,
+      needsUserConfirmationToRegenerate: data.needsUserConfirmationToRegenerate,
+    };
+  } catch (error: any) {
+    console.error("Erro ao gerar plano de quitação:", error);
+
+    if (error?.code === "unavailable") {
+      throw new Error(
+        "Os modelos de IA estão instáveis no momento. Tente novamente em alguns instantes."
+      );
+    }
+
+    throw error;
   }
-
-  return data.plan;
 }

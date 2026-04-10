@@ -468,112 +468,163 @@ export const generateDebtPlan = onCall(
         : 'Não informado';
 
         const systemPrompt = `
-Você é o Nexus, um planejador financeiro especializado em quitação de dívidas, falando em português do Brasil.
+Você é o Nexus, consultor financeiro de elite especializado em quitação inteligente de dívidas, organização patrimonial e tomada de decisão financeira no contexto brasileiro, falando em português do Brasil.
 
-Seu objetivo é montar um plano de quitação de dívidas realista, humano e empático, usando os dados reais do usuário e o resultado da simulação de quitação registrada no sistema Finanças Pro Invest.
+Seu objetivo é montar um plano de quitação claro, guiado, prático e personalizado, usando os dados reais do usuário. Você deve agir como um consultor que pega o usuário pela mão e mostra, com clareza, o que fazer agora, o que não fazer agora e por quê.
 
-Siga estas diretrizes:
+Princípios obrigatórios:
+1) Nunca entregue um plano genérico.
+- Use exatamente os nomes das dívidas fornecidas.
+- Mostre a lógica da decisão em linguagem simples.
+- Explique o que priorizar, o que pode esperar e o que não vale antecipar agora.
 
-1) Diagnóstico das dívidas
-- Liste as dívidas relevantes, usando exatamente os nomes fornecidos.
-- Explique quais são mais urgentes, considerando taxa de juros, saldo e contexto.
-- Se existirem dívidas com taxas muito altas, destaque isso claramente.
+2) Considere a fotografia financeira completa do usuário.
+- Leve em conta renda mensal, reserva de emergência, estabilidade de renda, patrimônio ativo, patrimônio passivo e patrimônio líquido quando esses dados estiverem disponíveis.
+- Se houver reserva de emergência baixa ou insuficiente, deixe claro que preservar liquidez pode ser mais importante do que acelerar toda quitação.
 
-2) Estratégia de quitação
-- Indique qual ordem de priorização das dívidas faz mais sentido (por exemplo, juros mais altos primeiro, bola de neve, etc.), considerando o perfil do usuário.
-- Explique em linguagem simples o porquê dessa ordem.
+3) Considere custo de oportunidade.
+- Se houver contexto de Selic, CDI ou retorno líquido estimado, compare esse retorno com o custo das dívidas.
+- Dívidas com juros baixos, especialmente garantidas ou financiamentos baratos, podem não ser prioridade de antecipação se o custo de oportunidade for maior e a liquidez do usuário for valiosa.
+- Quando fizer sentido, recomende manter parcelas, amortizar parcialmente ou não antecipar.
+- Não trate "maior juro primeiro" como verdade absoluta; use isso apenas quando fizer sentido no contexto.
 
-3) Recomendações práticas
-- Traga recomendações específicas para os próximos 7 dias e 30 dias, focando em ações simples e concretas.
-- Inclua sugestões de organização, negociação, revisão de orçamento e uso (ou não) de crédito adicional.
+4) Mostre decisão por dívida.
+- Para cada dívida relevante, diga a ação recomendada: "quitar_agressivamente", "amortizar", "manter_parcelas", "renegociar" ou "nao_antecipar".
+- Explique o motivo de cada decisão em linguagem clara e objetiva.
 
-4) Tom da comunicação
-- Sempre mantenha um tom respeitoso, calmo e realista.
-- Evite julgamentos; foque em caminhos práticos.
-- Quando a situação estiver muito pesada, seja empático, mas sem dar garantias irreais.
+5) Produza um plano guiado.
+- O usuário precisa sair com visão clara.
+- Mostre onde ele está hoje, qual é a estratégia recomendada e o que fazer nos próximos 7, 30 e 90 dias.
+- Priorize ações concretas, específicas e executáveis.
+
+6) Tom.
+- Seja humano, respeitoso, seguro e direto.
+- Evite julgamentos, frases vagas e conselhos genéricos.
+- Não use tom robótico nem motivacional vazio.
 
 FORMATO DE RESPOSTA (JSON ESTRITO):
 
-Retorne APENAS um objeto JSON com a seguinte estrutura (exemplo ilustrativo):
+Retorne APENAS um objeto JSON com a seguinte estrutura:
 
 {
-  "diagnosticoGeral": {
-    "resumo": "texto curto sobre a situação geral das dívidas",
-    "nivelAlerta": "baixo" | "moderado" | "alto",
-    "pontosFortes": ["ponto forte 1", "ponto forte 2"],
-    "pontosAtencao": ["ponto de atenção 1", "ponto de atenção 2"]
-  },
-  "estrategiaQuitacao": {
-    "metodoPrincipal": "ex: bola_de_neve / avalanche / combinada",
-    "justificativaMetodo": "explicação simples do porquê dessa escolha",
-    "ordemPrioridadeDividas": [
-      {
-        "nomeDivida": "nome exato da dívida",
-        "prioridade": 1,
-        "motivo": "por que essa vem primeiro"
-      }
-    ]
-  },
-  "recomendacoes": {
-    "proximos7Dias": [
-      { "ordem": 1, "descricao": "ação concreta para os próximos 7 dias", "categoria": "organização_orcamento | negociação | comportamento | outro" }
-    ],
-    "proximos30Dias": [
-      { "ordem": 1, "descricao": "ação concreta para os próximos 30 dias", "categoria": "organização_orcamento | negociação | comportamento | outro" }
-    ],
-    "recomendacaoPrincipal": "ação concreta e específica"
+  "resumo3Linhas": [
+    "linha 1 objetiva com leitura da situação atual",
+    "linha 2 com a principal decisão estratégica",
+    "linha 3 com o próximo foco do usuário"
+  ],
+  "prioridade": {
+    "idDividaPrioritaria": "id ou string vazia",
+    "nomeDividaPrioritaria": "nome exato da dívida prioritária",
+    "motivo": "motivo principal da prioridade",
+    "recomendacaoPrincipal": "ação principal recomendada"
   },
   "planoHorizonte": {
     "prazoEstimadoQuitacaoMeses": 0,
     "economiaEstimadaJuros": 0
   },
+  "diagnosticoFinanceiro": {
+    "patrimonioAtivo": 0,
+    "patrimonioPassivo": 0,
+    "patrimonioLiquido": 0,
+    "rendaMensalConsiderada": 0,
+    "reservaAtual": 0,
+    "metaReservaEmMeses": 0,
+    "diagnosticoResumo": "leitura objetiva do quadro financeiro"
+  },
+  "analiseCustoOportunidade": {
+    "taxaReferenciaAno": 0,
+    "retornoLiquidoEstimadoAno": 0,
+    "haVantagemEmAntecipar": true,
+    "resumoDecisao": "síntese da decisão sobre antecipar ou não",
+    "justificativa": "comparação objetiva entre custo da dívida, liquidez e retorno alternativo"
+  },
+  "decisoesPorDivida": [
+    {
+      "ordem": 1,
+      "nomeDivida": "nome exato da dívida",
+      "acaoRecomendada": "quitar_agressivamente",
+      "justificativa": "motivo claro e específico",
+      "observacoes": "detalhe adicional opcional"
+    }
+  ],
+  "explicacaoCenarioAtual": "explicação clara de onde o usuário está hoje",
+  "explicacaoMetaPlano": "explicação clara de para onde este plano leva",
+  "explicacaoEsforcoMensal": "explicação clara do esforço mensal necessário",
   "passos7Dias": [
-    { "ordem": 1, "horizonte": "7_dias", "descricao": "...", "observacoes": "..." }
+    { "ordem": 1, "horizonte": "7_dias", "descricao": "ação concreta", "observacoes": "detalhe opcional" }
   ],
   "passos30Dias": [
-    { "ordem": 1, "horizonte": "30_dias", "descricao": "...", "observacoes": "..." }
+    { "ordem": 1, "horizonte": "30_dias", "descricao": "ação concreta", "observacoes": "detalhe opcional" }
   ],
-  "alertasImportantes": ["alerta personalizado 1", "alerta personalizado 2"],
+  "passos90Dias": [
+    { "ordem": 1, "horizonte": "90_dias", "descricao": "ação concreta", "observacoes": "detalhe opcional" }
+  ],
+  "alertasImportantes": [
+    "alerta personalizado 1",
+    "alerta personalizado 2"
+  ],
   "tomGeral": "calmo"
 }
 
 Regras adicionais de FORMATO (OBRIGATÓRIO):
 - A resposta DEVE ser APENAS um único objeto JSON válido, sem texto antes ou depois.
-- NÃO inclua comentários, explicações, mensagens de erro, desculpas ou avisos fora do JSON.
-- NÃO use campos extras fora da estrutura especificada. Se precisar sinalizar alguma limitação, use um campo "observacoes" ou "alertasImportantes".
-- Se algum campo numérico não vier preenchido, use null ou 0, nunca invente números.
+- NÃO inclua comentários, markdown, explicações fora do JSON, mensagens de erro ou desculpas.
+- Use somente os campos especificados acima.
+- Se algum valor numérico não estiver disponível, use null ou 0; nunca invente números.
+- Use exatamente os nomes das dívidas recebidas.
+- Preencha "decisoesPorDivida" com todas as dívidas relevantes.
+- "acaoRecomendada" deve ser apenas uma destas opções: "quitar_agressivamente", "amortizar", "manter_parcelas", "renegociar", "nao_antecipar".
+- Se o contexto indicar custo de oportunidade favorável a manter investimentos ou preservar liquidez, isso deve aparecer explicitamente em "analiseCustoOportunidade", em "decisoesPorDivida" e nos "alertasImportantes".
+- Se a reserva de emergência estiver inadequada, isso deve aparecer explicitamente no plano.
 - "tomGeral" deve ser: "calmo" para Estável, "direto" para Regular, "motivador" para Volátil.
-- Mesmo em caso de dúvida, poucos dados ou instabilidade, SEMPRE devolva um JSON válido seguindo o formato acima, com campos coerentes (por exemplo, listas vazias, textos explicativos nos campos de observação), e NUNCA uma frase solta fora do JSON.
+- Mesmo com poucos dados, devolva um JSON completo, coerente e útil.
 `;
 
       // 4) Mensagem "user" com os dados da simulação
+      
       const userMessage = `
-A seguir estão os dados reais de um usuário do Finanças Pro Invest.
+      A seguir estão os dados reais de um usuário do Finanças Pro Invest.
 
-PERFIL DO USUÁRIO:
-- Estabilidade de renda: ${estabilidadeLabel}
-- Reserva de emergência: ${reservaStatus}
-- Renda mensal declarada: ${dados.simulacao.rendaMensalEstimada
-    ? `R$ ${dados.simulacao.rendaMensalEstimada.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-    : 'Não informada'}
+      INSTRUÇÕES DE ANÁLISE:
+      - Considere renda, reserva, estabilidade, patrimônio, custo de oportunidade e todas as dívidas ao mesmo tempo.
+      - Não trate automaticamente financiamento barato ou dívida garantida como prioridade de quitação antecipada.
+      - Se houver contexto econômico favorável à liquidez ou ao investimento conservador, explique isso de forma explícita.
+      - Preencha obrigatoriamente os blocos: diagnosticoFinanceiro, analiseCustoOportunidade, decisoesPorDivida, passos7Dias, passos30Dias e passos90Dias.
+      - Em decisoesPorDivida, inclua todas as dívidas listadas abaixo, sem omitir nenhuma.
+      - Em patrimonioPassivo, considere a soma dos saldos devedores informados.
+      - Se patrimônio ativo, reserva ou renda não forem suficientes para uma quitação acelerada sem perda de segurança, deixe isso claro.
+      - Se fizer mais sentido manter parcelas de alguma dívida, diga isso explicitamente com "acaoRecomendada": "manter_parcelas" ou "nao_antecipar".
 
-PATRIMÔNIO E INVESTIMENTOS:
-- Contexto patrimonial: ${patrimonioStatus}
+      PERFIL DO USUÁRIO:
+      - Estabilidade de renda: ${estabilidadeLabel}
+      - Reserva de emergência: ${reservaStatus}
+      - Renda mensal declarada: ${dados.simulacao.rendaMensalEstimada
+        ? `R$ ${dados.simulacao.rendaMensalEstimada.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+        : 'Não informada'}
 
-CONTEXTO DE CUSTO DE OPORTUNIDADE:
-- Contexto econômico e estratégico: ${oportunidadeStatus}
+      PATRIMÔNIO E INVESTIMENTOS:
+      - Contexto patrimonial: ${patrimonioStatus}
+      - Use este contexto para preencher diagnosticoFinanceiro.patrimonioAtivo, diagnosticoFinanceiro.patrimonioLiquido e diagnosticoFinanceiro.diagnosticoResumo quando houver dados.
 
-DÍVIDAS CADASTRADAS (espelhe todas no diagnóstico):
-${dados.dividas.map((d, i) =>
-  `${i + 1}. ${d.nome} — Saldo: R$ ${d.saldoAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} | Taxa: ${d.taxaJurosMes}% a.m.${d.parcelaMensal ? ` | Parcela: R$ ${d.parcelaMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ''}`
-).join('\n')}
+      CONTEXTO DE CUSTO DE OPORTUNIDADE:
+      - Contexto econômico e estratégico: ${oportunidadeStatus}
+      - Use este contexto para preencher analiseCustoOportunidade.taxaReferenciaAno, analiseCustoOportunidade.retornoLiquidoEstimadoAno, analiseCustoOportunidade.haVantagemEmAntecipar, analiseCustoOportunidade.resumoDecisao e analiseCustoOportunidade.justificativa.
 
-SIMULAÇÃO (para referência):
-${JSON.stringify(dados.simulacao, null, 2)}
+      DÍVIDAS CADASTRADAS:
+      ${dados.dividas.map((d, i) =>
+        `${i + 1}. ${d.nome} — Saldo: R$ ${d.saldoAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} | Taxa: ${d.taxaJurosMes}% a.m.${d.parcelaMensal ? ` | Parcela: R$ ${d.parcelaMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ''}${d.ehGarantida ? ' | Dívida garantida: sim' : ''}${d.atrasoEmDias ? ` | Atraso: ${d.atrasoEmDias} dias` : ''}${d.observacoes ? ` | Observações: ${d.observacoes}` : ''}`
+      ).join('\n')}
 
-Monte o plano de quitação considerando TODOS esses dados. Cite as dívidas pelo nome no diagnóstico.
-Responda apenas com o JSON no formato combinado, sem qualquer texto fora do JSON.
-`;
+      SIMULAÇÃO (para referência):
+      ${JSON.stringify(dados.simulacao, null, 2)}
+
+      REGRAS FINAIS:
+      - Cite as dívidas pelo nome exato.
+      - Não devolva recomendações genéricas.
+      - Mostre claramente qual dívida atacar, qual negociar, qual manter e qual não antecipar.
+      - Se houver vantagem em não antecipar uma dívida por custo de oportunidade, isso deve aparecer de forma textual e explícita.
+      - Responda apenas com o JSON no formato combinado, sem qualquer texto fora do JSON.
+      `;
       const messages = [
         { role: "user" as const, content: userMessage },
       ];
@@ -700,33 +751,104 @@ Responda apenas com o JSON no formato combinado, sem qualquer texto fora do JSON
 
           const raw = parsed as any;
 
+          const patrimonioPassivoCalculado = Array.isArray(dados.dividas)
+            ? dados.dividas.reduce((acc, d) => acc + (Number(d.saldoAtual) || 0), 0)
+            : 0;
+
           const planFallback: DebtPlanResponseSafe = {
             resumo3Linhas: raw.resumo3Linhas ?? [
-              raw.diagnosticoGeral?.resumo ?? "Não foi possível gerar um resumo detalhado.",
+              raw.diagnosticoFinanceiro?.diagnosticoResumo ??
+                raw.diagnosticoGeral?.resumo ??
+                "Seu plano foi gerado com dados parciais, mas já indica uma direção prática de ação.",
+              raw.analiseCustoOportunidade?.resumoDecisao ??
+                "A decisão entre quitar, amortizar ou manter parcelas deve considerar juros, liquidez e custo de oportunidade.",
+              raw.prioridade?.recomendacaoPrincipal ??
+                raw.recomendacoes?.recomendacaoPrincipal ??
+                "Siga a prioridade indicada e execute as próximas ações sugeridas.",
             ],
             prioridade: raw.prioridade ?? {
               idDividaPrioritaria: "",
               nomeDividaPrioritaria:
                 raw.estrategiaQuitacao?.ordemPrioridadeDividas?.[0]?.nomeDivida ??
+                raw.decisoesPorDivida?.[0]?.nomeDivida ??
                 "Dívida prioritária não identificada",
               motivo:
                 raw.estrategiaQuitacao?.ordemPrioridadeDividas?.[0]?.motivo ??
-                "Não foi possível explicar a prioridade.",
+                raw.decisoesPorDivida?.[0]?.justificativa ??
+                "Não foi possível explicar a prioridade com todos os detalhes.",
               recomendacaoPrincipal:
                 raw.recomendacoes?.recomendacaoPrincipal ??
-                "Revise suas dívidas e priorize as com maior taxa de juros.",
+                raw.decisoesPorDivida?.[0]?.justificativa ??
+                "Siga a estratégia principal indicada no plano.",
             },
             planoHorizonte: raw.planoHorizonte ?? {
               prazoEstimadoQuitacaoMeses: null,
               economiaEstimadaJuros: null,
             },
+            diagnosticoFinanceiro: raw.diagnosticoFinanceiro ?? {
+              patrimonioAtivo: dados.patrimonioContexto?.valorTotalInvestimentosFinanceiros ?? null,
+              patrimonioPassivo: patrimonioPassivoCalculado || null,
+              patrimonioLiquido:
+                dados.patrimonioContexto?.valorPatrimonioLiquido ?? null,
+              rendaMensalConsiderada:
+                dados.simulacao?.rendaMensalEstimada ?? null,
+              reservaAtual:
+                dados.perfilContexto?.reservaAtual ?? null,
+              metaReservaEmMeses:
+                dados.perfilContexto?.metaReservaEmMeses ?? null,
+              diagnosticoResumo:
+                raw.diagnosticoGeral?.resumo ??
+                "O plano considerou dívidas, renda, reserva e patrimônio nos limites dos dados disponíveis.",
+            },
+            analiseCustoOportunidade: raw.analiseCustoOportunidade ?? {
+              taxaReferenciaAno:
+                dados.custoOportunidadeContexto?.selicAno ??
+                dados.custoOportunidadeContexto?.cdiAno ??
+                null,
+              retornoLiquidoEstimadoAno:
+                dados.custoOportunidadeContexto?.retornoLiquidoEstimadoAno ?? null,
+              haVantagemEmAntecipar: null,
+              resumoDecisao:
+                dados.custoOportunidadeContexto?.justificativaBase ??
+                "A quitação antecipada deve ser comparada com o retorno líquido alternativo e com a necessidade de liquidez.",
+              justificativa:
+                dados.custoOportunidadeContexto?.justificativaBase ??
+                "Nem toda dívida deve ser antecipada; juros, liquidez e custo de oportunidade precisam ser comparados.",
+            },
+            decisoesPorDivida:
+              raw.decisoesPorDivida ??
+              raw.estrategiaQuitacao?.ordemPrioridadeDividas?.map((item: any, index: number) => ({
+                ordem: item.prioridade ?? index + 1,
+                nomeDivida: item.nomeDivida,
+                acaoRecomendada: index === 0 ? "quitar_agressivamente" : "amortizar",
+                justificativa: item.motivo ?? "Prioridade definida pela estratégia do plano.",
+                observacoes: undefined,
+              })) ??
+              [],
+            explicacaoCenarioAtual:
+              raw.explicacaoCenarioAtual ??
+              raw.diagnosticoFinanceiro?.diagnosticoResumo ??
+              raw.diagnosticoGeral?.resumo,
+            explicacaoMetaPlano:
+              raw.explicacaoMetaPlano ??
+              raw.analiseCustoOportunidade?.resumoDecisao,
+            explicacaoEsforcoMensal:
+              raw.explicacaoEsforcoMensal ??
+              raw.recomendacoes?.recomendacaoPrincipal,
             passos7Dias: raw.passos7Dias ?? raw.recomendacoes?.proximos7Dias ?? [],
             passos30Dias: raw.passos30Dias ?? raw.recomendacoes?.proximos30Dias ?? [],
+            passos90Dias: raw.passos90Dias ?? [],
             alertasImportantes:
               raw.alertasImportantes ??
               [
                 ...(raw.diagnosticoGeral?.pontosAtencao ?? []),
+                ...(dados.perfilContexto?.reservaAtual != null &&
+                dados.perfilContexto?.metaReservaEmMeses != null &&
+                dados.perfilContexto.reservaAtual <= 0
+                  ? ["Sua reserva de emergência está zerada ou não informada com segurança."]
+                  : []),
               ],
+            tomGeral: raw.tomGeral,
           };
 
           logger.warn("[generateDebtPlan] Retornando plano com normalização de campos ausentes (fallback).", {

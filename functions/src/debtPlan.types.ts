@@ -77,6 +77,32 @@ export interface PriorityExplanation {
   recomendacaoPrincipal: string;
 }
 
+export interface DiagnosticoFinanceiro {
+  patrimonioAtivo?: number | null;
+  patrimonioPassivo?: number | null;
+  patrimonioLiquido?: number | null;
+  rendaMensalConsiderada?: number | null;
+  reservaAtual?: number | null;
+  metaReservaEmMeses?: number | null;
+  diagnosticoResumo?: string;
+}
+
+export interface AnaliseCustoOportunidade {
+  taxaReferenciaAno?: number | null;
+  retornoLiquidoEstimadoAno?: number | null;
+  haVantagemEmAntecipar?: boolean | null;
+  resumoDecisao?: string;
+  justificativa?: string;
+}
+
+export interface DecisaoPorDivida {
+  ordem?: number;
+  nomeDivida: string;
+  acaoRecomendada: 'quitar_agressivamente' | 'amortizar' | 'manter_parcelas' | 'renegociar' | 'nao_antecipar';
+  justificativa: string;
+  observacoes?: string;
+}
+
 export interface DebtPlanResponse {
   resumo3Linhas: string[];
   prioridade: PriorityExplanation;
@@ -84,11 +110,15 @@ export interface DebtPlanResponse {
     prazoEstimadoQuitacaoMeses?: number | null;
     economiaEstimadaJuros?: number | null;
   };
+  diagnosticoFinanceiro?: DiagnosticoFinanceiro;
+  analiseCustoOportunidade?: AnaliseCustoOportunidade;
+  decisoesPorDivida?: DecisaoPorDivida[];
   explicacaoCenarioAtual?: string;
   explicacaoMetaPlano?: string;
   explicacaoEsforcoMensal?: string;
   passos7Dias: ActionStep[];
   passos30Dias: ActionStep[];
+  passos90Dias?: ActionStep[];
   alertasImportantes: string[];
   tomGeral?: 'calmo' | 'direto' | 'motivador';
 }
@@ -160,6 +190,38 @@ export const PriorityExplanationSchema = z.object({
   recomendacaoPrincipal: z.string().min(3),
 });
 
+export const DiagnosticoFinanceiroSchema = z.object({
+  patrimonioAtivo: z.number().nullable().optional(),
+  patrimonioPassivo: z.number().nullable().optional(),
+  patrimonioLiquido: z.number().nullable().optional(),
+  rendaMensalConsiderada: z.number().nullable().optional(),
+  reservaAtual: z.number().nullable().optional(),
+  metaReservaEmMeses: z.number().nullable().optional(),
+  diagnosticoResumo: z.string().optional(),
+});
+
+export const AnaliseCustoOportunidadeSchema = z.object({
+  taxaReferenciaAno: z.number().nullable().optional(),
+  retornoLiquidoEstimadoAno: z.number().nullable().optional(),
+  haVantagemEmAntecipar: z.boolean().nullable().optional(),
+  resumoDecisao: z.string().optional(),
+  justificativa: z.string().optional(),
+});
+
+export const DecisaoPorDividaSchema = z.object({
+  ordem: z.number().int().positive().optional(),
+  nomeDivida: z.string().min(1),
+  acaoRecomendada: z.enum([
+    'quitar_agressivamente',
+    'amortizar',
+    'manter_parcelas',
+    'renegociar',
+    'nao_antecipar',
+  ]),
+  justificativa: z.string().min(3),
+  observacoes: z.string().optional(),
+});
+
 export const DebtPlanResponseSchema = z.object({
   resumo3Linhas: z.array(z.string()).min(1),
   prioridade: PriorityExplanationSchema,
@@ -167,11 +229,15 @@ export const DebtPlanResponseSchema = z.object({
     prazoEstimadoQuitacaoMeses: z.number().nullable().optional(),
     economiaEstimadaJuros: z.number().nullable().optional(),
   }),
+  diagnosticoFinanceiro: DiagnosticoFinanceiroSchema.optional(),
+  analiseCustoOportunidade: AnaliseCustoOportunidadeSchema.optional(),
+  decisoesPorDivida: z.array(DecisaoPorDividaSchema).default([]),
   explicacaoCenarioAtual: z.string().optional(),
   explicacaoMetaPlano: z.string().optional(),
   explicacaoEsforcoMensal: z.string().optional(),
   passos7Dias: z.array(ActionStepSchema).default([]),
   passos30Dias: z.array(ActionStepSchema).default([]),
+  passos90Dias: z.array(ActionStepSchema).default([]),
   alertasImportantes: z.array(z.string()).default([]),
   tomGeral: z.enum(['calmo', 'direto', 'motivador']).optional(),
 });
