@@ -174,31 +174,38 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userMe
       {/* Cabeçalho */}
       <header className="mb-8">
         <div className="flex items-center gap-3 mb-2">
-          <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
-            <TrendingUp size={24} className="text-emerald-400" />
+          <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200">
+            <TrendingUp size={24} className="text-emerald-600" />
           </div>
-          <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight">
+          <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
             Patrimônio Ativo
           </h2>
         </div>
-        <p className="text-slate-400 text-sm md:text-base max-w-2xl">
+        <p className="text-slate-600 text-sm md:text-base max-w-2xl">
           Seu motor de Liberdade Financeira. Registre aqui os investimentos que trabalham por você e geram renda passiva.
         </p>
       </header>
 
       {/* Formulário */}
-      <div className={`bg-slate-900/50 backdrop-blur-md border ${editingId ? 'border-amber-500/50 shadow-amber-500/10' : 'border-slate-800'} rounded-2xl p-6 mb-8 shadow-lg transition-colors duration-300`}>
+      <div
+        className={`bg-white/95 backdrop-blur-md border ${
+          editingId ? 'border-amber-300 shadow-amber-200/40' : 'border-slate-200'
+        } rounded-2xl p-6 mb-8 shadow-sm transition-colors duration-300`}
+      >
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${editingId ? 'bg-amber-500/20' : 'bg-indigo-500/20'}`}>
-              {editingId ? <Pencil size={16} className="text-amber-400" /> : <Plus size={16} className="text-indigo-400" />}
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${editingId ? 'bg-amber-100' : 'bg-emerald-100'}`}>
+              {editingId ? <Pencil size={16} className="text-amber-600" /> : <Plus size={16} className="text-emerald-600" />}
             </div>
-            <h3 className="text-lg font-bold text-white tracking-tight">
+            <h3 className="text-lg font-bold text-slate-900 tracking-tight">
               {editingId ? 'Editando Investimento' : 'Adicionar Novo Investimento'}
             </h3>
           </div>
           {editingId && (
-            <button onClick={handleCancelEdit} className="text-xs font-bold text-slate-400 hover:text-white flex items-center gap-1">
+            <button
+              onClick={handleCancelEdit}
+              className="text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1"
+            >
               <X size={14} /> Cancelar Edição
             </button>
           )}
@@ -206,7 +213,7 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userMe
 
         <form onSubmit={handleSaveAsset} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <div className="md:col-span-2">
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+            <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-2">
               Nome do Ativo (Ex: Tesouro Selic, HGLG11)
             </label>
             <input
@@ -215,7 +222,7 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userMe
               placeholder="Digite o nome..."
               value={currentAsset.name}
               onChange={(e) => setCurrentAsset({ ...currentAsset, name: e.target.value })}
-              className="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
+              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
             />
           </div>
 
@@ -226,7 +233,7 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userMe
             <select
               value={currentAsset.category}
               onChange={(e) => setCurrentAsset({ ...currentAsset, category: e.target.value })}
-              className="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors [&>option]:bg-slate-800"
+              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors [&>option]:bg-white"
             >
               <option value="Renda Fixa">Renda Fixa</option>
               <option value="Ações">Ações (Brasil)</option>
@@ -238,11 +245,11 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userMe
           </div>
 
           <div className="flex flex-col gap-2">
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0">
+            <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-0">
               Valor Total (R$)
             </label>
             <div className="flex gap-2">			  <div className="relative w-full">
-                <span className="absolute left-4 top-[14px] text-slate-400 text-sm font-bold">R$</span>
+                <span className="absolute left-4 top-[14px] text-slate-500 text-sm font-bold">R$</span>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -250,7 +257,7 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userMe
                   placeholder="0,00"
                   value={displayValue}
                   onChange={handleCurrencyChange}
-                  className="w-full bg-slate-800/50 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-white text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
+                  className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
                 />
               </div>
               <button
@@ -271,28 +278,28 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userMe
       {/* Lista de Ativos */}
       <div className="mt-8">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-bold text-white flex items-center gap-2">
-            <Wallet size={20} className="text-slate-400" /> Seus Investimentos
+          <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+            <Wallet size={20} className="text-emerald-500" /> Seus Investimentos
           </h3>
-          <span className="text-xs font-bold bg-slate-800 text-slate-300 px-3 py-1 rounded-full border border-slate-700">
+          <span className="text-xs font-bold bg-slate-100 text-slate-700 px-3 py-1 rounded-full border border-slate-200">
             {assets.length} ativos
           </span>
         </div>
 
         {isLoading ? (
-          <div className="text-center py-12 text-slate-500 animate-pulse">Carregando sua carteira...</div>
+          <div className="text-center py-12 text-slate-600 animate-pulse">Carregando sua carteira...</div>
         ) : assets.length === 0 ? (
-          <div className="text-center py-16 bg-slate-900/30 border border-dashed border-slate-700 rounded-2xl">
-            <div className="w-16 h-16 bg-slate-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <PieChart size={24} className="text-slate-500" />
+          <div className="text-center py-16 bg-slate-50 border border-dashed border-slate-200 rounded-2xl">
+            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-200">
+              <PieChart size={24} className="text-emerald-500" />
             </div>
-            <p className="text-slate-400 font-medium mb-2">Sua carteira está vazia</p>
+            <p className="text-slate-700 font-medium mb-2">Sua carteira está vazia</p>
             <p className="text-slate-500 text-sm">Adicione seu primeiro investimento no formulário acima.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {assets.map((asset) => (
-              <div key={asset.id} className="bg-slate-800/40 backdrop-blur-md border border-slate-700/50 rounded-xl p-5 hover:border-slate-600 transition-colors group relative overflow-hidden">
+              <div key={asset.id} className="bg-white backdrop-blur-md border border-slate-200 rounded-xl p-5 hover:border-slate-300 transition-colors group relative overflow-hidden shadow-sm">
                 <div className={`absolute top-0 left-0 w-full h-1 ${
                   asset.category === 'Renda Fixa' ? 'bg-sky-500' : 
                   asset.category === 'Ações' ? 'bg-emerald-500' : 
@@ -303,24 +310,24 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userMe
 
                 <div className="flex justify-between items-start mb-4 mt-2">
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-900/50 px-2 py-1 rounded-md mb-2 inline-block">
+                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider bg-slate-100 px-2 py-1 rounded-md mb-2 inline-block border border-slate-200">
                       {asset.category}
                     </span>
-                    <h4 className="text-lg font-bold text-white line-clamp-1">{asset.name}</h4>
+                    <h4 className="text-lg font-bold text-slate-900 line-clamp-1">{asset.name}</h4>
                   </div>
                   
                   {/* Botões de Ação */}
                   <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button 
-                      onClick={() => handleEditClick(asset)} 
-                      className="text-slate-400 hover:text-amber-400 p-2 rounded-lg bg-slate-900/30 hover:bg-amber-400/10 transition-colors"
+                    <button
+                      onClick={() => handleEditClick(asset)}
+                      className="text-slate-500 hover:text-amber-600 p-2 rounded-lg bg-slate-100 hover:bg-amber-50 border border-slate-200 hover:border-amber-200 transition-colors"
                       title="Editar Ativo"
                     >
                       <Pencil size={16} />
                     </button>
-                    <button 
-                      onClick={() => asset.id && handleDeleteAsset(asset.id, asset.currentValue)} 
-                      className="text-slate-400 hover:text-red-400 p-2 rounded-lg bg-slate-900/30 hover:bg-red-400/10 transition-colors"
+                    <button
+                      onClick={() => asset.id && handleDeleteAsset(asset.id, asset.currentValue)}
+                      className="text-slate-500 hover:text-red-600 p-2 rounded-lg bg-slate-100 hover:bg-red-50 border border-slate-200 hover:border-red-200 transition-colors"
                       title="Excluir Ativo"
                     >
                       <Trash2 size={16} />
@@ -330,7 +337,7 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userMe
                 
                 <div>
                   <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Valor Atual</p>
-                  <p className="text-2xl font-black text-white">
+                  <p className="text-2xl font-black text-slate-900">
                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(asset.currentValue)}
                   </p>
                 </div>

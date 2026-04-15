@@ -16,6 +16,10 @@ export interface DebtItem {
 
 export interface DebtSimulationSummary {
   rendaMensalEstimada?: number;
+  despesasMensaisMedias?: number;
+  totalParcelasMensais?: number;
+  sobraMensalReal?: number;
+  janelaAnaliseDias?: number;
   totalDividas: number;
   custoTotalJurosAtual?: number;
   prazoEstimadoQuitacaoAtual?: number;
@@ -101,28 +105,16 @@ export interface DecisaoPorDivida {
 }
 
 export interface DebtPlanResponse {
-  resumo3Linhas: string[];
-  prioridade: PriorityExplanation;
-  planoHorizonte: {
-    prazoEstimadoQuitacaoMeses?: number | null;
-    economiaEstimadaJuros?: number | null;
-  };
-  diagnosticoFinanceiro?: DiagnosticoFinanceiro;
-  analiseCustoOportunidade?: AnaliseCustoOportunidade;
-  decisoesPorDivida?: DecisaoPorDivida[];
-  explicacaoCenarioAtual?: string;
-  explicacaoMetaPlano?: string;
-  explicacaoEsforcoMensal?: string;
-  passos7Dias: ActionStep[];
-  passos30Dias: ActionStep[];
-  passos90Dias?: ActionStep[];
-  alertasImportantes: string[];
-  tomGeral?: "calmo" | "direto" | "motivador";
+  format: "markdown";
+  planoMarkdown: string;
+  generatedAt?: string;
 }
 
 interface GenerateDebtPlanCallableResponse {
   success: boolean;
-  plan?: DebtPlanResponse;
+  format?: "markdown";
+  planoMarkdown?: string;
+  generatedAt?: string;
   model?: string;
   provider?: string;
   cacheStatus?: "fresh" | "stale_recommended" | "stale_expired";
@@ -157,12 +149,25 @@ export async function callGenerateDebtPlan(
     const result = await fn(payload);
     const data = result.data;
 
-    if (!data || !data.success || !data.plan) {
+
+
+
+
+
+
+
+
+
+    if (!data || !data.success || !data.planoMarkdown) {
       throw new Error("Falha ao gerar plano de quitação. Tente novamente.");
     }
 
     return {
-      plan: data.plan,
+      plan: {
+        format: "markdown",
+        planoMarkdown: data.planoMarkdown,
+        generatedAt: data.generatedAt,
+      },
       model: data.model,
       provider: data.provider,
       cacheStatus: data.cacheStatus,
@@ -170,6 +175,7 @@ export async function callGenerateDebtPlan(
       cacheUpdatedAt: data.cacheUpdatedAt,
       needsUserConfirmationToRegenerate: data.needsUserConfirmationToRegenerate,
     };
+    
   } catch (error: any) {
     console.error("Erro ao gerar plano de quitação:", error);
 

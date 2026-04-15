@@ -17,12 +17,16 @@ export interface DebtItem {
 }
 
 export interface DebtSimulationSummary {
-  rendaMensalEstimada?: number;     
-  totalDividas: number;             
-  custoTotalJurosAtual?: number;    
-  prazoEstimadoQuitacaoAtual?: number;      
-  prazoEstimadoQuitacaoOtimizado?: number; 
-  economiaEstimadaJuros?: number;          
+  rendaMensalEstimada?: number;
+  despesasMensaisMedias?: number;
+  totalParcelasMensais?: number;
+  sobraMensalReal?: number;
+  janelaAnaliseDias?: number;
+  totalDividas: number;
+  custoTotalJurosAtual?: number;
+  prazoEstimadoQuitacaoAtual?: number;
+  prazoEstimadoQuitacaoOtimizado?: number;
+  economiaEstimadaJuros?: number;
 }
 
 export type UsuarioPerfil = 'endividado_iniciante' | 'endividado_intermediario';
@@ -138,6 +142,10 @@ export const DebtItemSchema = z.object({
 
 export const DebtSimulationSummarySchema = z.object({
   rendaMensalEstimada: z.number().optional().nullable(),
+  despesasMensaisMedias: z.number().optional().nullable(),
+  totalParcelasMensais: z.number().optional().nullable(),
+  sobraMensalReal: z.number().optional().nullable(),
+  janelaAnaliseDias: z.number().optional().nullable(),
   totalDividas: z.number(),
   custoTotalJurosAtual: z.number().optional().nullable(),
   prazoEstimadoQuitacaoAtual: z.number().optional().nullable(),

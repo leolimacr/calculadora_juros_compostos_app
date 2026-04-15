@@ -1,37 +1,10 @@
 export declare const generateDebtPlan: import("firebase-functions/v2/https").CallableFunction<any, Promise<{
     success: boolean;
-    plan: {
-        resumo3Linhas: string[];
-        prioridade: {
-            idDividaPrioritaria: string;
-            nomeDividaPrioritaria: string;
-            motivo: string;
-            recomendacaoPrincipal: string;
-        };
-        planoHorizonte: {
-            prazoEstimadoQuitacaoMeses?: number | null | undefined;
-            economiaEstimadaJuros?: number | null | undefined;
-        };
-        passos7Dias: {
-            ordem: number;
-            horizonte: "7_dias" | "30_dias" | "90_dias";
-            descricao: string;
-            observacoes?: string | undefined;
-        }[];
-        passos30Dias: {
-            ordem: number;
-            horizonte: "7_dias" | "30_dias" | "90_dias";
-            descricao: string;
-            observacoes?: string | undefined;
-        }[];
-        alertasImportantes: string[];
-        explicacaoCenarioAtual?: string | undefined;
-        explicacaoMetaPlano?: string | undefined;
-        explicacaoEsforcoMensal?: string | undefined;
-        tomGeral?: "calmo" | "direto" | "motivador" | undefined;
-    };
-    model: string;
-    provider: string;
+    format: string;
+    planoMarkdown: any;
+    generatedAt: string;
+    model: any;
+    provider: any;
 } | undefined>, unknown>;
 export declare const askAiAdvisor: import("firebase-functions/v2/https").CallableFunction<any, Promise<{
     success: boolean;

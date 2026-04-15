@@ -46,7 +46,6 @@ const firestore_1 = require("firebase-admin/firestore");
 const https_1 = require("firebase-functions/v2/https");
 const logger = __importStar(require("firebase-functions/logger"));
 const app_1 = require("firebase-admin/app");
-const jsonrepair_1 = require("jsonrepair");
 const identity_1 = require("./nexus-core/identity");
 const discretion_engine_1 = require("./nexus-core/discretion-engine");
 const data_integrator_1 = require("./nexus-core/data-integrator");
@@ -432,251 +431,320 @@ exports.generateDebtPlan = (0, https_1.onCall)({
         const oportunidadeStatus = oportunidade
             ? `Selic: ${oportunidade.selicAno ?? 'n/d'}% a.a. | CDI: ${oportunidade.cdiAno ?? 'n/d'}% a.a. | Retorno l�quido estimado: ${oportunidade.retornoLiquidoEstimadoAno ?? 'n/d'}% a.a. | Estrat�gia sugerida: ${oportunidade.estrategiaSugerida ?? 'n/d'}`
             : 'N�o informado';
-        const systemPrompt = `
-Voc� � o Nexus, um planejador financeiro especializado em quita��o de d�vidas, falando em portugu�s do Brasil.
+        const nomeUsuario = (request.auth.token?.name || request.auth.token?.email || "Investidor").split(' ')[0];
+        let userData = {
+            goals: [],
+            recentTransactions: [],
+            simulations: [],
+            summary: '',
+            hasData: false,
+            dataStatus: 'empty',
+        };
+        try {
+            const userPlan = '6m';
+            userData = await data_integrator_1.DataIntegrator.gatherUserData(userId, userPlan);
+            logger.info(`[generateDebtPlan] DataIntegrator retornou ${userData.recentTransactions.length} transa��es recentes para plano de d�vidas.`);
+        }
+        catch (dataError) {
+            logger.error("[generateDebtPlan] Falha ao buscar dados do usu�rio via DataIntegrator:", dataError);
+        }
+        const userDataSintetico = {
+            hasData: userData.hasData,
+            summary: userData.summary || "",
+        };
+        const systemPromptEtapa1 = `${identity_1.NexusIdentity.getSystemPrompt(nomeUsuario, {}, "", "", "", "", dados.patrimonioContexto ? JSON.stringify(dados.patrimonioContexto) : "", "", "", true, userDataSintetico, "")}
 
-Seu objetivo � montar um plano de quita��o de d�vidas realista, humano e emp�tico, usando os dados reais do usu�rio e o resultado da simula��o de quita��o registrada no sistema Finan�as Pro Invest.
+# MISS�O ESPECIAL: PLANO DE QUITA��O DE D�VIDAS
 
-Siga estas diretrizes:
+Voc� est� sendo acionado para montar um plano de quita��o de d�vidas personalizado para ${nomeUsuario}.
+Responda exclusivamente em portugu�s do Brasil. Nenhuma palavra em ingl�s.
+Escreva como um consultor financeiro humano escreveria para um cliente real.
+Use linguagem natural, clara, pr�tica e consultiva.
+N�o retorne JSON.
 
-1) Diagn�stico das d�vidas
-- Liste as d�vidas relevantes, usando exatamente os nomes fornecidos.
-- Explique quais s�o mais urgentes, considerando taxa de juros, saldo e contexto.
-- Se existirem d�vidas com taxas muito altas, destaque isso claramente.
+N�o use nomes de campos, marcadores t�cnicos nem estrutura de banco.
+## FORMATA��O DE SA�DA � OBRIGAT�RIA
 
-2) Estrat�gia de quita��o
-- Indique qual ordem de prioriza��o das d�vidas faz mais sentido (por exemplo, juros mais altos primeiro, bola de neve, etc.), considerando o perfil do usu�rio.
-- Explique em linguagem simples o porqu� dessa ordem.
+A resposta ser� exibida na tela e impressa em PDF pelo navegador.
 
-3) Recomenda��es pr�ticas
-- Traga recomenda��es espec�ficas para os pr�ximos 7 dias e 30 dias, focando em a��es simples e concretas.
-- Inclua sugest�es de organiza��o, negocia��o, revis�o de or�amento e uso (ou n�o) de cr�dito adicional.
+Por isso:
+- N�O use markdown
+- N�O use tabelas com barras verticais (pipe)
+- N�O use negrito, #, ##, ###, bullets com asterisco (*) ou qualquer sintaxe markdown
+- N�O use blocos visuais dependentes de renderiza��o markdown
+- Escreva em texto limpo, com frases curtas e subt�tulos simples
 
-4) Tom da comunica��o
-- Sempre mantenha um tom respeitoso, calmo e realista.
-- Evite julgamentos; foque em caminhos pr�ticos.
-- Quando a situa��o estiver muito pesada, seja emp�tico, mas sem dar garantias irreais.
+Formato desejado:
+T�TULO EM TEXTO NORMAL
+Linha em branco
+Subt�tulo simples
+Texto corrido
+Linha em branco
+Outro subt�tulo
+Texto corrido
 
-FORMATO DE RESPOSTA (JSON ESTRITO):
+Se quiser listar itens, use h�fen normal ou numera��o simples, mas sem qualquer sintaxe especial de markdown.
 
-Retorne APENAS um objeto JSON com a seguinte estrutura (exemplo ilustrativo):
+## CALIBRA��O EMOCIONAL � OBRIGAT�RIO
 
-{
-  "diagnosticoGeral": {
-    "resumo": "texto curto sobre a situa��o geral das d�vidas",
-    "nivelAlerta": "baixo" | "moderado" | "alto",
-    "pontosFortes": ["ponto forte 1", "ponto forte 2"],
-    "pontosAtencao": ["ponto de aten��o 1", "ponto de aten��o 2"]
-  },
-  "estrategiaQuitacao": {
-    "metodoPrincipal": "ex: bola_de_neve / avalanche / combinada",
-    "justificativaMetodo": "explica��o simples do porqu� dessa escolha",
-    "ordemPrioridadeDividas": [
-      {
-        "nomeDivida": "nome exato da d�vida",
-        "prioridade": 1,
-        "motivo": "por que essa vem primeiro"
-      }
-    ]
-  },
-  "recomendacoes": {
-    "proximos7Dias": [
-      { "ordem": 1, "descricao": "a��o concreta para os pr�ximos 7 dias", "categoria": "organiza��o_orcamento | negocia��o | comportamento | outro" }
-    ],
-    "proximos30Dias": [
-      { "ordem": 1, "descricao": "a��o concreta para os pr�ximos 30 dias", "categoria": "organiza��o_orcamento | negocia��o | comportamento | outro" }
-    ],
-    "recomendacaoPrincipal": "a��o concreta e espec�fica"
-  },
-  "planoHorizonte": {
-    "prazoEstimadoQuitacaoMeses": 0,
-    "economiaEstimadaJuros": 0
-  },
-  "passos7Dias": [
-    { "ordem": 1, "horizonte": "7_dias", "descricao": "...", "observacoes": "..." }
-  ],
-  "passos30Dias": [
-    { "ordem": 1, "horizonte": "30_dias", "descricao": "...", "observacoes": "..." }
-  ],
-  "alertasImportantes": ["alerta personalizado 1", "alerta personalizado 2"],
-  "tomGeral": "calmo"
-}
+O plano come�a com um par�grafo humano � antes de qualquer listagem de d�vidas.
 
-Regras adicionais de FORMATO (OBRIGAT�RIO):
-- A resposta DEVE ser APENAS um �nico objeto JSON v�lido, sem texto antes ou depois.
-- N�O inclua coment�rios, explica��es, mensagens de erro, desculpas ou avisos fora do JSON.
-- N�O use campos extras fora da estrutura especificada. Se precisar sinalizar alguma limita��o, use um campo "observacoes" ou "alertasImportantes".
-- Se algum campo num�rico n�o vier preenchido, use null ou 0, nunca invente n�meros.
-- "tomGeral" deve ser: "calmo" para Est�vel, "direto" para Regular, "motivador" para Vol�til.
-- Mesmo em caso de d�vida, poucos dados ou instabilidade, SEMPRE devolva um JSON v�lido seguindo o formato acima, com campos coerentes (por exemplo, listas vazias, textos explicativos nos campos de observa��o), e NUNCA uma frase solta fora do JSON.
+Regras:
+- Identifique ao menos um ponto financeiro positivo REAL do usu�rio nos dados (reserva, patrim�nio, renda est�vel, d�vidas abaixo da renda). Cite o n�mero.
+- Se a situa��o for pesada (d�vidas altas, pouca reserva), o tom � de acolhimento e encorajamento baseado nos pontos fortes reais.
+- Se a situa��o for confort�vel, o tom � de oportunidade.
+- Nunca abra com n�meros negativos ou lista de d�vidas.
+- Este par�grafo deve soar como a primeira frase de um consultor humano numa reuni�o presencial � n�o como introdu��o de relat�rio.
+- M�ximo de 4 linhas. Depois disso, v� direto para a an�lise.
+
+## USO OBRIGAT�RIO DO GERENCIADOR FINANCEIRO
+
+Voc� tem acesso n�o s� �s d�vidas e ao patrim�nio, mas tamb�m ao GERENCIADOR FINANCEIRO do Finan�as Pro Invest.
+
+Isso significa que, al�m da renda declarada, voc� enxerga:
+
+- entradas do per�odo (sal�rios, extras, etc.)
+- sa�das por categoria (moradia, alimenta��o, transporte, d�zimo, etc.)
+- saldo dispon�vel e padr�o de gastos recente
+
+REGRAS OBRIGAT�RIAS:
+
+1. SEMPRE considere o fluxo de caixa real recente antes de sugerir antecipa��o de d�vidas.
+2. Se o padr�o de despesas estiver alto e o saldo final estiver apertado, seja mais conservador na sugest�o de quanto da sobra mensal pode ir para antecipa��o.
+3. Se o usu�rio mantiver saldo positivo consistente e despesas est�veis, voc� pode sugerir um valor de antecipa��o um pouco mais agressivo, deixando claro que � baseado no comportamento real observado.
+4. Use exemplos concretos na an�lise:
+   - �Nos �ltimos meses, suas entradas ficaram em torno de R$ X e as sa�das em torno de R$ Y, deixando uma sobra m�dia de aproximadamente R$ Z.�
+5. Nunca assuma uma sobra te�rica m�xima (renda - parcelas) sem confrontar com o comportamento de gastos observado no Gerenciador Financeiro.
+6. Se houver poucos lan�amentos ou dados insuficientes, deixe isso claro no texto e adote uma postura mais conservadora na antecipa��o, SEM pedir para o usu�rio �montar o plano por conta pr�pria�.
+
+PROIBIDO � estas frases nunca devem aparecer no texto:
+- "Agrade�o a oportunidade"
+- "Espero que essas recomenda��es sejam �teis"
+- "n�o hesite em entrar em contato"
+- "Se tiver alguma d�vida"
+- "Lembre-se de que � fundamental"
+- "nos pr�ximos 7 dias"
+- "nos pr�ximos 30 dias"
+- "nos pr�ximos 90 dias"
+- qualquer frase de encerramento gen�rica de e-mail corporativo
+- "cada situa��o � �nica"
+- "consultar um assessor"
+- "assessor de investimentos certificado"
+- "registrado na CVM"
+- "recomend�vel consultar"
+- "an�lise detalhada da situa��o financeira do usu�rio"
+- qualquer frase que delegue ao usu�rio o que o Nexus deve fazer
+- qualquer par�grafo final de resumo que repita o que j� foi dito no plano
+- "sua renda est�vel e a reserva adequada permitem"
+- "abordagem agressiva, mas equilibrada"
+
+FORMATO OBRIGAT�RIO � siga este exemplo de estrutura e tom (adapte os n�meros ao usu�rio real):
+
+[Nome], sua renda mensal � de R$ X. Suas parcelas somam R$ Y, o que deixa R$ Z dispon�veis por m�s. Sua reserva de R$ W cobre [N] meses de despesas � isso � [adequado / insuficiente / confort�vel]. Seu patrim�nio l�quido � de R$ P.
+
+Cada d�vida analisada:
+
+[Nome da d�vida 1] � saldo R$ X | taxa 2,03% a.m.
+O retorno l�quido de renda fixa hoje � 1,04% a.m. (Selic 14,75% com IR). Como 2,03% > 1,04%, vale quitar agressivamente � cada real nessa d�vida rende mais do que investido. Com R$ Z de sobra, voc� pode liquidar essa d�vida em [N] meses pagando R$ X a mais por m�s. Se puder antecipar as �ltimas parcelas agora, elas custam muito menos do que a parcela atual � elimine de tr�s pra frente.
+
+[Nome da d�vida 2] � saldo R$ X | taxa 0,69% a.m.
+O retorno l�quido de renda fixa (1,04% a.m.) � maior do que o custo dessa d�vida. N�o vale antecipar � seu dinheiro rende mais investido do que quitando esse financiamento. Mantenha as parcelas normais.
+
+O que fazer agora � esta semana:
+[a��o concreta e espec�fica, com valor e d�vida nomeados]
+
+O que mudar � este m�s:
+[decis�o financeira espec�fica ao cen�rio deste usu�rio]
+
+Revis�o em 3 meses:
+[o que verificar nos n�meros reais deste usu�rio em 3 meses]
+
+� Nexus, analista de cen�rios financeiros do Finan�as Pro Invest
+
+IMPORTANTE: o exemplo acima � apenas de estrutura e tom � use os dados reais do usu�rio, n�o os n�meros do exemplo.
+
+O texto deve cobrir obrigatoriamente:
+- Leitura da situa��o atual: renda, sobra mensal (renda - soma das parcelas), reserva e patrim�nio
+- D�vida priorit�ria e motivo objetivo
+- Decis�o para cada d�vida: quitar agressivamente, amortizar, manter parcelas, renegociar ou n�o antecipar
+- Para cada d�vida: comparar explicitamente a taxa mensal da d�vida com o retorno l�quido mensal de renda fixa e concluir se vale ou n�o antecipar
+- Valores concretos: quanto sobra por m�s, quanto destinar de extra, e OBRIGATORIAMENTE dois cen�rios de quita��o para cada d�vida cuja taxa supere o retorno l�quido de renda fixa: (1) pagando s� a parcela atual � quantos meses restam; (2) pagando a parcela + o valor extra calculado sobre a sobraMensalReal � quantos meses restam e quanto economiza em juros.
+- A��es desta semana (imediatas)
+- Mudan�a de comportamento este m�s
+- Revis�o estrat�gica em 3 meses
+- Alertas importantes e cuidados
+
+Regras:
+- Nunca entregue um plano gen�rico
+- Use exatamente os nomes das d�vidas fornecidas
+- N�o confunda patrim�nio passivo com d�vidas
+- Se houver reserva adequada, n�o recomende aumentar reserva sem necessidade
+- Se houver vantagem em preservar liquidez ou manter investimentos, diga isso claramente
+- Se a taxa da d�vida for menor que o retorno l�quido de renda fixa, conclua explicitamente que n�o vale antecipar
+- Se a taxa da d�vida for maior que o retorno l�quido de renda fixa, conclua explicitamente que vale quitar agressivamente
+- Quando houver financiamento parcelado, oriente a antecipar as �ltimas parcelas todo m�s � elas custam muito menos que a parcela atual e eliminam juro futuro
+- Voc� � o plano � nunca devolva ao usu�rio a tarefa de elaborar um plano
+- Seja direto, humano e �til
 `;
         const userMessage = `
-A seguir est�o os dados reais de um usu�rio do Finan�as Pro Invest.
+      A seguir est�o os dados reais de um usu�rio do Finan�as Pro Invest.
 
-PERFIL DO USU�RIO:
-- Estabilidade de renda: ${estabilidadeLabel}
-- Reserva de emerg�ncia: ${reservaStatus}
-- Renda mensal declarada: ${dados.simulacao.rendaMensalEstimada
+      INSTRU��ES DE AN�LISE:
+      - Considere renda, reserva, estabilidade, patrim�nio, custo de oportunidade e todas as d�vidas ao mesmo tempo.
+      - N�o trate automaticamente financiamento barato ou d�vida garantida como prioridade de quita��o antecipada.
+      - Se houver contexto econ�mico favor�vel � liquidez ou ao investimento conservador, explique isso de forma expl�cita.
+      - N�o devolva JSON nesta etapa. Responda como texto de consultoria.
+      - Em patrimonioPassivo, n�o trate bens patrimoniais como d�vidas. D�vidas s�o apenas financiamentos, empr�stimos e saldos devedores.
+      - Se patrim�nio ativo, reserva ou renda n�o forem suficientes para uma quita��o acelerada sem perda de seguran�a, deixe isso claro.
+      - Se fizer mais sentido manter parcelas de alguma d�vida, diga isso explicitamente.
+
+      PERFIL DO USU�RIO:
+      - Nome: ${nomeUsuario}
+      - Estabilidade de renda: ${estabilidadeLabel}
+      - Reserva de emerg�ncia: ${reservaStatus}
+      - Renda mensal declarada: ${dados.simulacao.rendaMensalEstimada
             ? `R$ ${dados.simulacao.rendaMensalEstimada.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
             : 'N�o informada'}
 
-PATRIM�NIO E INVESTIMENTOS:
-- Contexto patrimonial: ${patrimonioStatus}
+      PATRIM�NIO E INVESTIMENTOS:
+      - Contexto patrimonial: ${patrimonioStatus}
 
-CONTEXTO DE CUSTO DE OPORTUNIDADE:
-- Contexto econ�mico e estrat�gico: ${oportunidadeStatus}
+      CONTEXTO DE CUSTO DE OPORTUNIDADE:
+      - Contexto econ�mico e estrat�gico: ${oportunidadeStatus}
 
-D�VIDAS CADASTRADAS (espelhe todas no diagn�stico):
-${dados.dividas.map((d, i) => `${i + 1}. ${d.nome} � Saldo: R$ ${d.saldoAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} | Taxa: ${d.taxaJurosMes}% a.m.${d.parcelaMensal ? ` | Parcela: R$ ${d.parcelaMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ''}`).join('\n')}
+      D�VIDAS CADASTRADAS:
+      ${dados.dividas.map((d, i) => `${i + 1}. ${d.nome} � Saldo: R$ ${d.saldoAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} | Taxa: ${d.taxaJurosMes}% a.m.${d.parcelaMensal ? ` | Parcela: R$ ${d.parcelaMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ''}${d.ehGarantida ? ' | D�vida garantida: sim' : ''}${d.atrasoEmDias ? ` | Atraso: ${d.atrasoEmDias} dias` : ''}${d.observacoes ? ` | Observa��es: ${d.observacoes}` : ''}`).join('\n')}
 
-SIMULA��O (para refer�ncia):
-${JSON.stringify(dados.simulacao, null, 2)}
+      CAIXA REAL DO USU�RIO � USE ESTES N�MEROS COMO BASE PRINCIPAL:
+      - Renda mensal declarada: ${typeof dados.simulacao.rendaMensalEstimada === 'number'
+            ? `R$ ${dados.simulacao.rendaMensalEstimada.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+            : 'N�o informada'}
+      - Despesas mensais m�dias j� apuradas no Gerenciador: ${typeof dados.simulacao.despesasMensaisMedias === 'number'
+            ? `R$ ${dados.simulacao.despesasMensaisMedias.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+            : 'N�o informado'}
+      - Parcelas mensais atuais das d�vidas: ${typeof dados.simulacao.totalParcelasMensais === 'number'
+            ? `R$ ${dados.simulacao.totalParcelasMensais.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+            : 'N�o informado'}
+      - Sobra mensal real j� calculada: ${typeof dados.simulacao.sobraMensalReal === 'number'
+            ? `R$ ${dados.simulacao.sobraMensalReal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+            : 'N�o informada'}
+      - Janela usada para apurar despesas: ${typeof dados.simulacao.janelaAnaliseDias === 'number'
+            ? `${dados.simulacao.janelaAnaliseDias} dias`
+            : 'N�o informada'}
 
-Monte o plano de quita��o considerando TODOS esses dados. Cite as d�vidas pelo nome no diagn�stico.
-Responda apenas com o JSON no formato combinado, sem qualquer texto fora do JSON.
-`;
+      RESUMO REAL DE LAN�AMENTOS DO GERENCIADOR (�ltimos 6 meses aproximados):
+      ${userData && userData.recentTransactions && userData.recentTransactions.length > 0
+            ? (() => {
+                const incomes = userData.recentTransactions.filter(t => t.type === 'income');
+                const expenses = userData.recentTransactions.filter(t => t.type === 'expense');
+                const totalIncomes = incomes.reduce((acc, t) => acc + (t.amount || 0), 0);
+                const totalExpenses = expenses.reduce((acc, t) => acc + (t.amount || 0), 0);
+                const byCategory = {};
+                for (const t of expenses) {
+                    const cat = (t.category || 'Outros').trim();
+                    byCategory[cat] = (byCategory[cat] || 0) + (t.amount || 0);
+                }
+                const topCategories = Object.entries(byCategory)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 5)
+                    .map(([cat, val]) => `${cat}: R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
+                    .join(' | ');
+                return `
+      - Entradas totais no per�odo: R$ ${totalIncomes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+      - Sa�das totais no per�odo: R$ ${totalExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+      - Principais categorias de despesa: ${topCategories || 'n�o foi poss�vel identificar categorias principais'}
+              `;
+            })()
+            : `
+      - N�o h� lan�amentos suficientes no Gerenciador para este per�odo. Adote postura conservadora nas sugest�es de pagamento extra e deixe isso claro no texto.
+            `}
+
+      INDICA��O OBJETIVA PARA O PLANO:
+      - Se despesasMensaisMedias existir, ent�o as despesas do usu�rio J� FORAM IDENTIFICADAS.
+      - Se sobraMensalReal existir, ent�o a sobra mensal do usu�rio J� FOI CALCULADA.
+      - NUNCA diga que � preciso identificar, levantar, descobrir, mapear ou calcular as despesas antes de recomendar o pagamento extra.
+      - NUNCA diga que a sobra mensal real ainda precisa ser conhecida quando ela j� estiver informada acima.
+      - Voc� DEVE citar explicitamente os valores de despesasMensaisMedias, totalParcelasMensais e sobraMensalReal no diagn�stico e na recomenda��o pr�tica.
+      - O valor sugerido para pagamento extra deve partir da sobraMensalReal, com postura conservadora.
+
+      DADOS COMPLEMENTARES DA SIMULA��O:
+      - Total de d�vidas: R$ ${dados.simulacao.totalDividas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+      - Prazo estimado atual: ${typeof dados.simulacao.prazoEstimadoQuitacaoAtual === 'number'
+            ? `${dados.simulacao.prazoEstimadoQuitacaoAtual} meses`
+            : 'N�o informado'}
+      - Prazo estimado otimizado: ${typeof dados.simulacao.prazoEstimadoQuitacaoOtimizado === 'number'
+            ? `${dados.simulacao.prazoEstimadoQuitacaoOtimizado} meses`
+            : 'N�o informado'}
+      - Economia estimada de juros: ${typeof dados.simulacao.economiaEstimadaJuros === 'number'
+            ? `R$ ${dados.simulacao.economiaEstimadaJuros.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+            : 'N�o informada'}
+
+      REGRAS FINAIS:
+      - Cite as d�vidas pelo nome exato
+      - N�o devolva recomenda��es gen�ricas
+      - Se houver despesasMensaisMedias, totalParcelasMensais e sobraMensalReal na simula��o, trate esses n�meros como a base principal do caixa real do usu�rio
+      - Quando existir despesasMensaisMedias, NUNCA diga que n�o tem o valor exato das despesas
+      - Quando existir despesasMensaisMedias, NUNCA assuma cen�rio t�pico, valor m�dio inventado, estimativa gen�rica ou n�mero hipot�tico de despesas
+      - Quando existir sobraMensalReal, N�O trate renda mensal menos parcelas como sobra final dispon�vel
+      - Renda mensal menos parcelas pode aparecer apenas como refer�ncia intermedi�ria, mas a recomenda��o principal deve ser constru�da sobre a sobraMensalReal
+      - Quando houver diferen�a entre renda mensal declarada e sobra mensal real, explique isso com clareza, mostrando que as despesas recorrentes reduzem a capacidade real de amortiza��o
+      - O valor sugerido para pagamento extra deve sair prioritariamente da sobraMensalReal, com postura conservadora e sem comprometer a reserva m�nima do perfil
+      - Para cada d�vida, compare a taxa mensal com o retorno l�quido mensal de renda fixa e conclua explicitamente se vale ou n�o antecipar
+      - Estime os meses para quita��o da d�vida priorit�ria: cen�rio normal (s� parcela) vs. cen�rio com pagamento extra
+      - Quando houver financiamento parcelado, inclua a orienta��o de antecipar as �ltimas parcelas mensalmente
+      - Estruture as a��es em tr�s blocos: (1) esta semana, (2) este m�s, (3) em 3 meses � cada um com a��es espec�ficas aos n�meros do usu�rio
+      - Ao final, assine como: Nexus, analista de cen�rios financeiros do Finan�as Pro Invest
+      - Responda em texto natural de consultoria, sem JSON
+      `;
         const messages = [
             { role: "user", content: userMessage },
         ];
-        logger.info(`[generateDebtPlan] Chamando modelo para userId=${userId}`);
-        const llmResponse = await router.routeRequest(messages, systemPrompt, {
-            temperature: 0.4,
-            maxTokens: 6000,
-            fallbackContext: {
-                primaryIntent: "debt_plan",
-                userName: userId,
-            },
+        logger.info(`[generateDebtPlan] Chamada �nica � plano consultivo para userId=${userId}`);
+        const llmResponse = await router.routeRequest(messages, systemPromptEtapa1);
+        const planoMarkdownBruto = typeof llmResponse === "string"
+            ? llmResponse
+            : llmResponse?.content || "";
+        const planoMarkdown = planoMarkdownBruto
+            .replace(/\uFFFD/g, "")
+            .replace(/\r\n/g, "\n")
+            .replace(/\n{3,}/g, "\n\n")
+            .trim();
+        logger.info("[generateDebtPlan] PLANO_MARKDOWN_GERADO", {
+            provider: llmResponse?.provider,
+            model: llmResponse?.model,
+            tamanho: planoMarkdown.length,
+            preview: planoMarkdown.slice(0, 500),
         });
-        const raw = (llmResponse.content || "").trim();
-        let jsonText = raw;
-        if (jsonText.startsWith("```")) {
-            jsonText = jsonText.replace(/^```json/i, "").replace(/^```/i, "").replace(/```$/i, "").trim();
+        if (!planoMarkdown || planoMarkdown.length < 120) {
+            throw new https_1.HttpsError("internal", "O Nexus n�o conseguiu gerar um plano completo neste momento.");
         }
-        const extractFirstJsonObject = (text) => {
-            const start = text.indexOf("{");
-            if (start === -1)
-                return null;
-            let depth = 0;
-            let inString = false;
-            let escaped = false;
-            for (let i = start; i < text.length; i++) {
-                const char = text[i];
-                if (escaped) {
-                    escaped = false;
-                    continue;
-                }
-                if (char === "\\") {
-                    escaped = true;
-                    continue;
-                }
-                if (char === '"') {
-                    inString = !inString;
-                    continue;
-                }
-                if (inString)
-                    continue;
-                if (char === "{")
-                    depth++;
-                if (char === "}")
-                    depth--;
-                if (depth === 0) {
-                    return text.slice(start, i + 1);
-                }
-            }
-            return null;
-        };
-        let parsed;
-        try {
-            parsed = JSON.parse(jsonText);
-        }
-        catch (e) {
-            try {
-                const repairedJson = (0, jsonrepair_1.jsonrepair)(jsonText);
-                parsed = JSON.parse(repairedJson);
-                logger.warn("[generateDebtPlan] JSON reparado com jsonrepair a partir da resposta bruta.", {
-                    provider: llmResponse.provider,
-                    model: llmResponse.model,
-                });
-            }
-            catch (repairError) {
-                const extractedJson = extractFirstJsonObject(jsonText);
-                if (!extractedJson) {
-                    logger.error("[generateDebtPlan] Falha ao localizar JSON v�lido na resposta do modelo.", {
-                        rawPreview: raw.substring(0, 1500),
-                        cleanedPreview: jsonText.substring(0, 1500),
-                        provider: llmResponse.provider,
-                        model: llmResponse.model,
-                    });
-                    throw new https_1.HttpsError("unavailable", "N�o foi poss�vel gerar o plano neste momento. Tente novamente em instantes.");
-                }
-                try {
-                    const repairedExtractedJson = (0, jsonrepair_1.jsonrepair)(extractedJson);
-                    parsed = JSON.parse(repairedExtractedJson);
-                    logger.warn("[generateDebtPlan] JSON extra�do e reparado com jsonrepair.", {
-                        provider: llmResponse.provider,
-                        model: llmResponse.model,
-                    });
-                }
-                catch (secondError) {
-                    logger.error("[generateDebtPlan] Falha ao interpretar JSON extra�do da resposta do modelo.", {
-                        rawPreview: raw.substring(0, 1500),
-                        cleanedPreview: jsonText.substring(0, 1500),
-                        extractedPreview: extractedJson.substring(0, 1500),
-                        provider: llmResponse.provider,
-                        model: llmResponse.model,
-                    });
-                    throw new https_1.HttpsError("unavailable", "N�o foi poss�vel gerar o plano neste momento. Tente novamente em instantes.");
-                }
-            }
-        }
-        const safeParsed = debtPlan_types_1.DebtPlanResponseSchema.safeParse(parsed);
-        if (!safeParsed.success) {
-            const zodErrors = JSON.stringify(safeParsed.error.flatten());
-            logger.error("[generateDebtPlan] Resposta do modelo fora do schema:", zodErrors);
-            logger.error("[generateDebtPlan] JSON recebido do modelo:", JSON.stringify(parsed));
-            const raw = parsed;
-            const planFallback = {
-                resumo3Linhas: raw.resumo3Linhas ?? [
-                    raw.diagnosticoGeral?.resumo ?? "N�o foi poss�vel gerar um resumo detalhado.",
-                ],
-                prioridade: raw.prioridade ?? {
-                    idDividaPrioritaria: "",
-                    nomeDividaPrioritaria: raw.estrategiaQuitacao?.ordemPrioridadeDividas?.[0]?.nomeDivida ??
-                        "D�vida priorit�ria n�o identificada",
-                    motivo: raw.estrategiaQuitacao?.ordemPrioridadeDividas?.[0]?.motivo ??
-                        "N�o foi poss�vel explicar a prioridade.",
-                    recomendacaoPrincipal: raw.recomendacoes?.recomendacaoPrincipal ??
-                        "Revise suas d�vidas e priorize as com maior taxa de juros.",
-                },
-                planoHorizonte: raw.planoHorizonte ?? {
-                    prazoEstimadoQuitacaoMeses: null,
-                    economiaEstimadaJuros: null,
-                },
-                passos7Dias: raw.passos7Dias ?? raw.recomendacoes?.proximos7Dias ?? [],
-                passos30Dias: raw.passos30Dias ?? raw.recomendacoes?.proximos30Dias ?? [],
-                alertasImportantes: raw.alertasImportantes ??
-                    [
-                        ...(raw.diagnosticoGeral?.pontosAtencao ?? []),
-                    ],
-            };
-            logger.warn("[generateDebtPlan] Retornando plano com normaliza��o de campos ausentes (fallback).", {
-                provider: llmResponse.provider,
-                model: llmResponse.model,
-            });
-            const plan = planFallback;
-            return {
-                success: true,
-                plan,
-                model: llmResponse.model,
-                provider: llmResponse.provider,
-            };
-        }
-        const plan = safeParsed.data;
+        const now = new Date();
+        const tituloPlano = `Plano de quita��o � ${now.toLocaleString("pt-BR", {
+            timeZone: "America/Sao_Paulo",
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+        })}`.normalize("NFC");
+        const db = (0, firestore_1.getFirestore)();
+        await db
+            .collection("users")
+            .doc(userId)
+            .collection("nexusDebtPlans")
+            .add({
+            title: tituloPlano,
+            planMarkdown: planoMarkdown,
+            createdAt: now,
+            updatedAt: now,
+        });
         return {
             success: true,
-            plan,
-            model: llmResponse.model,
-            provider: llmResponse.provider,
+            format: "markdown",
+            planoMarkdown,
+            generatedAt: now.toISOString(),
+            model: llmResponse?.model,
+            provider: llmResponse?.provider,
         };
     }
     catch (error) {

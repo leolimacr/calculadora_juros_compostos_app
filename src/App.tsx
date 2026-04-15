@@ -331,7 +331,7 @@ const App: React.FC = () => {
         
       case 'minhas-dividas':
         if (!isAuthenticated) { handleNavigate('login'); return null; }
-        return wrap(<DebtManager userMeta={userMeta} />);
+        return wrap(<DebtManager userMeta={userMeta} lancamentos={lancamentos} />);
         
       case 'termos':
         return wrap(<TermsPage />);

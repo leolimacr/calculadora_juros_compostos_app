@@ -172,38 +172,37 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
       alert("Houve um erro ao tentar excluir o bem.");
     }
   };
-
+  
   return (
-    <div className="w-full max-w-6xl mx-auto p-4 md:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      
+    <div className="max-w-7xl mx-auto px-4 md:px-8 py-6 space-y-8 animate-in fade-in duration-500 pb-32 bg-slate-50/95 rounded-[2.5rem] border border-slate-200 shadow-sm">
       {/* Cabeçalho */}
       <header className="mb-8">
         <div className="flex items-center gap-3 mb-2">
-          <div className="p-3 bg-indigo-500/10 rounded-xl border border-indigo-500/20">
-            <Home size={24} className="text-indigo-400" />
+          <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
+            <Home size={24} className="text-emerald-400" />
           </div>
-          <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight">
+          <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
             Patrimônio Passivo
           </h2>
         </div>
-        <p className="text-slate-400 text-sm md:text-base max-w-2xl">
+        <p className="text-slate-500 text-sm md:text-base max-w-2xl">
           Bens de valor que compõem sua riqueza consolidada. Registre aqui seus imóveis, veículos, terrenos e outros bens materiais.
         </p>
       </header>
 
       {/* Formulário */}
-      <div className={`bg-slate-900/50 backdrop-blur-md border ${editingId ? 'border-amber-500/50 shadow-amber-500/10' : 'border-slate-800'} rounded-2xl p-6 mb-8 shadow-lg transition-colors duration-300`}>
+      <div className={`bg-white border ${editingId ? 'border-emerald-500/40 shadow-emerald-500/10' : 'border-slate-200'} rounded-2xl p-6 mb-8 shadow-sm transition-colors duration-300`}>        
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${editingId ? 'bg-amber-500/20' : 'bg-indigo-500/20'}`}>
-              {editingId ? <Pencil size={16} className="text-amber-400" /> : <Plus size={16} className="text-indigo-400" />}
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${editingId ? 'bg-emerald-100' : 'bg-emerald-100'}`}>
+              {editingId ? <Pencil size={16} className="text-emerald-600" /> : <Plus size={16} className="text-emerald-600" />}
             </div>
-            <h3 className="text-lg font-bold text-white tracking-tight">
+            <h3 className="text-lg font-bold text-slate-900 tracking-tight">
               {editingId ? 'Editando Bem' : 'Adicionar Novo Bem'}
             </h3>
           </div>
           {editingId && (
-            <button type="button" onClick={handleCancelEdit} className="text-xs font-bold text-slate-400 hover:text-white flex items-center gap-1">
+            <button type="button" onClick={handleCancelEdit} className="text-xs font-bold text-slate-400 hover:text-slate-900 flex items-center gap-1">
               <X size={14} /> Cancelar Edição
             </button>
           )}
@@ -221,7 +220,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
               placeholder="Digite a descrição..."
               value={currentAsset.description}
               onChange={(e) => setCurrentAsset({ ...currentAsset, description: e.target.value })}
-              className="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
             />
           </div>
 
@@ -232,7 +231,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
             <select
               value={currentAsset.category}
               onChange={(e) => setCurrentAsset({ ...currentAsset, category: e.target.value })}
-              className="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors [&>option]:bg-slate-800"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors [&>option]:bg-white"
             >
               <option value="Imóveis">Imóveis</option>
               <option value="Veículos">Veículos</option>
@@ -251,7 +250,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
               placeholder="Ano, placa, endereço..."
               value={currentAsset.observations}
               onChange={(e) => setCurrentAsset({ ...currentAsset, observations: e.target.value })}
-              className="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
             />
           </div>
 
@@ -269,14 +268,14 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
                   placeholder="0,00"
                   value={displayValue}
                   onChange={handleCurrencyChange}
-                  className="w-full bg-slate-800/50 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
                 />
               </div>
               <button
                 type="submit"
                 disabled={isSubmitting}
                 className={`text-slate-950 font-black p-3 rounded-xl transition-all shadow-lg flex items-center justify-center min-w-[48px] ${
-                  editingId ? 'bg-amber-500 hover:bg-amber-400' : 'bg-indigo-500 hover:bg-indigo-400'
+                  editingId ? 'bg-emerald-500 hover:bg-emerald-400' : 'bg-emerald-500 hover:bg-emerald-400'
                 } disabled:bg-slate-700`}
                 title={editingId ? 'Salvar Alterações' : 'Adicionar Bem'}
               >
@@ -290,10 +289,10 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
       {/* Lista de Passivos */}
       <div className="mt-8">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-bold text-white flex items-center gap-2">
+          <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
             <Landmark size={20} className="text-slate-400" /> Seus Bens Registrados
           </h3>
-          <span className="text-xs font-bold bg-slate-800 text-slate-300 px-3 py-1 rounded-full border border-slate-700">
+          <span className="text-xs font-bold bg-slate-800/80 text-slate-300 px-3 py-1 rounded-full border border-slate-700/80">
             {assets.length} {assets.length === 1 ? 'bem' : 'bens'}
           </span>
         </div>
@@ -301,9 +300,9 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
         {isLoading ? (
           <div className="text-center py-12 text-slate-500 animate-pulse">Carregando seus bens...</div>
         ) : assets.length === 0 ? (
-          <div className="text-center py-16 bg-slate-900/30 border border-dashed border-slate-700 rounded-2xl">
-            <div className="w-16 h-16 bg-slate-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Car size={24} className="text-slate-500" />
+          <div className="text-center py-16 bg-slate-50 border border-dashed border-slate-200 rounded-2xl">
+            <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Car size={24} className="text-emerald-400" />
             </div>
             <p className="text-slate-400 font-medium mb-2">Nenhum bem registrado ainda</p>
             <p className="text-slate-500 text-sm">Adicione seu primeiro imóvel ou veículo no formulário acima.</p>
@@ -311,36 +310,30 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {assets.map((asset) => (
-              <div key={asset.id} className="bg-slate-800/40 backdrop-blur-md border border-slate-700/50 rounded-xl p-5 hover:border-slate-600 transition-colors group relative overflow-hidden flex flex-col h-full">
-                
+              <div key={asset.id} className="bg-white border border-slate-200 rounded-2xl p-5 hover:border-emerald-500/50 transition-colors group relative overflow-hidden flex flex-col h-full shadow-sm">
+            
                 {/* Linha de cor por categoria */}
-                <div className={`absolute top-0 left-0 w-full h-1 ${
-                  asset.category === 'Imóveis' ? 'bg-blue-500' : 
-                  asset.category === 'Veículos' ? 'bg-orange-500' : 
-                  asset.category === 'Terrenos' ? 'bg-stone-500' : 
-                  asset.category === 'Joias/Arte' ? 'bg-purple-500' : 'bg-slate-500'
-                }`} />
-
+                <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500/30" />                
                 <div className="flex justify-between items-start mb-4 mt-2">
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-900/50 px-2 py-1 rounded-md mb-2 inline-block">
+                    <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full mb-2 inline-block">                    
                       {asset.category}
                     </span>
-                    <h4 className="text-lg font-bold text-white line-clamp-1" title={asset.description}>{asset.description}</h4>
+                    <h4 className="text-lg font-bold text-slate-900 line-clamp-1" title={asset.description}>{asset.description}</h4>
                   </div>
                   
                   {/* Botões de Ação */}
                   <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button 
                       onClick={() => handleEditClick(asset)} 
-                      className="text-slate-400 hover:text-amber-400 p-2 rounded-lg bg-slate-900/30 hover:bg-amber-400/10 transition-colors"
+                      className="text-slate-500 hover:text-emerald-600 p-2 rounded-lg bg-slate-50 border border-slate-200 hover:bg-emerald-50 hover:border-emerald-200 transition-colors"
                       title="Editar Bem"
                     >
                       <Pencil size={16} />
                     </button>
                     <button 
                       onClick={() => asset.id && handleDeleteAsset(asset.id, asset.currentValue)} 
-                      className="text-slate-400 hover:text-red-400 p-2 rounded-lg bg-slate-900/30 hover:bg-red-400/10 transition-colors"
+                      className="text-slate-500 hover:text-red-600 p-2 rounded-lg bg-slate-50 border border-slate-200 hover:bg-red-50 hover:border-red-200 transition-colors"
                       title="Excluir Bem"
                     >
                       <Trash2 size={16} />
@@ -351,7 +344,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
                 {/* Observações */}
                 <div className="flex-grow">
                   {asset.observations && (
-                    <p className="text-xs text-slate-400 mb-4 line-clamp-2 bg-slate-900/40 p-2 rounded-lg border border-slate-700/50">
+                    <p className="text-xs text-slate-500 mb-4 line-clamp-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
                       {asset.observations}
                     </p>
                   )}
@@ -359,7 +352,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
 
                 <div className="mt-auto pt-2 border-t border-slate-700/50">
                   <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Valor de Mercado</p>
-                  <p className="text-2xl font-black text-white">
+                  <p className="text-2xl font-black text-slate-900">
                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(asset.currentValue)}
                   </p>
                 </div>

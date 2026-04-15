@@ -577,9 +577,17 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
                   <span className="h-4 w-16 bg-slate-200 rounded-full" />
                 </div>
               </div>
-				
               <div className="grid gap-4 mb-4">
-                <div className="bg-gradient-to-br from-emerald-50 via-white to-slate-50 backdrop-blur-md rounded-2xl p-5 md:p-6 border border-emerald-200 relative overflow-hidden">
+                <div
+                  onClick={() =>
+                    heroPersona === 'dividas'
+                      ? onNavigate('tool-dividas')
+                      : isAuthenticated
+                        ? onNavigate('investimentos')
+                        : onStartNow()
+                  }
+                  className="bg-gradient-to-br from-emerald-50 via-white to-slate-50 backdrop-blur-md rounded-2xl p-5 md:p-6 border border-emerald-200 relative overflow-hidden cursor-pointer"
+                >
                   <div className="absolute -right-10 -top-10 w-40 h-40 bg-emerald-300/20 rounded-full blur-3xl" />
 
                   <div className="flex items-center gap-2 mb-3 relative z-10">
@@ -635,7 +643,16 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
 
                 <div className={`grid gap-4 ${heroPersona === 'dividas' ? 'grid-cols-1' : 'grid-cols-2'}`}>
                   
-                  <div className="h-full bg-gradient-to-b from-blue-50 to-white backdrop-blur-md rounded-xl p-4 md:p-5 border border-blue-200 shadow-sm flex flex-col justify-center">
+                  <div
+                    onClick={() =>
+                      heroPersona === 'dividas'
+                        ? onNavigate('tool-dividas')
+                        : isAuthenticated
+                          ? onNavigate('metas')
+                          : onStartNow()
+                    }
+                    className="h-full bg-gradient-to-b from-blue-50 to-white backdrop-blur-md rounded-xl p-4 md:p-5 border border-blue-200 shadow-sm flex flex-col justify-center cursor-pointer transition-all duration-300 hover:shadow-md hover:border-blue-300"
+                  >
                     <p className="text-[10px] md:text-xs text-blue-800 font-bold uppercase mb-2 tracking-wider">
                       {heroPersona === 'dividas' ? 'Impacto estimado' : 'Próximo Aporte'}
                     </p>

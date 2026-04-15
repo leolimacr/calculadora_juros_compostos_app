@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DebtPlanResponseSchema = exports.PriorityExplanationSchema = exports.ActionStepSchema = exports.NexusDebtPlanRequestSchema = exports.CustoOportunidadeContextoSchema = exports.PatrimonioContextoSchema = exports.PerfilContextoSchema = exports.DebtSimulationSummarySchema = exports.DebtItemSchema = void 0;
+exports.DebtPlanResponseSchema = exports.DecisaoPorDividaSchema = exports.AnaliseCustoOportunidadeSchema = exports.DiagnosticoFinanceiroSchema = exports.PriorityExplanationSchema = exports.ActionStepSchema = exports.NexusDebtPlanRequestSchema = exports.CustoOportunidadeContextoSchema = exports.PatrimonioContextoSchema = exports.PerfilContextoSchema = exports.DebtSimulationSummarySchema = exports.DebtItemSchema = void 0;
 const zod_1 = require("zod");
 exports.DebtItemSchema = zod_1.z.object({
     id: zod_1.z.string(),
@@ -14,6 +14,10 @@ exports.DebtItemSchema = zod_1.z.object({
 });
 exports.DebtSimulationSummarySchema = zod_1.z.object({
     rendaMensalEstimada: zod_1.z.number().optional().nullable(),
+    despesasMensaisMedias: zod_1.z.number().optional().nullable(),
+    totalParcelasMensais: zod_1.z.number().optional().nullable(),
+    sobraMensalReal: zod_1.z.number().optional().nullable(),
+    janelaAnaliseDias: zod_1.z.number().optional().nullable(),
     totalDividas: zod_1.z.number(),
     custoTotalJurosAtual: zod_1.z.number().optional().nullable(),
     prazoEstimadoQuitacaoAtual: zod_1.z.number().optional().nullable(),
@@ -59,6 +63,35 @@ exports.PriorityExplanationSchema = zod_1.z.object({
     motivo: zod_1.z.string().min(3),
     recomendacaoPrincipal: zod_1.z.string().min(3),
 });
+exports.DiagnosticoFinanceiroSchema = zod_1.z.object({
+    patrimonioAtivo: zod_1.z.number().nullable().optional(),
+    patrimonioPassivo: zod_1.z.number().nullable().optional(),
+    patrimonioLiquido: zod_1.z.number().nullable().optional(),
+    rendaMensalConsiderada: zod_1.z.number().nullable().optional(),
+    reservaAtual: zod_1.z.number().nullable().optional(),
+    metaReservaEmMeses: zod_1.z.number().nullable().optional(),
+    diagnosticoResumo: zod_1.z.string().optional(),
+});
+exports.AnaliseCustoOportunidadeSchema = zod_1.z.object({
+    taxaReferenciaAno: zod_1.z.number().nullable().optional(),
+    retornoLiquidoEstimadoAno: zod_1.z.number().nullable().optional(),
+    haVantagemEmAntecipar: zod_1.z.boolean().nullable().optional(),
+    resumoDecisao: zod_1.z.string().optional(),
+    justificativa: zod_1.z.string().optional(),
+});
+exports.DecisaoPorDividaSchema = zod_1.z.object({
+    ordem: zod_1.z.number().int().positive().optional(),
+    nomeDivida: zod_1.z.string().min(1),
+    acaoRecomendada: zod_1.z.enum([
+        'quitar_agressivamente',
+        'amortizar',
+        'manter_parcelas',
+        'renegociar',
+        'nao_antecipar',
+    ]),
+    justificativa: zod_1.z.string().min(3),
+    observacoes: zod_1.z.string().optional(),
+});
 exports.DebtPlanResponseSchema = zod_1.z.object({
     resumo3Linhas: zod_1.z.array(zod_1.z.string()).min(1),
     prioridade: exports.PriorityExplanationSchema,
@@ -66,11 +99,15 @@ exports.DebtPlanResponseSchema = zod_1.z.object({
         prazoEstimadoQuitacaoMeses: zod_1.z.number().nullable().optional(),
         economiaEstimadaJuros: zod_1.z.number().nullable().optional(),
     }),
+    diagnosticoFinanceiro: exports.DiagnosticoFinanceiroSchema.optional(),
+    analiseCustoOportunidade: exports.AnaliseCustoOportunidadeSchema.optional(),
+    decisoesPorDivida: zod_1.z.array(exports.DecisaoPorDividaSchema).default([]),
     explicacaoCenarioAtual: zod_1.z.string().optional(),
     explicacaoMetaPlano: zod_1.z.string().optional(),
     explicacaoEsforcoMensal: zod_1.z.string().optional(),
     passos7Dias: zod_1.z.array(exports.ActionStepSchema).default([]),
     passos30Dias: zod_1.z.array(exports.ActionStepSchema).default([]),
+    passos90Dias: zod_1.z.array(exports.ActionStepSchema).default([]),
     alertasImportantes: zod_1.z.array(zod_1.z.string()).default([]),
     tomGeral: zod_1.z.enum(['calmo', 'direto', 'motivador']).optional(),
 });

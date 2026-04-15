@@ -11,6 +11,10 @@ export interface DebtItem {
 }
 export interface DebtSimulationSummary {
     rendaMensalEstimada?: number;
+    despesasMensaisMedias?: number;
+    totalParcelasMensais?: number;
+    sobraMensalReal?: number;
+    janelaAnaliseDias?: number;
     totalDividas: number;
     custoTotalJurosAtual?: number;
     prazoEstimadoQuitacaoAtual?: number;
@@ -59,6 +63,29 @@ export interface PriorityExplanation {
     motivo: string;
     recomendacaoPrincipal: string;
 }
+export interface DiagnosticoFinanceiro {
+    patrimonioAtivo?: number | null;
+    patrimonioPassivo?: number | null;
+    patrimonioLiquido?: number | null;
+    rendaMensalConsiderada?: number | null;
+    reservaAtual?: number | null;
+    metaReservaEmMeses?: number | null;
+    diagnosticoResumo?: string;
+}
+export interface AnaliseCustoOportunidade {
+    taxaReferenciaAno?: number | null;
+    retornoLiquidoEstimadoAno?: number | null;
+    haVantagemEmAntecipar?: boolean | null;
+    resumoDecisao?: string;
+    justificativa?: string;
+}
+export interface DecisaoPorDivida {
+    ordem?: number;
+    nomeDivida: string;
+    acaoRecomendada: 'quitar_agressivamente' | 'amortizar' | 'manter_parcelas' | 'renegociar' | 'nao_antecipar';
+    justificativa: string;
+    observacoes?: string;
+}
 export interface DebtPlanResponse {
     resumo3Linhas: string[];
     prioridade: PriorityExplanation;
@@ -66,11 +93,15 @@ export interface DebtPlanResponse {
         prazoEstimadoQuitacaoMeses?: number | null;
         economiaEstimadaJuros?: number | null;
     };
+    diagnosticoFinanceiro?: DiagnosticoFinanceiro;
+    analiseCustoOportunidade?: AnaliseCustoOportunidade;
+    decisoesPorDivida?: DecisaoPorDivida[];
     explicacaoCenarioAtual?: string;
     explicacaoMetaPlano?: string;
     explicacaoEsforcoMensal?: string;
     passos7Dias: ActionStep[];
     passos30Dias: ActionStep[];
+    passos90Dias?: ActionStep[];
     alertasImportantes: string[];
     tomGeral?: 'calmo' | 'direto' | 'motivador';
 }
@@ -86,6 +117,10 @@ export declare const DebtItemSchema: z.ZodObject<{
 }, z.core.$strip>;
 export declare const DebtSimulationSummarySchema: z.ZodObject<{
     rendaMensalEstimada: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
+    despesasMensaisMedias: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
+    totalParcelasMensais: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
+    sobraMensalReal: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
+    janelaAnaliseDias: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
     totalDividas: z.ZodNumber;
     custoTotalJurosAtual: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
     prazoEstimadoQuitacaoAtual: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
@@ -162,6 +197,10 @@ export declare const NexusDebtPlanRequestSchema: z.ZodObject<{
     }, z.core.$strip>>;
     simulacao: z.ZodObject<{
         rendaMensalEstimada: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
+        despesasMensaisMedias: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
+        totalParcelasMensais: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
+        sobraMensalReal: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
+        janelaAnaliseDias: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
         totalDividas: z.ZodNumber;
         custoTotalJurosAtual: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
         prazoEstimadoQuitacaoAtual: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
@@ -185,6 +224,35 @@ export declare const PriorityExplanationSchema: z.ZodObject<{
     motivo: z.ZodString;
     recomendacaoPrincipal: z.ZodString;
 }, z.core.$strip>;
+export declare const DiagnosticoFinanceiroSchema: z.ZodObject<{
+    patrimonioAtivo: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    patrimonioPassivo: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    patrimonioLiquido: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    rendaMensalConsiderada: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    reservaAtual: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    metaReservaEmMeses: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    diagnosticoResumo: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
+export declare const AnaliseCustoOportunidadeSchema: z.ZodObject<{
+    taxaReferenciaAno: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    retornoLiquidoEstimadoAno: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    haVantagemEmAntecipar: z.ZodOptional<z.ZodNullable<z.ZodBoolean>>;
+    resumoDecisao: z.ZodOptional<z.ZodString>;
+    justificativa: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
+export declare const DecisaoPorDividaSchema: z.ZodObject<{
+    ordem: z.ZodOptional<z.ZodNumber>;
+    nomeDivida: z.ZodString;
+    acaoRecomendada: z.ZodEnum<{
+        amortizar: "amortizar";
+        quitar_agressivamente: "quitar_agressivamente";
+        manter_parcelas: "manter_parcelas";
+        renegociar: "renegociar";
+        nao_antecipar: "nao_antecipar";
+    }>;
+    justificativa: z.ZodString;
+    observacoes: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
 export declare const DebtPlanResponseSchema: z.ZodObject<{
     resumo3Linhas: z.ZodArray<z.ZodString>;
     prioridade: z.ZodObject<{
@@ -197,6 +265,35 @@ export declare const DebtPlanResponseSchema: z.ZodObject<{
         prazoEstimadoQuitacaoMeses: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
         economiaEstimadaJuros: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
     }, z.core.$strip>;
+    diagnosticoFinanceiro: z.ZodOptional<z.ZodObject<{
+        patrimonioAtivo: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        patrimonioPassivo: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        patrimonioLiquido: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        rendaMensalConsiderada: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        reservaAtual: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        metaReservaEmMeses: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        diagnosticoResumo: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>>;
+    analiseCustoOportunidade: z.ZodOptional<z.ZodObject<{
+        taxaReferenciaAno: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        retornoLiquidoEstimadoAno: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        haVantagemEmAntecipar: z.ZodOptional<z.ZodNullable<z.ZodBoolean>>;
+        resumoDecisao: z.ZodOptional<z.ZodString>;
+        justificativa: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>>;
+    decisoesPorDivida: z.ZodDefault<z.ZodArray<z.ZodObject<{
+        ordem: z.ZodOptional<z.ZodNumber>;
+        nomeDivida: z.ZodString;
+        acaoRecomendada: z.ZodEnum<{
+            amortizar: "amortizar";
+            quitar_agressivamente: "quitar_agressivamente";
+            manter_parcelas: "manter_parcelas";
+            renegociar: "renegociar";
+            nao_antecipar: "nao_antecipar";
+        }>;
+        justificativa: z.ZodString;
+        observacoes: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>>>;
     explicacaoCenarioAtual: z.ZodOptional<z.ZodString>;
     explicacaoMetaPlano: z.ZodOptional<z.ZodString>;
     explicacaoEsforcoMensal: z.ZodOptional<z.ZodString>;
@@ -211,6 +308,16 @@ export declare const DebtPlanResponseSchema: z.ZodObject<{
         observacoes: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>>>;
     passos30Dias: z.ZodDefault<z.ZodArray<z.ZodObject<{
+        ordem: z.ZodNumber;
+        horizonte: z.ZodEnum<{
+            "7_dias": "7_dias";
+            "30_dias": "30_dias";
+            "90_dias": "90_dias";
+        }>;
+        descricao: z.ZodString;
+        observacoes: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>>>;
+    passos90Dias: z.ZodDefault<z.ZodArray<z.ZodObject<{
         ordem: z.ZodNumber;
         horizonte: z.ZodEnum<{
             "7_dias": "7_dias";

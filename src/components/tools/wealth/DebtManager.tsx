@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect } from 'react';
 import {
-  collection, query, onSnapshot,
+  collection, query, onSnapshot, orderBy,
   addDoc, doc, updateDoc, deleteDoc,
 } from 'firebase/firestore';
 import { firestore } from '../../../firebase';
@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { DebtPlanSimulator } from '../DebtPlanSimulator';
 import { useWealthData } from '../../../hooks/useWealthData';
+import { fetchCurrentSelicRate } from '../buy-cash-or-installments/selicService';
 
 export interface DebtItem {
   id?: string;
@@ -25,12 +26,49 @@ export interface DebtItem {
   createdAt?: any;
 }
 
+interface SavedDebtPlan {
+  id: string;
+  title: string;
+  planMarkdown: string;
+  createdAt?: any;
+  updatedAt?: any;
+}
+
 interface DebtManagerProps {
   userMeta: any;
+  lancamentos: Array<{
+    id: string;
+    type: 'income' | 'expense';
+    date: string;
+    description: string;
+    category: string;
+    amount: number;
+  }>;
 }
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+
+const fixMojibake = (text?: string) => {
+  if (!text) return '';
+
+  return text
+    .replace(/Plano de quita��o/g, 'Plano de quitação')
+    .replace(/Plano de quita�o/g, 'Plano de quitação')
+    .replace(/Ã§/g, 'ç')
+    .replace(/Ã£/g, 'ã')
+    .replace(/Ã¡/g, 'á')
+    .replace(/Ã /g, 'à')
+    .replace(/Ã¢/g, 'â')
+    .replace(/Ãª/g, 'ê')
+    .replace(/Ã©/g, 'é')
+    .replace(/Ã³/g, 'ó')
+    .replace(/Ãµ/g, 'õ')
+    .replace(/Ãº/g, 'ú')
+    .replace(/â€“/g, '—')
+    .replace(/â€"/g, '—')
+    .normalize('NFC');
+};
 
 // Funçío "HP12c" para calcular o CET (Taxa Interna de Retorno mensal)
 const calculateCET = (pv: number, n: number, pmt: number): number => {
@@ -73,13 +111,38 @@ const EMPTY_FORM: DebtItem = {
   parcelasRestantes: 0,
   valorParcela: 0,
 };
-
-export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta }) => {
+export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta, lancamentos }) => {
   const navigate = useNavigate();
   const { saveFinancialProfile } = useFirebase(userMeta?.uid); // <-- Passando o UID para o hook
-  const { totalAssets, patrimonioLiquido, loading: wealthLoading } = useWealthData();
-
+  const { totalAssets, totalPassives, loading: wealthLoading } = useWealthData();
+  const [selicAno, setSelicAno] = useState<number | undefined>(undefined);
+  const [savedPlans, setSavedPlans] = useState<SavedDebtPlan[]>([]);
+  const [selectedSavedPlan, setSelectedSavedPlan] = useState<SavedDebtPlan | null>(null);
   // 1. Estados Gerais e CRUD
+  useEffect(() => {
+    fetchCurrentSelicRate()
+      .then(rate => setSelicAno(rate))
+      .catch(() => setSelicAno(14.75)); // fallback: Selic atual conhecida
+  }, []);
+
+  useEffect(() => {
+    if (!userMeta?.uid) return;
+
+    const plansRef = collection(firestore, 'users', userMeta.uid, 'nexusDebtPlans');
+    const plansQuery = query(plansRef, orderBy('createdAt', 'desc'));
+
+    const unsubscribe = onSnapshot(plansQuery, (snapshot) => {
+      const plans = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as SavedDebtPlan[];
+
+      setSavedPlans(plans);
+    });
+
+    return () => unsubscribe();
+  }, [userMeta?.uid]);
+
   const [debts, setDebts] = useState<DebtItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -236,7 +299,45 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta }) => {
     }
   };
   const totalSaldo = debts.reduce((acc, d) => acc + d.saldoDevedor, 0);
-  console.log("DEBUG Nexus:", { profile: userMeta?.financialProfile, step: setupStep });
+
+  const janelaAnaliseDias = 90;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - janelaAnaliseDias);
+
+  const lancamentosRecentes = lancamentos.filter((t) => {
+    const data = new Date(t.date);
+    return !Number.isNaN(data.getTime()) && data >= cutoff;
+  });
+
+  const despesasRecentes = lancamentosRecentes.filter((t) => t.type === 'expense');
+  const totalDespesasRecentes = despesasRecentes.reduce((acc, t) => acc + (t.amount || 0), 0);
+
+  const despesasMensaisMedias = parseFloat(
+    ((totalDespesasRecentes / janelaAnaliseDias) * 30).toFixed(2)
+  );
+
+  const totalParcelasMensais = parseFloat(
+    debts.reduce((acc, d) => acc + (d.valorParcela || 0), 0).toFixed(2)
+  );
+
+  const rendaMensalEstimada = userMeta?.financialProfile?.monthlyIncome;
+
+  const sobraMensalReal =
+    typeof rendaMensalEstimada === 'number'
+      ? parseFloat((rendaMensalEstimada - despesasMensaisMedias - totalParcelasMensais).toFixed(2))
+      : undefined;
+
+  console.log("DEBUG Nexus:", {
+    profile: userMeta?.financialProfile,
+    step: setupStep,
+    caixaRealContexto: {
+      janelaAnaliseDias,
+      despesasMensaisMedias,
+      totalParcelasMensais,
+      sobraMensalReal,
+      lancamentosConsiderados: lancamentosRecentes.length,
+    },
+  });
   // ”€”€”€ Render ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€
   return (
     <div className="w-full max-w-6xl mx-auto p-4 md:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -746,8 +847,41 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta }) => {
       </div>
       {/* ”€”€ NEXUS DEBT PLAN (inline) ”€”€ */}
         {debts.length > 0 && (
-          <div id="nexus-debt-plan">
+          <div id="nexus-debt-plan" className="space-y-4">
+            <div className="rounded-2xl border border-emerald-200 bg-white/80 p-4 shadow-sm">
+              <h3 className="text-sm font-semibold text-slate-800">Planos já gerados</h3>
+              <p className="mt-2 text-xs leading-5 text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                Os planos salvos refletem os dados existentes no sistema no momento em que foram gerados.
+                Se sua situação mudou depois disso, gere um novo plano para considerar as informações mais atuais.
+              </p>
+
+              <div className="mt-3 space-y-2">
+                {savedPlans.length === 0 ? (
+                  <p className="text-sm text-slate-500">Nenhum plano gerado ainda.</p>
+                ) : (
+                  savedPlans.map((plan) => (
+                    <button
+                      key={plan.id}
+                      type="button"
+                      className="block w-full rounded-xl border border-slate-200 px-3 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-slate-50"
+                      onClick={() => setSelectedSavedPlan(plan)}
+                    >
+                      {(() => {
+                        const rawTitle = fixMojibake(plan.title);
+                        const match = rawTitle.match(/(\d{2}\/\d{2}\/\d{4},?\s\d{2}:\d{2})/);
+
+                        if (!match) return rawTitle;
+
+                        return `Plano de quitação — ${match[1].replace(',', '')}`;
+                      })()}
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+
             <DebtPlanSimulator
+              initialPlanMarkdown={selectedSavedPlan?.planMarkdown}
               dividas={debts.map(d => ({
                 id: d.id ?? d.nome,
                 nome: d.nome,
@@ -763,6 +897,18 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta }) => {
                 ...(userMeta?.financialProfile?.monthlyIncome
                   ? { rendaMensalEstimada: userMeta.financialProfile.monthlyIncome }
                   : {}),
+                ...(despesasMensaisMedias > 0
+                  ? { despesasMensaisMedias }
+                  : {}),
+                ...(totalParcelasMensais > 0
+                  ? { totalParcelasMensais }
+                  : {}),
+                ...(typeof sobraMensalReal === 'number'
+                  ? { sobraMensalReal }
+                  : {}),
+                ...(janelaAnaliseDias > 0
+                  ? { janelaAnaliseDias }
+                  : {}),
               }}
               usuarioPerfil="endividado_iniciante"
               perfilContexto={userMeta?.financialProfile ? {
@@ -772,11 +918,17 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta }) => {
                 reservaAtual: userMeta.financialProfile.emergencyReserveCurrent ?? 0,
                 metaReservaEmMeses: userMeta.financialProfile.emergencyReserveTarget ?? 6,
               } : undefined}
+              
               patrimonioContexto={{
                 valorTotalInvestimentosFinanceiros: totalAssets,
-                valorPatrimonioLiquido: patrimonioLiquido,
+                valorPatrimonioLiquido: totalAssets + totalPassives - debts.reduce((sum, d) => sum + (d.saldoAtual || 0), 0),
               }}
-              custoOportunidadeContexto={undefined}
+              
+              custoOportunidadeContexto={selicAno ? {
+                selicAno,
+                cdiAno: selicAno - 0.1,
+                retornoLiquidoEstimadoAno: parseFloat((selicAno * 0.85).toFixed(2)),
+              } : undefined}
             />
           </div>
         )}
