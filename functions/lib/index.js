@@ -719,14 +719,15 @@ Regras:
             throw new https_1.HttpsError("internal", "O Nexus n�o conseguiu gerar um plano completo neste momento.");
         }
         const now = new Date();
-        const tituloPlano = `Plano de quita��o � ${now.toLocaleString("pt-BR", {
+        const dataHoraTitulo = now.toLocaleString("pt-BR", {
             timeZone: "America/Sao_Paulo",
             day: "2-digit",
             month: "2-digit",
             year: "numeric",
             hour: "2-digit",
             minute: "2-digit",
-        })}`.normalize("NFC");
+        });
+        const tituloPlano = `Plano de quita��o - ${dataHoraTitulo}`;
         const db = (0, firestore_1.getFirestore)();
         await db
             .collection("users")
