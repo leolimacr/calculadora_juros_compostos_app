@@ -47,7 +47,7 @@ export const InvestmentArticle2026 = ({ onNavigate }: any) => (
 
       <section className="bg-gradient-to-br from-slate-900 to-[#020617] p-10 rounded-[3rem] border border-emerald-500/30 shadow-2xl relative overflow-hidden group">
         <div className="absolute -top-10 -right-10 w-40 h-40 bg-emerald-500/10 blur-[60px] rounded-full"></div>
-        <h2 className="text-2xl font-black text-white mb-6 relative z-10">Por que o Gerenciador Financeiro é sua arma principal?</h2>
+        <h2 className="text-2xl font-black text-white mb-6 relative z-10">Por que o Controla é sua arma principal?</h2>
         <div className="space-y-4 relative z-10">
             <div className="flex items-start gap-3">
                 <CheckCircle2 className="text-emerald-500 mt-1" size={18}/>
@@ -59,7 +59,7 @@ export const InvestmentArticle2026 = ({ onNavigate }: any) => (
             </div>
         </div>
         <button onClick={() => onNavigate('manager')} className="w-full mt-10 bg-emerald-600 hover:bg-emerald-500 text-white py-6 rounded-2xl font-black text-lg shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 relative z-10">
-           ABRIR MEU GERENCIADOR FINANCEIRO <ArrowRight size={20}/>
+           ABRIR MEU CONTROLA <ArrowRight size={20}/>
         </button>
       </section>
     </div>

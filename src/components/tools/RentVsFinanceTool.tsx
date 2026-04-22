@@ -352,10 +352,10 @@ export const RentVsFinanceTool = ({ onNavigate, isAuthenticated }) => {
           </p>
         </div>
         <button
-          onClick={onNavigate}
+          onClick={() => { onNavigate('home'); setTimeout(() => { document.getElementById('secao-ferramentas')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 100); }}
           className="self-start md:self-auto px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
         >
-          ← Voltar
+          ← Voltar para as Ferramentas
         </button>
       </div>
 

@@ -12,9 +12,10 @@ export interface ActiveAsset {
 
 interface ActiveWealthManagerProps {
   userMeta: any;
+  onNavigate?: (route: string) => void;
 }
 
-export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userMeta }) => {
+export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userMeta, onNavigate }) => {
   const [assets, setAssets] = useState<ActiveAsset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -173,6 +174,14 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userMe
       
       {/* Cabeçalho */}
       <header className="mb-8">
+        {onNavigate && (
+          <button
+            onClick={() => { onNavigate('home'); setTimeout(() => { document.getElementById('secao-ferramentas')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 100); }}
+            className="mb-4 flex items-center gap-2 text-slate-500 hover:text-sky-700 transition-all font-black uppercase text-[10px] tracking-[0.2em]"
+          >
+            ← Voltar para as Ferramentas
+          </button>
+        )}
         <div className="flex items-center gap-3 mb-2">
           <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200">
             <TrendingUp size={24} className="text-emerald-600" />

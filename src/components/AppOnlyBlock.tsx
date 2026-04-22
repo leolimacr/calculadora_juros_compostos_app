@@ -55,7 +55,7 @@ const AppOnlyBlock: React.FC<AppOnlyBlockProps> = ({ onBack }) => {
         </div>
       </div>
       <p className="text-slate-400 text-sm leading-relaxed max-w-sm mx-auto font-medium">
-        O <strong>Gerenciador Financeiro</strong> está disponível exclusivamente no nosso app nativo.
+        O <strong>Controla</strong> está disponível exclusivamente no nosso app nativo.
         Baixe agora para ter a melhor experiência e segurança.
       </p>
       <div className="pt-6 flex flex-col gap-4">

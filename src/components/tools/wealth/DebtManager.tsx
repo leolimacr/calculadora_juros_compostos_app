@@ -44,6 +44,7 @@ interface DebtManagerProps {
     category: string;
     amount: number;
   }>;
+  onNavigate?: (route: string) => void;
 }
 
 const formatCurrency = (value: number) =>
@@ -111,7 +112,7 @@ const EMPTY_FORM: DebtItem = {
   parcelasRestantes: 0,
   valorParcela: 0,
 };
-export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta, lancamentos }) => {
+export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta, lancamentos, onNavigate }) => {
   const navigate = useNavigate();
   const { saveFinancialProfile } = useFirebase(userMeta?.uid); // <-- Passando o UID para o hook
   const { totalAssets, totalPassives, loading: wealthLoading } = useWealthData();
@@ -341,6 +342,13 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta, lancamentos 
   // ”€”€”€ Render ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€
   return (
     <div className="w-full max-w-6xl mx-auto p-4 md:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <button
+        type="button"
+        onClick={() => { onNavigate?.('home'); setTimeout(() => { const el = document.getElementById('secao-ferramentas'); if (el) { const top = el.getBoundingClientRect().top + window.scrollY - 90; window.scrollTo({ top, behavior: 'smooth' }); } }, 100); }}
+        className="mb-6 text-teal-600 hover:opacity-70 font-bold text-xs uppercase tracking-widest transition-colors flex items-center gap-1"
+      >
+        ← Voltar para as ferramentas
+      </button>
 
       {/* SEÇíO DE PERFIL FINANCEIRO (MÉTODO GUIADO) */}
       {userMeta?.financialProfile && setupStep <= 0 ? (

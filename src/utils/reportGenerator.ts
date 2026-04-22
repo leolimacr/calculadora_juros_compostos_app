@@ -35,11 +35,11 @@ export const generateFinancialReport = async (transactions: any[], categoryFilte
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(22);
   doc.setFont('helvetica', 'bold');
-  doc.text('Financas Pro Invest', 14, 20);
+  doc.text('Controla, do Finanças Pro Invest', 14, 20);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(56, 189, 248);
-  doc.text('Relatorio Financeiro Analitico', 14, 28);
+  doc.text('Relatório Controla', 14, 28);
   doc.setTextColor(200, 200, 200);
   doc.text(`Gerado em: ${today}`, pageWidth - 14, 18, { align: 'right' });
   doc.text(`Filtro: ${categoryFilter}`, pageWidth - 14, 30, { align: 'right' });
@@ -124,7 +124,7 @@ export const generateFinancialReport = async (transactions: any[], categoryFilte
     console.log(`Pagina ${i} - amostra raw:`, raw.slice(0, 300));
   }
   
-  const fileName = `relatorio_${new Date().getTime()}.pdf`;
+  const fileName = `relatorio_controla_${new Date().getTime()}.pdf`;
 
   if (Capacitor.isNativePlatform()) {
     try {

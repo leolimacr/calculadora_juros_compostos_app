@@ -242,6 +242,7 @@ const App: React.FC = () => {
             transactions={lancamentos}
             categories={categories}
             onDeleteTransaction={deleteLancamento}
+            onNavigate={handleNavigate}
             onOpenForm={() => {
               setEditingTransaction(null);
               setActiveModal('transaction');
@@ -320,7 +321,7 @@ const App: React.FC = () => {
           handleNavigate('login');
           return null;
         }
-        return wrap(<ActiveWealthManager userMeta={userMeta} />);
+        return wrap(<ActiveWealthManager userMeta={userMeta} onNavigate={handleNavigate} />);
 
       case 'passivos':
         if (!isAuthenticated) {
@@ -331,7 +332,7 @@ const App: React.FC = () => {
         
       case 'minhas-dividas':
         if (!isAuthenticated) { handleNavigate('login'); return null; }
-        return wrap(<DebtManager userMeta={userMeta} lancamentos={lancamentos} />);
+        return wrap(<DebtManager userMeta={userMeta} lancamentos={lancamentos} onNavigate={handleNavigate} />);
         
       case 'termos':
         return wrap(<TermsPage />);

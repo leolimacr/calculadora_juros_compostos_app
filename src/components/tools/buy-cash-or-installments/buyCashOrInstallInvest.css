@@ -14,6 +14,25 @@
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06); /* sombra suave */
 }
 
+.cvp-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 16px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: #059669;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.cvp-back-btn:hover {
+  opacity: 0.7;
+}
+
 .cvp-eyebrow {
   margin: 0 0 8px;
   color: #059669; /* verde destaque, alinhado com seu tema */

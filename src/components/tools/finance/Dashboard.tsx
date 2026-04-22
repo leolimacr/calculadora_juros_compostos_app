@@ -31,7 +31,8 @@ const Dashboard: React.FC<any> = (props) => {
     onShowPaywall, 
     isPrivacyMode,
 	onTogglePrivacy,
-    onEditTransaction
+    onEditTransaction,
+    onNavigate
   } = props;
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
@@ -218,9 +219,17 @@ const Dashboard: React.FC<any> = (props) => {
       <CategoryManager isOpen={isCategoryModalOpen} onClose={() => setIsCategoryModalOpen(false)} categories={categories} onSave={onSaveCategory} onDelete={onDeleteCategory} />
 
 	  {/* HEADER DO GERENCIADOR */}
+{onNavigate && (
+  <button
+    onClick={() => { onNavigate('home'); setTimeout(() => { document.getElementById('secao-ferramentas')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 100); }}
+    className="mb-4 flex items-center gap-2 text-slate-500 hover:text-sky-700 transition-all font-black uppercase text-[10px] tracking-[0.2em]"
+  >
+    ← Voltar para as Ferramentas
+  </button>
+)}
 <div className="flex justify-between items-center">
    <div>
-      <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight uppercase">Fluxo de Caixa</h2>
+      <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight uppercase">Controla</h2>
       <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">{periodLabel}</p>
    </div>
    <div className="flex items-center gap-3">

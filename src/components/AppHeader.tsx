@@ -63,7 +63,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             
             {/* Título Dourado - Só aparece se tiver espaço (Desktop ou se Native) */}
             <span className={`text-[11px] md:text-lg font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-yellow-400 to-amber-500 tracking-tight uppercase whitespace-nowrap drop-shadow-sm ${!isNative && 'hidden sm:block'}`}>
-              Gerenciador Financeiro
+              Controla
             </span>
             
             {/* BOTÃO CRÍTICO: ACESSAR SITE (Só aparece no App) */}

@@ -74,8 +74,8 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
                 <LayoutDashboard size={24} strokeWidth={2.5} />
               </div>
               <div className="flex-1 text-left">
-                <span className="block text-[10px] font-black uppercase text-amber-500/70 tracking-widest">Acessar App</span>
-                <span className="block text-[15px] font-bold text-white uppercase leading-tight">Gerenciador Financeiro</span>
+                <span className="block text-[10px] font-black uppercase text-amber-500/70 tracking-widest">Gerenciador financeiro</span>
+                <span className="block text-[15px] font-bold text-white uppercase leading-tight">Controla</span>
               </div>
               <ChevronRight size={18} className="text-slate-600 group-hover:text-amber-400" />
             </div>

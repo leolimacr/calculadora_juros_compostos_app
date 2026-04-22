@@ -28,7 +28,7 @@ export const NotificationService = {
         notifications: [
           {
             title: "Hora de organizar o patrimônio! 💰",
-            body: "Não esqueça de lançar seus gastos de hoje no Finanças Pro Invest.",
+            body: "Não esqueça de lançar seus gastos de hoje no Controla.",
             id: 101,
             schedule: {
               on: {

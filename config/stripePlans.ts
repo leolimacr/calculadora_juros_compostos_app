@@ -23,7 +23,7 @@ export const PLANS: Record<string, StripePlanConfig> = {
     period: "/mês",
     description: "Para começar a organizar a casa.",
     features: [
-      "Gerenciador Financeiro",
+      "Controla",
       "Juros Compostos",
       "Calculadora FIRE",
       "Limite de 5 lançamentos/mês",

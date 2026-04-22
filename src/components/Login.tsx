@@ -35,14 +35,19 @@ const Login: React.FC = () => {
         
         {/* HEADER DA MARCA (Logo + Nome Lado a Lado) */}
         <div className="mb-10 text-center animate-fade-in w-full">
-          <p className="text-green-500 font-bold tracking-widest text-[10px] mb-4 uppercase">
-            Gerenciador Financeiro
-          </p>
+          <div className="flex flex-col items-center gap-2 mb-4">
+            <p className="text-green-500 font-bold tracking-widest text-[10px] uppercase">
+              Controla
+            </p>
+            <p className="text-slate-400 text-[11px] font-medium leading-relaxed max-w-[260px] mx-auto">
+              O seu gerenciador financeiro do Finanças Pro Invest.
+            </p>
+          </div>
           
           <div className="flex items-center justify-center gap-4">
-            <img 
-              src="/logo.png" 
-              alt="Finanças Pro Invest" 
+            <img
+              src="/logo.png"
+              alt="Controla, do Finanças Pro Invest"
               // rounded-2xl: Quinas Arredondadas
               // shadow-green-900/50: Sombra verde suave
               className="w-14 h-14 object-cover rounded-2xl shadow-lg shadow-green-900/30"

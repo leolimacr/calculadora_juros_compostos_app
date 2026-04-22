@@ -47,7 +47,7 @@ function ResultCard({ label, value, tone = 'neutral' }: { label: React.ReactNode
   );
 }
 
-export default function BuyCashOrInstallInvestTool() {
+export default function BuyCashOrInstallInvestTool({ onNavigate }: { onNavigate?: (route: string) => void }) {
   const [form, setForm] = useState<FormState>(defaultState);
   const[advanced, setAdvanced] = useState(false);
   const [taxMode, setTaxMode] = useState<TaxMode>('automatic');
@@ -125,6 +125,13 @@ export default function BuyCashOrInstallInvestTool() {
     <section className="cvp-shell">
       <header className="cvp-hero">
         <div>
+          <button
+            type="button"
+            className="cvp-back-btn"
+            onClick={() => { onNavigate?.('home'); setTimeout(() => { document.getElementById('secao-ferramentas')?.scrollIntoView({ behavior: 'smooth' }); }, 100); }}
+          >
+            ← Voltar para as ferramentas
+          </button>
           <p className="cvp-eyebrow">Ferramenta financeira</p>
           <h1>Comprar à vista ou parcelar e investir?</h1>
           <p className="cvp-subtitle">Descubra qual decisão tende a ser melhor usando o custo do parcelamento e uma taxa baseada na Selic.</p>

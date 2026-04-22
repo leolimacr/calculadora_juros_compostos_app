@@ -87,7 +87,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             <h4 className="font-bold text-white mb-6 text-sm uppercase tracking-wider">Ferramentas</h4>
             <ul className="space-y-3 text-sm text-slate-400">
               <li><button onClick={() => handleNav('compound')} className="hover:text-emerald-400 transition-colors text-left">Simulador de Juros Compostos</button></li>
-              <li><button onClick={() => handleNav('manager')} className="hover:text-emerald-400 transition-colors text-left">Gerenciador Financeiro</button></li>
+              <li><button onClick={() => handleNav('manager')} className="hover:text-emerald-400 transition-colors text-left">Controla</button></li>
               <li><button onClick={() => handleNav('fire')} className="hover:text-emerald-400 transition-colors text-left">Calculadora FIRE</button></li>
               <li><button onClick={() => handleNav('rent')} className="hover:text-emerald-400 transition-colors text-left">Aluguel vs Financiamento</button></li>
               <li><button onClick={() => handleNav('debt')} className="hover:text-emerald-400 transition-colors text-left">Otimizador de Dívidas</button></li>

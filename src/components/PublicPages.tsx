@@ -9,12 +9,12 @@ import { MarkdownViewer } from './Public/MarkdownViewer';
 import { courses } from './Public/Courses';
 import React, { useEffect, useState, useMemo } from 'react';
 import MobileBottomNav from "./MobileBottomNav";
-import { 
-  LogOut, Settings, Sparkles, Wallet, Eye, EyeOff, LayoutGrid, Globe, Menu, Search, 
-  ArrowRight, Instagram, Linkedin, Mail, TrendingUp, Zap, Building2, PieChart, 
-  ChevronLeft, Users, LockKeyhole, HelpCircle, MessageSquare, Newspaper, BarChart3
+import {
+  LogOut, Settings, Sparkles, Wallet, Eye, EyeOff, LayoutGrid, Globe, Menu, Search,
+  ArrowRight, Instagram, Linkedin, Mail, TrendingUp, Zap, Building2, PieChart,
+  ChevronLeft, ChevronRight, Home, AlertTriangle, Flame, CreditCard, Target,
+  Users, LockKeyhole, HelpCircle, MessageSquare, Newspaper, BarChart3
 } from 'lucide-react';
-
 import { articles } from './Public/Articles';
 import { ALL_B3_TICKERS } from '../data/tickers'; 
 import { ContentModal, AssetModal } from './Public/HomeModals'; 
@@ -455,7 +455,9 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
             
             {/* SOLUÇÃO 3: Eyebrow Text (Ponte mental) */}
             <div className="mb-6 inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border border-slate-200 text-slate-600 text-[10px] sm:text-xs font-bold uppercase tracking-widest shadow-sm animate-in fade-in slide-in-from-bottom-6 duration-1000">
-              Diagnóstico rápido para entender, priorizar e quitar suas dívidas
+              {heroPersona === 'dividas'
+                ? 'Diagnóstico rápido para entender, priorizar e quitar suas dívidas'
+                : 'Organize, projete e acelere sua jornada rumo à liberdade financeira'}
             </div>
 
             {/* SOLUÇÃO 2: Seletor de Persona Elevado (Abas) */}
@@ -508,14 +510,14 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
                 ? 'Em poucos minutos, você identifica o peso real dos juros, descobre qual dívida priorizar e monta um plano simples para começar a quitar.'
                 : 'Assuma o controle absoluto do seu patrimônio. Utilize nossa tecnologia para organizar contas, projetar o futuro e tomar decisões baseadas em dados, não em achismos.'}
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-300">
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-300">              
               <button
-                onClick={() => onNavigate(heroPersona === 'dividas' ? 'tool-dividas' : 'tool-fire')}
+                onClick={() => onNavigate(heroPersona === 'dividas' ? 'minhas-dividas' : 'tool-fire')}
                 className="bg-emerald-500 hover:bg-emerald-600 text-white font-black px-8 py-4 rounded-2xl transition-all shadow-[0_16px_35px_-18px_rgba(16,185,129,0.65)] flex items-center justify-center gap-2 w-full sm:w-auto"
               >
                 <span>
                   {heroPersona === 'dividas'
-                    ? 'Acessar o Simulador de Quitação agora'
+                    ? 'Acessar Minhas Dívidas agora'
                     : 'Descobrir minha data FIRE'}
                 </span>
                 <ArrowRight size={20} />
@@ -530,7 +532,7 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
                 }}
                 className="bg-white hover:bg-slate-100 text-slate-900 font-black px-8 py-4 rounded-2xl transition-all border border-slate-300 shadow-sm flex items-center justify-center gap-2 w-full sm:w-auto"
               >
-                <span>Ver como funciona</span>
+                <span>{heroPersona === 'dividas' ? 'Ver como funciona em 3 passos' : 'Ver como funciona'}</span>
                 <ArrowRight size={20} />
               </button>
             </div>
@@ -548,15 +550,31 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
             )}
             
             <div className="flex flex-wrap justify-center lg:justify-start gap-2 mt-6 w-full sm:w-auto animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-500">
-              <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">
-                Descubra qual dívida vem primeiro
-              </span>
-              <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">
-                Entenda o peso real dos juros
-              </span>
-              <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">
-                Monte um plano inicial em minutos
-              </span>
+              {heroPersona === 'dividas' ? (
+                <>
+                  <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">
+                    Descubra qual dívida vem primeiro
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">
+                    Entenda o peso real dos juros
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">
+                    Monte um plano inicial em minutos
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">
+                    Veja para onde seu dinheiro vai
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">
+                    Simule sua data de independência financeira
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">
+                    Decisões baseadas em dados, não achismos
+                  </span>
+                </>
+              )}
             </div>
             
           </div> {/* FIM DA COLUNA ESQUERDA */}
@@ -1059,84 +1077,207 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
           </div>
         </div>
       </section>
+      
+      {/* --- CTA FINAL ANTES DE CURSOS --- */}
+      <section className="px-4 lg:px-12 py-16 max-w-[1600px] mx-auto w-full">
+        <div className="bg-white border border-slate-200 rounded-3xl p-8 md:p-10 text-center shadow-sm">
+          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-widest mb-4">
+            {heroPersona === 'dividas' ? 'Comece sem complicação' : 'O Futuro Começa Aqui'}
+          </span>
+          <h3 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tight mb-4">
+            {heroPersona === 'dividas' ? (
+              <>
+                Pare de adiar o diagnóstico. <br className="hidden md:block" />
+                Descubra hoje o que fazer primeiro.
+              </>
+            ) : (
+              <>
+                Sua liberdade financeira é possível. <br className="hidden md:block" />E nós temos o método.
+              </>
+            )}
+          </h3>
+          <p className="text-slate-600 text-sm md:text-base max-w-2xl mx-auto mb-6">
+            {heroPersona === 'dividas' ? (
+              'Você não precisa resolver tudo agora. Basta dar o primeiro passo, organizar suas dívidas e enxergar com clareza qual prioridade atacar antes.'
+            ) : (
+              'Otimize seus aportes mensais, descubra quando poderá parar de trabalhar e tome decisões lógicas com seu dinheiro.'
+            )}
+          </p>
+          <div className="flex flex-wrap justify-center gap-2 mb-6">
+            <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-bold text-slate-600">
+              {heroPersona === 'dividas' ? 'Entenda sua situação' : 'Projete seu futuro'}
+            </span>
+            <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-bold text-slate-600">
+              {heroPersona === 'dividas' ? 'Veja suas prioridades' : 'Metas e Aportes'}
+            </span>
+          </div>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button
+              onClick={() => onNavigate(heroPersona === 'dividas' ? 'tool-dividas' : 'tool-fire')}
+              className="bg-emerald-500 hover:bg-emerald-600 text-white font-black px-8 py-4 rounded-2xl transition-all shadow-[0_16px_35px_-18px_rgba(16,185,129,0.65)] inline-flex items-center justify-center gap-2 w-full sm:w-auto"
+            >
+              <span>{heroPersona === 'dividas' ? 'Montar meu plano para sair das dívidas' : 'Descobrir minha data FIRE'}</span>
+              <ArrowRight size={20} />
+            </button>
+            {heroPersona !== 'dividas' && (
+              <button
+                onClick={() =>
+                  document.getElementById('secao-cursos')?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start',
+                  })
+                }
+                className="bg-white hover:bg-slate-100 text-slate-900 font-black px-8 py-4 rounded-2xl transition-all border border-slate-300 shadow-sm inline-flex items-center justify-center gap-2 w-full sm:w-auto"
+              >
+                <span>Ver cursos</span>
+                <ArrowRight size={20} />
+              </button>
+            )}
+          </div>
+        </div>
+      </section>
 
       {/* --- 2. BENTO GRID: FERRAMENTAS --- */}
-      <section className="px-4 lg:px-12 pb-20 max-w-[1600px] mx-auto w-full relative">
-        <div className="text-center mb-10">
-          <h3 className="text-slate-600 text-xs font-black uppercase tracking-widest inline-block border-b border-slate-300 pb-2">           
-            Ferramentas para agir
-          </h3>
-        </div>
-        <p className="text-center text-sm text-slate-500 max-w-2xl mx-auto mb-8">
-          Se você está perdido e não sabe por onde começar, use primeiro a opção destacada abaixo.
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 relative z-10">
-          
-          <div onClick={() => isAuthenticated ? onNavigate('manager') : onNavigate('tool-dividas')} className="md:col-span-2 lg:col-span-2 row-span-2 bg-gradient-to-br from-white to-slate-100 border border-slate-200 rounded-3xl p-8 relative overflow-hidden group cursor-pointer hover:border-slate-300 transition-all shadow-sm">
-            <div className="absolute right-0 bottom-0 opacity-10 group-hover:opacity-20 transition-opacity">
-              <Wallet size={180} />
-            </div>
-            <div className="relative z-10 flex flex-col h-full justify-between">
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                   <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"/>
-                   <span className="text-emerald-700 text-[10px] font-black uppercase tracking-widest">
-                     {heroPersona === 'dividas' ? 'Primeiro passo' : 'Controle Central'}
-                   </span>
+        <div id="secao-ferramentas" style={{ scrollMarginTop: '90px' }} />
+        <section className="px-4 lg:px-12 pb-20 max-w-[1600px] mx-auto w-full relative">
+        {/* Fundo decorativo suave */}
+        <div className="absolute inset-x-0 -top-10 -bottom-10 bg-gradient-to-b from-slate-50/80 via-slate-50/60 to-slate-100/80 pointer-events-none -z-10" />
+
+        <div className="flex flex-col lg:flex-row gap-10 items-start">
+          {/* Coluna Esquerda */}
+          <div className="w-full lg:w-1/2 space-y-6">
+            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-widest">
+              <LayoutGrid size={14} />
+              Ferramentas para usar no dia a dia
+            </span>
+
+            <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
+              {heroPersona === 'dividas' ? 'Comece pelo diagnóstico e siga para a organização.' : 'Organize, acompanhe e projete seu patrimônio sem fricção.'}
+            </h2>
+
+            <p className="text-slate-600 text-sm md:text-base max-w-xl">
+              {heroPersona === 'dividas'
+                ? 'Junte contas, gastos e dívidas em um só lugar para enxergar sua situação real e decidir o que fazer primeiro.'
+                : 'Controle suas despesas com o Controla, acompanhe sua carteira e teste cenários de independência financeira com poucos cliques.'}
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <button
+                onClick={() => onNavigate('tool-dividas')}
+                className="group border border-emerald-200 rounded-2xl bg-emerald-50/80 hover:bg-emerald-100 transition-all p-4 flex items-center justify-between gap-3 shadow-sm"
+              >
+                <div className="flex flex-col text-left">
+                  <span className="text-[11px] font-black uppercase tracking-widest text-emerald-700 mb-1">
+                    Começar pelo diagnóstico
+                  </span>
+                  <span className="text-sm font-bold text-slate-900">
+                    Simulador de Quitação
+                  </span>
+                  <span className="text-[11px] text-emerald-700 font-medium mt-1">
+                    Veja o ranking de prioridade em minutos
+                  </span>
                 </div>
-                <h4 className="text-2xl md:text-3xl font-black text-slate-900 mb-2">
-                  {heroPersona === 'dividas' ? 'Veja sua vida financeira com clareza' : 'Painel de Controle Patrimonial'}
-                </h4>
-                <p className="text-slate-600 text-sm max-w-sm leading-relaxed">
-                  {heroPersona === 'dividas'
-                    ? 'Junte contas, gastos e dívidas em um só lugar para enxergar sua situação real e decidir o que fazer primeiro.'
-                    : 'Acompanhe ativos, rendimentos e projeções. Transforme números dispersos em um mapa completo.'}
-                </p>              
+                <ChevronRight className="w-4 h-4 text-emerald-700 group-hover:translate-x-0.5 transition-transform" />
+              </button>
+
+              <button
+                onClick={() => (isAuthenticated ? onNavigate('manager') : onStartNow())}
+                 className="group border border-slate-200 rounded-2xl bg-white hover:bg-slate-50 transition-all p-4 flex items-center justify-between gap-3 shadow-sm"
+              >
+                <div className="flex flex-col text-left">
+                  <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-1">
+                    Organização contínua
+                  </span>
+                  <span className="text-sm font-bold text-slate-900">
+                    Controla
+                  </span>
+                  <span className="text-[11px] text-slate-500 font-medium mt-1">
+                    O seu gerenciador financeiro do Finanças Pro Invest.
+                  </span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:translate-x-0.5 transition-transform" />
+              </button>
+            </div>
+
+            <div className="flex flex-wrap gap-3 pt-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-slate-200 text-[11px] text-slate-600">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span className="font-bold">Comece pelo diagnóstico</span>
               </div>
-              <div className="mt-8">
-                  <button className="text-xs font-black text-slate-900 uppercase tracking-widest bg-white px-4 py-2 rounded-lg border border-slate-300 group-hover:bg-emerald-50 group-hover:border-emerald-300 transition-colors">
-                    {heroPersona === 'dividas' ? 'Começar pelo diagnóstico' : 'Acessar meu Dashboard'}
-                  </button>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-slate-200 text-[11px] text-slate-600">
+                <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+                <span className="font-bold">Continue pela organização mensal</span>
               </div>
             </div>
           </div>
 
-          {/* Card: Nexus IA */}
-          <div onClick={() => isAuthenticated ? onNavigate('chat') : onStartNow()} className="md:col-span-1 lg:col-span-2 bg-gradient-to-br from-indigo-50 to-white border border-indigo-200 rounded-3xl p-6 flex flex-col justify-between group hover:border-indigo-300 hover:bg-indigo-50/50 transition-all relative overflow-hidden cursor-pointer shadow-sm">
-            <div className="absolute -right-10 -top-10 bg-indigo-200/60 w-40 h-40 blur-[50px] rounded-full"></div>
-            <div className="flex items-center gap-3 mb-2">
-              <Sparkles size={20} className="text-indigo-600" />
-              <h4 className="text-lg font-black text-slate-900">Nexus AI para te orientar</h4>
-            </div>
-            <p className="text-slate-600 text-xs mb-4 leading-relaxed">
-              {heroPersona === 'dividas'
-                ? 'Use a IA como apoio para entender prioridades, juros e próximos passos sem se perder em termos técnicos.'
-                : 'Consultoria inteligente baseada nos seus dados. Pergunte e obtenha respostas sobre as melhores alocações e rendimentos.'}
-            </p>
-            <div className="bg-white/80 border border-indigo-200 p-3 rounded-xl">
-               <p className="text-[10px] text-indigo-700 font-mono">
-                 {heroPersona === 'dividas'
-                   ? '"Com os dados que você trouxe, esta dívida parece ser a prioridade número 1."'
-                   : '"Baseado na sua meta, você precisa aportar R$ 500 a mais este mês para atingir o alvo."'}
-               </p>
+          {/* Coluna Direita: Bento Grid */}
+          <div className="w-full lg:w-1/2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {[
+                {
+                  title: 'Calculadora de Juros Compostos',
+                  subtitle: 'Por que a dívida cresce',
+                  icon: <TrendingUp size={16} />,
+                  bg: 'bg-emerald-50',
+                  border: 'border-emerald-200',
+                  onClick: () => onNavigate('tool-juros'),
+                },
+                {
+                  title: 'Alugar vs Comprar',
+                  subtitle: 'Aluguel ou compra',
+                  icon: <Home size={16} />,
+                  bg: 'bg-sky-50',
+                  border: 'border-sky-200',
+                  onClick: () => onNavigate('tool-alugar'),
+                },
+                {
+                  title: heroPersona === 'dividas' ? 'Sair das dívidas' : 'Aposentadoria antecipada',
+                  subtitle: heroPersona === 'dividas' ? 'Comece por aqui' : 'Entenda sua data FIRE',
+                  icon: heroPersona === 'dividas' ? <AlertTriangle size={16} /> : <Flame size={16} />,
+                  bg: heroPersona === 'dividas' ? 'bg-amber-50' : 'bg-emerald-50',
+                  border: heroPersona === 'dividas' ? 'border-amber-200' : 'border-emerald-200',
+                  highlight: true,
+                  onClick: () => onNavigate(heroPersona === 'dividas' ? 'minhas-dividas' : 'tool-fire'),
+                },
+                {
+                  title: heroPersona === 'dividas' ? 'À vista ou parcelado?' : 'Próximo passo',
+                  subtitle: heroPersona === 'dividas' ? 'Compare antes de comprar' : 'Depois da organização',
+                  icon: heroPersona === 'dividas' ? <CreditCard size={16} /> : <Target size={16} />,
+                  bg: 'bg-sky-50',
+                  border: 'border-sky-200',
+                  onClick: () => onNavigate(heroPersona === 'dividas' ? 'tool-buy-cash-or-installments' : 'metas'),
+                },
+              ].map((card, index) => (
+                <button
+                  key={index}
+                  onClick={card.onClick}
+                  className={`group relative rounded-2xl border ${card.border} ${card.bg} p-4 sm:p-5 text-left shadow-sm hover:shadow-md transition-all flex flex-col justify-between min-h-[120px]`}
+                >
+                  {card.highlight && (
+                    <span className="absolute top-3 right-3 text-[9px] font-black uppercase tracking-[0.18em] bg-amber-400 text-slate-900 rounded-full px-2 py-0.5 shadow-sm">
+                      Recomendado
+                    </span>
+                  )}
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-8 h-8 rounded-xl bg-white/80 flex items-center justify-center text-slate-800 border border-slate-200 shadow-sm">
+                      {card.icon}
+                    </div>
+                    <div>
+                      <p className="text-xs font-black text-slate-900 leading-tight">{card.title}</p>
+                      <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500 font-bold">
+                        {card.subtitle}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="mt-auto inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 group-hover:text-slate-900">
+                    Abrir ferramenta
+                    <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+                  </span>
+                </button>
+              ))}
             </div>
           </div>
-          
-          {/* Cards Menores */}
-          {toolsByPersona.map((tool) => {
-            return (
-              <ToolCard
-                key={tool.route}
-                icon={tool.icon}
-                title={tool.title}
-                desc={tool.desc}
-                route={tool.route}
-                onNavigate={onNavigate}
-                bgColor={tool.bgColor}
-                highlight={tool.highlight}
-              />
-            );
-          })}
         </div>
       </section>
 
@@ -1253,11 +1394,17 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
                   {course.icon}
                 </div>
 
-                <h4 className={`text-xl font-bold text-slate-900 mb-3 transition-colors duration-300 ${
-                  heroPersona === 'dividas' ? 'group-hover:text-emerald-700' : 'group-hover:text-indigo-700'
-                }`}>
-                  {course.title}
-                </h4>
+                <div className="mb-3">
+                  <span className="inline-flex items-center rounded-full bg-slate-100 border border-slate-200 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">
+                    Curso online
+                  </span>
+
+                  <h4 className={`text-xl font-bold text-slate-900 transition-colors duration-300 ${
+                    heroPersona === 'dividas' ? 'group-hover:text-emerald-700' : 'group-hover:text-indigo-700'
+                  }`}>
+                    {course.title}
+                  </h4>
+                </div>
                 
                 <p className={`text-sm text-slate-600 leading-relaxed ${isFeaturedDebtCourse ? 'mb-4 max-w-2xl' : 'mb-6 line-clamp-2'}`}>
                   {course.excerpt}
@@ -1426,160 +1573,103 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
           </div>
         </div>
       </section>  
-
+      
       {/* --- 4. TERMINAL DE MERCADO --- */}
-      <section className="py-12 bg-slate-50">
-        <div className="max-w-[1600px] mx-auto px-4 lg:px-12">
-          <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-6">
-            <div>
-              <h2 className="text-xl font-black text-slate-900 tracking-tighter mb-2 flex items-center gap-2">
-                <BarChart3 className="text-slate-400" />
-                Mercado para aprofundar
-              </h2>
-              <p className="text-slate-500 text-xs uppercase tracking-wide font-bold">
-                B3, cripto, câmbio e indicadores para consultar depois de organizar sua base financeira
-              </p>
+      {heroPersona === 'patrimonio' && (
+        <section className="py-12 bg-slate-50">
+          <div className="max-w-[1600px] mx-auto px-4 lg:px-12">
+            <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-6">
+              <div>
+                <h2 className="text-xl font-black text-slate-900 tracking-tighter mb-2 flex items-center gap-2">
+                  <BarChart3 className="text-slate-400" />
+                  Mercado para aprofundar
+                </h2>
+                <p className="text-slate-500 text-xs uppercase tracking-wide font-bold">
+                  B3, cripto, câmbio e indicadores para consultar depois de organizar sua base financeira
+                </p>
+              </div>
+
+              <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    placeholder="Pesquisar Ativo B3 (ex: PETR4)"
+                    className="w-full bg-white border border-slate-300 rounded-xl py-3 pl-10 pr-4 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 transition-all uppercase outline-none shadow-sm"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && searchTerm && handleSelectSuggestion(searchTerm.toUpperCase())}
+                  />
+                  <Search className="absolute left-3 top-3 text-slate-500" size={16} />
+                  {suggestions.length > 0 && (
+                    <div className="mt-2 bg-white border border-slate-200 rounded-xl overflow-hidden absolute w-full z-50 shadow-xl">
+                      {suggestions.map((t, i) => (
+                        <div key={i} className="p-3 hover:bg-slate-50 cursor-pointer border-t border-slate-200 font-bold text-xs text-slate-900" onClick={() => handleSelectSuggestion(t)}>{t}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    placeholder="Buscar Cripto (ex: BTC, LTC)"
+                    className="w-full bg-white border border-slate-300 rounded-xl py-3 pl-10 pr-4 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:border-purple-500 transition-all uppercase outline-none shadow-sm"
+                    value={cryptoSymbol}
+                    onChange={(e) => setCryptoSymbol(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleCryptoSearch()}
+                  />
+                  <Search className="absolute left-3 top-3 text-slate-500" size={16} />
+                </div>
+              </div>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
-              <div className="relative flex-1">
-                <input
-                  type="text"
-                  placeholder="Pesquisar Ativo B3 (ex: PETR4)"
-                  className="w-full bg-white border border-slate-300 rounded-xl py-3 pl-10 pr-4 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 transition-all uppercase outline-none shadow-sm"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && searchTerm && handleSelectSuggestion(searchTerm.toUpperCase())}
-                />
-                <Search className="absolute left-3 top-3 text-slate-500" size={16} />
-                {suggestions.length > 0 && (
-                  <div className="mt-2 bg-white border border-slate-200 rounded-xl overflow-hidden absolute w-full z-50 shadow-xl">
-                    {suggestions.map((t, i) => (
-                      <div key={i} className="p-3 hover:bg-slate-50 cursor-pointer border-t border-slate-200 font-bold text-xs text-slate-900" onClick={() => handleSelectSuggestion(t)}>{t}</div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="relative flex-1">
-                <input
-                  type="text"
-                  placeholder="Buscar Cripto (ex: BTC, LTC)"
-                  className="w-full bg-white border border-slate-300 rounded-xl py-3 pl-10 pr-4 text-sm font-bold text-slate-900 placeholder:text-slate-400 focus:border-purple-500 transition-all uppercase outline-none shadow-sm"
-                  value={cryptoSymbol}
-                  onChange={(e) => setCryptoSymbol(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleCryptoSearch()}
-                />
-                <Search className="absolute left-3 top-3 text-slate-500" size={16} />
-              </div>
-            </div>
-          </div>
-
-          {(searchPreview || cryptoPreview) && (
-            <div
-              onClick={() => {
-                const preview = searchPreview || cryptoPreview;
-                if (preview) setSelectedAsset({ symbol: preview.symbol, category: preview.type });
-              }}
-              className="bg-white border border-slate-200 p-4 rounded-xl mb-8 flex items-center justify-between animate-in fade-in slide-in-from-top-2 shadow-sm cursor-pointer hover:border-slate-300 transition-all"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700 font-black text-xs border border-emerald-200">
-                  {(searchPreview?.symbol || cryptoPreview?.symbol)?.substring(0, 3)}
-                </div>
-                <div>
-                  <h3 className="font-black text-slate-900 text-lg">{searchPreview?.symbol || cryptoPreview?.symbol}</h3>
-                  <p className="text-slate-500 text-[10px] uppercase font-bold">{searchPreview ? 'Ativo B3 Encontrado' : 'Criptomoeda Encontrada'}</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-xl font-bold text-slate-900">
-                  {searchPreview?.price !== null && searchPreview?.price !== undefined
-                    ? `R$ ${Number(searchPreview.price).toFixed(2).replace('.', ',')}`
-                    : cryptoPreview?.price !== null && cryptoPreview?.price !== undefined
-                    ? `R$ ${Number(cryptoPreview.price).toFixed(2).replace('.', ',')}`
-                    : 'Buscando...'}
-                </div>
-                <div className={`text-xs font-black ${(searchPreview?.up ?? cryptoPreview?.up) ? 'text-emerald-700' : 'text-rose-700'}`}>
-                  {searchPreview?.change !== null && searchPreview?.change !== undefined
-                    ? `${searchPreview.change > 0 ? '+' : ''}${Number(searchPreview.change).toFixed(2).replace('.', ',')}%`
-                    : cryptoPreview?.change !== null && cryptoPreview?.change !== undefined
-                    ? `${cryptoPreview.change > 0 ? '+' : ''}${Number(cryptoPreview.change).toFixed(2).replace('.', ',')}%`
-                    : '0,00%'}
-                </div>
-              </div>
-              <button onClick={(e) => { e.stopPropagation(); setSearchPreview(null); setCryptoPreview(null); }} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-900 transition-colors">
-                <LogOut size={16} />
-              </button>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <MarketPanel title="Índices Globais e Indicadores" items={indicesComIndicadores} onItemClick={(symbol, category) => setSelectedAsset({ symbol, category })} />
-            <MarketPanel title="Câmbio & Moedas" items={marketData.currencies} onItemClick={(symbol, category) => setSelectedAsset({ symbol, category })} />
-            <MarketPanel title="Criptoativos" items={marketData.cryptos} onItemClick={(symbol, category) => setSelectedAsset({ symbol, category })} />
-            <MarketPanel title="Destaques B3" items={marketData.stocks.slice(0, 5)} onItemClick={(symbol, category) => setSelectedAsset({ symbol, category })} />
-          </div>
-        </div>
-      </section>
-
-      {/* --- CTA FINAL E FOOTER --- */}
-      <section className="px-4 lg:px-12 py-16 max-w-[1600px] mx-auto w-full">
-        <div className="bg-white border border-slate-200 rounded-3xl p-8 md:p-10 text-center shadow-sm">
-          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-widest mb-4">
-            {heroPersona === 'dividas' ? 'Comece sem complicação' : 'O Futuro Começa Aqui'}
-          </span>
-          <h3 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tight mb-4">
-            {heroPersona === 'dividas' ? (
-              <>
-                Pare de adiar o diagnóstico. <br className="hidden md:block" />
-                Descubra hoje o que fazer primeiro.
-              </>
-            ) : (
-              <>
-                Sua liberdade financeira é possível. <br className="hidden md:block" />E nós temos o método.
-              </>
-            )}
-          </h3>
-          <p className="text-slate-600 text-sm md:text-base max-w-2xl mx-auto mb-6">
-            {heroPersona === 'dividas' ? (
-              'Você não precisa resolver tudo agora. Basta dar o primeiro passo, organizar suas dívidas e enxergar com clareza qual prioridade atacar antes.'
-            ) : (
-              'Otimize seus aportes mensais, descubra quando poderá parar de trabalhar e tome decisões lógicas com seu dinheiro.'
-            )}
-          </p>
-          <div className="flex flex-wrap justify-center gap-2 mb-6">
-            <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-bold text-slate-600">
-              {heroPersona === 'dividas' ? 'Entenda sua situação' : 'Projete seu futuro'}
-            </span>
-            <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-bold text-slate-600">
-              {heroPersona === 'dividas' ? 'Veja suas prioridades' : 'Metas e Aportes'}
-            </span>
-          </div>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <button
-              onClick={() => onNavigate(heroPersona === 'dividas' ? 'tool-dividas' : 'tool-fire')}
-              className="bg-emerald-500 hover:bg-emerald-600 text-white font-black px-8 py-4 rounded-2xl transition-all shadow-[0_16px_35px_-18px_rgba(16,185,129,0.65)] inline-flex items-center justify-center gap-2 w-full sm:w-auto"
-            >
-              <span>{heroPersona === 'dividas' ? 'Montar meu plano para sair das dívidas' : 'Descobrir minha data FIRE'}</span>
-              <ArrowRight size={20} />
-            </button>
-            {heroPersona !== 'dividas' && (
-              <button
-                onClick={() =>
-                  document.getElementById('secao-cursos')?.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start',
-                  })
-                }
-                className="bg-white hover:bg-slate-100 text-slate-900 font-black px-8 py-4 rounded-2xl transition-all border border-slate-300 shadow-sm inline-flex items-center justify-center gap-2 w-full sm:w-auto"
+            {(searchPreview || cryptoPreview) && (
+              <div
+                onClick={() => {
+                  const preview = searchPreview || cryptoPreview;
+                  if (preview) setSelectedAsset({ symbol: preview.symbol, category: preview.type });
+                }}
+                className="bg-white border border-slate-200 p-4 rounded-xl mb-8 flex items-center justify-between animate-in fade-in slide-in-from-top-2 shadow-sm cursor-pointer hover:border-slate-300 transition-all"
               >
-                <span>Ver cursos</span>
-                <ArrowRight size={20} />
-              </button>
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700 font-black text-xs border border-emerald-200">
+                    {(searchPreview?.symbol || cryptoPreview?.symbol)?.substring(0, 3)}
+                  </div>
+                  <div>
+                    <h3 className="font-black text-slate-900 text-lg">{searchPreview?.symbol || cryptoPreview?.symbol}</h3>
+                    <p className="text-slate-500 text-[10px] uppercase font-bold">{searchPreview ? 'Ativo B3 Encontrado' : 'Criptomoeda Encontrada'}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xl font-bold text-slate-900">
+                    {searchPreview?.price !== null && searchPreview?.price !== undefined
+                      ? `R$ ${Number(searchPreview.price).toFixed(2).replace('.', ',')}`
+                      : cryptoPreview?.price !== null && cryptoPreview?.price !== undefined
+                      ? `R$ ${Number(cryptoPreview.price).toFixed(2).replace('.', ',')}`
+                      : 'Buscando...'}
+                  </div>
+                  <div className={`text-xs font-black ${(searchPreview?.up ?? cryptoPreview?.up) ? 'text-emerald-700' : 'text-rose-700'}`}>
+                    {searchPreview?.change !== null && searchPreview?.change !== undefined
+                      ? `${searchPreview.change > 0 ? '+' : ''}${Number(searchPreview.change).toFixed(2).replace('.', ',')}%`
+                      : cryptoPreview?.change !== null && cryptoPreview?.change !== undefined
+                      ? `${cryptoPreview.change > 0 ? '+' : ''}${Number(cryptoPreview.change).toFixed(2).replace('.', ',')}%`
+                      : '0,00%'}
+                  </div>
+                </div>
+                <button onClick={(e) => { e.stopPropagation(); setSearchPreview(null); setCryptoPreview(null); }} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-900 transition-colors">
+                  <LogOut size={16} />
+                </button>
+              </div>
             )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <MarketPanel title="Índices Globais e Indicadores" items={indicesComIndicadores} onItemClick={(symbol, category) => setSelectedAsset({ symbol, category })} />
+              <MarketPanel title="Câmbio & Moedas" items={marketData.currencies} onItemClick={(symbol, category) => setSelectedAsset({ symbol, category })} />
+              <MarketPanel title="Criptoativos" items={marketData.cryptos} onItemClick={(symbol, category) => setSelectedAsset({ symbol, category })} />
+              <MarketPanel title="Destaques B3" items={marketData.stocks.slice(0, 5)} onItemClick={(symbol, category) => setSelectedAsset({ symbol, category })} />
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <footer className="bg-white border-t border-slate-200 py-16 px-6">
         <div className="max-w-[1400px] mx-auto grid grid-cols-1 md:grid-cols-12 gap-12">
