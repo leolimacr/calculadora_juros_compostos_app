@@ -73,6 +73,13 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userMe
       setIsLoading(false);
     });
 
+    // Registra que o usuário revisou o patrimônio agora
+    setDoc(
+      doc(firestore, 'users', userMeta.uid),
+      { lastWealthReviewAt: new Date().toISOString() },
+      { merge: true }
+    ).catch(() => {});
+
     return () => unsubscribe();
   }, [userMeta]);
 

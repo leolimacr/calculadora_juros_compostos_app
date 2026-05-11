@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { 
   Wallet, 
   Plus, 
@@ -46,6 +47,7 @@ const Dashboard: React.FC<any> = (props) => {
   const [openCategory, setOpenCategory] = useState<string | null>(null);
   const [showTransactions, setShowTransactions] = useState(true);
   const safeTransactions = Array.isArray(transactions) ? transactions : [];
+  const showBackToTools = !!onNavigate && !Capacitor.isNativePlatform();
   
   const changeDate = (offset: number) => {
     const newDate = new Date(currentDate);
@@ -219,33 +221,52 @@ const Dashboard: React.FC<any> = (props) => {
       <CategoryManager isOpen={isCategoryModalOpen} onClose={() => setIsCategoryModalOpen(false)} categories={categories} onSave={onSaveCategory} onDelete={onDeleteCategory} />
 
 	  {/* HEADER DO GERENCIADOR */}
-{onNavigate && (
+{showBackToTools && (
   <button
     onClick={() => { onNavigate('home'); setTimeout(() => { document.getElementById('secao-ferramentas')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 100); }}
-    className="mb-4 flex items-center gap-2 text-slate-500 hover:text-sky-700 transition-all font-black uppercase text-[10px] tracking-[0.2em]"
+    className="hidden md:flex mb-4 items-center gap-2 text-slate-500 hover:text-sky-700 transition-all font-black uppercase text-[10px] tracking-[0.2em]"
   >
     ← Voltar para as Ferramentas
   </button>
 )}
-<div className="flex justify-between items-center">
-   <div>
-      <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight uppercase">Controla</h2>
-      <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">{periodLabel}</p>
-   </div>
-   <div className="flex items-center gap-3">
-      {/* BOTÃO OLHINHO */}
-      <button
-        onClick={onTogglePrivacy}
-        className="p-3 rounded-2xl bg-white border border-slate-200 text-slate-500 hover:text-slate-900 hover:border-slate-400 transition-all active:scale-95 shadow-sm"
-      >
-        {isPrivacyMode ? <EyeOff size={18} /> : <Eye size={18} />}
-      </button>
-      <button onClick={isLimitReached && !isPremium ? onShowPaywall : onOpenForm} className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-sm transition-transform active:scale-95 ${isLimitReached && !isPremium ? 'bg-slate-100 text-slate-500 border border-slate-200' : 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-emerald-500/20'}`}>
-         {isLimitReached && !isPremium ? <Lock size={16}/> : <Plus size={16} />}
-         <span>{isLimitReached && !isPremium ? 'Limite Atingido' : 'Novo Lançamento'}</span>
-      </button>
-   </div>
-</div>  
+<div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+  <div className="flex items-center gap-3">
+    <img
+      src="/controla-icon.png"
+      alt="Ícone do Controla"
+      className="w-8 h-8 md:w-9 md:h-9 rounded-xl shadow-sm border border-slate-200 bg-white object-cover"
+    />
+    <div className="flex flex-col">
+      <h2 className="text-lg md:text-2xl font-black text-slate-900 tracking-tight uppercase leading-tight">
+        Controla
+      </h2>
+      <p className="text-slate-500 text-[10px] md:text-xs font-bold uppercase tracking-widest">
+        {periodLabel}
+      </p>
+    </div>
+  </div>
+
+  <div className="flex items-center gap-2 md:gap-3 self-start md:self-auto">
+    {/* BOTÃO OLHINHO */}
+    <button
+      onClick={onTogglePrivacy}
+      className="p-2.5 md:p-3 rounded-2xl bg-white border border-slate-200 text-slate-500 hover:text-slate-900 hover:border-slate-400 transition-all active:scale-95 shadow-sm"
+    >
+      {isPrivacyMode ? <EyeOff size={18} /> : <Eye size={18} />}
+    </button>
+    <button
+      onClick={isLimitReached && !isPremium ? onShowPaywall : onOpenForm}
+      className={`flex items-center gap-2 px-4 md:px-6 py-2.5 md:py-3 rounded-2xl font-black text-[10px] md:text-xs uppercase tracking-widest shadow-sm transition-transform active:scale-95 ${
+        isLimitReached && !isPremium
+          ? 'bg-slate-100 text-slate-500 border border-slate-200'
+          : 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-emerald-500/20'
+      }`}
+    >
+      {isLimitReached && !isPremium ? <Lock size={16} /> : <Plus size={16} />}
+      <span>{isLimitReached && !isPremium ? 'Limite Atingido' : 'Novo Lançamento'}</span>
+    </button>
+  </div>
+</div>
       {/* CARDS DE SALDO PRINCIPAIS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-gradient-to-br from-white to-slate-50 p-8 rounded-[2.5rem] text-slate-900 shadow-xl relative overflow-hidden border border-slate-200 group">

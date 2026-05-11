@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { 
   User, ShieldCheck, Fingerprint, CreditCard, FileText, 
   LogOut, Pencil, Check, ChevronRight, ExternalLink, ArrowLeft, Lock, X, 
-  Trash2, Smartphone, AlertTriangle, Loader2
+  Trash2, Smartphone, AlertTriangle, Loader2, Bell, BellOff, Zap
 } from 'lucide-react';
+import { firestore } from '../firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { ref, update, onValue } from 'firebase/database';
 import { deleteUser } from 'firebase/auth'; 
@@ -31,6 +33,50 @@ const SettingsPage: React.FC<any> = ({ onBack }) => {
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [pinInput, setPinInput] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // --- PRESENÇA ---
+  const [presencePrefs, setPresencePrefs] = useState({
+    pushEnabled: true,
+    emailEnabled: true,
+    intensity: 'balanced' as 'essential' | 'balanced' | 'complete',
+    topics: { debts: true, wealth: true, routine: true, nexus: true },
+    allowedHoursStart: 8,
+    allowedHoursEnd: 21,
+  });
+  const [savingPresence, setSavingPresence] = useState(false);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    const loadPresence = async () => {
+      const docRef = doc(firestore, `users/${user.uid}/presencePreferences/config`);
+      const snap = await getDoc(docRef);
+      if (snap.exists()) setPresencePrefs(snap.data() as typeof presencePrefs);
+    };
+    loadPresence();
+  }, [user?.uid]);
+
+  const savePresencePrefs = async (updated: typeof presencePrefs) => {
+    if (!user?.uid) return;
+    setSavingPresence(true);
+    try {
+      await setDoc(
+        doc(firestore, `users/${user.uid}/presencePreferences/config`),
+        { ...updated, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+        { merge: true }
+      );
+      setPresencePrefs(updated);
+    } finally {
+      setSavingPresence(false);
+    }
+  };
+
+  const toggleTopic = (key: keyof typeof presencePrefs.topics) => {
+    const updated = {
+      ...presencePrefs,
+      topics: { ...presencePrefs.topics, [key]: !presencePrefs.topics[key] },
+    };
+    savePresencePrefs(updated);
+  };
 
   // Carregar Dados
   useEffect(() => {
@@ -339,6 +385,103 @@ const SettingsPage: React.FC<any> = ({ onBack }) => {
             </div>
             <ExternalLink size={20} className="text-slate-400" />
           </button>
+        </div>
+
+        {/* PRESENÇA E NOTIFICAÇÕES */}
+        <div className="md:col-span-2 bg-slate-50 border border-slate-200 rounded-[2.5rem] overflow-hidden shadow-md">
+          <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Bell size={20} className="text-teal-500" />
+              <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">
+                Presença e Notificações
+              </h4>
+            </div>
+            {savingPresence && (
+              <Loader2 size={14} className="text-teal-500 animate-spin" />
+            )}
+          </div>
+
+          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            {/* Canais */}
+            <div className="space-y-0 divide-y divide-slate-100">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pb-3">Canais</p>
+              <div className="py-4 flex justify-between items-center">
+                <div>
+                  <p className="text-sm font-bold text-slate-900">Notificações Push</p>
+                  <p className="text-xs text-slate-500">Avisos no dispositivo</p>
+                </div>
+                <Toggle
+                  active={presencePrefs.pushEnabled}
+                  onClick={() => savePresencePrefs({ ...presencePrefs, pushEnabled: !presencePrefs.pushEnabled })}
+                />
+              </div>
+              <div className="py-4 flex justify-between items-center">
+                <div>
+                  <p className="text-sm font-bold text-slate-900">Resumos por Email</p>
+                  <p className="text-xs text-slate-500">Digest semanal e revisões</p>
+                </div>
+                <Toggle
+                  active={presencePrefs.emailEnabled}
+                  onClick={() => savePresencePrefs({ ...presencePrefs, emailEnabled: !presencePrefs.emailEnabled })}
+                />
+              </div>
+            </div>
+
+            {/* Temas */}
+            <div className="space-y-0 divide-y divide-slate-100">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pb-3">Temas</p>
+              {(
+                [
+                  { key: 'debts', label: 'Dívidas', desc: 'Vencimentos e plano' },
+                  { key: 'wealth', label: 'Patrimônio', label2: 'Patrimônio', desc: 'Metas e aportes' },
+                  { key: 'routine', label: 'Rotina', desc: 'Gastos e Controla' },
+                  { key: 'nexus', label: 'Nexus', desc: 'Insights e análises' },
+                ] as const
+              ).map(({ key, label, desc }) => (
+                <div key={key} className="py-4 flex justify-between items-center">
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">{label}</p>
+                    <p className="text-xs text-slate-500">{desc}</p>
+                  </div>
+                  <Toggle
+                    active={presencePrefs.topics[key]}
+                    onClick={() => toggleTopic(key)}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Intensidade */}
+            <div className="md:col-span-2">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Intensidade</p>
+              <div className="grid grid-cols-3 gap-3">
+                {(
+                  [
+                    { value: 'essential', label: 'Essencial', desc: 'Só urgências' },
+                    { value: 'balanced', label: 'Equilibrado', desc: 'Urgências + lembretes úteis' },
+                    { value: 'complete', label: 'Completo', desc: 'Tudo + insights Nexus' },
+                  ] as const
+                ).map(({ value, label, desc }) => (
+                  <button
+                    key={value}
+                    onClick={() => savePresencePrefs({ ...presencePrefs, intensity: value })}
+                    className={`p-4 rounded-2xl border text-left transition-all ${
+                      presencePrefs.intensity === value
+                        ? 'border-teal-500 bg-teal-50 shadow-sm'
+                        : 'border-slate-200 bg-white hover:border-slate-300'
+                    }`}
+                  >
+                    <p className={`text-sm font-black ${presencePrefs.intensity === value ? 'text-teal-700' : 'text-slate-800'}`}>
+                      {label}
+                    </p>
+                    <p className="text-[10px] text-slate-500 mt-1 leading-tight">{desc}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+          </div>
         </div>
 
         {/* ZONA DE PERIGO */}

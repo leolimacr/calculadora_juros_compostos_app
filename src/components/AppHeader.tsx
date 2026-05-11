@@ -57,23 +57,24 @@ const AppHeader: React.FC<AppHeaderProps> = ({
 		  </h1>		  
         </div>
 
-        {/* ÁREA DO GERENCIADOR (Dourado) */}
-        {currentTool === 'manager' && (
-          <div className="flex flex-col items-start border-l border-slate-700 pl-3 ml-2 md:pl-4 md:ml-4 leading-none animate-in fade-in slide-in-from-left-2 duration-500">
-            
-            {/* Título Dourado - Só aparece se tiver espaço (Desktop ou se Native) */}
-            <span className={`text-[11px] md:text-lg font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-yellow-400 to-amber-500 tracking-tight uppercase whitespace-nowrap drop-shadow-sm ${!isNative && 'hidden sm:block'}`}>
-              Controla
-            </span>
-            
-            {/* BOTÃO CRÍTICO: ACESSAR SITE (Só aparece no App) */}
-            {isNative && (
-              <button onClick={handleOpenWebsite} className="flex items-center gap-1 text-slate-300 hover:text-white font-bold text-[9px] uppercase tracking-widest mt-1 bg-slate-800/50 px-2 py-1 rounded-md border border-slate-700">
-                <Globe size={10} className="text-sky-400"/> Abrir Site
-              </button>
+        {/* BLOCO CONTROLa + ABRIR SITE (colado no Bem-vindo) */}
+            {currentTool === 'manager' && (
+              <div className="flex flex-col items-start ml-8 md:ml-12 lg:ml-16 mr-2 leading-none animate-in fade-in slide-in-from-right-2 duration-500">
+                <span className="text-[11px] md:text-sm font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-yellow-400 to-amber-500 tracking-tight uppercase whitespace-nowrap drop-shadow-sm">
+                  Controla
+                </span>
+
+                {isNative && (
+                  <button
+                    onClick={handleOpenWebsite}
+                    className="mt-1 flex items-center gap-1 text-slate-300 hover:text-white font-bold text-[9px] uppercase tracking-widest bg-slate-800/50 px-2 py-1 rounded-md border border-slate-700"
+                  >
+                    <Globe size={10} className="text-sky-400" /> Abrir Site
+                  </button>
+                )}
+              </div>
             )}
-          </div>
-        )}
+        
       </div>
 
       {/* LADO DIREITO */}

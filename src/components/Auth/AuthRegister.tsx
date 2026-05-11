@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { createUserWithEmailAndPassword, sendEmailVerification, signOut } from 'firebase/auth';
-import { auth, database } from '../../firebase';
-import { ref, set } from 'firebase/database';
+import { auth, firestore } from '../../firebase';
+import { doc, setDoc } from 'firebase/firestore';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, CheckCircle } from 'lucide-react';
 
 const AuthRegister: React.FC<{ onSuccess: () => void, onSwitchToLogin: () => void }> = ({ onSuccess, onSwitchToLogin }) => {
@@ -22,14 +22,13 @@ const AuthRegister: React.FC<{ onSuccess: () => void, onSwitchToLogin: () => voi
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      await set(ref(database, 'users/' + user.uid), {
-        meta: { 
-          plan: 'free', 
-          launchLimit: 30, 
-          launchCount: 0, 
-          createdAt: Date.now(),
-          updatedAt: Date.now()
-        }
+      await setDoc(doc(firestore, 'users', user.uid), {
+        plan: 'free',
+        launchLimit: 30,
+        launchCount: 0,
+        onboardingCompleted: false,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       });
 
       await sendEmailVerification(user);

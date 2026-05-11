@@ -11,6 +11,7 @@ import {
   CreditCard, Sparkles, HelpCircle,
   TrendingUp, ShieldCheck, Target, Info
 } from 'lucide-react';
+import { PresenceEventService } from '../../../services/PresenceEventService';
 import { DebtPlanSimulator } from '../DebtPlanSimulator';
 import { useWealthData } from '../../../hooks/useWealthData';
 import { fetchCurrentSelicRate } from '../buy-cash-or-installments/selicService';
@@ -23,6 +24,7 @@ export interface DebtItem {
   taxaMensal: number;
   parcelasRestantes: number;
   valorParcela: number;
+  dataVencimento?: string | null; // formato ISO: 'YYYY-MM-DD'
   createdAt?: any;
 }
 
@@ -111,6 +113,7 @@ const EMPTY_FORM: DebtItem = {
   taxaMensal: 0,
   parcelasRestantes: 0,
   valorParcela: 0,
+  dataVencimento: null,
 };
 export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta, lancamentos, onNavigate }) => {
   const navigate = useNavigate();
@@ -256,16 +259,78 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta, lancamentos,
           saldoDevedor: form.saldoDevedor,
           taxaMensal: form.taxaMensal,
           parcelasRestantes: form.parcelasRestantes,
-          valorParcela: form.valorParcela, // <-- Removemos o '?? null'
+          valorParcela: form.valorParcela,
+          dataVencimento: form.dataVencimento ?? null,
         };
+
       if (editingId) {
         await updateDoc(doc(firestore, `users/${userMeta.uid}/dividas`, editingId), data);
+
+        // Gatilho: dado incompleto após edição (sem data de vencimento)
+        if (!data.dataVencimento) {
+          PresenceEventService.create({
+            uid: userMeta.uid,
+            eventType: 'debt.missing_data',
+            persona: 'debts',
+            urgency: 'low',
+            message: {
+              title: 'Cadastro incompleto',
+              body: `${data.nome} ainda não tem data de vencimento. Completa em 1 minuto.`,
+              ctaLabel: 'Completar cadastro',
+            },
+            deepLink: `/minhas-dividas/${editingId}/editar`,
+            cooldownHours: 168,
+            expiresInHours: 720,
+            resourceId: editingId,
+            payload: { debtName: data.nome },
+          }).catch(() => {});
+        }
+
       } else {
-        await addDoc(collection(firestore, `users/${userMeta.uid}/dividas`), {
+        const docRef = await addDoc(collection(firestore, `users/${userMeta.uid}/dividas`), {
           ...data,
           createdAt: new Date(),
         });
+
+        // Gatilho: nova dívida adicionada
+        PresenceEventService.create({
+          uid: userMeta.uid,
+          eventType: 'debt.new_debt_added',
+          persona: 'debts',
+          urgency: 'low',
+          message: {
+            title: 'Dívida registrada',
+            body: 'Organize todas as suas dívidas para o Nexus ter contexto completo.',
+            ctaLabel: 'Ver Minhas Dívidas',
+          },
+          deepLink: '/minhas-dividas',
+          cooldownHours: 72,
+          expiresInHours: 72,
+          resourceId: docRef.id,
+          payload: { debtName: data.nome },
+        }).catch(() => {});
+
+        // Gatilho: dado incompleto na criação (sem data de vencimento)
+        if (!data.dataVencimento) {
+          PresenceEventService.create({
+            uid: userMeta.uid,
+            eventType: 'debt.missing_data',
+            persona: 'debts',
+            urgency: 'low',
+            message: {
+              title: 'Cadastro incompleto',
+              body: `${data.nome} ainda não tem data de vencimento. Completa em 1 minuto.`,
+              ctaLabel: 'Completar cadastro',
+            },
+            deepLink: `/minhas-dividas/${docRef.id}/editar`,
+            cooldownHours: 168,
+            expiresInHours: 720,
+            resourceId: docRef.id,
+            payload: { debtName: data.nome },
+          }).catch(() => {});
+        }
       }
+
       resetForm();
     } catch (err) {
       console.error('Erro ao salvar dívida:', err);
@@ -644,7 +709,7 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta, lancamentos,
           </div>
 
           {/* Saldo devedor */}
-          <div className="md:col-span-4">
+          <div className="md:col-span-5">
             <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
               Saldo devedor atual <span className="text-rose-500">*</span>
             </label>
@@ -746,8 +811,24 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta, lancamentos,
               O Nexus precisa deste valor para calcular seu fôlego financeiro.
             </p>
           </div>
+          {/* Data de vencimento */}
+          <div className="md:col-span-4">
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+              Próximo vencimento <span className="text-slate-400 font-normal lowercase">(recomendado)</span>
+            </label>
+            <input
+              type="date"
+              value={form.dataVencimento ?? ''}
+              onChange={(e) => setForm((prev) => ({ ...prev, dataVencimento: e.target.value || null }))}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-colors"
+            />
+            <p className="mt-1 text-[10px] text-slate-400 leading-tight">
+              Usado pelo sistema para avisar antes do vencimento.
+            </p>
+          </div>
+
           {/* Submit */}
-          <div className="md:col-span-12 flex justify-end pt-2">
+          <div className="md:col-span-8 flex justify-end pt-2">
             <button
               type="submit"
               disabled={isSubmitting}
@@ -758,7 +839,7 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta, lancamentos,
               }`}
             >
               {editingId
-                ? <><Pencil size={15} /> Salvar alteraçíµes</>
+                ? <><Pencil size={15} /> Salvar alterações</>
                 : <><Plus size={15} /> Adicionar dívida</>}
             </button>
           </div>

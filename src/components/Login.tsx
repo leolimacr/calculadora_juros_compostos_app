@@ -62,29 +62,29 @@ const Login: React.FC = () => {
 
         <form onSubmit={handleLogin} className="w-full space-y-4">
           <div className="relative">
-            <Mail className="absolute left-3 top-3.5 text-gray-500" size={20} />
+            <Mail className="absolute left-3 top-3.5 text-gray-400" size={20} />
             <input
               type="email"
               placeholder="Seu e-mail"
-              className="w-full bg-gray-900 text-white pl-10 p-3.5 rounded-xl border border-gray-800 focus:border-green-500 outline-none transition-colors"
+              className="w-full bg-gray-800 text-white placeholder-gray-400 pl-10 p-3.5 rounded-xl border border-gray-700 focus:border-green-500 focus:ring-2 focus:ring-green-500/20 outline-none transition-colors"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
 
           <div className="relative">
-            <Lock className="absolute left-3 top-3.5 text-gray-500" size={20} />
+            <Lock className="absolute left-3 top-3.5 text-gray-400" size={20} />
             <input
               type={showPassword ? "text" : "password"}
               placeholder="Sua senha"
-              className="w-full bg-gray-900 text-white pl-10 p-3.5 rounded-xl border border-gray-800 focus:border-green-500 outline-none transition-colors"
+              className="w-full bg-gray-800 text-white placeholder-gray-400 pl-10 p-3.5 rounded-xl border border-gray-700 focus:border-green-500 focus:ring-2 focus:ring-green-500/20 outline-none transition-colors"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-3.5 text-gray-500 hover:text-white"
+              className="absolute right-3 top-3.5 text-gray-400 hover:text-white"
             >
               {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
             </button>

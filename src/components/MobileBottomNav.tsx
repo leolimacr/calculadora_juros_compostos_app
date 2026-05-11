@@ -31,7 +31,7 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                <LayoutDashboard size={24} strokeWidth={currentTool === 'manager' ? 2.5 : 2} />
             </div>
             <span className="text-[9px] font-black uppercase tracking-widest leading-none">
-              Gerenciador
+              Controla
             </span>
           </button>
 

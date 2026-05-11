@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
-import { 
-  ref, 
-  push, 
-  onValue, 
-  remove, 
-  update 
+import {
+  ref,
+  push,
+  onValue,
+  remove,
+  update
 } from 'firebase/database';
-import { 
-  doc, 
-  setDoc, 
-  onSnapshot, 
-  deleteDoc 
+import {
+  doc,
+  setDoc,
+  onSnapshot,
+  deleteDoc,
+  Timestamp,
+  increment,
 } from 'firebase/firestore';
 import { db, firestore } from '../firebase';
 import { Transaction, Category, UserMeta, FinancialProfile } from '../types';
@@ -84,6 +86,34 @@ export const useFirebase = (userId?: string) => {
       setLoading(false);
       return;
     }
+
+    // Atualiza lastActiveAt e reseta pushCountToday se mudou o dia
+    const updateLastActive = async () => {
+      try {
+        const stateRef = doc(firestore, 'users', userId, 'presenceState', 'current');
+        const now = Timestamp.now();
+        const todayStr = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
+
+        const { getDoc } = await import('firebase/firestore');
+        const stateSnap = await getDoc(stateRef);
+        const state = stateSnap.exists() ? stateSnap.data() : {};
+        const lastDay: string = state.currentDay ?? '';
+
+        const update: Record<string, unknown> = { lastActiveAt: now };
+
+        // Reseta contador diário se mudou o dia
+        if (lastDay !== todayStr) {
+          update.pushCountToday = 0;
+          update.currentDay = todayStr;
+        }
+
+        await setDoc(stateRef, update, { merge: true });
+      } catch {
+        // Silencioso — não bloqueia carregamento do app
+      }
+    };
+
+    updateLastActive();
 
     let loadedTransactions: Transaction[] = [];
     let loadedCategories: Category[] = [];

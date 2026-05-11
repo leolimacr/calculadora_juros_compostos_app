@@ -10,6 +10,8 @@ export interface DebtItem {
   taxaMensal: number;
   parcelasRestantes: number;
   valorParcela: number;
+  dataVencimento?: string;        // formato ISO: 'YYYY-MM-DD' — dia do mês de vencimento
+  dataProximoPagamento?: string;  // próxima data de pagamento calculada ou manual
   createdAt?: any;
 }
 

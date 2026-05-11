@@ -6,6 +6,7 @@ import { LayoutDashboard, Sparkles, Settings, X, LogOut, ChevronRight, CreditCar
 import React, { useState, useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { useAuth } from './contexts/AuthContext';
+import OnboardingWizard from './components/OnboardingWizard';
 import { useFirebase } from './hooks/useFirebase';
 import { useSubscriptionAccess } from './hooks/useSubscriptionAccess';
 import { useAppSecurity } from './hooks/useAppSecurity';
@@ -62,7 +63,7 @@ import AuthLogin from './components/Auth/AuthLogin';
 import AuthRegister from './components/Auth/AuthRegister';
 import PricingPage from './components/PricingPage';
 import SettingsPage from './components/SettingsPage';
-import { PublicHome } from './components/PublicPages';
+import PublicHome from './components/PublicHome';
 import SecurityLock from './components/SecurityLock';
 import { getArticleById } from './components/Public/Articles';
 import ActiveWealthManager from './components/tools/wealth/ActiveWealthManager';
@@ -72,7 +73,8 @@ import GoalManager from './components/tools/goals/GoalManager';
 // Tools
 
 const App: React.FC = () => {
-  const { user, isAuthenticated, loading: authLoading, logout } = useAuth();   
+  const { user, isAuthenticated, loading: authLoading, logout } = useAuth();
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const {
     lancamentos,
     categories,
@@ -256,7 +258,6 @@ const App: React.FC = () => {
             onShowPaywall={() => setActiveModal('paywall')}
             isPrivacyMode={isPrivacyMode}
             onTogglePrivacy={() => setIsPrivacyMode((prev) => !prev)}
-            onNavigate={handleNavigate}
             onEditTransaction={handleEditTransaction}
           />
         );
@@ -596,6 +597,13 @@ const App: React.FC = () => {
       </ContentModal>
 
       <ToastContainer toasts={toasts} removeToast={() => {}} />
+
+      {isAuthenticated && user && !onboardingDismissed && userMeta !== null && userMeta.onboardingCompleted === false && (
+        <OnboardingWizard
+          userId={user.uid}
+          onComplete={() => setOnboardingDismissed(true)}
+        />
+      )}
     </div>
   );
 };
