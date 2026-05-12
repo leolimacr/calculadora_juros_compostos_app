@@ -970,6 +970,7 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta, lancamentos,
             </div>
 
             <DebtPlanSimulator
+              userId={userMeta?.uid ?? userMeta?.id ?? undefined}
               initialPlanMarkdown={selectedSavedPlan?.planMarkdown}
               dividas={debts.map(d => ({
                 id: d.id ?? d.nome,

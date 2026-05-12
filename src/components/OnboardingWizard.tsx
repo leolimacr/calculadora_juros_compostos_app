@@ -1,40 +1,55 @@
 import React, { useState } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { firestore } from '../firebase';
-import { X, ArrowRight, ArrowLeft, CheckCircle, Target, BookOpen, Sparkles } from 'lucide-react';
+import { X, ArrowRight, ArrowLeft, CheckCircle, Target, BookOpen, Sparkles, AlertCircle } from 'lucide-react';
 
 interface OnboardingWizardProps {
   userId: string;
   onComplete: () => void;
 }
 
+type OnboardingPersona = 'dividas' | 'patrimonio' | 'geral';
+
+const PERSONA_OPTIONS: { value: OnboardingPersona; label: string; sublabel: string }[] = [
+  { value: 'dividas',    label: 'Tenho dívidas que me preocupam',       sublabel: 'Cartão, crédito, parcelamentos ou contas em atraso' },
+  { value: 'patrimonio', label: 'Quero organizar meu patrimônio',        sublabel: 'Investimentos, bens, metas de longo prazo' },
+  { value: 'geral',      label: 'Quero ter mais controle no geral',      sublabel: 'Rotina financeira, gastos e planejamento do mês' },
+];
+
 const STEPS = [
   {
     id: 'welcome',
     icon: Sparkles,
-    title: 'Bem-vindo ao Finanças Pro Invest',
-    description: 'Em poucos passos vamos te mostrar o que você pode fazer aqui. Leva menos de 2 minutos.',
+    title: 'Vamos deixar sua vida financeira mais clara',
+    description: 'Em poucos passos eu entendo seu momento e te mostro por onde começar. Leva menos de 2 minutos.',
     color: 'emerald',
+  },
+  {
+    id: 'diagnose',
+    icon: AlertCircle,
+    title: 'O que mais te incomoda hoje?',
+    description: 'Escolha uma opção. Isso ajuda o sistema a mostrar as ferramentas mais úteis para o seu momento.',
+    color: 'sky',
   },
   {
     id: 'organize',
     icon: Target,
-    title: 'Organize sua vida financeira',
-    description: 'Cadastre dívidas, patrimônio e investimentos para ter uma visão completa da sua realidade financeira.',
+    title: 'Primeiro: enxergar o quadro geral',
+    description: 'Aqui você junta dívidas, rotina e patrimônio num só lugar, para parar de decidir no escuro e ver a sua realidade como um todo.',
     color: 'sky',
   },
   {
     id: 'nexus',
     icon: BookOpen,
-    title: 'Conte com o Nexus IA',
-    description: 'O Nexus analisa seus dados e te ajuda a tomar decisões melhores — com contexto real, não conselhos genéricos.',
+    title: 'Depois: ter um próximo passo sempre claro',
+    description: 'Com seus dados vivos, o Nexus acompanha sua vida financeira, avisa quando algo merece atenção e sugere o que fazer a seguir.',
     color: 'indigo',
   },
   {
     id: 'ready',
     icon: CheckCircle,
-    title: 'Tudo pronto para começar',
-    description: 'Sua conta está ativa. Comece cadastrando suas dívidas ou seu patrimônio — o que fizer mais sentido pra você agora.',
+    title: 'Agora é com você (e comigo aqui do lado)',
+    description: 'Sua conta está ativa. Comece pelas dívidas ou pelo patrimônio — o que dói mais hoje. O Finanças Pro Invest te acompanha a partir daí.',
     color: 'emerald',
   },
 ];
@@ -63,9 +78,11 @@ const colorMap: Record<string, { bg: string; icon: string; button: string; ring:
 const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ userId, onComplete }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [completing, setCompleting] = useState(false);
+  const [persona, setPersona] = useState<OnboardingPersona | null>(null);
 
   const step = STEPS[currentStep];
   const isLast = currentStep === STEPS.length - 1;
+  const isDiagnose = step.id === 'diagnose';
   const colors = colorMap[step.color] || colorMap.emerald;
   const Icon = step.icon;
 
@@ -74,6 +91,7 @@ const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ userId, onComplete 
     try {
       await updateDoc(doc(firestore, 'users', userId), {
         onboardingCompleted: true,
+        ...(persona ? { onboardingPersona: persona } : {}),
       });
     } catch (e) {
       console.error('Erro ao gravar onboardingCompleted:', e);
@@ -119,6 +137,28 @@ const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ userId, onComplete 
           <p className="text-slate-600 text-sm leading-relaxed">
             {step.description}
           </p>
+
+          {isDiagnose && (
+            <div className="mt-4 flex flex-col gap-2">
+              {PERSONA_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setPersona(opt.value)}
+                  className={`text-left rounded-xl border px-4 py-3 transition-all duration-200 ${
+                    persona === opt.value
+                      ? 'border-sky-500 bg-sky-50 shadow-sm'
+                      : 'border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50/40'
+                  }`}
+                >
+                  <p className={`text-sm font-black leading-snug ${persona === opt.value ? 'text-sky-800' : 'text-slate-800'}`}>
+                    {opt.label}
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">{opt.sublabel}</p>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Ações */}
@@ -135,8 +175,8 @@ const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ userId, onComplete 
 
           <button
             onClick={handleNext}
-            disabled={completing}
-            className={`flex-1 ${colors.button} text-white font-black py-3.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-sm uppercase tracking-wider disabled:opacity-50`}
+            disabled={completing || (isDiagnose && !persona)}
+            className={`flex-1 ${colors.button} text-white font-black py-3.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-sm uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             {completing ? 'Salvando...' : isLast ? 'Começar agora' : 'Próximo'}
             {!completing && <ArrowRight size={16} />}

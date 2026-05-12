@@ -33,6 +33,7 @@ export const useFirebase = (userId?: string) => {
   const [lancamentos, setLancamentos] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [userMeta, setUserMeta] = useState<UserMeta | null>(null);
+  const [userMetaLoaded, setUserMetaLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // ✅ FUNÇÃO DE MIGRAÇÃO: Adiciona categorias usadas nos lançamentos que não existem no Firestore
@@ -143,7 +144,10 @@ export const useFirebase = (userId?: string) => {
     const unsubscribeMeta = onSnapshot(userDocRef, (docSnap) => {
       if (docSnap.exists()) {
         setUserMeta(docSnap.data() as UserMeta);
+      } else {
+        setUserMeta(null);
       }
+      setUserMetaLoaded(true);
     });
 
     const categoriesRef = doc(firestore, 'categories', userId);
@@ -260,6 +264,7 @@ export const useFirebase = (userId?: string) => {
     lancamentos,
     categories,
     userMeta,
+    userMetaLoaded,
     loading,
     saveLancamento,
     deleteLancamento,

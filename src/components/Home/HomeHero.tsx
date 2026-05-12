@@ -41,16 +41,16 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
   }
 
   return (
-    <section className="relative px-6 py-12 lg:py-20 max-w-[1600px] mx-auto w-full z-10">
+    <section className="relative px-6 pt-20 pb-12 lg:pt-28 lg:pb-20 max-w-[1600px] mx-auto w-full z-10">
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-[420px] bg-emerald-100/10 rounded-full blur-[110px] pointer-events-none" />
       <div className="grid grid-cols-1 lg:grid-cols-[1.08fr_0.92fr] gap-10 xl:gap-12 items-center">
 
         {/* Coluna Esquerda */}
         <div className="flex flex-col items-center lg:items-start text-center lg:text-left max-w-2xl">
-          <div className="mb-6 inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border border-slate-200 text-slate-600 text-[10px] sm:text-xs font-bold uppercase tracking-widest shadow-sm animate-in fade-in slide-in-from-bottom-6 duration-1000">
+          <div className="mb-6 inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white border border-slate-200 text-slate-600 text-[10px] sm:text-xs font-bold uppercase tracking-widest shadow-sm animate-in fade-in slide-in-from-bottom-6 duration-1000 text-center leading-relaxed max-w-xs sm:max-w-sm lg:max-w-md whitespace-normal">
             {heroPersona === 'dividas'
-              ? 'Entrada guiada no ecossistema para organizar dívidas, ganhar contexto e evoluir com acompanhamento'
-              : 'Entrada patrimonial no ecossistema para acompanhar, revisar decisões e evoluir com mais contexto'}
+              ? 'Você não precisa mais decidir sozinho o que fazer com suas dívidas'
+              : 'Você não precisa mais adivinhar o que fazer com seu patrimônio'}
           </div>
 
           <div className="flex bg-slate-200/50 p-1.5 rounded-2xl mb-8 w-fit mx-auto lg:mx-0 border border-slate-200/60 shadow-inner animate-in fade-in slide-in-from-bottom-6 duration-1000 delay-100">
@@ -64,48 +64,50 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
 
           <h1 className="text-5xl md:text-6xl lg:text-[5.2rem] font-black text-slate-950 leading-[0.98] tracking-[-0.04em] mb-5 animate-in fade-in slide-in-from-bottom-6 duration-1000 delay-150">
             {heroPersona === 'dividas' ? (
-              <>Cadastre suas dívidas. <br />Entenda suas <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-700 via-emerald-500 to-sky-600">prioridades</span> com clareza.</>
+              <>Seu próximo passo<br />financeiro sempre <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-700 via-emerald-500 to-sky-600">claro.</span></>
             ) : (
-              <>Cadastre seu patrimônio. <br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-emerald-400 to-sky-500">Decida melhor com contexto.</span></>
+              <>Seu patrimônio organizado.<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-emerald-400 to-sky-500">Suas decisões, mais firmes.</span></>
             )}
           </h1>
 
           <p className="text-lg md:text-xl text-slate-600 max-w-lg mb-8 leading-relaxed font-medium animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200">
             {heroPersona === 'dividas'
-              ? 'Cadastre suas dívidas, organize as informações que moldam sua realidade financeira e permita que o Nexus acompanhe suas prioridades com mais contexto ao longo do tempo.'
-              : 'Cadastre patrimônio e investimentos, acompanhe sua evolução e dê ao Nexus uma base mais consistente para apoiar revisões e decisões ao longo da jornada.'}
+              ? 'O Finanças Pro Invest acompanha sua vida financeira, avisa quando algo merece atenção e mostra com clareza o que fazer a seguir. Sem chute. Sem sobrecarga.'
+              : 'O Finanças Pro Invest acompanha seu patrimônio ao longo do tempo, avisa antes que algo saia do trilho e mostra com clareza onde agir. Com mais contexto, você decide melhor.'}
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-300">
             <button onClick={() => onNavigate(heroPersona === 'dividas' ? 'minhas-dividas' : 'investimentos')} className="bg-emerald-500 hover:bg-emerald-600 text-white font-black px-8 py-4 rounded-2xl transition-all shadow-[0_16px_35px_-18px_rgba(16,185,129,0.65)] flex items-center justify-center gap-2 w-full sm:w-auto">
-              <span>{heroPersona === 'dividas' ? 'Cadastrar minhas dívidas' : 'Cadastrar meu patrimônio'}</span>
+              <span>{heroPersona === 'dividas' ? 'Começar agora' : 'Organizar meu patrimônio'}</span>
               <ArrowRight size={20} />
             </button>
             <button onClick={() => { const el = document.getElementById('como-funciona'); if (el) { const y = el.getBoundingClientRect().top + window.scrollY - 90; window.scrollTo({ top: y, behavior: 'smooth' }); } }} className="bg-white hover:bg-slate-100 text-slate-900 font-black px-8 py-4 rounded-2xl transition-all border border-slate-300 shadow-sm flex items-center justify-center gap-2 w-full sm:w-auto">
-              <span>{heroPersona === 'dividas' ? 'Ver etapas da jornada' : 'Ver etapas do ecossistema'}</span>
+              <span>Como funciona</span>
               <ArrowRight size={20} />
             </button>
           </div>
 
           {heroPersona === 'dividas' && (
             <div className="mt-4 text-sm text-slate-500 animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-500">
-              Depois do cadastro inicial,{' '}
-              <button onClick={() => onNavigate('chat')} className="font-bold text-emerald-700 hover:text-emerald-800 transition-colors">revise prioridades com o Nexus</button>
+              Com suas dívidas cadastradas,{' '}
+              <button onClick={() => onNavigate('chat')} className="font-bold text-emerald-700 hover:text-emerald-800 transition-colors">o Nexus já consegue orientar seus próximos passos</button>
             </div>
           )}
 
           <div className="flex flex-wrap justify-center lg:justify-start gap-2 mt-6 w-full sm:w-auto animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-500">
             {heroPersona === 'dividas' ? (
               <>
-                <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">Cadastre dívidas e consolide sua base inicial</span>
-                <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">Melhore o contexto com sua rotina financeira</span>
-                <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">Acompanhe decisões com apoio contínuo do Nexus</span>
+                <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">✓ Avisa antes do vencimento</span>
+                <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">✓ Calcula seu fôlego real</span>
+                <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">✓ Mostra qual dívida atacar primeiro</span>
+                <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">✓ Acompanha seu progresso ao longo do tempo</span>
               </>
             ) : (
               <>
-                <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">Cadastre patrimônio e investimentos</span>
-                <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">Organize sua rotina financeira</span>
-                <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">Decida com mais contexto</span>
+                <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">✓ Consolida ativos e passivos</span>
+                <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">✓ Avisa quando algo precisa de revisão</span>
+                <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">✓ Acompanha metas e aportes</span>
+                <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600">✓ Nexus apoia decisões com contexto real</span>
               </>
             )}
           </div>
@@ -126,12 +128,12 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
                 <div className="absolute -right-10 -top-10 w-40 h-40 bg-emerald-300/20 rounded-full blur-3xl" />
                 <div className="flex items-center gap-2 mb-3 relative z-10">
                   <span className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span></span>
-                  <p className="text-[10px] md:text-xs text-emerald-800 font-black uppercase tracking-widest">{heroPersona === 'dividas' ? 'Base inicial da sua organização' : 'Base patrimonial'}</p>
+                  <p className="text-[10px] md:text-xs text-emerald-800 font-black uppercase tracking-widest">{heroPersona === 'dividas' ? 'Seu ponto de partida' : 'Base patrimonial consolidada'}</p>
                 </div>
                 {heroPersona === 'dividas' ? (
                   <div className="relative z-10 space-y-3">
                     <div className="flex flex-col gap-2">
-                      {[{ step: '1', label: 'Cadastre suas dívidas', done: true }, { step: '2', label: 'Organize dados que afetam sua realidade', done: true }, { step: '3', label: 'Receba revisões mais completas com o Nexus', done: false }].map(({ step, label, done }) => (
+                      {[{ step: '1', label: 'Cadastre suas dívidas', done: true }, { step: '2', label: 'O sistema calcula seu fôlego e as prioridades', done: true }, { step: '3', label: 'O Nexus acompanha e avisa quando algo muda', done: false }].map(({ step, label, done }) => (
                         <div key={step} className={`flex items-center gap-3 p-2.5 rounded-xl border ${done ? 'bg-white border-emerald-200' : 'bg-slate-50 border-slate-200 border-dashed'}`}>
                           <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black flex-shrink-0 ${done ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-500'}`}>{done ? '✓' : step}</div>
                           <p className={`text-xs font-semibold ${done ? 'text-slate-700' : 'text-slate-400'}`}>{label}</p>
@@ -156,10 +158,10 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
               <div className={`grid gap-4 ${heroPersona === 'dividas' ? 'grid-cols-1' : 'grid-cols-2'}`}>
                 <div onClick={() => heroPersona === 'dividas' ? onNavigate('minhas-dividas') : isAuthenticated ? onNavigate('metas') : onStartNow()} className="h-full bg-gradient-to-b from-blue-50 to-white backdrop-blur-md rounded-xl p-4 md:p-5 border border-blue-200 shadow-sm flex flex-col justify-center cursor-pointer transition-all duration-300 hover:shadow-md hover:border-blue-300">
                   <p className="text-[10px] md:text-xs text-blue-800 font-bold uppercase mb-2 tracking-wider">{heroPersona === 'dividas' ? 'Próximo passo no ecossistema' : 'Próxima revisão'}</p>
-                  <p className="text-xl md:text-2xl lg:text-3xl font-black text-slate-900 truncate mb-1">{heroPersona === 'dividas' ? 'Cadastrar dívidas e fortalecer o contexto da análise' : userMeta ? formatValue(valorProximoAporte) : 'R$ 1.200,00'}</p>
+                  <p className="text-xl md:text-2xl lg:text-3xl font-black text-slate-900 truncate mb-1">{heroPersona === 'dividas' ? 'Qual dívida quitar primeiro?' : userMeta ? formatValue(valorProximoAporte) : 'R$ 1.200,00'}</p>
                   <div className="mt-auto pt-3">
                     {heroPersona === 'dividas' ? (
-                      <span className="inline-block bg-blue-100 border border-blue-300 text-blue-800 text-[10px] font-bold px-2 py-1 rounded-md">Para orientar prioridades com mais consistência</span>
+                      <span className="inline-block bg-blue-100 border border-blue-300 text-blue-800 text-[10px] font-bold px-2 py-1 rounded-md">O Nexus responde com base no seu contexto real</span>
                     ) : userMeta ? (
                       metasAtivas.length === 0 ? <span className="inline-block bg-amber-100 border border-amber-300 text-amber-800 text-[10px] font-bold px-2 py-1 rounded-md">Definir meta</span> : (
                         <span className={`inline-block border text-[10px] font-bold px-2 py-1 rounded-md ${diasRestantes !== null && diasRestantes <= 0 ? 'bg-emerald-100 border-emerald-300 text-emerald-800' : diasRestantes !== null && diasRestantes <= 5 ? 'bg-amber-100 border-amber-300 text-amber-800' : 'bg-blue-100 border-blue-300 text-blue-800'}`}>

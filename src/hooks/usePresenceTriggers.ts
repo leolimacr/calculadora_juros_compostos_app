@@ -79,6 +79,82 @@ export const usePresenceTriggers = ({
         // debt.missing_data é disparado pelo DebtManager no momento do save — não repetir aqui
       }
 
+      // --- debt.plan_stale_30d (plano gerado há mais de 30 dias) ---
+      try {
+        const { firestore } = await import('../firebase');
+        const { collection, query, orderBy, limit, getDocs } = await import('firebase/firestore');
+        const plansQ = query(
+          collection(firestore, 'users', userId, 'nexusPlans'),
+          orderBy('createdAt', 'desc'),
+          limit(1),
+        );
+        const plansSnap = await getDocs(plansQ);
+        if (!plansSnap.empty) {
+          const lastPlan = plansSnap.docs[0].data();
+          const lastPlanDate: Date = lastPlan.createdAt?.toDate
+            ? lastPlan.createdAt.toDate()
+            : new Date(lastPlan.createdAt);
+          const daysSincePlan = (Date.now() - lastPlanDate.getTime()) / DAYS_MS;
+          if (daysSincePlan >= 30) {
+            await PresenceEventService.create({
+              uid: userId,
+              eventType: 'debt.plan_stale_30d',
+              persona: 'debts',
+              urgency: 'low',
+              message: {
+                title: 'Plano com mais de 30 dias',
+                body: 'Seu plano de quitação pode estar desatualizado. Vale pedir ao Nexus uma revisão.',
+                ctaLabel: 'Revisar plano',
+              },
+              deepLink: 'minhas-dividas',
+              cooldownHours: 30 * 24,
+              expiresInHours: 30 * 24,
+              resourceId: userId,
+              payload: { daysSincePlan: Math.floor(daysSincePlan) },
+            });
+          }
+        }
+      } catch { /* silencioso */ }
+
+      // --- debt.context_changed (sem lançamentos no Controla há mais de 10 dias, mas tem dívidas) ---
+      if (debts.length > 0) {
+        try {
+          const { firestore } = await import('../firebase');
+          const { collection, query, orderBy, limit, getDocs } = await import('firebase/firestore');
+          const txQ = query(
+            collection(firestore, 'users', userId, 'transactions'),
+            orderBy('date', 'desc'),
+            limit(1),
+          );
+          const txSnap = await getDocs(txQ);
+          if (!txSnap.empty) {
+            const lastTx = txSnap.docs[0].data();
+            const lastTxDate: Date = lastTx.date?.toDate
+              ? lastTx.date.toDate()
+              : new Date(lastTx.date);
+            const daysSinceTx = (Date.now() - lastTxDate.getTime()) / DAYS_MS;
+            if (daysSinceTx >= 10) {
+              await PresenceEventService.create({
+                uid: userId,
+                eventType: 'debt.context_changed',
+                persona: 'debts',
+                urgency: 'low',
+                message: {
+                  title: 'Contexto desatualizado',
+                  body: `Você não registra gastos há ${Math.floor(daysSinceTx)} dias. O Nexus trabalha melhor com dados frescos.`,
+                  ctaLabel: 'Registrar gasto',
+                },
+                deepLink: 'controla',
+                cooldownHours: 72,
+                expiresInHours: 7 * 24,
+                resourceId: userId,
+                payload: { daysSinceLastTransaction: Math.floor(daysSinceTx) },
+              });
+            }
+          }
+        } catch { /* silencioso */ }
+      }
+
       // --- debt.inactive_7d (sem dívidas carregadas ou lista vazia após onboarding) ---
       if (debts.length === 0) {
         await PresenceEventService.create({

@@ -34,3 +34,10 @@ export const HomeJornada: React.FC<Props> = ({ heroPersona }) => (
     </div>
   </section>
 );
+
+
+
+
+
+
+

@@ -98,6 +98,12 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
 
   // --- ESTADO: UI ---
   const [heroPersona, setHeroPersona] = useState<'dividas' | 'patrimonio'>('dividas');
+
+  useEffect(() => {
+    if (!userMeta) return;
+    if (userMeta.onboardingPersona === 'patrimonio') setHeroPersona('patrimonio');
+    else setHeroPersona('dividas');
+  }, [userMeta?.onboardingPersona]);
   const [selectedAsset, setSelectedAsset] = useState<{ symbol: string; category: string } | null>(null);
   const [activeInfoModal, setActiveInfoModal] = useState<string | null>(null);
   const [selectedArticle, setSelectedArticle] = useState<any | null>(null);

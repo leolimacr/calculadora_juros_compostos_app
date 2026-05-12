@@ -10,6 +10,7 @@ import {
   DebtItem,
   DebtSimulationSummary,
 } from "../../services/nexusDebtPlanClient";
+import { PresenceEventService } from "../../services/PresenceEventService";
 
 interface DebtPlanSimulatorProps {
   // Resultado da sua calculadora de dívidas
@@ -20,6 +21,7 @@ interface DebtPlanSimulatorProps {
   patrimonioContexto?: NexusDebtPlanRequest["patrimonioContexto"];
   custoOportunidadeContexto?: NexusDebtPlanRequest["custoOportunidadeContexto"];
   initialPlanMarkdown?: string;
+  userId?: string;
 }
 
 export const DebtPlanSimulator: React.FC<DebtPlanSimulatorProps> = ({
@@ -30,6 +32,7 @@ export const DebtPlanSimulator: React.FC<DebtPlanSimulatorProps> = ({
   patrimonioContexto,
   custoOportunidadeContexto,
   initialPlanMarkdown,
+  userId,
 }) => {
 
   const [loading, setLoading] = useState(false);
@@ -115,7 +118,26 @@ export const DebtPlanSimulator: React.FC<DebtPlanSimulatorProps> = ({
       setPendingPayload(null);
       setStaleCacheInfo(null);
       setPlan(response.plan);
-      
+
+      if (userId && response.plan?.planoMarkdown) {
+        PresenceEventService.create({
+          uid: userId,
+          eventType: 'nexus.insight_ready',
+          persona: 'debts',
+          urgency: 'medium',
+          message: {
+            title: 'Plano de quitação pronto',
+            body: 'O Nexus montou seu plano com base nos dados mais recentes. Revise quando puder.',
+            ctaLabel: 'Ver plano',
+          },
+          deepLink: 'minhas-dividas',
+          cooldownHours: 72,
+          expiresInHours: 7 * 24,
+          resourceId: `nexus_plan_${userId}`,
+          payload: { totalDividas: simulacao.totalDividas },
+        }).catch(() => {});
+      }
+
     } catch (e: any) {
       console.error("Erro ao gerar plano de quitação:", e);
       if (e.response) {
@@ -181,6 +203,26 @@ export const DebtPlanSimulator: React.FC<DebtPlanSimulatorProps> = ({
       setPlan(regeneratedResponse.plan);
       setPendingPayload(null);
       setStaleCacheInfo(null);
+
+      if (userId && regeneratedResponse.plan?.planoMarkdown) {
+        PresenceEventService.create({
+          uid: userId,
+          eventType: 'nexus.insight_ready',
+          persona: 'debts',
+          urgency: 'medium',
+          message: {
+            title: 'Plano atualizado pelo Nexus',
+            body: 'Seu plano foi regenerado com os dados mais recentes. Confira o que mudou.',
+            ctaLabel: 'Ver plano atualizado',
+          },
+          deepLink: 'minhas-dividas',
+          cooldownHours: 72,
+          expiresInHours: 7 * 24,
+          resourceId: `nexus_plan_${userId}`,
+          payload: { totalDividas: simulacao.totalDividas, regenerated: true },
+        }).catch(() => {});
+      }
+
     } catch (e: any) {
       console.error("Erro ao regerar plano de quitação:", e);
       setError(e?.message || "Não foi possível gerar um novo plano. Tente novamente.");

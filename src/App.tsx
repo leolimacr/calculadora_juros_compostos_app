@@ -12,6 +12,7 @@ import { useSubscriptionAccess } from './hooks/useSubscriptionAccess';
 import { useAppSecurity } from './hooks/useAppSecurity';
 import { useNavigation } from './hooks/useNavigation';
 import { NotificationService } from './services/NotificationService';
+import { useReengagementTrigger } from './hooks/useReengagementTrigger';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { CourseTrackPage } from './features/courses/pages/CourseTrackPage';
 import { ModuleOverviewPage } from './features/courses/pages/ModuleOverviewPage';
@@ -83,12 +84,14 @@ const App: React.FC = () => {
     saveCategory,
     deleteCategory,
     userMeta,
+    userMetaLoaded,
     usagePercentage,
     isLimitReached,
   } = useFirebase(user?.uid);
   const { isPro, isPremium } = useSubscriptionAccess();
   const { isAppLocked, storedPin, handleUnlockSuccess } = useAppSecurity(user?.uid, isAuthenticated);
   const { currentTool, homeKey, navigateTo } = useNavigation();
+  useReengagementTrigger({ userId: user?.uid, isLoading: authLoading });
     const routerNavigate = useNavigate();
     const location = useLocation();
     const isNative = Capacitor.isNativePlatform();
@@ -365,7 +368,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-200 flex flex-col font-sans overflow-x-hidden">
+    <div className="min-h-screen bg-[#020617] text-slate-200 flex flex-col font-sans">
       <AppHeader
         currentTool={currentTool}
         isAuthenticated={isAuthenticated}
@@ -513,23 +516,6 @@ const App: React.FC = () => {
                 <ChevronRight size={16} className="text-slate-700" />
               </button>
               
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  if (isAuthenticated) handleNavigate('settings');
-                  else handleNavigate('login');
-                }}
-                className="w-full flex items-center gap-3 p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all active:scale-95 text-left group"
-              >
-                <div className="p-2 bg-slate-800 rounded-lg text-slate-400 group-hover:text-white transition-colors">
-                  <Settings size={18} />
-                </div>
-                <span className="flex-1 text-[13px] font-bold text-slate-300 uppercase tracking-widest">
-                  Configurações
-                </span>
-                <ChevronRight size={16} className="text-slate-700" />
-              </button>
-              
             </div>
 
             {isAuthenticated && (
@@ -598,7 +584,7 @@ const App: React.FC = () => {
 
       <ToastContainer toasts={toasts} removeToast={() => {}} />
 
-      {isAuthenticated && user && !onboardingDismissed && userMeta !== null && userMeta.onboardingCompleted === false && (
+      {isAuthenticated && user && !onboardingDismissed && userMetaLoaded && userMeta?.onboardingCompleted === false && (
         <OnboardingWizard
           userId={user.uid}
           onComplete={() => setOnboardingDismissed(true)}

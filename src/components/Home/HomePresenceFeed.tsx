@@ -118,31 +118,46 @@ export const HomePresenceFeed: React.FC<Props> = ({ userId, isAuthenticated, onN
       {
         eventId: 'teaser-1',
         eventType: 'teaser',
+        urgency: 'high',
+        urgencyScore: 3,
+        expiresAt: { seconds: Infinity },
+        status: 'pending',
+        message: {
+          title: 'Cartão vence em 3 dias',
+          body: 'Com suas dívidas cadastradas, o sistema avisa antes — não depois. Você age no momento certo, sem susto.',
+          ctaLabel: 'Quero ser avisado assim',
+        },
+        deepLink: 'register',
+        channel: 'in_app',
+      },
+      {
+        eventId: 'teaser-2',
+        eventType: 'teaser',
         urgency: 'medium',
         urgencyScore: 2,
         expiresAt: { seconds: Infinity },
         status: 'pending',
         message: {
-          title: 'Vencimento em 3 dias',
-          body: 'Uma dívida vence em breve. Cadastre suas dívidas para que o sistema acompanhe automaticamente.',
-          ctaLabel: 'Criar conta grátis',
+          title: 'Qual dívida atacar primeiro?',
+          body: 'O Nexus analisa taxas, fôlego e prazo e responde com clareza. Sem planilha, sem chute.',
+          ctaLabel: 'Ver como funciona',
         },
-        deepLink: 'cadastro',
+        deepLink: 'register',
         channel: 'in_app',
       },
       {
-        eventId: 'teaser-2',
+        eventId: 'teaser-3',
         eventType: 'teaser',
         urgency: 'low',
         urgencyScore: 1,
         expiresAt: { seconds: Infinity },
         status: 'pending',
         message: {
-          title: 'Plano sem revisão',
-          body: 'O Nexus pode recalcular prioridades com base no seu contexto atual.',
-          ctaLabel: 'Conhecer o Nexus',
+          title: 'Seus gastos apertaram o plano',
+          body: 'Quando a rotina muda, o sistema detecta e sugere ajuste antes que a dívida saia do controle.',
+          ctaLabel: 'Começar de graça',
         },
-        deepLink: 'cadastro',
+        deepLink: 'register',
         channel: 'in_app',
       },
     ],
@@ -155,15 +170,30 @@ export const HomePresenceFeed: React.FC<Props> = ({ userId, isAuthenticated, onN
         expiresAt: { seconds: Infinity },
         status: 'pending',
         message: {
-          title: 'Aporte em 2 dias',
-          body: 'Revise a distribuição antes de aportar. O ecossistema acompanha sua estratégia.',
-          ctaLabel: 'Criar conta grátis',
+          title: 'Aporte previsto para esta semana',
+          body: 'O sistema lembra antes — para você revisar a distribuição com calma, não na correria do dia.',
+          ctaLabel: 'Quero ser lembrado assim',
         },
-        deepLink: 'cadastro',
+        deepLink: 'register',
         channel: 'in_app',
       },
       {
         eventId: 'teaser-2',
+        eventType: 'teaser',
+        urgency: 'medium',
+        urgencyScore: 2,
+        expiresAt: { seconds: Infinity },
+        status: 'pending',
+        message: {
+          title: 'Patrimônio sem revisão há 14 dias',
+          body: 'O Nexus avisa quando seu patrimônio ficou tempo demais sem conferência. Pequenas correções evitam grandes surpresas.',
+          ctaLabel: 'Quero esse acompanhamento',
+        },
+        deepLink: 'register',
+        channel: 'in_app',
+      },
+      {
+        eventId: 'teaser-3',
         eventType: 'teaser',
         urgency: 'low',
         urgencyScore: 1,
@@ -171,10 +201,10 @@ export const HomePresenceFeed: React.FC<Props> = ({ userId, isAuthenticated, onN
         status: 'pending',
         message: {
           title: 'Meta próxima do prazo',
-          body: 'O Nexus identifica quando uma meta precisa de atenção antes que o prazo passe.',
-          ctaLabel: 'Conhecer o Nexus',
+          body: 'Com meta cadastrada, o sistema mostra se você está no ritmo certo ou se precisa ajustar o aporte agora.',
+          ctaLabel: 'Começar de graça',
         },
-        deepLink: 'cadastro',
+        deepLink: 'register',
         channel: 'in_app',
       },
     ],
@@ -191,40 +221,37 @@ export const HomePresenceFeed: React.FC<Props> = ({ userId, isAuthenticated, onN
 
   return (
     <section className="px-4 lg:px-12 pb-6 max-w-[1600px] mx-auto w-full">
-      <div className="flex items-center gap-2 mb-3">
-        {isTeaser ? (
-          <span className="relative flex h-2 w-2">
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-slate-300"></span>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          {isTeaser ? (
+            <span className="relative flex h-2 w-2">
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-slate-300"></span>
+            </span>
+          ) : (
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+          )}
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+            {isTeaser ? 'O que o sistema avisa para você' : 'O sistema identificou'}
           </span>
-        ) : (
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
-        )}
-        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-          {isTeaser ? 'Como funciona na prática' : 'Próximos passos'}
-        </span>
+          {isTeaser && (
+            <span className="text-[9px] font-semibold text-slate-400 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
+              Exemplos reais
+            </span>
+          )}
+        </div>
         {isTeaser && (
-          <span className="text-[9px] font-semibold text-slate-400 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
-            Exemplo
-          </span>
+          <button
+            onClick={() => onNavigate('register')}
+            className="inline-flex items-center gap-1.5 text-[11px] font-black bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-full transition-colors"
+          >
+            Criar conta grátis <ArrowRight size={11} />
+          </button>
         )}
       </div>
-      <div className={`flex flex-col sm:flex-row gap-3 ${isTeaser ? 'relative' : ''}`}>
-        {isTeaser && (
-          <div className="absolute inset-0 z-10 rounded-2xl flex items-center justify-center bg-white/60 backdrop-blur-[2px]">
-            <div className="text-center px-4">
-              <p className="text-xs font-black text-slate-700 mb-2">Crie sua conta para ver seus dados reais</p>
-              <button
-                onClick={() => onNavigate('cadastro')}
-                className="inline-flex items-center gap-1.5 text-[11px] font-black bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-full transition-colors"
-              >
-                Começar agora <ArrowRight size={12} />
-              </button>
-            </div>
-          </div>
-        )}
+      <div className={`flex flex-col sm:flex-row gap-3`}>
         {feedEvents.map((ev) => {
           const cfg = urgencyConfig[ev.urgency] || urgencyConfig.low;
           return (
@@ -235,17 +262,26 @@ export const HomePresenceFeed: React.FC<Props> = ({ userId, isAuthenticated, onN
               </div>
               <p className="text-sm font-black text-slate-900 mb-1">{ev.message.title}</p>
               <p className="text-xs text-slate-600 leading-relaxed mb-3">{ev.message.body}</p>
-              <button
-                onClick={() => {
-                  onNavigate(ev.deepLink);
-                  if (!isTeaser && ev.eventId && !ev.eventId.startsWith('static-') && userId) {
-                    PresenceEventService.markActioned(userId, ev.eventId);
-                  }
-                }}
-                className="inline-flex items-center gap-1 text-[11px] font-black text-emerald-700 hover:text-emerald-900 transition-colors"
-              >
-                {ev.message.ctaLabel} <ArrowRight size={12} />
-              </button>
+              {isTeaser ? (
+                <button
+                  onClick={() => onNavigate('register')}
+                  className="inline-flex items-center gap-1 text-[11px] font-black text-emerald-700 hover:text-emerald-900 transition-colors"
+                >
+                  Criar conta para ver os seus <ArrowRight size={12} />
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    onNavigate(ev.deepLink);
+                    if (ev.eventId && !ev.eventId.startsWith('static-') && userId) {
+                      PresenceEventService.markActioned(userId, ev.eventId);
+                    }
+                  }}
+                  className="inline-flex items-center gap-1 text-[11px] font-black text-emerald-700 hover:text-emerald-900 transition-colors"
+                >
+                  {ev.message.ctaLabel} <ArrowRight size={12} />
+                </button>
+              )}
             </div>
           );
         })}

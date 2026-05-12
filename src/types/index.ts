@@ -9,5 +9,6 @@ export interface UserMeta {
   launchLimit: number;
   launchCount: number;
   onboardingCompleted?: boolean;
+  onboardingPersona?: 'dividas' | 'patrimonio' | 'geral';
   financialProfile?: FinancialProfile;
 }
