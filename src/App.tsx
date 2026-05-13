@@ -353,6 +353,16 @@ const App: React.FC = () => {
 
       case 'home':
       default:
+        if (isAuthenticated && userMetaLoaded && userMeta?.onboardingCompleted === false) {
+          return (
+            <div className="min-h-screen bg-[#020617] flex items-center justify-center px-4">
+              <OnboardingWizard
+                userId={user!.uid}
+                onComplete={() => setOnboardingDismissed(true)}
+              />
+            </div>
+          );
+        }
         return (
           <PublicHome
             key={homeKey}
@@ -584,12 +594,7 @@ const App: React.FC = () => {
 
       <ToastContainer toasts={toasts} removeToast={() => {}} />
 
-      {isAuthenticated && user && !onboardingDismissed && userMetaLoaded && userMeta?.onboardingCompleted === false && (
-        <OnboardingWizard
-          userId={user.uid}
-          onComplete={() => setOnboardingDismissed(true)}
-        />
-      )}
+      {/* OnboardingWizard movido para dentro do renderContent — não renderizar aqui */}
     </div>
   );
 };

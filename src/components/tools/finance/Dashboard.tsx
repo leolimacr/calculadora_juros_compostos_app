@@ -46,6 +46,14 @@ const Dashboard: React.FC<any> = (props) => {
   const [showCategorySummary, setShowCategorySummary] = useState(false);
   const [openCategory, setOpenCategory] = useState<string | null>(null);
   const [showTransactions, setShowTransactions] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showAverages, setShowAverages] = useState(false);
+  const [includeCurrentMonth, setIncludeCurrentMonth] = useState(false);
+  const [averageMode, setAverageMode] = useState<'real' | 'occurrence'>('real');
+  const [averagesWindow, setAveragesWindow] = useState<'year' | 'last3' | 'last6' | 'all' | 'custom'>('year');
+  const [customPeriodStart, setCustomPeriodStart] = useState('');
+  const [customPeriodEnd, setCustomPeriodEnd] = useState('');
+  const [showCustomPeriodPicker, setShowCustomPeriodPicker] = useState(false);
   const safeTransactions = Array.isArray(transactions) ? transactions : [];
   const showBackToTools = !!onNavigate && !Capacitor.isNativePlatform();
   
@@ -75,10 +83,21 @@ const Dashboard: React.FC<any> = (props) => {
   }, [viewMode, currentDate, startDate, endDate]);
 
   const filtered = useMemo(() => {
+    const normalize = (str: string) =>
+      str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+    const query = normalize(searchQuery.trim());
     const base = safeTransactions.filter((t: any) => {
       const categoryMatch = selectedCategories.length === 0 || selectedCategories.includes(t?.category);
       const typeMatch = typeFilter === 'all' || t?.type === typeFilter;
       if (!categoryMatch || !typeMatch || !t.date) return false;
+
+      // Busca textual ignora filtro de data e varre todos os lançamentos
+      if (query) {
+        return normalize(t.description || '').includes(query) ||
+               normalize(t.category || '').includes(query);
+      }
+
       if (viewMode === 'all') return true;
 
       const [year, month, day] = t.date.split('-').map(Number);
@@ -124,7 +143,7 @@ const Dashboard: React.FC<any> = (props) => {
 
       return 0;
     });
-  }, [safeTransactions, selectedCategories, typeFilter, currentDate, viewMode, startDate, endDate, sortMode]);
+  }, [safeTransactions, selectedCategories, typeFilter, currentDate, viewMode, startDate, endDate, sortMode, searchQuery]);
 
   const stats = useMemo(() => {
     let income = 0; let expenses = 0;
@@ -205,6 +224,144 @@ const Dashboard: React.FC<any> = (props) => {
     return map;
   }, [filtered]);
 
+  const averagesData = useMemo(() => {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth() + 1;
+
+    const daysInMonth = (year: number, month: number) => new Date(year, month, 0).getDate();
+    const isMonthClosed = (year: number, month: number) =>
+      year < currentYear || (year === currentYear && month < currentMonth);
+    const isCurrentMonth = (year: number, month: number) =>
+      year === currentYear && month === currentMonth;
+
+    const getWindowMonths = (): { year: number; month: number }[] => {
+      const months: { year: number; month: number }[] = [];
+      if (averagesWindow === 'year') {
+        for (let m = 1; m <= 12; m++) months.push({ year: currentYear, month: m });
+      } else if (averagesWindow === 'last3') {
+        for (let i = 2; i >= 0; i--) {
+          const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+          months.push({ year: d.getFullYear(), month: d.getMonth() + 1 });
+        }
+      } else if (averagesWindow === 'last6') {
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+          months.push({ year: d.getFullYear(), month: d.getMonth() + 1 });
+        }
+      } else if (averagesWindow === 'custom' && customPeriodStart && customPeriodEnd) {
+        const [startYear, startMonth] = customPeriodStart.split('-').map(Number);
+        const [endYear, endMonth] = customPeriodEnd.split('-').map(Number);
+        let y = startYear; let m = startMonth;
+        while (y < endYear || (y === endYear && m <= endMonth)) {
+          months.push({ year: y, month: m });
+          m++; if (m > 12) { m = 1; y++; }
+        }
+      } else {
+        const set = new Set<string>();
+        safeTransactions.forEach((t: any) => {
+          if (t?.date) {
+            const [y, m] = t.date.split('-').map(Number);
+            set.add(`${y}-${String(m).padStart(2, '0')}`);
+          }
+        });
+        Array.from(set).sort().forEach(key => {
+          const [y, m] = key.split('-').map(Number);
+          months.push({ year: y, month: m });
+        });
+      }
+      return months;
+    };
+
+    const windowMonths = getWindowMonths();
+    const categoryMonthMap = new Map<string, Map<string, number>>();
+
+    safeTransactions
+      .filter((t: any) => t?.type === 'expense' && t?.date)
+      .forEach((t: any) => {
+        const [y, m] = t.date.split('-').map(Number);
+        const monthKey = `${y}-${String(m).padStart(2, '0')}`;
+        const cat = (t.category || 'Sem categoria').toString();
+        const val = Number(t.amount) || 0;
+        if (!categoryMonthMap.has(cat)) categoryMonthMap.set(cat, new Map());
+        const mm = categoryMonthMap.get(cat)!;
+        mm.set(monthKey, (mm.get(monthKey) || 0) + val);
+      });
+
+    const result: {
+      category: string;
+      average: number;
+      averageOccurrence: number;
+      totalValue: number;
+      totalMonthsInWindow: number;
+      monthsWithValue: number;
+      months: {
+        year: number; month: number; label: string; value: number;
+        isClosed: boolean; isCurrentMonth: boolean;
+        deviation: number | null; projection: number | null;
+      }[];
+    }[] = [];
+
+    categoryMonthMap.forEach((monthMap, category) => {
+      const monthsData = windowMonths.map(({ year, month }) => {
+        const monthKey = `${year}-${String(month).padStart(2, '0')}`;
+        const value = monthMap.get(monthKey) || 0;
+        const closed = isMonthClosed(year, month);
+        const current = isCurrentMonth(year, month);
+        let projection: number | null = null;
+        if (current && value > 0) {
+          const dayOfMonth = today.getDate();
+          const totalDays = daysInMonth(year, month);
+          projection = (value / dayOfMonth) * totalDays;
+        }
+        const label = new Date(year, month - 1, 1)
+          .toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })
+          .replace('.', '');
+        return { year, month, label, value, isClosed: closed, isCurrentMonth: current, deviation: null as number | null, projection };
+      });
+
+      // Meses que contam para média (fechados com valor + opcionalmente mês atual)
+      const monthsForAverage = monthsData.filter(m => {
+        if (m.isClosed && m.value > 0) return true;
+        if (m.isCurrentMonth && includeCurrentMonth && m.value > 0) return true;
+        return false;
+      });
+      if (monthsForAverage.length === 0) return;
+
+      const totalValue = monthsForAverage.reduce((sum, m) => sum + m.value, 0);
+
+      // Total de meses fechados na janela (+ atual se incluído) — para média real
+      const totalClosedMonthsInWindow = windowMonths.filter(({ year, month }) =>
+        isMonthClosed(year, month) || (isCurrentMonth(year, month) && includeCurrentMonth)
+      ).length;
+
+      const averageReal = totalClosedMonthsInWindow > 0 ? totalValue / totalClosedMonthsInWindow : 0;
+      const averageOccurrence = totalValue / monthsForAverage.length;
+
+      // Desvio usa a média selecionada pelo usuário
+      const activeAverage = averageMode === 'real' ? averageReal : averageOccurrence;
+
+      const withDeviation = monthsData.map(m => ({
+        ...m,
+        deviation: (m.isClosed || (m.isCurrentMonth && includeCurrentMonth)) && m.value > 0 && activeAverage > 0
+          ? ((m.value - activeAverage) / activeAverage) * 100
+          : null,
+      }));
+
+      result.push({
+        category,
+        average: averageReal,
+        averageOccurrence,
+        totalValue,
+        totalMonthsInWindow: totalClosedMonthsInWindow,
+        monthsWithValue: monthsForAverage.length,
+        months: withDeviation,
+      });
+    });
+
+    return result.sort((a, b) => a.category.localeCompare(b.category, 'pt-BR', { sensitivity: 'base' }));
+  }, [safeTransactions, averagesWindow, includeCurrentMonth, averageMode, customPeriodStart, customPeriodEnd]);
+
   const handleExportPDF = () => {
     const catLabel = selectedCategories.length === 0 ? 'Todas Categorias' : selectedCategories.join(', ');
     generateFinancialReport(filtered, `${catLabel} - ${periodLabel}`, userMeta?.email || 'Investidor');
@@ -214,6 +371,8 @@ const Dashboard: React.FC<any> = (props) => {
     const fromTransactions = safeTransactions.map((t: any) => t?.category).filter(Boolean);
     return Array.from(new Set([...fromDb, ...fromTransactions])).sort();
   }, [categories, safeTransactions]);
+
+  const isFirstAccess = safeTransactions.length === 0;
 
   return (
     
@@ -295,21 +454,57 @@ const Dashboard: React.FC<any> = (props) => {
               </p>
           </div>
       </div>
-      <UsageIndicator userMeta={userMeta} usagePercentage={usagePercentage} isPremium={isPremium} />
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      {!isFirstAccess && <UsageIndicator userMeta={userMeta} usagePercentage={usagePercentage} isPremium={isPremium} />}
 
-      {/* ÁREA DE GRÁFICOS */}
+      {/* EMPTY STATE — PRIMEIRO ACESSO */}
+      {isFirstAccess ? (
+        <div className="py-16 px-6 bg-white border border-dashed border-emerald-200 rounded-[2rem] text-center">
+          <div className="w-16 h-16 bg-emerald-50 rounded-2xl border border-emerald-200 flex items-center justify-center mx-auto mb-5">
+            <Plus size={28} className="text-emerald-600" />
+          </div>
+          <p className="text-slate-800 font-black text-lg mb-2">Seu painel está em branco</p>
+          <p className="text-slate-500 text-sm max-w-sm mx-auto leading-relaxed mb-6">
+            Adicione seu primeiro lançamento — uma entrada ou saída — e o Controla começa a montar sua visão financeira automaticamente.
+          </p>
+          <button
+            onClick={isLimitReached && !isPremium ? onShowPaywall : onOpenForm}
+            className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[11px] uppercase tracking-widest px-6 py-3 rounded-2xl transition-all active:scale-95 shadow-lg shadow-emerald-600/20"
+          >
+            <Plus size={14} /> Adicionar primeiro lançamento
+          </button>
+        </div>
+      ) : (
+      /* ÁREA DE GRÁFICOS */
        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
             <h3 className="text-slate-900 font-black mb-6 text-xs uppercase tracking-[0.2em] flex items-center gap-3"><PieChart size={16} className="text-emerald-600"/> Composição de Gastos</h3>
             <div className="flex items-center gap-10">
                 <div className="w-24 h-24 md:w-32 md:h-32 rounded-full flex-shrink-0 shadow-2xl" style={{ background: categoryStats.gradient }}></div>
-                
-                
-                
-                
-                
-                
-                
                 <div className="flex-1 space-y-3">
                     {categoryStats.data.length > 0 ? categoryStats.data.map((cat: any) => (
                         <div key={cat.name} className="flex flex-col">
@@ -321,7 +516,12 @@ const Dashboard: React.FC<any> = (props) => {
                               <div className="h-full transition-all duration-1000" style={{ width: `${cat.percent}%`, backgroundColor: cat.color }}></div>
                            </div>
                         </div>
-                    )) : <p className="text-slate-500 italic text-xs">Sem dados para análise.</p>}
+                    )) : (
+                      <div className="space-y-1">
+                        <p className="text-slate-600 font-bold text-sm">Nenhuma saída no período</p>
+                        <p className="text-slate-400 text-xs leading-relaxed">O gráfico aparece quando houver lançamentos de saída registrados.</p>
+                      </div>
+                    )}
                 </div>
             </div>
           </div>
@@ -342,8 +542,9 @@ const Dashboard: React.FC<any> = (props) => {
             </div>
           </div>
       </div>
+      )}
       {/* FILTROS E TABELA */}
-      <div className="space-y-6">
+      {!isFirstAccess && <div className="space-y-6">
           <div className="space-y-3">
             <FilterBar 
               selectedCategories={selectedCategories} 
@@ -364,6 +565,8 @@ const Dashboard: React.FC<any> = (props) => {
               onDateSelect={handleDateSelect}
               sortMode={sortMode}
               setSortMode={setSortMode}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
             />
 
             {/* Toggle para ocultar/expandir a tabela de lançamentos */}
@@ -387,12 +590,23 @@ const Dashboard: React.FC<any> = (props) => {
             </div>
 
             {showTransactions ? (
-              <TransactionHistory
-                transactions={filtered}
-                onDelete={onDeleteTransaction}
-                onEdit={onEditTransaction}
-                isPrivacyMode={isPrivacyMode}
-              />
+              <>
+                <TransactionHistory
+                  transactions={filtered}
+                  onDelete={onDeleteTransaction}
+                  onEdit={onEditTransaction}
+                  isPrivacyMode={isPrivacyMode}
+                />
+                {filtered.length > 5 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowTransactions(false)}
+                    className="flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] border transition-all active:scale-95 w-full sm:w-auto bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200"
+                  >
+                    Recolher lançamentos <ChevronUp size={16} />
+                  </button>
+                )}
+              </>
             ) : (
               <div className="bg-white border border-slate-200 rounded-[2rem] px-6 py-8 shadow-sm">
                 <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">
@@ -439,6 +653,7 @@ const Dashboard: React.FC<any> = (props) => {
               </div>
 
               {showCategorySummary && (
+                <>
                 <div className="space-y-3 mt-4">
                   {categorySummary.map((cat) => {
                     const isOpen = openCategory === cat.name;
@@ -536,9 +751,307 @@ const Dashboard: React.FC<any> = (props) => {
                     );
                   })}
                 </div>
+
+                {/* BOTÃO OCULTAR NO RODAPÉ DO RESUMO */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCategorySummary(false);
+                    setOpenCategory(null);
+                  }}
+                  className="mt-2 flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] border transition-all active:scale-95 w-full sm:w-auto bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200"
+                >
+                  Ocultar Resumo por Categoria <ChevronUp size={16} />
+                </button>
+                </>
               )}
             </div>
           )}
+          {/* ANÁLISE DE MÉDIAS */}
+          {(averagesData.length > 0 || averagesWindow === 'custom') && (
+            <div className="bg-white border border-slate-200 rounded-[2rem] p-5 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <h3 className="text-slate-900 font-black text-xs uppercase tracking-[0.2em]">Análise de Médias</h3>
+                  <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-1">
+                    Média mensal por categoria · apenas despesas
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAverages(prev => !prev)}
+                  className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase border transition-all ${
+                    showAverages
+                      ? 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
+                      : 'bg-sky-50 border-sky-300 text-sky-700 hover:bg-sky-100'
+                  }`}
+                >
+                  {showAverages ? 'Ocultar Análise' : 'Mostrar Análise de Médias'}
+                </button>
+              </div>
+
+              {showAverages && (
+                <>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mt-4 pb-4 border-b border-slate-100">
+                    <div className="flex flex-wrap gap-2">
+                    <div className="flex bg-slate-50 rounded-xl p-1 border border-slate-200 gap-1 flex-wrap">
+                      {([
+                        { key: 'year' as const, label: 'Ano atual' },
+                        { key: 'last3' as const, label: 'Últ. 3m' },
+                        { key: 'last6' as const, label: 'Últ. 6m' },
+                        { key: 'all' as const, label: 'Tudo' },
+                        { key: 'custom' as const, label: 'Escolher período' },
+                      ]).map(opt => (
+                        <button
+                          key={opt.key}
+                          type="button"
+                          onClick={() => {
+                            setAveragesWindow(opt.key);
+                            if (opt.key === 'custom') setShowCustomPeriodPicker(true);
+                            else setShowCustomPeriodPicker(false);
+                          }}
+                          className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
+                            averagesWindow === opt.key
+                              ? 'bg-sky-600 text-white shadow-sm'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* SELETOR DE PERÍODO CUSTOMIZADO */}
+                    {averagesWindow === 'custom' && (
+                      <div className="flex flex-wrap items-center gap-3 mt-1 w-full">
+                        {/* Seletor DE */}
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest shrink-0">De</span>
+                        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                          <select
+                            value={customPeriodStart ? customPeriodStart.split('-')[1] : ''}
+                            onChange={e => {
+                              const year = customPeriodStart ? customPeriodStart.split('-')[0] : new Date().getFullYear().toString();
+                              if (e.target.value) setCustomPeriodStart(`${year}-${e.target.value}`);
+                            }}
+                            className="text-[11px] font-black text-slate-800 bg-transparent outline-none border-none cursor-pointer"
+                          >
+                            <option value="">Mês</option>
+                            {['01','02','03','04','05','06','07','08','09','10','11','12'].map((m, i) => (
+                              <option key={m} value={m}>
+                                {['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][i]}
+                              </option>
+                            ))}
+                          </select>
+                          <select
+                            value={customPeriodStart ? customPeriodStart.split('-')[0] : ''}
+                            onChange={e => {
+                              const month = customPeriodStart ? customPeriodStart.split('-')[1] : '01';
+                              if (e.target.value) setCustomPeriodStart(`${e.target.value}-${month}`);
+                            }}
+                            className="text-[11px] font-black text-slate-800 bg-transparent outline-none border-none cursor-pointer"
+                          >
+                            <option value="">Ano</option>
+                            {Array.from({ length: 36 }, (_, i) => 2015 + i).map(y => (
+                              <option key={y} value={y}>{y}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <span className="text-[10px] font-black text-slate-400 uppercase">até</span>
+
+                        {/* Seletor ATÉ */}
+                        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                          <select
+                            value={customPeriodEnd ? customPeriodEnd.split('-')[1] : ''}
+                            onChange={e => {
+                              const year = customPeriodEnd ? customPeriodEnd.split('-')[0] : new Date().getFullYear().toString();
+                              if (e.target.value) setCustomPeriodEnd(`${year}-${e.target.value}`);
+                            }}
+                            className="text-[11px] font-black text-slate-800 bg-transparent outline-none border-none cursor-pointer"
+                          >
+                            <option value="">Mês</option>
+                            {['01','02','03','04','05','06','07','08','09','10','11','12'].map((m, i) => (
+                              <option key={m} value={m}>
+                                {['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][i]}
+                              </option>
+                            ))}
+                          </select>
+                          <select
+                            value={customPeriodEnd ? customPeriodEnd.split('-')[0] : ''}
+                            onChange={e => {
+                              const month = customPeriodEnd ? customPeriodEnd.split('-')[1] : '01';
+                              if (e.target.value) setCustomPeriodEnd(`${e.target.value}-${month}`);
+                            }}
+                            className="text-[11px] font-black text-slate-800 bg-transparent outline-none border-none cursor-pointer"
+                          >
+                            <option value="">Ano</option>
+                            {Array.from({ length: 36 }, (_, i) => 2015 + i).map(y => (
+                              <option key={y} value={y}>{y}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {customPeriodStart && customPeriodEnd && customPeriodStart <= customPeriodEnd && (
+                          <span className="text-[10px] font-black text-sky-600 uppercase tracking-widest">
+                            {(() => {
+                              const [sy, sm] = customPeriodStart.split('-').map(Number);
+                              const [ey, em] = customPeriodEnd.split('-').map(Number);
+                              const total = (ey - sy) * 12 + (em - sm) + 1;
+                              return `${total} ${total === 1 ? 'mês' : 'meses'}`;
+                            })()}
+                          </span>
+                        )}
+
+                        {customPeriodStart && customPeriodEnd && customPeriodStart > customPeriodEnd && (
+                          <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">
+                            ⚠ Data final anterior à inicial
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    <div className="flex bg-slate-50 rounded-xl p-1 border border-slate-200 gap-1">
+                      {([
+                        { key: 'real' as const, label: 'Média real' },
+                        { key: 'occurrence' as const, label: 'Média de ocorrência' },
+                      ]).map(opt => (
+                        <button
+                          key={opt.key}
+                          type="button"
+                          onClick={() => setAverageMode(opt.key)}
+                          className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
+                            averageMode === opt.key
+                              ? 'bg-sky-600 text-white shadow-sm'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <div
+                        onClick={() => setIncludeCurrentMonth(p => !p)}
+                        className={`w-9 h-5 rounded-full transition-colors relative ${
+                          includeCurrentMonth ? 'bg-sky-500' : 'bg-slate-300'
+                        }`}
+                      >
+                        <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                          includeCurrentMonth ? 'translate-x-4' : 'translate-x-0.5'
+                        }`} />
+                      </div>
+                      <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">
+                        Incluir mês atual na média
+                      </span>
+                    </label>
+                  </div>
+
+                  {averagesData.length === 0 && averagesWindow === 'custom' && customPeriodStart && customPeriodEnd && (
+                    <div className="mt-4 py-8 px-4 text-center bg-slate-50 border border-slate-200 rounded-2xl">
+                      <p className="text-slate-500 text-xs font-black uppercase tracking-widest">Nenhuma despesa no período selecionado</p>
+                      <p className="text-[11px] text-slate-400 mt-1">Tente um intervalo diferente ou verifique os lançamentos cadastrados.</p>
+                    </div>
+                  )}
+
+                  <div className="space-y-6 mt-4">
+                    {averagesData.map(({ category, average, averageOccurrence, totalValue, totalMonthsInWindow, monthsWithValue, months }) => {
+                      const activeAverage = averageMode === 'real' ? average : averageOccurrence;
+                      const maxValue = Math.max(...months.map(m => Math.max(m.value, m.projection || 0)), 1);
+                      return (
+                        <div key={category}>
+                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-3">
+                            <p className="text-sm font-black text-slate-900">{category}</p>
+                            <div className="flex flex-wrap gap-4 sm:text-right">
+                              <div>
+                                <p className="text-[9px] font-black text-slate-400 uppercase">Total no período</p>
+                                <p className="text-sm font-black text-slate-700">
+                                  {isPrivacyMode ? '••••' : `R$ ${totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-[9px] font-black text-slate-400 uppercase">
+                                  {averageMode === 'real'
+                                    ? `Média real · ${totalMonthsInWindow} ${totalMonthsInWindow === 1 ? 'mês' : 'meses'}`
+                                    : `Média de ocorrência · ${monthsWithValue} ${monthsWithValue === 1 ? 'mês' : 'meses'}`}
+                                </p>
+                                <p className="text-sm font-black text-sky-700">
+                                  {isPrivacyMode ? '••••' : `R$ ${activeAverage.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            {months.map(m => {
+                              if (!m.isClosed && !m.isCurrentMonth) return null;
+                              // Média real: exibe todos os meses fechados (mesmo sem valor)
+                              // Média de ocorrência: exibe só meses que tiveram lançamento
+                              if (averageMode === 'occurrence' && m.value === 0 && !m.isCurrentMonth) return null;
+                              const barWidth = (m.value / maxValue) * 100;
+                              const projWidth = m.projection ? (m.projection / maxValue) * 100 : 0;
+                              const avgWidth = (average / maxValue) * 100;
+                              const isAbove = m.deviation !== null && m.deviation > 0;
+                              const isBelow = m.deviation !== null && m.deviation < 0;
+                              return (
+                                <div key={`${m.year}-${m.month}`} className="flex items-center gap-3">
+                                  <span className="text-[10px] font-black text-slate-500 uppercase w-12 shrink-0 text-right">
+                                    {m.label}
+                                  </span>
+                                  <div className="flex-1 relative h-6 bg-slate-100 rounded-lg overflow-visible">
+                                    <div
+                                      className={`absolute left-0 top-0 h-full rounded-lg transition-all duration-700 ${
+                                        m.isCurrentMonth ? 'bg-slate-300' : isAbove ? 'bg-red-400' : isBelow ? 'bg-emerald-400' : 'bg-sky-400'
+                                      }`}
+                                      style={{ width: `${barWidth}%` }}
+                                    />
+                                    {m.isCurrentMonth && m.projection && (
+                                      <div
+                                        className="absolute left-0 top-0 h-full rounded-lg border-2 border-dashed border-slate-400 bg-transparent transition-all duration-700"
+                                        style={{ width: `${projWidth}%` }}
+                                      />
+                                    )}
+                                    <div
+                                      className="absolute top-0 h-full w-0.5 bg-sky-600 opacity-60"
+                                      style={{ left: `${Math.min(avgWidth, 99)}%` }}
+                                    />
+                                  </div>
+                                  <div className="w-40 shrink-0 flex items-center gap-2">
+                                    <span className="text-[10px] font-black text-slate-700">
+                                      {isPrivacyMode ? '••••' : `R$ ${m.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                                    </span>
+                                    {m.isCurrentMonth && m.projection && !isPrivacyMode && (
+                                      <span className="text-[9px] text-slate-400 font-bold">
+                                        {`→ R$ ${m.projection.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                                      </span>
+                                    )}
+                                    {m.deviation !== null && (
+                                      <span className={`text-[9px] font-black ${isAbove ? 'text-red-500' : 'text-emerald-600'}`}>
+                                        {isAbove ? '▲' : '▼'} {Math.abs(Math.round(m.deviation))}%
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowAverages(false)}
+                    className="mt-6 flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] border transition-all active:scale-95 w-full sm:w-auto bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200"
+                  >
+                    Ocultar Análise <ChevronUp size={16} />
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
           {/* SOMATÓRIO DOS LANÇAMENTOS FILTRADOS */}
           {filtered.length > 0 && (
             <div className="bg-white border border-slate-200 rounded-2xl p-5 mt-4 shadow-sm">
@@ -588,7 +1101,7 @@ const Dashboard: React.FC<any> = (props) => {
               </div>
             </div>
           )}
-      </div>
+      </div>}
     </div>
   );
 };

@@ -453,12 +453,12 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
 
           <div>
             <h3 className="text-xs font-black text-slate-900 uppercase tracking-tighter">
-              Nexus Core v2.5
+              Nexus — Consultor Financeiro
             </h3>
             <div className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
               <span className="text-[9px] text-emerald-700 font-bold uppercase tracking-widest">
-                Active
+                Online
               </span>
             </div>
           </div>
@@ -468,7 +468,7 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
           {!isPro && !isPremium && (
             <div className="flex items-center gap-1 bg-slate-100 px-3 py-1 rounded-full border border-slate-300 shadow-sm">
               <span className="text-[10px] text-slate-700 font-bold">
-                Free: {FREE_DAILY_LIMIT - dailyCount} r.
+                {FREE_DAILY_LIMIT - dailyCount} perguntas hoje
               </span>
             </div>
           )}
@@ -500,10 +500,10 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
                 </span>
               </div>
               <h2 className="text-lg font-black text-slate-900">
-                Olá, {capitalizedName}. O que você quer resolver agora?
+                Olá, {capitalizedName}. Por onde vamos começar hoje?
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                Escolha uma ação ou escreva sua pergunta no campo abaixo.
+                Escolha um tema ou escreva sua pergunta diretamente abaixo.
               </p>
             </div>
 
@@ -604,8 +604,13 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
           {isAiLoading && (
             <div className="flex justify-start">
               <div className="bg-white p-4 rounded-2xl border border-slate-300 shadow-sm flex items-center gap-3">
-                <span className="text-[10px] text-slate-700 font-black uppercase tracking-widest animate-pulse">
-                  Analisando dados...
+                <div className="flex gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-bounce [animation-delay:0ms]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-bounce [animation-delay:150ms]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-bounce [animation-delay:300ms]" />
+                </div>
+                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                  Nexus analisando...
                 </span>
               </div>
             </div>
@@ -651,8 +656,8 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
             placeholder={
               !isPro && !isPremium && dailyCount >= FREE_DAILY_LIMIT
-                ? 'Limite diário atingido.'
-                : 'Pergunte ao Nexus...'
+                ? 'Você atingiu o limite diário. Faça upgrade para continuar.'
+                : 'Pergunte ao Nexus sobre sua situação financeira...'
             }
             disabled={!isPro && !isPremium && dailyCount >= FREE_DAILY_LIMIT}
             className="w-full bg-white border border-slate-300 text-slate-900 p-4 pr-14 rounded-2xl outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-all text-sm placeholder:text-slate-500 disabled:opacity-50 shadow-sm"
@@ -694,9 +699,13 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
 
             <div className="flex-grow overflow-y-auto p-4 space-y-3">
               {conversationHistory.length === 0 ? (
-                <p className="text-slate-500 text-xs text-center mt-10 italic">
-                  Nenhuma conversa encontrada.
-                </p>
+                <div className="flex flex-col items-center text-center mt-10 px-4 gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center">
+                    <Folder size={18} className="text-slate-400" />
+                  </div>
+                  <p className="text-slate-700 font-black text-sm">Nenhuma conversa ainda</p>
+                  <p className="text-slate-400 text-xs leading-relaxed">Suas conversas com o Nexus ficam salvas aqui para você retomar quando quiser.</p>
+                </div>
               ) : (
                 conversationHistory.map((item) => (
                   <div

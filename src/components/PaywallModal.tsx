@@ -1,1 +1,76 @@
-import React from 'react'; import { Browser } from '@capacitor/browser'; export default ({open, onClose}: any) => open ? <div className='fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-6'><div className='bg-slate-800 p-6 rounded-2xl text-center'><h2 className='text-white text-xl font-bold mb-4'>Seja Premium</h2><button onClick={() => Browser.open({ url: 'https://financasproinvest.com.br/pricing' })} className='bg-emerald-500 text-white py-3 px-6 rounded-xl w-full font-bold'>Ver Planos (Site)</button><button onClick={onClose} className='mt-4 text-slate-400'>Fechar</button></div></div> : null;
+import React from 'react';
+import { Browser } from '@capacitor/browser';
+import { Lock, TrendingUp, Target, Zap, X, ChevronRight } from 'lucide-react';
+
+interface PaywallModalProps {
+  open: boolean;
+  onClose: () => void;
+  feature?: string;
+}
+
+const BENEFITS = [
+  { icon: <Zap size={14} className="text-amber-500" />, text: 'Perguntas ilimitadas ao Nexus' },
+  { icon: <TrendingUp size={14} className="text-emerald-500" />, text: 'Plano de quitação de dívidas com IA' },
+  { icon: <Target size={14} className="text-sky-500" />, text: 'Análise completa de patrimônio e carteira' },
+  { icon: <Lock size={14} className="text-indigo-500" />, text: 'Histórico de conversas por 30 dias' },
+];
+
+export default function PaywallModal({ open, onClose, feature }: PaywallModalProps) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4">
+      <div
+        className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="relative bg-gradient-to-br from-slate-900 to-slate-800 px-6 pt-8 pb-6 text-center">
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all"
+          >
+            <X size={16} />
+          </button>
+          <div className="w-12 h-12 bg-emerald-500/20 border border-emerald-500/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <Lock size={22} className="text-emerald-400" />
+          </div>
+          <h2 className="text-white text-lg font-black tracking-tight mb-1">
+            {feature ? `"${feature}" é Pro` : 'Recurso exclusivo Pro'}
+          </h2>
+          <p className="text-slate-400 text-xs leading-relaxed max-w-xs mx-auto">
+            Desbloqueie o Finanças Pro Invest completo e deixe o Nexus trabalhar de verdade pela sua vida financeira.
+          </p>
+        </div>
+
+        {/* Benefits */}
+        <div className="px-6 py-5 space-y-3">
+          {BENEFITS.map((b, i) => (
+            <div key={i} className="flex items-center gap-3">
+              <div className="w-7 h-7 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0">
+                {b.icon}
+              </div>
+              <span className="text-slate-700 text-sm font-medium">{b.text}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* CTA */}
+        <div className="px-6 pb-6 space-y-3">
+          <button
+            onClick={() => Browser.open({ url: 'https://financasproinvest.com.br/pricing' })}
+            className="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-black py-3.5 px-6 rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20"
+          >
+            Ver planos e preços <ChevronRight size={16} />
+          </button>
+          <button
+            onClick={onClose}
+            className="w-full text-slate-400 hover:text-slate-600 font-medium text-sm py-2 transition-colors"
+          >
+            Continuar no plano gratuito
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

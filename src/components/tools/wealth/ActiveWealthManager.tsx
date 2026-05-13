@@ -305,12 +305,20 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userMe
         {isLoading ? (
           <div className="text-center py-12 text-slate-600 animate-pulse">Carregando sua carteira...</div>
         ) : assets.length === 0 ? (
-          <div className="text-center py-16 bg-slate-50 border border-dashed border-slate-200 rounded-2xl">
-            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-200">
-              <PieChart size={24} className="text-emerald-500" />
+          <div className="py-14 px-6 bg-emerald-50 border border-dashed border-emerald-200 rounded-2xl text-center">
+            <div className="w-14 h-14 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-emerald-200">
+              <PieChart size={24} className="text-emerald-600" />
             </div>
-            <p className="text-slate-700 font-medium mb-2">Sua carteira está vazia</p>
-            <p className="text-slate-500 text-sm">Adicione seu primeiro investimento no formulário acima.</p>
+            <p className="text-slate-800 font-black text-base mb-1">Carteira ainda vazia</p>
+            <p className="text-slate-500 text-sm max-w-xs mx-auto leading-relaxed mb-5">
+              Adicione seus investimentos aqui em cima — Tesouro Direto, FIIs, ações, cripto. O Nexus usa esses dados para calcular seu patrimônio real e evolução ao longo do tempo.
+            </p>
+            <button
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black uppercase tracking-widest px-5 py-2.5 rounded-xl transition-all active:scale-95"
+            >
+              <Plus size={14} /> Adicionar primeiro ativo
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

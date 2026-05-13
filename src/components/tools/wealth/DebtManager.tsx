@@ -868,12 +868,20 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta, lancamentos,
             Carregando dívidas...
           </div>
         ) : debts.length === 0 ? (
-          <div className="text-center py-16 bg-slate-50 border border-dashed border-slate-200 rounded-2xl">
-            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CreditCard size={24} className="text-slate-400" />
+          <div className="py-14 px-6 bg-rose-50 border border-dashed border-rose-200 rounded-2xl text-center">
+            <div className="w-14 h-14 bg-rose-100 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-rose-200">
+              <CreditCard size={24} className="text-rose-500" />
             </div>
-            <p className="text-slate-600 font-medium mb-1">Nenhuma dívida cadastrada</p>
-            <p className="text-slate-400 text-sm">Adicione sua primeira dívida no formulário acima.</p>
+            <p className="text-slate-800 font-black text-base mb-1">Nenhuma dívida cadastrada ainda</p>
+            <p className="text-slate-500 text-sm max-w-xs mx-auto leading-relaxed mb-5">
+              Cadastre suas dívidas aqui em cima. Com esses dados, o Nexus consegue montar um plano real de quitação — do maior custo para o menor.
+            </p>
+            <button
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              className="inline-flex items-center gap-2 bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-black uppercase tracking-widest px-5 py-2.5 rounded-xl transition-all active:scale-95"
+            >
+              <Plus size={14} /> Cadastrar primeira dívida
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

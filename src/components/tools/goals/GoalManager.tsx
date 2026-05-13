@@ -439,12 +439,20 @@ const GoalManager: React.FC<GoalManagerProps> = ({ userMeta }) => {
         {loading ? (
           <div className="text-center py-12 text-slate-600 animate-pulse">Carregando suas metas...</div>
         ) : goals.length === 0 ? (
-          <div className="text-center py-16 bg-slate-50 border border-dashed border-slate-200 rounded-2xl">
-            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-200">
-              <TrendingUp size={24} className="text-emerald-500" />
+          <div className="py-14 px-6 bg-emerald-50 border border-dashed border-emerald-200 rounded-2xl text-center">
+            <div className="w-14 h-14 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-emerald-200">
+              <TrendingUp size={24} className="text-emerald-600" />
             </div>
-            <p className="text-slate-700 font-medium mb-2">Nenhuma meta definida</p>
-            <p className="text-slate-500 text-sm">Crie sua primeira meta de aporte no formulário acima.</p>
+            <p className="text-slate-800 font-black text-base mb-1">Nenhuma meta criada ainda</p>
+            <p className="text-slate-500 text-sm max-w-xs mx-auto leading-relaxed mb-5">
+              Crie sua primeira meta de aporte aqui em cima. O sistema monitora os prazos e te lembra quando o dia chegar — por e-mail ou push.
+            </p>
+            <button
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black uppercase tracking-widest px-5 py-2.5 rounded-xl transition-all active:scale-95"
+            >
+              <Plus size={14} /> Criar primeira meta
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

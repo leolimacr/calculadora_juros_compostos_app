@@ -36,12 +36,14 @@ const TransactionForm: React.FC<any> = ({
   }, [type, categories]);
   const handleSave = async () => {
     const numericAmount = Number(amount);
-    if (!description || !numericAmount || numericAmount <= 0) return alert("Preencha todos os campos");
+    if (!description.trim()) return alert("Informe uma descrição para o lançamento.");
+    if (!numericAmount || numericAmount <= 0) return alert("Informe um valor válido maior que zero.");
+    if (!category) return alert("Selecione uma categoria.");
     
     setIsSaving(true);
     await onSave({ 
       id: initialData?.id,
-      description, 
+      description: description.trim(), 
       amount: numericAmount, 
       type, 
       category, 
@@ -70,10 +72,10 @@ const TransactionForm: React.FC<any> = ({
               type="text" 
               inputMode="numeric" 
               placeholder="R$ 0,00" 
-              value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount || 0)} 
+              value={amount ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(amount)) : ''} 
               onChange={e => {
                 const value = e.target.value.replace(/\D/g, '');
-                setAmount(Number(value) / 100);
+                setAmount(value ? Number(value) / 100 : '');
               }} 
               className="w-full bg-white p-4 rounded-xl text-slate-900 font-bold outline-none border border-slate-200 focus:border-emerald-500" 
             />

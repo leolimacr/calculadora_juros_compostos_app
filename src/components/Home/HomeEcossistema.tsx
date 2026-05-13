@@ -22,23 +22,23 @@ export const HomeEcossistema: React.FC<Props> = ({ heroPersona, onNavigate, onSt
       <div className="absolute inset-x-0 -top-10 -bottom-10 bg-gradient-to-b from-slate-50/80 via-slate-50/60 to-slate-100/80 pointer-events-none -z-10" />
       <div className="flex flex-col lg:flex-row gap-10 items-start">
         <div className="w-full lg:w-1/2 space-y-6">
-          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-widest"><LayoutGrid size={14} />Acompanhe sua vida financeira dentro do ecossistema</span>
-          <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">{heroPersona === 'dividas' ? 'Comece pelas dívidas, fortaleça o contexto e mantenha sua jornada acompanhada.' : 'Cadastre seus investimentos, acompanhe seu patrimônio e mantenha decisões importantes no radar.'}</h2>
-          <p className="text-slate-600 text-sm md:text-base max-w-xl">{heroPersona === 'dividas' ? 'Quanto mais você organiza dívidas, gastos e patrimônio, mais útil o ecossistema se torna para acompanhar mudanças e orientar revisões com bom senso.' : 'Quanto mais completo estiver seu patrimônio no ecossistema, mais contexto o sistema terá para acompanhar mudanças e apoiar decisões com mais consistência.'}</p>
+          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-widest"><LayoutGrid size={14} />Ferramentas</span>
+          <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">{heroPersona === 'dividas' ? 'Tudo que você precisa para sair das dívidas — num só lugar.' : 'Tudo que você precisa para fazer seu patrimônio crescer — num só lugar.'}</h2>
+          <p className="text-slate-500 text-sm md:text-base max-w-xl">{heroPersona === 'dividas' ? 'Cada ferramenta resolve um problema real. Comece pelo que dói mais hoje.' : 'Cada ferramenta cobre uma frente do seu patrimônio. Use separado ou junto — o Nexus conecta tudo.'}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <button onClick={() => onNavigate(heroPersona === 'dividas' ? 'minhas-dividas' : 'investimentos')} className="group border border-emerald-200 rounded-2xl bg-emerald-50/80 hover:bg-emerald-100 transition-all p-4 flex items-center justify-between gap-3 shadow-sm">
               <div className="flex flex-col text-left">
-                <span className="text-[11px] font-black uppercase tracking-widest text-emerald-700 mb-1">{heroPersona === 'dividas' ? 'Começar pela base principal' : 'Começar pelo cadastro'}</span>
+                <span className="text-[11px] font-black uppercase tracking-widest text-emerald-700 mb-1">{heroPersona === 'dividas' ? 'Por onde começar' : 'Base do patrimônio'}</span>
                 <span className="text-sm font-bold text-slate-900">{heroPersona === 'dividas' ? 'Minhas Dívidas' : 'Meus Investimentos'}</span>
-                <span className="text-[11px] text-emerald-700 font-medium mt-1">{heroPersona === 'dividas' ? 'Cadastre sua realidade atual e organize prioridades com mais contexto' : 'Organize sua carteira e enxergue melhor seu patrimônio'}</span>
+                <span className="text-[11px] text-emerald-700 font-medium mt-1">{heroPersona === 'dividas' ? 'Cadastre o que você deve e veja o custo real de cada dívida' : 'Registre sua carteira e acompanhe o crescimento do patrimônio'}</span>
               </div>
               <ChevronRight className="w-4 h-4 text-emerald-700 group-hover:translate-x-0.5 transition-transform" />
             </button>
             <button onClick={() => isAuthenticated ? onNavigate('manager') : onStartNow()} className="group border border-slate-200 rounded-2xl bg-white hover:bg-slate-50 transition-all p-4 flex items-center justify-between gap-3 shadow-sm">
               <div className="flex flex-col text-left">
-                <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-1">{heroPersona === 'dividas' ? 'Acompanhamento contínuo' : 'Base do acompanhamento inteligente'}</span>
+                <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-1">{heroPersona === 'dividas' ? 'Rotina financeira' : 'Rotina financeira'}</span>
                 <span className="text-sm font-bold text-slate-900">Controla</span>
-                <span className="text-[11px] text-slate-500 font-medium mt-1">{heroPersona === 'dividas' ? 'Organize gastos e mantenha o contexto vivo para revisar prioridades com mais inteligência.' : 'Registre sua rotina financeira para que o ecossistema acompanhe melhor seu contexto ao longo do tempo.'}</span>
+                <span className="text-[11px] text-slate-500 font-medium mt-1">{heroPersona === 'dividas' ? 'Registre gastos e receitas. O Nexus usa esse histórico para calibrar os conselhos.' : 'Registre entradas e saídas. O Nexus usa esse histórico para calibrar os conselhos.'}</span>
               </div>
               <ChevronRight className="w-4 h-4 text-slate-500 group-hover:translate-x-0.5 transition-transform" />
             </button>

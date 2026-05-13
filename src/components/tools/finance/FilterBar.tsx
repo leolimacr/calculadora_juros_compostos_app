@@ -5,7 +5,9 @@ import {
   ChevronDown,
   ChevronUp,
   FileText,
-  FolderOpen
+  FolderOpen,
+  Search,
+  X
 } from 'lucide-react';
 
 interface FilterBarProps {
@@ -27,6 +29,8 @@ interface FilterBarProps {
   onDateSelect: (date: string) => void;
   sortMode: 'date-desc' | 'date-asc' | 'category-asc' | 'category-desc';
   setSortMode: (mode: 'date-desc' | 'date-asc' | 'category-asc' | 'category-desc') => void;
+  searchQuery: string;
+  setSearchQuery: (q: string) => void;
 }
 
 const FilterBar: React.FC<FilterBarProps> = ({ 
@@ -47,7 +51,9 @@ const FilterBar: React.FC<FilterBarProps> = ({
   onOpenCategoryManager,
   onDateSelect,
   sortMode,
-  setSortMode
+  setSortMode,
+  searchQuery,
+  setSearchQuery
 }) => {  
   const dateInputRef = useRef<HTMLInputElement>(null);
   const [showCategories, setShowCategories] = useState(false);
@@ -71,6 +77,31 @@ const FilterBar: React.FC<FilterBarProps> = ({
   return (
     <div className="flex flex-col gap-4 bg-white p-4 rounded-3xl border border-slate-200 mb-4 shadow-sm">
       
+      {/* BUSCA GLOBAL */}
+      <div className="relative">
+        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        <input
+          type="text"
+          placeholder="Pesquisar por descrição ou categoria..."
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-10 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none focus:border-emerald-500 focus:bg-white transition-all"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700 transition-colors"
+          >
+            <X size={16} />
+          </button>
+        )}
+      </div>
+      {searchQuery && (
+        <p className="text-[10px] text-amber-600 font-black uppercase tracking-widest -mt-2 px-1">
+          Pesquisando em todos os períodos — filtro de data desativado
+        </p>
+      )}
+
       {/* SEÇÃO 1: CONTROLES DE DATA E PDF */}
       <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
           
@@ -139,10 +170,11 @@ const FilterBar: React.FC<FilterBarProps> = ({
           {/* 1.4 Botão PDF */}
           <button 
             onClick={onExportPDF}
-            className="flex items-center justify-center gap-3 px-6 py-3.5 rounded-2xl font-black bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-50 border border-slate-200 transition-all active:scale-95 shadow-sm w-full lg:w-auto group"
+            className="flex items-center justify-center gap-2 px-5 py-3 rounded-2xl font-black bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-50 border border-slate-200 transition-all active:scale-95 shadow-sm w-full lg:w-auto"
+            title="Gerar Relatório PDF"
           >
-            <FileText size={18} className="text-emerald-500 group-hover:scale-110 transition-transform" />
-            <span className="text-[10px] uppercase tracking-[0.15em]">Gerar Relatório PDF</span>
+            <FileText size={16} className="text-emerald-500 shrink-0" />
+            <span className="text-[10px] uppercase tracking-[0.15em]">Relatório PDF</span>
           </button>
       </div>
 
@@ -245,9 +277,8 @@ const FilterBar: React.FC<FilterBarProps> = ({
                     className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase bg-white border border-slate-300 text-slate-700 hover:border-slate-400 hover:text-slate-900 transition-all"
                 >
                     {showCategories ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                    <span>{showCategories ? 'Ocultar Categorias' : 'Mostrar Categorias'}</span>
+                    <span>{showCategories ? 'Ocultar filtro' : 'Filtrar por categoria'}</span>
                 </button>
-
                 {!isAllCategories && (
                     <span className="px-3 py-2 rounded-xl text-[10px] font-black uppercase border border-emerald-200 bg-emerald-50 text-emerald-700">
                         {selectedCategories.length} selecionada{selectedCategories.length !== 1 ? 's' : ''}

@@ -108,7 +108,21 @@ const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ userId, onComplete 
     }
   };
 
-  const handleSkip = () => markComplete();
+  const handleSkip = async () => {
+    // Grava persona 'geral' se pulou sem escolher, para não perder o dado
+    if (!persona) setPersona('geral');
+    setCompleting(true);
+    try {
+      await updateDoc(doc(firestore, 'users', userId), {
+        onboardingCompleted: true,
+        onboardingPersona: persona ?? 'geral',
+      });
+    } catch (e) {
+      console.error('Erro ao gravar onboarding no skip:', e);
+    } finally {
+      onComplete();
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">

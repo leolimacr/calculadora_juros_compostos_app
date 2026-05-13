@@ -47,9 +47,9 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, o
                     {isPrivacyMode ? '••••' : `R$ ${Number(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex justify-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => onEdit(t)} className="p-2 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-all" title="Editar"><Pencil size={16}/></button>
-                      <button onClick={() => { if (window.confirm(`Deseja excluir "${t.description}"?`)) onDelete(t.id); }} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" title="Excluir"><Trash2 size={16}/></button>
+                    <div className="flex justify-center gap-2">
+                      <button onClick={() => onEdit(t)} className="p-2 text-slate-400 hover:text-sky-600 hover:bg-sky-50 active:bg-sky-100 rounded-lg transition-all" title="Editar"><Pencil size={16}/></button>
+                      <button onClick={() => { if (window.confirm(`Deseja excluir "${t.description}"?`)) onDelete(t.id); }} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 active:bg-red-100 rounded-lg transition-all" title="Excluir"><Trash2 size={16}/></button>
                     </div>
                   </td>
                 </tr>

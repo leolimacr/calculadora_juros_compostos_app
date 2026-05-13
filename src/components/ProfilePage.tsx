@@ -1,109 +1,101 @@
-import React, { useState } from 'react';
-import { updateProfile, deleteUser } from 'firebase/auth';
-import { ref, remove } from 'firebase/database';
-import { auth, database } from '../firebase';
+import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSubscriptionAccess } from '../hooks/useSubscriptionAccess';
+import { Settings, LogOut, Crown, Zap, User } from 'lucide-react';
 
-const ProfilePage: React.FC<any> = ({ onNavigateHome }) => {
+interface ProfilePageProps {
+  onNavigateHome: () => void;
+  onNavigate?: (route: string) => void;
+}
+
+const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigateHome, onNavigate }) => {
   const { user, logout } = useAuth();
   const { role } = useSubscriptionAccess();
-  const [isEditing, setIsEditing] = useState(false);
-  const [newName, setNewName] = useState(user?.displayName || '');
-  const [loading, setLoading] = useState(false);
 
-  const handleSaveName = async () => {
-    if (user && newName.trim()) {
-        await updateProfile(user, { displayName: newName });
-        setIsEditing(false);
-    }
-  };
+  const planLabel = role === 'premium' ? 'Premium' : role === 'pro' ? 'Pro' : 'Gratuito';
+  const planIcon =
+    role === 'premium' ? <Crown size={14} className="text-amber-500" /> :
+    role === 'pro' ? <Zap size={14} className="text-sky-500" /> : null;
+  const planStyle =
+    role === 'premium' ? 'bg-amber-50 border-amber-200 text-amber-700' :
+    role === 'pro' ? 'bg-sky-50 border-sky-200 text-sky-700' :
+    'bg-slate-100 border-slate-200 text-slate-500';
 
-  const handleDeleteAccount = async () => {
-    const confirm1 = window.confirm("TEM CERTEZA? Isso apagará todos os seus lançamentos permanentemente.");
-    if (!confirm1) return;
-
-    const confirm2 = window.confirm("Esta ação não pode ser desfeita. Deseja realmente excluir sua conta?");
-    if (!confirm2) return;
-
-    setLoading(true);
-    try {
-        if (user) {
-            // 1. Apaga os dados do banco de dados
-            await remove(ref(database, `users/${user.uid}`));
-            
-            // 2. Apaga o usuário da autenticação
-            await deleteUser(user);
-            
-            alert("Sua conta foi excluída com sucesso.");
-            // O App.tsx vai detectar o logout e jogar para a Home automaticamente
-        }
-    } catch (error: any) {
-        console.error(error);
-        if (error.code === 'auth/requires-recent-login') {
-            alert("Por segurança, faça login novamente antes de excluir sua conta.");
-            logout();
-        } else {
-            alert("Erro ao excluir conta. Tente novamente.");
-        }
-    } finally {
-        setLoading(false);
-    }
-  };
-
-  const planName = role === 'premium' ? 'Premium' : role === 'pro' ? 'Pro' : 'Gratuito';
-  const planColor = role === 'premium' ? 'text-indigo-400 border-indigo-500/30 bg-indigo-500/10' : role === 'pro' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : 'text-slate-400 border-slate-600 bg-slate-800';
-
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-red-500 font-bold">Processando exclusão...</div>;
+  const initial = user?.displayName?.[0] ?? user?.email?.[0] ?? '?';
 
   return (
-    <div className="space-y-8 animate-in fade-in pb-20 pt-4">
-      <div className="flex flex-col items-center">
-        <div className="w-24 h-24 bg-slate-800 rounded-3xl mb-4 flex items-center justify-center text-4xl border-4 border-emerald-500 shadow-2xl relative">
-          👤
-          <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white text-[10px] font-black px-2 py-1 rounded-lg border-4 border-[#020617] uppercase">Ativo</div>
+    <div className="w-full max-w-sm mx-auto px-4 pt-8 pb-24 animate-in fade-in slide-in-from-bottom-4 duration-500">
+
+      {/* Avatar + info */}
+      <div className="flex flex-col items-center mb-8">
+        <div className="w-20 h-20 bg-gradient-to-tr from-sky-500 to-emerald-500 rounded-3xl flex items-center justify-center text-white text-3xl font-black shadow-lg mb-4">
+          {initial.toUpperCase()}
         </div>
-        
-        {/* Edição de Nome */}
-        {isEditing ? (
-            <div className="flex gap-2 items-center">
-                <input value={newName} onChange={(e) => setNewName(e.target.value)} className="bg-slate-800 border border-emerald-500 p-2 rounded-lg text-white outline-none w-40 text-center" />
-                <button onClick={handleSaveName} className="text-emerald-400 font-bold bg-emerald-400/10 px-3 py-2 rounded-lg">OK</button>
+        <h2 className="text-xl font-black text-slate-900 tracking-tight">
+          {user?.displayName || 'Sem nome'}
+        </h2>
+        <p className="text-slate-500 text-sm mt-0.5">{user?.email}</p>
+        <div className={`mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[11px] font-black uppercase tracking-widest ${planStyle}`}>
+          {planIcon} Plano {planLabel}
+        </div>
+      </div>
+
+      {/* Ações */}
+      <div className="space-y-3">
+        {onNavigate && (
+          <button
+            onClick={() => onNavigate('settings')}
+            className="w-full flex items-center justify-between p-4 bg-white border border-slate-200 rounded-2xl shadow-sm hover:border-slate-300 hover:bg-slate-50 transition-all active:scale-[0.98] group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-slate-100 rounded-xl flex items-center justify-center">
+                <Settings size={18} className="text-slate-600" />
+              </div>
+              <span className="text-sm font-bold text-slate-800">Configurações</span>
             </div>
-        ) : (
-            <div className="flex gap-2 items-center">
-                <h2 className="text-xl font-bold text-white">{user?.displayName || 'Definir Nome'}</h2>
-                <button onClick={() => setIsEditing(true)} className="text-slate-500 hover:text-white p-1">✏️</button>
-            </div>
+            <Settings size={14} className="text-slate-300 group-hover:text-slate-500 transition-colors" />
+          </button>
         )}
-        
-        <p className="text-slate-500 text-sm mt-1">{user?.email}</p>
-        
-        <div className={`mt-6 px-6 py-2 rounded-full border ${planColor} text-xs font-black uppercase tracking-widest`}>
-          Plano {planName}
-        </div>
-      </div>
 
-      <div className="space-y-3 px-4">
-        {/* Botão Sair */}
-        <button onClick={() => { logout(); onNavigateHome(); }} className="w-full p-4 bg-slate-800 border border-slate-700 text-white rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform hover:bg-slate-700">
-          <span>🚪</span> Sair da Conta
+        {role === 'free' && onNavigate && (
+          <button
+            onClick={() => onNavigate('pricing')}
+            className="w-full flex items-center justify-between p-4 bg-emerald-50 border border-emerald-200 rounded-2xl shadow-sm hover:bg-emerald-100 transition-all active:scale-[0.98] group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-emerald-100 rounded-xl flex items-center justify-center">
+                <Crown size={18} className="text-emerald-600" />
+              </div>
+              <div className="text-left">
+                <span className="text-sm font-black text-emerald-800 block">Fazer upgrade</span>
+                <span className="text-[10px] text-emerald-600 font-medium">Desbloqueie o Nexus completo</span>
+              </div>
+            </div>
+            <Crown size={14} className="text-emerald-400 group-hover:text-emerald-600 transition-colors" />
+          </button>
+        )}
+
+        <button
+          onClick={() => { logout(); onNavigateHome(); }}
+          className="w-full flex items-center justify-between p-4 bg-white border border-slate-200 rounded-2xl shadow-sm hover:border-red-200 hover:bg-red-50 transition-all active:scale-[0.98] group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-slate-100 group-hover:bg-red-100 rounded-xl flex items-center justify-center transition-colors">
+              <LogOut size={18} className="text-slate-500 group-hover:text-red-500 transition-colors" />
+            </div>
+            <span className="text-sm font-bold text-slate-700 group-hover:text-red-600 transition-colors">Sair da conta</span>
+          </div>
         </button>
 
-        {/* Botão Excluir (Requisito Google Play) */}
-        <button onClick={handleDeleteAccount} className="w-full p-4 bg-red-500/10 border border-red-500/20 text-red-400 rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform hover:bg-red-500/20 mt-4">
-          <span>🗑️</span> Excluir minha conta e dados
+        <button
+          onClick={onNavigateHome}
+          className="w-full text-center text-slate-400 hover:text-slate-600 py-3 font-medium text-sm transition-colors"
+        >
+          Voltar
         </button>
-        
-        <button onClick={onNavigateHome} className="w-full text-center text-slate-500 py-4 font-bold text-sm mt-2">Voltar</button>
-      </div>
-      
-      <div className="px-8 text-center">
-        <p className="text-[10px] text-slate-600 leading-tight">
-            Ao excluir sua conta, todos os seus dados financeiros serão removidos permanentemente de nossos servidores. Esta ação é irreversível.
-        </p>
       </div>
     </div>
   );
 };
+
 export default ProfilePage;
