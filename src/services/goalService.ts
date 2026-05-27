@@ -18,6 +18,10 @@ export interface Goal {
   id?: string;
   userId: string;
   nome?: string;
+  title?: string; // Título da meta
+  targetDate?: Timestamp | string | null; // Data alvo
+  targetAmount?: number; // Valor alvo total
+  currentAmount?: number; // Valor atual acumulado
   valor: number; // valor do aporte
   frequencia: Frequencia;
   diasPersonalizado?: number; // se frequencia = personalizado

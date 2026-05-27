@@ -5,7 +5,7 @@ import {
   Plus, 
   PieChart, 
   BarChart3, 
-  Lock,
+  Zap,
   Eye,
   EyeOff,
   ChevronDown,
@@ -16,11 +16,11 @@ import TransactionHistory from './TransactionHistory';
 import FilterBar from './FilterBar';
 import CategoryManager from './CategoryManager';
 import { generateFinancialReport } from '../../../utils/reportGenerator';
-
 const Dashboard: React.FC<any> = (props) => {
   const { 
     transactions = [], 
     categories = [], 
+    isLoading,
     onDeleteTransaction, 
     onOpenForm, 
     onSaveCategory, 
@@ -31,10 +31,21 @@ const Dashboard: React.FC<any> = (props) => {
     isLimitReached, 
     onShowPaywall, 
     isPrivacyMode,
-	onTogglePrivacy,
+    onTogglePrivacy,
     onEditTransaction,
     onNavigate
   } = props;
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-4 p-6 w-full min-h-screen bg-white dark:bg-gray-900">
+        <div className="h-8 rounded-xl w-1/3 bg-gray-200 dark:bg-gray-700 animate-pulse" />
+        <div className="h-28 rounded-2xl w-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
+        <div className="h-28 rounded-2xl w-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
+        <div className="h-48 rounded-2xl w-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
+      </div>
+    );
+  }
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [viewMode, setViewMode] = useState<'day' | 'month' | 'year' | 'all' | 'period'>('month');
@@ -376,14 +387,14 @@ const Dashboard: React.FC<any> = (props) => {
 
   return (
     
-    <div className="max-w-7xl mx-auto px-4 md:px-8 py-6 space-y-8 animate-in fade-in duration-500 pb-32 bg-slate-50/95 rounded-[2.5rem] border border-slate-200 shadow-sm">
+    <div className="max-w-7xl mx-auto px-4 md:px-8 py-6 space-y-8 animate-in fade-in duration-500 pb-32 bg-surface-secondary rounded-5xl border border-surface-elevated shadow-card">
       <CategoryManager isOpen={isCategoryModalOpen} onClose={() => setIsCategoryModalOpen(false)} categories={categories} onSave={onSaveCategory} onDelete={onDeleteCategory} />
 
 	  {/* HEADER DO GERENCIADOR */}
 {showBackToTools && (
   <button
     onClick={() => { onNavigate('home'); setTimeout(() => { document.getElementById('secao-ferramentas')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 100); }}
-    className="hidden md:flex mb-4 items-center gap-2 text-slate-500 hover:text-sky-700 transition-all font-black uppercase text-[10px] tracking-[0.2em]"
+    className="hidden md:flex mb-4 items-center gap-2 text-text-muted hover:text-brand-secondary transition-all font-black uppercase text-xxs tracking-ultra-wide"
   >
     ← Voltar para as Ferramentas
   </button>
@@ -393,13 +404,13 @@ const Dashboard: React.FC<any> = (props) => {
     <img
       src="/controla-icon.png"
       alt="Ícone do Controla"
-      className="w-8 h-8 md:w-9 md:h-9 rounded-xl shadow-sm border border-slate-200 bg-white object-cover"
+      className="w-8 h-8 md:w-9 md:h-9 rounded-xl shadow-soft border border-surface-elevated bg-surface-primary object-cover"
     />
     <div className="flex flex-col">
-      <h2 className="text-lg md:text-2xl font-black text-slate-900 tracking-tight uppercase leading-tight">
+      <h2 className="text-lg md:text-2xl font-black text-text-primary tracking-tight uppercase leading-tight">
         Controla
       </h2>
-      <p className="text-slate-500 text-[10px] md:text-xs font-bold uppercase tracking-widest">
+      <p className="text-text-muted text-xxs md:text-xs font-bold uppercase tracking-ultra-wide">
         {periodLabel}
       </p>
     </div>
@@ -409,91 +420,62 @@ const Dashboard: React.FC<any> = (props) => {
     {/* BOTÃO OLHINHO */}
     <button
       onClick={onTogglePrivacy}
-      className="p-2.5 md:p-3 rounded-2xl bg-white border border-slate-200 text-slate-500 hover:text-slate-900 hover:border-slate-400 transition-all active:scale-95 shadow-sm"
+      className="p-2.5 md:p-3 rounded-3xl bg-surface-primary border border-surface-elevated text-text-muted hover:text-text-primary hover:border-text-muted transition-all active:scale-95 shadow-soft"
     >
       {isPrivacyMode ? <EyeOff size={18} /> : <Eye size={18} />}
     </button>
     <button
       onClick={isLimitReached && !isPremium ? onShowPaywall : onOpenForm}
-      className={`flex items-center gap-2 px-4 md:px-6 py-2.5 md:py-3 rounded-2xl font-black text-[10px] md:text-xs uppercase tracking-widest shadow-sm transition-transform active:scale-95 ${
+      className={`flex items-center gap-2 px-4 md:px-6 py-2.5 md:py-3 rounded-3xl font-black text-xxs md:text-xs uppercase tracking-ultra-wide shadow-soft transition-transform active:scale-95 ${
         isLimitReached && !isPremium
-          ? 'bg-slate-100 text-slate-500 border border-slate-200'
-          : 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-emerald-500/20'
+          ? 'bg-amber-50 text-amber-700 border border-amber-200'
+          : 'bg-brand-primary text-text-onBrand hover:bg-brand-primary/90 shadow-brand-glow'
       }`}
     >
-      {isLimitReached && !isPremium ? <Lock size={16} /> : <Plus size={16} />}
-      <span>{isLimitReached && !isPremium ? 'Limite Atingido' : 'Novo Lançamento'}</span>
+      {isLimitReached && !isPremium ? <Zap size={16} /> : <Plus size={16} />}
+      <span>{isLimitReached && !isPremium ? 'Manter Ritmo' : 'Novo Lançamento'}</span>
     </button>
   </div>
 </div>
-      {/* CARDS DE SALDO PRINCIPAIS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-gradient-to-br from-white to-slate-50 p-8 rounded-[2.5rem] text-slate-900 shadow-xl relative overflow-hidden border border-slate-200 group">
-             <div className="absolute top-0 right-0 p-8 opacity-5 text-slate-900 group-hover:opacity-10 transition-opacity"><Wallet size={80} /></div>
-             <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mb-2">Saldo Disponível</p>
-             <h2 className="text-4xl font-black tracking-tighter text-slate-900">
+      {/* CARDS DE SALDO COMPACTOS */}
+      <div className="bg-surface-primary border border-surface-elevated rounded-4xl p-5 shadow-soft flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="flex flex-col">
+             <p className="text-text-muted text-xxs font-black uppercase tracking-ultra-wide mb-1">Saldo Disponível</p>
+             <h2 className={`text-2xl font-black tracking-tight ${stats.balance >= 0 ? 'text-text-primary' : 'text-status-danger'}`}>
                 {isPrivacyMode ? '••••••' : `R$ ${stats.balance.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`}
              </h2>
-             <div className="mt-6 flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${stats.balance >= 0 ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
-                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">{stats.balance >= 0 ? 'Saúde Financeira Estável' : 'Atenção ao Orçamento'}</span>
-             </div>
           </div>
-
-          <div className="bg-white p-6 rounded-[2rem] border border-slate-200 flex flex-col justify-center shadow-sm">
-              <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1">Total Entradas</p>
-              <p className="text-2xl font-black text-emerald-600 tracking-tight">
-                {isPrivacyMode ? '••••' : `R$ ${stats.income.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`}
-              </p>
-          </div>
-
-          <div className="bg-white p-6 rounded-[2rem] border border-slate-200 flex flex-col justify-center shadow-sm">
-              <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1">Total Saídas</p>
-              <p className="text-2xl font-black text-red-600 tracking-tight">
-                {isPrivacyMode ? '••••' : `R$ ${stats.expenses.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`}
-              </p>
+          <div className="flex items-center gap-6">
+              <div className="flex flex-col">
+                  <p className="text-text-muted text-xxs font-black uppercase tracking-ultra-wide mb-1">Entradas</p>
+                  <p className="text-lg font-black text-brand-primary">
+                    {isPrivacyMode ? '••••' : `R$ ${stats.income.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`}
+                  </p>
+              </div>
+              <div className="flex flex-col">
+                  <p className="text-text-muted text-xxs font-black uppercase tracking-ultra-wide mb-1">Saídas</p>
+                  <p className="text-lg font-black text-red-600">
+                    {isPrivacyMode ? '••••' : `R$ ${stats.expenses.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`}
+                  </p>
+              </div>
           </div>
       </div>
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
       
       {!isFirstAccess && <UsageIndicator userMeta={userMeta} usagePercentage={usagePercentage} isPremium={isPremium} />}
 
       {/* EMPTY STATE — PRIMEIRO ACESSO */}
       {isFirstAccess ? (
-        <div className="py-16 px-6 bg-white border border-dashed border-emerald-200 rounded-[2rem] text-center">
-          <div className="w-16 h-16 bg-emerald-50 rounded-2xl border border-emerald-200 flex items-center justify-center mx-auto mb-5">
-            <Plus size={28} className="text-emerald-600" />
+        <div className="py-16 px-6 bg-surface-primary border border-dashed border-brand-primary/30 rounded-4xl text-center">
+          <div className="w-16 h-16 bg-surface-secondary rounded-3xl border border-surface-elevated flex items-center justify-center mx-auto mb-5">
+            <Plus size={28} className="text-brand-primary" />
           </div>
-          <p className="text-slate-800 font-black text-lg mb-2">Seu painel está em branco</p>
-          <p className="text-slate-500 text-sm max-w-sm mx-auto leading-relaxed mb-6">
+          <p className="text-text-primary font-black text-lg mb-2">Seu painel está em branco</p>
+          <p className="text-text-secondary text-sm max-w-sm mx-auto leading-relaxed mb-6">
             Adicione seu primeiro lançamento — uma entrada ou saída — e o Controla começa a montar sua visão financeira automaticamente.
           </p>
           <button
             onClick={isLimitReached && !isPremium ? onShowPaywall : onOpenForm}
-            className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[11px] uppercase tracking-widest px-6 py-3 rounded-2xl transition-all active:scale-95 shadow-lg shadow-emerald-600/20"
+            className="inline-flex items-center gap-2 bg-brand-primary hover:bg-brand-primary/90 text-text-onBrand font-black text-xxs uppercase tracking-ultra-wide px-6 py-3 rounded-3xl transition-all active:scale-95 shadow-brand-glow"
           >
             <Plus size={14} /> Adicionar primeiro lançamento
           </button>
@@ -501,42 +483,42 @@ const Dashboard: React.FC<any> = (props) => {
       ) : (
       /* ÁREA DE GRÁFICOS */
        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
-            <h3 className="text-slate-900 font-black mb-6 text-xs uppercase tracking-[0.2em] flex items-center gap-3"><PieChart size={16} className="text-emerald-600"/> Composição de Gastos</h3>
+          <div className="bg-surface-primary p-8 rounded-5xl border border-surface-elevated shadow-soft">
+            <h3 className="text-text-primary font-black mb-6 text-xxs uppercase tracking-ultra-wide flex items-center gap-3"><PieChart size={16} className="text-brand-primary"/> Composição de Gastos</h3>
             <div className="flex items-center gap-10">
                 <div className="w-24 h-24 md:w-32 md:h-32 rounded-full flex-shrink-0 shadow-2xl" style={{ background: categoryStats.gradient }}></div>
                 <div className="flex-1 space-y-3">
                     {categoryStats.data.length > 0 ? categoryStats.data.map((cat: any) => (
                         <div key={cat.name} className="flex flex-col">
-                           <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest mb-1">
-                              <span className="text-slate-600">{cat.name}</span>
-                              <span className="text-slate-900">{Math.round(cat.percent)}%</span>
+                           <div className="flex justify-between text-xxs font-bold uppercase tracking-ultra-wide mb-1">
+                              <span className="text-text-secondary">{cat.name}</span>
+                              <span className="text-text-primary">{Math.round(cat.percent)}%</span>
                            </div>
-                           <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                           <div className="w-full bg-surface-elevated h-1.5 rounded-full overflow-hidden">
                               <div className="h-full transition-all duration-1000" style={{ width: `${cat.percent}%`, backgroundColor: cat.color }}></div>
                            </div>
                         </div>
                     )) : (
                       <div className="space-y-1">
-                        <p className="text-slate-600 font-bold text-sm">Nenhuma saída no período</p>
-                        <p className="text-slate-400 text-xs leading-relaxed">O gráfico aparece quando houver lançamentos de saída registrados.</p>
+                        <p className="text-text-secondary font-bold text-sm">Nenhuma saída no período</p>
+                        <p className="text-text-muted text-xxs leading-relaxed">O gráfico aparece quando houver lançamentos de saída registrados.</p>
                       </div>
                     )}
                 </div>
             </div>
           </div>
-           <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
-            <h3 className="text-slate-900 font-black mb-6 text-xs uppercase tracking-[0.2em] flex items-center gap-3"><BarChart3 size={16} className="text-sky-600"/> Visão de Fluxo</h3>
+           <div className="bg-surface-primary p-8 rounded-5xl border border-surface-elevated shadow-soft">
+            <h3 className="text-text-primary font-black mb-6 text-xxs uppercase tracking-ultra-wide flex items-center gap-3"><BarChart3 size={16} className="text-brand-secondary"/> Visão de Fluxo</h3>
             <div className="flex items-end justify-around h-32 gap-4">
                 {[
-                    {label: 'Entradas', c:'bg-emerald-500', h:(stats.income/Math.max(stats.income,stats.expenses,1))*100},
-                    {label: 'Saídas', c:'bg-red-500', h:(stats.expenses/Math.max(stats.income,stats.expenses,1))*100}
+                    {label: 'Entradas', c:'bg-brand-primary', h:(stats.income/Math.max(stats.income,stats.expenses,1))*100},
+                    {label: 'Saídas', c:'bg-status-danger', h:(stats.expenses/Math.max(stats.income,stats.expenses,1))*100}
                 ].map((b,i)=>(
                     <div key={i} className="flex-1 flex flex-col items-center gap-3 h-full">
-                        <div className="w-full bg-slate-100 rounded-2xl h-full flex items-end overflow-hidden border border-slate-200">
+                        <div className="w-full bg-surface-elevated rounded-2xl h-full flex items-end overflow-hidden border border-surface-elevated">
                             <div className={`w-full ${b.c} transition-all duration-1000 shadow-none`} style={{height:`${b.h}%`}}></div>
                         </div>
-                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{b.label}</span>
+                        <span className="text-xxs font-black text-text-muted uppercase tracking-ultra-wide">{b.label}</span>
                     </div>
                 ))}
             </div>
@@ -574,17 +556,17 @@ const Dashboard: React.FC<any> = (props) => {
               <button
                 type="button"
                 onClick={() => setShowTransactions((prev) => !prev)}
-                className={`flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] border transition-all active:scale-95 w-full sm:w-auto ${
+                className={`flex items-center justify-center gap-2 px-5 py-3 rounded-3xl text-xxs font-black uppercase tracking-ultra-wide border transition-all active:scale-95 w-full sm:w-auto ${
                   showTransactions
-                    ? 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
-                    : 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
+                    ? 'bg-surface-elevated border-surface-elevated text-text-secondary hover:bg-surface-secondary'
+                    : 'bg-status-success/10 border-brand-primary/30 text-brand-primary hover:bg-status-success/20'
                 }`}
               >
                 {showTransactions ? 'Recolher lançamentos' : 'Mostrar lançamentos'}
                 {showTransactions ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </button>
 
-              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center sm:text-right">
+              <div className="text-xxs font-bold text-text-muted uppercase tracking-ultra-wide text-center sm:text-right">
                 {filtered.length} lançamento{filtered.length !== 1 ? 's' : ''}{showTransactions ? '' : ' oculto(s)'}
               </div>
             </div>
@@ -601,35 +583,35 @@ const Dashboard: React.FC<any> = (props) => {
                   <button
                     type="button"
                     onClick={() => setShowTransactions(false)}
-                    className="flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] border transition-all active:scale-95 w-full sm:w-auto bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200"
+                    className="flex items-center justify-center gap-2 px-5 py-3 rounded-3xl text-xxs font-black uppercase tracking-ultra-wide border transition-all active:scale-95 w-full sm:w-auto bg-surface-elevated border-surface-elevated text-text-secondary hover:bg-surface-secondary"
                   >
                     Recolher lançamentos <ChevronUp size={16} />
                   </button>
                 )}
               </>
             ) : (
-              <div className="bg-white border border-slate-200 rounded-[2rem] px-6 py-8 shadow-sm">
-                <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">
+              <div className="bg-surface-primary border border-surface-elevated rounded-4xl px-6 py-8 shadow-soft">
+                <p className="text-text-muted text-xxs font-bold uppercase tracking-ultra-wide">
                   Lançamentos ocultos
                 </p>
-                <p className="text-[11px] text-slate-600 mt-2">
+                <p className="text-xxs text-text-secondary mt-2">
                   Use o botão acima para mostrar novamente.
                 </p>
               </div>
             )}
           </div>
           {categorySummary.length > 0 && (
-            <div className="bg-white border border-slate-200 rounded-[2rem] p-5 shadow-sm">
+            <div className="bg-surface-primary border border-surface-elevated rounded-4xl p-5 shadow-soft">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                  <h3 className="text-slate-900 font-black text-xs uppercase tracking-[0.2em]">Resumo por Categoria</h3>
-                  <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-1">
+                  <h3 className="text-text-primary font-black text-xxs uppercase tracking-ultra-wide">Resumo por Categoria</h3>
+                  <p className="text-text-muted text-xxs font-bold uppercase tracking-ultra-wide mt-1">
                     Visão consolidada dos lançamentos filtrados
                   </p>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <div className="text-[10px] text-slate-500">
+                  <div className="text-xxs text-text-muted">
                     {categorySummary.length} categoria{categorySummary.length !== 1 ? 's' : ''}
                   </div>
                   <button
@@ -641,10 +623,10 @@ const Dashboard: React.FC<any> = (props) => {
                         return next;
                       });
                     }}
-                    className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase border transition-all ${
+                    className={`px-4 py-2.5 rounded-2xl text-xxs font-black uppercase border transition-all ${
                       showCategorySummary
-                        ? 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
-                        : 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
+                        ? 'bg-surface-elevated border-surface-elevated text-text-secondary hover:bg-surface-secondary'
+                        : 'bg-status-success/10 border-brand-primary/30 text-brand-primary hover:bg-status-success/20'
                     }`}
                   >
                     {showCategorySummary ? 'Ocultar Resumo por Categoria' : 'Mostrar Resumo por Categoria'}
@@ -662,42 +644,42 @@ const Dashboard: React.FC<any> = (props) => {
                     return (
                       <div
                         key={cat.name}
-                        className="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden"
+                        className="bg-surface-secondary border border-surface-elevated rounded-3xl overflow-hidden"
                       >
                         <button
                           type="button"
                           onClick={() => setOpenCategory(prev => (prev === cat.name ? null : cat.name))}
-                          className="w-full p-4 text-left hover:bg-slate-100 transition-colors"
+                          className="w-full p-4 text-left hover:bg-surface-elevated transition-colors"
                         >
                           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                             <div>
-                              <p className="text-sm font-black text-slate-900">{cat.name}</p>
-                              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mt-1">
+                              <p className="text-sm font-black text-text-primary">{cat.name}</p>
+                              <p className="text-xxs font-bold uppercase tracking-ultra-wide text-text-muted mt-1">
                                 {cat.count} lançamento{cat.count !== 1 ? 's' : ''}
                               </p>
-                              <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 mt-2">
+                              <p className="text-xxs font-bold uppercase tracking-ultra-wide text-brand-primary mt-2">
                                 {isOpen ? 'Toque para ocultar lançamentos' : 'Toque para visualizar lançamentos'}
                               </p>
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
                               <div className="text-left sm:text-center">
-                                <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Entradas</p>
-                                <p className="text-sm font-black text-emerald-600">
+                                <p className="text-xxs font-black text-text-muted uppercase mb-1">Entradas</p>
+                                <p className="text-sm font-black text-brand-primary">
                                   {isPrivacyMode ? '••••' : `R$ ${cat.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                                 </p>
                               </div>
 
                               <div className="text-left sm:text-center">
-                                <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Saídas</p>
-                                <p className="text-sm font-black text-red-600">
+                                <p className="text-xxs font-black text-text-muted uppercase mb-1">Saídas</p>
+                                <p className="text-sm font-black text-status-danger">
                                   {isPrivacyMode ? '••••' : `R$ ${cat.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                                 </p>
                               </div>
 
-                              <div className="text-left sm:text-center sm:border-l sm:border-slate-200 sm:pl-6">
-                                <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Saldo</p>
-                                <p className={`text-sm font-black ${cat.total >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                              <div className="text-left sm:text-center sm:border-l sm:border-surface-elevated sm:pl-6">
+                                <p className="text-xxs font-black text-text-muted uppercase mb-1">Saldo</p>
+                                <p className={`text-sm font-black ${cat.total >= 0 ? 'text-brand-primary' : 'text-status-danger'}`}>
                                   {isPrivacyMode ? '••••' : `R$ ${cat.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                                 </p>
                               </div>
@@ -706,26 +688,26 @@ const Dashboard: React.FC<any> = (props) => {
                         </button>
 
                         {isOpen && (
-                          <div className="border-t border-slate-200 bg-white px-4 py-3">
+                          <div className="border-t border-surface-elevated bg-surface-primary px-4 py-3">
                             {catTransactions.length === 0 ? (
-                              <p className="text-xs text-slate-500 italic">Nenhum lançamento encontrado nesta categoria.</p>
+                              <p className="text-xxs text-text-muted italic">Nenhum lançamento encontrado nesta categoria.</p>
                             ) : (
                               <div className="space-y-3">
                                 {catTransactions.map((t: any) => (
                                   <div
                                     key={t.id}
-                                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
+                                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl border border-surface-elevated bg-surface-secondary px-3 py-3"
                                   >
                                     <div className="min-w-0">
-                                      <p className="text-sm font-black text-slate-900 break-words">
+                                      <p className="text-sm font-black text-text-primary break-words">
                                         {t.description}
                                       </p>
                                       <div className="flex flex-wrap items-center gap-2 mt-1">
-                                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                                        <span className="text-xxs font-bold uppercase tracking-ultra-wide text-text-muted">
                                           {new Date(t.date.replace(/-/g, '/')).toLocaleDateString('pt-BR')}
                                         </span>
-                                        <span className={`text-[10px] font-black uppercase tracking-widest ${
-                                          t.type === 'income' ? 'text-emerald-600' : 'text-red-600'
+                                        <span className={`text-xxs font-black uppercase tracking-ultra-wide ${
+                                          t.type === 'income' ? 'text-brand-primary' : 'text-status-danger'
                                         }`}>
                                           {t.type === 'income' ? 'Entrada' : 'Saída'}
                                         </span>
@@ -734,7 +716,7 @@ const Dashboard: React.FC<any> = (props) => {
 
                                     <div className="text-left sm:text-right">
                                       <p className={`text-sm font-black ${
-                                        t.type === 'income' ? 'text-emerald-600' : 'text-red-600'
+                                        t.type === 'income' ? 'text-brand-primary' : 'text-status-danger'
                                       }`}>
                                         {isPrivacyMode
                                           ? '••••'
@@ -759,7 +741,7 @@ const Dashboard: React.FC<any> = (props) => {
                     setShowCategorySummary(false);
                     setOpenCategory(null);
                   }}
-                  className="mt-2 flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] border transition-all active:scale-95 w-full sm:w-auto bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200"
+                  className="mt-2 flex items-center justify-center gap-2 px-5 py-3 rounded-3xl text-xxs font-black uppercase tracking-ultra-wide border transition-all active:scale-95 w-full sm:w-auto bg-surface-elevated border-surface-elevated text-text-secondary hover:bg-surface-secondary"
                 >
                   Ocultar Resumo por Categoria <ChevronUp size={16} />
                 </button>
@@ -769,21 +751,21 @@ const Dashboard: React.FC<any> = (props) => {
           )}
           {/* ANÁLISE DE MÉDIAS */}
           {(averagesData.length > 0 || averagesWindow === 'custom') && (
-            <div className="bg-white border border-slate-200 rounded-[2rem] p-5 shadow-sm">
+            <div className="bg-surface-primary border border-surface-elevated rounded-4xl p-5 shadow-soft">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                  <h3 className="text-slate-900 font-black text-xs uppercase tracking-[0.2em]">Análise de Médias</h3>
-                  <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-1">
+                  <h3 className="text-text-primary font-black text-xxs uppercase tracking-ultra-wide">Análise de Médias</h3>
+                  <p className="text-text-muted text-xxs font-bold uppercase tracking-ultra-wide mt-1">
                     Média mensal por categoria · apenas despesas
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowAverages(prev => !prev)}
-                  className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase border transition-all ${
+                  className={`px-4 py-2.5 rounded-2xl text-xxs font-black uppercase border transition-all ${
                     showAverages
-                      ? 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
-                      : 'bg-sky-50 border-sky-300 text-sky-700 hover:bg-sky-100'
+                      ? 'bg-surface-elevated border-surface-elevated text-text-secondary hover:bg-surface-secondary'
+                      : 'bg-status-info/10 border-brand-secondary/30 text-brand-secondary hover:bg-status-info/20'
                   }`}
                 >
                   {showAverages ? 'Ocultar Análise' : 'Mostrar Análise de Médias'}
@@ -792,9 +774,9 @@ const Dashboard: React.FC<any> = (props) => {
 
               {showAverages && (
                 <>
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mt-4 pb-4 border-b border-slate-100">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mt-4 pb-4 border-b border-surface-elevated">
                     <div className="flex flex-wrap gap-2">
-                    <div className="flex bg-slate-50 rounded-xl p-1 border border-slate-200 gap-1 flex-wrap">
+                    <div className="flex bg-surface-secondary rounded-2xl p-1 border border-surface-elevated gap-1 flex-wrap">
                       {([
                         { key: 'year' as const, label: 'Ano atual' },
                         { key: 'last3' as const, label: 'Últ. 3m' },
@@ -810,10 +792,10 @@ const Dashboard: React.FC<any> = (props) => {
                             if (opt.key === 'custom') setShowCustomPeriodPicker(true);
                             else setShowCustomPeriodPicker(false);
                           }}
-                          className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
+                          className={`px-3 py-1.5 rounded-xl text-xxs font-black uppercase transition-all ${
                             averagesWindow === opt.key
-                              ? 'bg-sky-600 text-white shadow-sm'
-                              : 'text-slate-600 hover:text-slate-900'
+                              ? 'bg-brand-secondary text-text-onBrand shadow-soft'
+                              : 'text-text-secondary hover:text-text-primary'
                           }`}
                         >
                           {opt.label}
@@ -825,15 +807,15 @@ const Dashboard: React.FC<any> = (props) => {
                     {averagesWindow === 'custom' && (
                       <div className="flex flex-wrap items-center gap-3 mt-1 w-full">
                         {/* Seletor DE */}
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest shrink-0">De</span>
-                        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                        <span className="text-xxs font-black text-text-muted uppercase tracking-ultra-wide shrink-0">De</span>
+                        <div className="flex items-center gap-2 bg-surface-secondary border border-surface-elevated rounded-2xl px-3 py-2">
                           <select
                             value={customPeriodStart ? customPeriodStart.split('-')[1] : ''}
                             onChange={e => {
                               const year = customPeriodStart ? customPeriodStart.split('-')[0] : new Date().getFullYear().toString();
                               if (e.target.value) setCustomPeriodStart(`${year}-${e.target.value}`);
                             }}
-                            className="text-[11px] font-black text-slate-800 bg-transparent outline-none border-none cursor-pointer"
+                            className="text-xxs font-black text-text-primary bg-transparent outline-none border-none cursor-pointer"
                           >
                             <option value="">Mês</option>
                             {['01','02','03','04','05','06','07','08','09','10','11','12'].map((m, i) => (
@@ -848,7 +830,7 @@ const Dashboard: React.FC<any> = (props) => {
                               const month = customPeriodStart ? customPeriodStart.split('-')[1] : '01';
                               if (e.target.value) setCustomPeriodStart(`${e.target.value}-${month}`);
                             }}
-                            className="text-[11px] font-black text-slate-800 bg-transparent outline-none border-none cursor-pointer"
+                            className="text-xxs font-black text-text-primary bg-transparent outline-none border-none cursor-pointer"
                           >
                             <option value="">Ano</option>
                             {Array.from({ length: 36 }, (_, i) => 2015 + i).map(y => (
@@ -857,17 +839,17 @@ const Dashboard: React.FC<any> = (props) => {
                           </select>
                         </div>
 
-                        <span className="text-[10px] font-black text-slate-400 uppercase">até</span>
+                        <span className="text-xxs font-black text-text-muted uppercase">até</span>
 
                         {/* Seletor ATÉ */}
-                        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                        <div className="flex items-center gap-2 bg-surface-secondary border border-surface-elevated rounded-2xl px-3 py-2">
                           <select
                             value={customPeriodEnd ? customPeriodEnd.split('-')[1] : ''}
                             onChange={e => {
                               const year = customPeriodEnd ? customPeriodEnd.split('-')[0] : new Date().getFullYear().toString();
                               if (e.target.value) setCustomPeriodEnd(`${year}-${e.target.value}`);
                             }}
-                            className="text-[11px] font-black text-slate-800 bg-transparent outline-none border-none cursor-pointer"
+                            className="text-xxs font-black text-text-primary bg-transparent outline-none border-none cursor-pointer"
                           >
                             <option value="">Mês</option>
                             {['01','02','03','04','05','06','07','08','09','10','11','12'].map((m, i) => (
@@ -882,7 +864,7 @@ const Dashboard: React.FC<any> = (props) => {
                               const month = customPeriodEnd ? customPeriodEnd.split('-')[1] : '01';
                               if (e.target.value) setCustomPeriodEnd(`${e.target.value}-${month}`);
                             }}
-                            className="text-[11px] font-black text-slate-800 bg-transparent outline-none border-none cursor-pointer"
+                            className="text-xxs font-black text-text-primary bg-transparent outline-none border-none cursor-pointer"
                           >
                             <option value="">Ano</option>
                             {Array.from({ length: 36 }, (_, i) => 2015 + i).map(y => (
@@ -892,7 +874,7 @@ const Dashboard: React.FC<any> = (props) => {
                         </div>
 
                         {customPeriodStart && customPeriodEnd && customPeriodStart <= customPeriodEnd && (
-                          <span className="text-[10px] font-black text-sky-600 uppercase tracking-widest">
+                          <span className="text-xxs font-black text-brand-secondary uppercase tracking-ultra-wide">
                             {(() => {
                               const [sy, sm] = customPeriodStart.split('-').map(Number);
                               const [ey, em] = customPeriodEnd.split('-').map(Number);
@@ -903,13 +885,13 @@ const Dashboard: React.FC<any> = (props) => {
                         )}
 
                         {customPeriodStart && customPeriodEnd && customPeriodStart > customPeriodEnd && (
-                          <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">
+                          <span className="text-xxs font-black text-status-danger uppercase tracking-ultra-wide">
                             ⚠ Data final anterior à inicial
                           </span>
                         )}
                       </div>
                     )}
-                    <div className="flex bg-slate-50 rounded-xl p-1 border border-slate-200 gap-1">
+                    <div className="flex bg-surface-secondary rounded-2xl p-1 border border-surface-elevated gap-1">
                       {([
                         { key: 'real' as const, label: 'Média real' },
                         { key: 'occurrence' as const, label: 'Média de ocorrência' },
@@ -918,10 +900,10 @@ const Dashboard: React.FC<any> = (props) => {
                           key={opt.key}
                           type="button"
                           onClick={() => setAverageMode(opt.key)}
-                          className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
+                          className={`px-3 py-1.5 rounded-xl text-xxs font-black uppercase transition-all ${
                             averageMode === opt.key
-                              ? 'bg-sky-600 text-white shadow-sm'
-                              : 'text-slate-600 hover:text-slate-900'
+                              ? 'bg-brand-secondary text-text-onBrand shadow-soft'
+                              : 'text-text-secondary hover:text-text-primary'
                           }`}
                         >
                           {opt.label}
@@ -934,23 +916,23 @@ const Dashboard: React.FC<any> = (props) => {
                       <div
                         onClick={() => setIncludeCurrentMonth(p => !p)}
                         className={`w-9 h-5 rounded-full transition-colors relative ${
-                          includeCurrentMonth ? 'bg-sky-500' : 'bg-slate-300'
+                          includeCurrentMonth ? 'bg-brand-secondary' : 'bg-surface-elevated'
                         }`}
                       >
-                        <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                        <div className={`absolute top-0.5 w-4 h-4 bg-surface-primary rounded-full shadow-soft transition-transform ${
                           includeCurrentMonth ? 'translate-x-4' : 'translate-x-0.5'
                         }`} />
                       </div>
-                      <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">
+                      <span className="text-xxs font-black text-text-muted uppercase tracking-ultra-wide">
                         Incluir mês atual na média
                       </span>
                     </label>
                   </div>
 
                   {averagesData.length === 0 && averagesWindow === 'custom' && customPeriodStart && customPeriodEnd && (
-                    <div className="mt-4 py-8 px-4 text-center bg-slate-50 border border-slate-200 rounded-2xl">
-                      <p className="text-slate-500 text-xs font-black uppercase tracking-widest">Nenhuma despesa no período selecionado</p>
-                      <p className="text-[11px] text-slate-400 mt-1">Tente um intervalo diferente ou verifique os lançamentos cadastrados.</p>
+                    <div className="mt-4 py-8 px-4 text-center bg-surface-secondary border border-surface-elevated rounded-3xl">
+                      <p className="text-text-muted text-xxs font-black uppercase tracking-ultra-wide">Nenhuma despesa no período selecionado</p>
+                      <p className="text-xxs text-text-muted mt-1">Tente um intervalo diferente ou verifique os lançamentos cadastrados.</p>
                     </div>
                   )}
 
@@ -961,21 +943,21 @@ const Dashboard: React.FC<any> = (props) => {
                       return (
                         <div key={category}>
                           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-3">
-                            <p className="text-sm font-black text-slate-900">{category}</p>
+                            <p className="text-sm font-black text-text-primary">{category}</p>
                             <div className="flex flex-wrap gap-4 sm:text-right">
                               <div>
-                                <p className="text-[9px] font-black text-slate-400 uppercase">Total no período</p>
-                                <p className="text-sm font-black text-slate-700">
+                                <p className="text-xxs font-black text-text-muted uppercase">Total no período</p>
+                                <p className="text-sm font-black text-text-secondary">
                                   {isPrivacyMode ? '••••' : `R$ ${totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                                 </p>
                               </div>
                               <div>
-                                <p className="text-[9px] font-black text-slate-400 uppercase">
+                                <p className="text-xxs font-black text-text-muted uppercase">
                                   {averageMode === 'real'
                                     ? `Média real · ${totalMonthsInWindow} ${totalMonthsInWindow === 1 ? 'mês' : 'meses'}`
                                     : `Média de ocorrência · ${monthsWithValue} ${monthsWithValue === 1 ? 'mês' : 'meses'}`}
                                 </p>
-                                <p className="text-sm font-black text-sky-700">
+                                <p className="text-sm font-black text-brand-secondary">
                                   {isPrivacyMode ? '••••' : `R$ ${activeAverage.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                                 </p>
                               </div>
@@ -995,38 +977,38 @@ const Dashboard: React.FC<any> = (props) => {
                               const isBelow = m.deviation !== null && m.deviation < 0;
                               return (
                                 <div key={`${m.year}-${m.month}`} className="flex items-center gap-3">
-                                  <span className="text-[10px] font-black text-slate-500 uppercase w-12 shrink-0 text-right">
+                                  <span className="text-xxs font-black text-text-muted uppercase w-12 shrink-0 text-right">
                                     {m.label}
                                   </span>
-                                  <div className="flex-1 relative h-6 bg-slate-100 rounded-lg overflow-visible">
+                                  <div className="flex-1 relative h-6 bg-surface-elevated rounded-lg overflow-visible">
                                     <div
                                       className={`absolute left-0 top-0 h-full rounded-lg transition-all duration-700 ${
-                                        m.isCurrentMonth ? 'bg-slate-300' : isAbove ? 'bg-red-400' : isBelow ? 'bg-emerald-400' : 'bg-sky-400'
+                                        m.isCurrentMonth ? 'bg-surface-secondary' : isAbove ? 'bg-status-danger/60' : isBelow ? 'bg-status-success/60' : 'bg-brand-secondary/60'
                                       }`}
                                       style={{ width: `${barWidth}%` }}
                                     />
                                     {m.isCurrentMonth && m.projection && (
                                       <div
-                                        className="absolute left-0 top-0 h-full rounded-lg border-2 border-dashed border-slate-400 bg-transparent transition-all duration-700"
+                                        className="absolute left-0 top-0 h-full rounded-lg border-2 border-dashed border-text-muted bg-transparent transition-all duration-700"
                                         style={{ width: `${projWidth}%` }}
                                       />
                                     )}
                                     <div
-                                      className="absolute top-0 h-full w-0.5 bg-sky-600 opacity-60"
+                                      className="absolute top-0 h-full w-0.5 bg-brand-secondary opacity-60"
                                       style={{ left: `${Math.min(avgWidth, 99)}%` }}
                                     />
                                   </div>
                                   <div className="w-40 shrink-0 flex items-center gap-2">
-                                    <span className="text-[10px] font-black text-slate-700">
+                                    <span className="text-xxs font-black text-text-secondary">
                                       {isPrivacyMode ? '••••' : `R$ ${m.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                                     </span>
                                     {m.isCurrentMonth && m.projection && !isPrivacyMode && (
-                                      <span className="text-[9px] text-slate-400 font-bold">
+                                      <span className="text-xxs text-text-muted font-bold">
                                         {`→ R$ ${m.projection.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                                       </span>
                                     )}
                                     {m.deviation !== null && (
-                                      <span className={`text-[9px] font-black ${isAbove ? 'text-red-500' : 'text-emerald-600'}`}>
+                                      <span className={`text-xxs font-black ${isAbove ? 'text-status-danger' : 'text-brand-primary'}`}>
                                         {isAbove ? '▲' : '▼'} {Math.abs(Math.round(m.deviation))}%
                                       </span>
                                     )}
@@ -1043,7 +1025,7 @@ const Dashboard: React.FC<any> = (props) => {
                   <button
                     type="button"
                     onClick={() => setShowAverages(false)}
-                    className="mt-6 flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] border transition-all active:scale-95 w-full sm:w-auto bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200"
+                    className="mt-6 flex items-center justify-center gap-2 px-5 py-3 rounded-3xl text-xxs font-black uppercase tracking-ultra-wide border transition-all active:scale-95 w-full sm:w-auto bg-surface-elevated border-surface-elevated text-text-secondary hover:bg-surface-secondary"
                   >
                     Ocultar Análise <ChevronUp size={16} />
                   </button>
@@ -1054,11 +1036,11 @@ const Dashboard: React.FC<any> = (props) => {
 
           {/* SOMATÓRIO DOS LANÇAMENTOS FILTRADOS */}
           {filtered.length > 0 && (
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 mt-4 shadow-sm">
+            <div className="bg-surface-primary border border-surface-elevated rounded-3xl p-5 mt-4 shadow-soft">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Resultado dos filtros</span>
-                  <span className="text-[10px] text-slate-600">({filtered.length} lançamento{filtered.length !== 1 ? 's' : ''})</span>
+                  <span className="text-xxs font-black text-text-muted uppercase tracking-ultra-wide">Resultado dos filtros</span>
+                  <span className="text-xxs text-text-secondary">({filtered.length} lançamento{filtered.length !== 1 ? 's' : ''})</span>
                 </div>
                 <div className="flex items-center gap-6">
                   {(() => {
@@ -1074,23 +1056,23 @@ const Dashboard: React.FC<any> = (props) => {
                       <> 
                         {totalIncome > 0 && (
                           <div className="text-center">
-                            <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Entradas</p>
-                            <p className="text-sm font-black text-emerald-600">  
+                            <p className="text-xxs font-black text-text-muted uppercase mb-1">Entradas</p>
+                            <p className="text-sm font-black text-brand-primary">  
                               {isPrivacyMode ? '••••' : `R$ ${totalIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                             </p>
                           </div>
                         )}
                         {totalExpense > 0 && (
                           <div className="text-center">
-                            <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Saídas</p>
-                            <p className="text-sm font-black text-red-600">  
+                            <p className="text-xxs font-black text-text-muted uppercase mb-1">Saídas</p>
+                            <p className="text-sm font-black text-status-danger">  
                               {isPrivacyMode ? '••••' : `R$ ${totalExpense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                             </p>
                           </div>
                         )}
-                        <div className="text-center border-l border-slate-200 pl-6">
-                          <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Total</p>
-                          <p className={`text-lg font-black ${net >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        <div className="text-center border-l border-surface-elevated pl-6">
+                          <p className="text-xxs font-black text-text-muted uppercase mb-1">Total</p>
+                          <p className={`text-lg font-black ${net >= 0 ? 'text-brand-primary' : 'text-status-danger'}`}>
                             {isPrivacyMode ? '••••' : `R$ ${net.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                           </p>
                         </div>

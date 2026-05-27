@@ -1,8 +1,6 @@
-﻿import { DebtPlanSimulator } from "./DebtPlanSimulator";
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ToolLayout, Input } from './ToolComponents';
-import { Lock, ArrowRight, CalendarClock, Receipt, TrendingDown, Info, CheckCircle2, AlertTriangle, Sparkles, } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Lock, ArrowRight, CalendarClock, Receipt, TrendingDown, Info, CheckCircle2, AlertTriangle, } from 'lucide-react';
 
 type DebtSystem = 'sac' | 'price' | 'rotativo';
 
@@ -355,7 +353,6 @@ export const DebtOptimizerTool = ({ onNavigate, isAuthenticated }: any) => {
   const [hasCalculated, setHasCalculated] = useState(false);
   const [hasRestoredSimulation, setHasRestoredSimulation] = useState(false);
   const skipFirstAutoResetRef = useRef(true);
-  const navigate = useNavigate();
   const hasDebtAmount =
     debtAmount !== '' &&
     Number(debtAmount) > 0;
@@ -516,9 +513,9 @@ export const DebtOptimizerTool = ({ onNavigate, isAuthenticated }: any) => {
 
       case 'guided':
         return {
-          title: 'Você tem pouca informação e quer uma estimativa guiada',
+          title: 'Você vai escolher pelo comportamento da dívida, não pelo nome técnico',
           description:
-            'Se você não souber a taxa, o sistema de amortização ou os detalhes do contrato, escolha esta opção. A ferramenta vai te conduzir de forma mais simples.',
+            'Primeiro identifique se a parcela cai, fica parecida ao longo do tempo ou se nem existe um cronograma fixo. Depois informe os dados básicos para receber uma leitura inicial mais coerente.',
         };
 
       default:
@@ -710,102 +707,6 @@ export const DebtOptimizerTool = ({ onNavigate, isAuthenticated }: any) => {
         insight: 'Os resultados só serão exibidos depois da sua confirmação.',
         risk: '',
       };
-
-  // Dados para o Nexus (plano de quitação)
-  const hasValidResult = hasCalculated && canCalculate;
-
-  const dividasParaNexus = hasValidResult
-    ? [
-        {
-          id: "divida_unica",
-          nome:  
-            system === "rotativo"
-              ? "Dívida rotativa atual"
-              : system === "sac"
-              ? "Financiamento (SAC)"
-              : "Financiamento (Price)",
-          saldoAtual: Number(debtAmount || 0),
-          taxaJurosMes: hasRateValue
-            ? Number(monthlyRate || 0)
-            : Number(effectiveStructuredRate || 0),
-          parcelaMensal:
-            system === "rotativo"
-              ? Number(currentPayment || 0)
-              : activeSac?.valid || activePrice?.valid
-              ? (system === "sac" ? activeSac?.rows?.[0]?.payment : activePrice?.rows?.[0]?.payment) || 0
-              : undefined,
-          observacoes:
-            extra > 0
-              ? "Usuário informou que consegue pagar um valor extra mensal para acelerar a quitação."
-              : undefined,
-        },
-      ]
-    : [];
-
-  const simulacaoParaNexus = hasValidResult
-    ? {
-        rendaMensalEstimada: null,
-        totalDividas: Number(debtAmount || 0),
-        custoTotalJurosAtual:
-          system === "rotativo"
-            ? activeRotative?.totalInterest || 0
-            : system === "sac"
-            ? activeSac?.totalInterest || 0
-            : activePrice?.totalInterest || 0,
-        prazoEstimadoQuitacaoAtual:
-          system === "rotativo"
-            ? activeRotative?.months || null
-            : system === "sac"
-            ? activeSac?.rows?.length || null
-            : activePrice?.rows?.length || null,
-        prazoEstimadoQuitacaoOtimizado:
-          extra > 0
-            ? system === "rotativo"
-              ? rotativeOptimized?.months || null
-              : system === "sac"
-              ? sacOptimized?.rows?.length || null
-              : priceOptimized?.rows?.length || null
-            : null,
-        economiaEstimadaJuros:
-          extra > 0
-            ? (() => {
-                const baseInterest =
-                  system === "rotativo"
-                    ? activeRotative?.totalInterest
-                    : system === "sac"
-                    ? sacBase?.totalInterest
-                    : priceBase?.totalInterest;
-                const optimizedInterest =
-                  system === "rotativo"
-                    ? rotativeOptimized?.totalInterest
-                    : system === "sac"
-                    ? sacOptimized?.totalInterest
-                    : priceOptimized?.totalInterest;
-                if (
-                  baseInterest == null ||
-                  optimizedInterest == null
-                ) {
-                  return null;
-                }
-                return Math.max(baseInterest - optimizedInterest, 0);
-              })()
-            : null,
-      }
-    : {
-        rendaMensalEstimada: null,
-        totalDividas: 0,
-        custoTotalJurosAtual: null,
-        prazoEstimadoQuitacaoAtual: null,
-        prazoEstimadoQuitacaoOtimizado: null,
-        economiaEstimadaJuros: null,
-      };
-
-  console.log("NEXUS DEBUG", {
-    hasValidResult,
-    dividasParaNexus,
-    simulacaoParaNexus,
-  });
-
   const comparison = useMemo(() => {
     if (!activeSac?.valid || !activePrice?.valid) return null;
 
@@ -830,20 +731,6 @@ export const DebtOptimizerTool = ({ onNavigate, isAuthenticated }: any) => {
     if (system === 'price') return !!activePrice?.valid;
     return !!activeRotative?.valid;
   }, [hasCalculated, canCalculate, system, activeSac, activePrice, activeRotative]);
-
-
-
-  console.log("NEXUS DEBUG 2", {
-    hasCalculated,
-    canCalculate,
-    system,
-    canShowDetailed,
-    activeSacValid: activeSac?.valid,
-    activePriceValid: activePrice?.valid,
-    activeRotativeValid: activeRotative?.valid,
-    debtAmount,
-    extra,
-  });
 
   const isDetailedLocked = !isAuthenticated && canShowDetailed;
 
@@ -947,12 +834,21 @@ export const DebtOptimizerTool = ({ onNavigate, isAuthenticated }: any) => {
       title="Otimizador de Dívidas"
       icon="💳"
       onBack={onNavigate}
-      description="Compare SAC, Price e dívida rotativa, descubra o modelo que mais parece com o seu contrato e simule sua quitação."
+      description="Compare SAC, Price e dívida rotativa para entender cenários de prazo, juros e amortização sem precisar cadastrar dados."
     >
 
       <div className="space-y-10">
         <div className="bg-white border border-slate-200 rounded-[2rem] p-6 shadow-sm">
           <SectionTitle>Quais dados você tem hoje?</SectionTitle>
+
+          <div className="mb-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-slate-900 font-black text-sm mb-2">
+              Esta área é uma ferramenta de simulação
+            </p>
+            <p className="text-slate-600 text-sm leading-relaxed">
+              Use esta calculadora para entender melhor o comportamento da dívida. Para registrar suas dívidas de verdade e acompanhar sua evolução no app, a área principal continua sendo <span className="font-black">Minhas Dívidas</span>.
+            </p>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             <InputModeButton
@@ -989,13 +885,17 @@ export const DebtOptimizerTool = ({ onNavigate, isAuthenticated }: any) => {
               {inputModeContent.description}
             </p>
             <p className="text-slate-500 text-xs mt-3 leading-relaxed">
-              Você não precisa ter todos os dados. Escolha a opção mais parecida com o que aparece no seu contrato, no app do banco ou na sua fatura.
-            </p>
+                Você não precisa ter todos os dados. Escolha a opção mais parecida com o que aparece no seu contrato, no app do banco ou na sua fatura para obter uma leitura educacional do cenário.
+              </p>
           </div>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-[2rem] p-6 shadow-sm">
-          <SectionTitle>Qual tipo de dívida se parece com a sua?</SectionTitle>
+          <SectionTitle>
+            {inputMode === 'guided'
+              ? 'Qual destes cenários mais parece com a sua dívida?'
+              : 'Qual tipo de dívida se parece com a sua?'}
+          </SectionTitle>
 
           {shouldShowSystemSelector ? (
             <>
@@ -1003,47 +903,82 @@ export const DebtOptimizerTool = ({ onNavigate, isAuthenticated }: any) => {
                 <SystemButton
                   active={system === 'sac'}
                   onClick={() => setSystem('sac')}
-                  title="SAC"
-                  subtitle="Use quando a parcela começa mais alta e vai caindo com o tempo. É comum em financiamentos onde a amortização é constante."
+                  title={inputMode === 'guided' ? 'A parcela começa maior e vai caindo' : 'SAC'}
+                  subtitle={
+                    inputMode === 'guided'
+                      ? 'Esse comportamento é típico do sistema SAC. Use esta opção quando o contrato mostra parcelas decrescentes.'
+                      : 'Use quando a parcela começa mais alta e vai caindo com o tempo. É comum em financiamentos onde a amortização é constante.'
+                  }
                 />
 
                 <SystemButton
                   active={system === 'price'}
                   onClick={() => setSystem('price')}
-                  title="Price"
-                  subtitle="Use quando a parcela do contrato tende a ficar fixa ou muito parecida mês a mês. A amortização cresce ao longo do tempo."
+                  title={inputMode === 'guided' ? 'A parcela fica quase igual por muito tempo' : 'Price'}
+                  subtitle={
+                    inputMode === 'guided'
+                      ? 'Esse comportamento costuma se aproximar da tabela Price. A parcela tende a parecer estável durante boa parte do contrato.'
+                      : 'Use quando a parcela do contrato tende a ficar fixa ou muito parecida mês a mês. A amortização cresce ao longo do tempo.'
+                  }
                 />
 
                 <SystemButton
                   active={system === 'rotativo'}
                   onClick={() => setSystem('rotativo')}
-                  title="Rotativo"
-                  subtitle="Use para cartão, cheque especial ou dívida sem cronograma fixo, onde os juros incidem sobre o saldo que sobrou."
+                  title={inputMode === 'guided' ? 'Você paga, mas a dívida continua girando' : 'Rotativo'}
+                  subtitle={
+                    inputMode === 'guided'
+                      ? 'Use quando não existe uma tabela contratual clara, como em cartão ou cheque especial, e os juros recaem sobre o saldo que sobrou.'
+                      : 'Use para cartão, cheque especial ou dívida sem cronograma fixo, onde os juros incidem sobre o saldo que sobrou.'
+                  }
                 />
               </div>
 
               <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-slate-900 font-black text-sm mb-2">Quando escolher SAC</p>
+                  <p className="text-slate-900 font-black text-sm mb-2">
+                    {inputMode === 'guided' ? 'Sinal de parcela decrescente' : 'Quando escolher SAC'}
+                  </p>
                   <p className="text-slate-600 text-sm leading-relaxed">
-                    Se o seu contrato mostra parcelas decrescentes, o SAC costuma ser o melhor encaixe lógico.
+                    {inputMode === 'guided'
+                      ? 'Se a parcela começou mais pesada e foi ficando menor, comece por SAC. Depois compare com Price só se ainda houver dúvida.'
+                      : 'Se o seu contrato mostra parcelas decrescentes, o SAC costuma ser o melhor encaixe lógico.'}
                   </p>
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-slate-900 font-black text-sm mb-2">Quando escolher Price</p>
+                  <p className="text-slate-900 font-black text-sm mb-2">
+                    {inputMode === 'guided' ? 'Sinal de parcela estável' : 'Quando escolher Price'}
+                  </p>
                   <p className="text-slate-600 text-sm leading-relaxed">
-                    Se a parcela aparece praticamente igual ao longo do contrato, a Price costuma ser a referência mais próxima.
+                    {inputMode === 'guided'
+                      ? 'Se a parcela parece quase igual ao longo do contrato, comece por Price. Esse costuma ser o cenário mais comum em empréstimos parcelados.'
+                      : 'Se a parcela aparece praticamente igual ao longo do contrato, a Price costuma ser a referência mais próxima.'}
                   </p>
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-slate-900 font-black text-sm mb-2">Quando escolher Rotativo</p>
+                  <p className="text-slate-900 font-black text-sm mb-2">
+                    {inputMode === 'guided' ? 'Sinal de dívida girando sem tabela clara' : 'Quando escolher Rotativo'}
+                  </p>
                   <p className="text-slate-600 text-sm leading-relaxed">
-                    Se você paga parte da fatura e o restante vira saldo com juros altos, este é o modo mais útil para seu caso.
+                    {inputMode === 'guided'
+                      ? 'Se você paga um valor, mas o saldo continua carregando juros sem um cronograma fixo, o melhor ponto de partida é o rotativo.'
+                      : 'Se você paga parte da fatura e o restante vira saldo com juros altos, este é o modo mais útil para seu caso.'}
                   </p>
                 </div>
               </div>
+
+              {inputMode === 'guided' && (
+                <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                  <p className="text-emerald-800 text-sm font-black mb-2">
+                    Regra prática para começar sem travar
+                  </p>
+                  <p className="text-emerald-700 text-sm leading-relaxed">
+                    Escolha primeiro o cenário que mais parece com o comportamento da sua dívida. Depois de calcular, vale trocar para outro cenário e comparar o resultado sem apagar seus dados.
+                  </p>
+                </div>
+              )}
             </>
           ) : (
             <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
@@ -1080,6 +1015,8 @@ export const DebtOptimizerTool = ({ onNavigate, isAuthenticated }: any) => {
                   ? 'Juros ao mês (opcional se você souber)'
                   : inputMode === 'rate-term'
                   ? 'Juros ao mês'
+                  : inputMode === 'guided'
+                  ? 'Juros ao mês (se souber ou estimativa)'
                   : 'Juros ao mês (ou estimativa)'
               }
               value={monthlyRate}
@@ -1090,6 +1027,8 @@ export const DebtOptimizerTool = ({ onNavigate, isAuthenticated }: any) => {
                   ? 'Se você souber a taxa, informe aqui. Se não souber, a ferramenta tenta estimar com base nas parcelas em aberto e no valor da parcela.'
                   : inputMode === 'rate-term'
                   ? 'Taxa mensal aplicada à sua dívida.'
+                  : inputMode === 'guided'
+                  ? 'No modo guiado, você pode começar com uma estimativa próxima do contrato, do app do banco ou da fatura. O foco aqui é chegar a uma leitura inicial útil, mesmo sem todos os números perfeitos.'
                   : 'Neste modo, a taxa ainda é necessária para a simulação. Se você não souber o número exato, use uma estimativa próxima do contrato, app do banco ou da fatura.'
               }
             />
@@ -1258,41 +1197,36 @@ export const DebtOptimizerTool = ({ onNavigate, isAuthenticated }: any) => {
                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">
                     Orientação
                   </p>
-                  <p className="text-slate-700 text-sm leading-relaxed">
+                  <p className="text-slate-600 text-sm leading-relaxed">
                     {displayedSummary.insight}
+                  </p>
+                  <p className="text-slate-500 text-xs mt-2 leading-relaxed">
+                    Esta leitura é apenas simulada e não substitui o acompanhamento contínuo das dívidas cadastradas no app.
                   </p>
                 </div>
               </div>
+              <div className="rounded-2xl border border-teal-200 bg-gradient-to-br from-teal-50 to-slate-50 p-5">
+                <div className="flex flex-col gap-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-teal-700 mb-2">
+                      Próximo passo
+                    </p>
+                    <p className="text-slate-900 font-black text-sm mb-2">
+                      Esta calculadora ajuda na simulação, mas não acompanha suas dívidas ao longo do tempo.
+                    </p>
+                    <p className="text-slate-600 text-sm leading-relaxed">
+                      Se você quiser registrar suas dívidas, acompanhar vencimentos e permitir uma leitura mais completa da sua situação, use a área <span className="font-black">Minhas Dívidas</span>.
+                    </p>
+                  </div>
 
-              {/* Plano detalhado gerado pelo Nexus */}
-              <DebtPlanSimulator
-                dividas={dividasParaNexus}
-                simulacao={simulacaoParaNexus}
-                usuarioPerfil="endividado_iniciante"
-              />
-
-              {/* CTA — Nexus Guiado */}
-              <div className="mt-6 rounded-2xl border border-teal-200 bg-gradient-to-br from-teal-50 to-slate-50 p-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex flex-col gap-1">
-                  <p className="text-sm font-semibold text-teal-800 flex items-center gap-2">
-                    <Sparkles size={16} className="text-teal-600" />
-                    Seu diagnóstico está pronto.
-                  </p>
-                  <p className="text-sm text-slate-600">
-                    Quer que o Nexus interprete esses dados e gere seu plano de ação?
-                  </p>
+                  <button
+                    type="button"
+                    onClick={() => onNavigate(isAuthenticated ? 'minhas-dividas' : 'login')}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-600 px-5 py-3 text-sm font-semibold text-white hover:bg-teal-700 transition-colors"
+                  >
+                    Ir para Minhas Dívidas <ArrowRight size={16} />
+                  </button>
                 </div>
-                <button
-                  onClick={() =>
-                    navigate('/chat', {
-                      state: { initialPrompt: 'Gere meu plano detalhado para sair das dívidas' },
-                    })
-                  }
-                  className="flex items-center justify-center gap-2 rounded-xl bg-teal-600 px-5 py-3 text-sm font-semibold text-white hover:bg-teal-700 transition-colors whitespace-nowrap"
-                >
-                  <Sparkles size={15} />
-                  Gerar meu plano com o Nexus
-                </button>
               </div>
               
               {displayedSummary.risk && (
@@ -1315,7 +1249,7 @@ export const DebtOptimizerTool = ({ onNavigate, isAuthenticated }: any) => {
                 <div className="flex items-start gap-3">
                   <Info size={16} className="text-slate-500 mt-0.5" />
                   <p className="text-slate-600 text-sm leading-relaxed">
-                    Esta simulação é educacional e ajuda a entender a mecânica da dívida, mas contratos reais podem incluir encargos extras.
+                    Esta simulação é educacional e ajuda a entender a mecânica da dívida, mas contratos reais podem incluir encargos extras. Para acompanhamento contínuo e visão consolidada das suas dívidas, use Minhas Dívidas.
                   </p>
                 </div>
               </div>

@@ -83,7 +83,7 @@ export default function BuyCashOrInstallInvestTool({ onNavigate }: { onNavigate?
     const hasIncomeTaxDetails = result.incomeTaxRatePercent != null && result.incomeTaxEstimatedDays != null;
 
     if (hasIncomeTaxDetails) {
-      return `${baseText} Em seguida, aplicamos o Imposto de Renda da tabela regressiva sobre os rendimentos. Nesta simulação, o prazo aproximado considerado é de ${result.incomeTaxEstimatedDays} dias, resultando em uma alíquota de ${result.incomeTaxRatePercent.toFixed(1)}%.`;
+      return `${baseText} Em seguida, aplicamos o Imposto de Renda da tabela regressiva sobre os rendimentos. Nesta simulação, o prazo aproximado considerado é de ${result.incomeTaxEstimatedDays} dias, resultando em uma alíquota de ${result.incomeTaxRatePercent?.toFixed(1) || '0,0'}%.`;
     }
 
     return `${baseText} Aplicamos uma estimativa de Imposto de Renda (tabela regressiva) com base no prazo total do parcelamento.`;

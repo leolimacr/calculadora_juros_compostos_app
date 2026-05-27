@@ -1,25 +1,12 @@
 import { getDatabase } from "firebase-admin/database";
-import { getFirestore } from "firebase-admin/firestore"; // <-- Novo Import
+import { getFirestore } from "firebase-admin/firestore";
+import * as logger from "firebase-functions/logger";
 
 export interface FinancialProfile {
     monthlyIncome: number;
     emergencyReserveTarget: number;
     emergencyReserveCurrent: number;
 }
-
-// ... (mantenha as interfaces UserGoal, UserTransaction, UserSimulation como estão)
-
-export interface UserDataResult {
-    goals: UserGoal[];
-    recentTransactions: UserTransaction[];
-    simulations: UserSimulation[];
-    financialProfile?: FinancialProfile; // <-- Novo Campo
-    summary: string;
-    hasData: boolean;
-    dataStatus: 'ok' | 'empty' | 'error';
-    error?: string;
-}
-import * as logger from "firebase-functions/logger";
 
 export interface UserGoal {
     id: string;
@@ -54,6 +41,7 @@ export interface UserDataResult {
     goals: UserGoal[];
     recentTransactions: UserTransaction[];
     simulations: UserSimulation[];
+    financialProfile?: FinancialProfile;
     summary: string;
     hasData: boolean;
     dataStatus: 'ok' | 'empty' | 'error';
@@ -71,7 +59,7 @@ export class DataIntegrator {
             let goals: UserGoal[] = [];
             let transactions: UserTransaction[] = [];
             let simulations: UserSimulation[] = [];
-            let financialProfile: FinancialProfile | undefined = undefined; // <-- Nova variável
+            let financialProfile: FinancialProfile | undefined = undefined;
             let summary = '';
             let hasData = false;
             let dataStatus: 'ok' | 'empty' | 'error' = 'ok';
@@ -83,7 +71,7 @@ export class DataIntegrator {
                 const [txs, glds, userDoc] = await Promise.all([
                     this.fetchRecentTransactionsWithTimeout(userId, 2500, userPlan),
                     this.fetchUserGoalsWithTimeout(userId, 2500),
-                    getFirestore().doc(`users/${userId}`).get() // <-- Busca o perfil
+                    getFirestore().doc(`users/${userId}`).get()
                 ]);
                 transactions = txs;
                 goals = glds;
@@ -227,10 +215,10 @@ export class DataIntegrator {
         });
     }
 
-    static formatTransactionsForPrompt(transactions: UserTransaction[], context: any): string {
+    static formatTransactionsForPrompt(transactions: UserTransaction[], _context: any): string {
         if (!transactions || transactions.length === 0) return 'Nenhuma transação recente registrada.';
         
-        const relevant = this.filterRelevantTransactions(transactions, context);
+        const relevant = this.filterRelevantTransactions(transactions, _context);
         if (relevant.length === 0) return 'Nenhuma transação relevante para o contexto atual.';
         
         // Calcular período a partir das transações mais antigas
@@ -252,17 +240,17 @@ export class DataIntegrator {
         return `**RESUMO CALCULADO (use estes valores nas respostas):**\n${summary}\n\n**ÚLTIMAS TRANSAÇÕES (apenas para contexto, não some manualmente):**\n${recentList.join('\n')}`;
     }
 
-    static formatGoalsForPrompt(goals: UserGoal[], context: any): string {
+    static formatGoalsForPrompt(goals: UserGoal[], _context: any): string {
         if (!goals || goals.length === 0) return 'Nenhuma meta financeira registrada.';
         return `**METAS ATIVAS (${goals.length}):**\n${goals.map(g => `• ${g.name}: R$ ${g.currentAmount}/${g.targetAmount}`).join('\n')}`;
     }
 
-    static formatSimulationsForPrompt(simulations: UserSimulation[], context: any): string {
+    static formatSimulationsForPrompt(simulations: UserSimulation[], _context: any): string {
         if (!simulations || simulations.length === 0) return 'Nenhuma simulação recente.';
         return `**SIMULAÇÕES (${simulations.length}):**\n${simulations.map(s => `• ${s.label}`).join('\n')}`;
     }
 
-    private static filterRelevantTransactions(transactions: UserTransaction[], context: any): UserTransaction[] {
+    private static filterRelevantTransactions(transactions: UserTransaction[], _context: any): UserTransaction[] {
         return transactions;
     }
 
@@ -276,7 +264,7 @@ export class DataIntegrator {
 
 	   return `${period}:\n• Receitas: R$ ${income.toLocaleString('pt-BR')}\n• Despesas: R$ ${expenses.toLocaleString('pt-BR')} (${expenseCount})\n• Saldo: R$ ${savings.toLocaleString('pt-BR')}\n• Economia: ${income>0?((savings/income)*100).toFixed(1):0}%`;
     }
-    private static generateDataSummary(goals: UserGoal[], transactions: UserTransaction[], simulations: UserSimulation[], financialProfile?: FinancialProfile): string {
+    private static generateDataSummary(goals: UserGoal[], transactions: UserTransaction[], _simulations: UserSimulation[], financialProfile?: FinancialProfile): string {
         const activeGoals = goals.filter(g => new Date(g.deadline) > new Date() && g.currentAmount < g.targetAmount).length;
         
         let summaryText = "";

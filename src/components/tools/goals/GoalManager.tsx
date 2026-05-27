@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useGoals } from '../../../hooks/useGoals';
-import { Goal, Frequencia } from '../../../services/goalService';
+import { Goal } from '../../../services/goalService';
 import { Timestamp } from 'firebase/firestore';
 import { 
   TrendingUp, 
@@ -11,18 +11,16 @@ import {
   Calendar,
   Bell,
   Mail,
-  BellRing,
-  CheckCircle,
-  Circle
+  BellRing
 } from 'lucide-react';
 
 interface GoalManagerProps {
+  userId: string | undefined;
   userMeta: any; // deve conter uid
 }
 
-const GoalManager: React.FC<GoalManagerProps> = ({ userMeta }) => {
-  const userId = userMeta?.uid;
-  const { goals, loading, error, addGoal, editGoal, removeGoal } = useGoals(userId);
+const GoalManager: React.FC<GoalManagerProps> = ({ userId }) => {
+  const { goals, loading, addGoal, editGoal, removeGoal } = useGoals(userId);
 
   // Estado do formulário
   const [formData, setFormData] = useState<Partial<Goal>>({

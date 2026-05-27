@@ -11,11 +11,11 @@ export interface ActiveAsset {
 }
 
 interface ActiveWealthManagerProps {
-  userMeta: any;
+  userId: string | undefined;
   onNavigate?: (route: string) => void;
 }
 
-export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userMeta, onNavigate }) => {
+export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId, onNavigate }) => {
   const [assets, setAssets] = useState<ActiveAsset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -53,12 +53,12 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userMe
 
   // Leitura de Dados
   useEffect(() => {
-    if (!userMeta?.uid) {
+    if (!userId) {
       setIsLoading(false);
       return;
     }
 
-    const assetsRef = collection(firestore, `users/${userMeta.uid}/ativos`);
+    const assetsRef = collection(firestore, `users/${userId}/ativos`);
     const q = query(assetsRef);
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -75,24 +75,24 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userMe
 
     // Registra que o usuário revisou o patrimônio agora
     setDoc(
-      doc(firestore, 'users', userMeta.uid),
+      doc(firestore, 'users', userId),
       { lastWealthReviewAt: new Date().toISOString() },
       { merge: true }
     ).catch(() => {});
 
     return () => unsubscribe();
-  }, [userMeta]);
+  }, [userId]);
 
   // Função Salvar (Criar ou Editar)
   const handleSaveAsset = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userMeta?.uid || currentAsset.currentValue < 0 || currentAsset.name.trim() === '') return;
+    if (!userId || currentAsset.currentValue < 0 || currentAsset.name.trim() === '') return;
 
     setIsSubmitting(true);
     try {
       if (editingId) {
         // MODO EDIÇÃO
-        const assetRef = doc(firestore, `users/${userMeta.uid}/ativos`, editingId);
+        const assetRef = doc(firestore, `users/${userId}/ativos`, editingId);
         await updateDoc(assetRef, {
           name: currentAsset.name,
           category: currentAsset.category,
@@ -104,11 +104,11 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userMe
         const currentTotal = assets.reduce((acc, curr) => acc + curr.currentValue, 0);
         const newTotalPatrimonioAtivo = currentTotal + diff;
 
-        const userDocRef = doc(firestore, 'users', userMeta.uid);
+        const userDocRef = doc(firestore, 'users', userId);
         await setDoc(userDocRef, { resumoFinanceiro: { patrimonioAtivo: newTotalPatrimonioAtivo } }, { merge: true });
       } else {
         // MODO CRIAÇÃO
-        const assetsRef = collection(firestore, `users/${userMeta.uid}/ativos`);
+        const assetsRef = collection(firestore, `users/${userId}/ativos`);
         await addDoc(assetsRef, {
           name: currentAsset.name,
           category: currentAsset.category,
@@ -117,7 +117,7 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userMe
 
         const newTotalPatrimonioAtivo = assets.reduce((acc, curr) => acc + curr.currentValue, 0) + currentAsset.currentValue;
 
-        const userDocRef = doc(firestore, 'users', userMeta.uid);
+        const userDocRef = doc(firestore, 'users', userId);
         await setDoc(userDocRef, { resumoFinanceiro: { patrimonioAtivo: newTotalPatrimonioAtivo } }, { merge: true });
       }
 
@@ -150,19 +150,19 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userMe
 
   // Função Excluir
   const handleDeleteAsset = async (assetId: string, assetValue: number) => {
-    if (!userMeta?.uid || !assetId) return;
+    if (!userId || !assetId) return;
 
     const confirmDelete = window.confirm("Tem certeza que deseja excluir este investimento?");
     if (!confirmDelete) return;
 
     try {
-      const assetDocRef = doc(firestore, `users/${userMeta.uid}/ativos`, assetId);
+      const assetDocRef = doc(firestore, `users/${userId}/ativos`, assetId);
       await deleteDoc(assetDocRef);
 
       const currentTotal = assets.reduce((acc, curr) => acc + curr.currentValue, 0);
       const newTotalPatrimonioAtivo = currentTotal - assetValue;
 
-      const userDocRef = doc(firestore, 'users', userMeta.uid);
+      const userDocRef = doc(firestore, 'users', userId);
       await updateDoc(userDocRef, {
         "resumoFinanceiro.patrimonioAtivo": newTotalPatrimonioAtivo >= 0 ? newTotalPatrimonioAtivo : 0
       });
@@ -175,6 +175,8 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userMe
       alert("Houve um erro ao tentar excluir o investimento.");
     }
   };
+
+  const totalInvestido = assets.reduce((acc, asset) => acc + (asset.currentValue || 0), 0);
 
   return (
     <div className="w-full max-w-6xl mx-auto p-4 md:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -194,11 +196,11 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userMe
             <TrendingUp size={24} className="text-emerald-600" />
           </div>
           <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
-            Patrimônio Ativo
+            Investimentos
           </h2>
         </div>
         <p className="text-slate-600 text-sm md:text-base max-w-2xl">
-          Seu motor de Liberdade Financeira. Registre aqui os investimentos que trabalham por você e geram renda passiva.
+          Registre aqui seus ativos financeiros. Essa é a camada que mostra o capital que já está trabalhando por você.
         </p>
       </header>
 
@@ -293,13 +295,18 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userMe
 
       {/* Lista de Ativos */}
       <div className="mt-8">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
           <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-            <Wallet size={20} className="text-emerald-500" /> Seus Investimentos
+            <Wallet size={20} className="text-emerald-500" /> Sua Carteira de Investimentos
           </h3>
-          <span className="text-xs font-bold bg-slate-100 text-slate-700 px-3 py-1 rounded-full border border-slate-200">
-            {assets.length} ativos
-          </span>
+          <div className="flex flex-wrap gap-2">
+            <span className="text-xs font-bold bg-slate-100 text-slate-700 px-3 py-1 rounded-full border border-slate-200">
+              {assets.length} {assets.length === 1 ? 'ativo' : 'ativos'}
+            </span>
+            <span className="text-xs font-black bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full border border-emerald-200">
+              Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalInvestido)}
+            </span>
+          </div>
         </div>
 
         {isLoading ? (
@@ -311,7 +318,7 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userMe
             </div>
             <p className="text-slate-800 font-black text-base mb-1">Carteira ainda vazia</p>
             <p className="text-slate-500 text-sm max-w-xs mx-auto leading-relaxed mb-5">
-              Adicione seus investimentos aqui em cima — Tesouro Direto, FIIs, ações, cripto. O Nexus usa esses dados para calcular seu patrimônio real e evolução ao longo do tempo.
+              Adicione seus investimentos aqui em cima — Tesouro Direto, FIIs, ações, cripto. Esses dados alimentam sua visão de carteira e dão contexto melhor para as próximas camadas da Central.
             </p>
             <button
               onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}

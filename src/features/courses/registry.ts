@@ -1,6 +1,6 @@
 import { debtRescueCourse } from './debt-rescue';
 import { beginnerInvestorCourse } from './beginner-investor';
-import type { Course } from './types';
+import type { Course } from '~types';
 
 // Define a lista canônica de todos os cursos
 export const allCourses: Course[] = [debtRescueCourse, beginnerInvestorCourse];

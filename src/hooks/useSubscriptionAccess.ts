@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { firestore } from '../firebase'; 
+import { firestore } from '../firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
-
-console.log("✅ useSubscriptionAccess.ts carregado - Versão Final Corrigida");
 
 export const useSubscriptionAccess = () => {
   const { user } = useAuth();
@@ -32,13 +30,8 @@ export const useSubscriptionAccess = () => {
           if (docSnapshot.exists()) {
             const data = docSnapshot.data();
             const sub = data?.subscription;
-            
-            // ✅ CORREÇÃO: Pegando 'plan' (correto) em vez de 'planId' (errado)
-            // ✅ CORREÇÃO: Usando o campo 'active' (booleano) que você criou
             const isActive = sub?.active === true || sub?.status === 'active';
             const planName = (sub?.plan || '').toLowerCase();
-
-            console.log("🔍 Verificação de Assinatura:", { isActive, planName });
 
             if (isActive) {
               if (planName.includes('premium')) {
@@ -54,6 +47,7 @@ export const useSubscriptionAccess = () => {
           } else {
             setRole('free');
           }
+
           setLoading(false);
         },
         (err) => {
@@ -64,19 +58,25 @@ export const useSubscriptionAccess = () => {
       );
 
       return () => unsub();
-    } catch (error) {
+    } catch {
       setRole('free');
       setLoading(false);
     }
   }, [user]);
 
+  const isFree = role === 'free';
   const isPro = role === 'pro' || role === 'premium';
   const isPremium = role === 'premium';
-  
+  const hasPaidAccess = isPro;
+  const planLabel = role === 'premium' ? 'Premium' : role === 'pro' ? 'Pro' : 'Free';
+
   return {
+    isFree,
     isPro,
     isPremium,
+    hasPaidAccess,
     loadingSubscription,
-    role
+    role,
+    planLabel
   };
 };

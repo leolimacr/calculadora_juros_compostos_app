@@ -1,11 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { X, Plus, Trash2, FolderOpen, Tag, Pencil, Check, RotateCcw } from 'lucide-react';
-
-interface Category {
-  id?: string;
-  name: string;
-  type: 'income' | 'expense';
-}
+import { Category } from '../../../types';
 
 interface CategoryManagerProps {
   isOpen: boolean;
@@ -64,33 +59,33 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-      <div className="bg-white border border-slate-200 w-full max-w-md rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-surface-deep/40 backdrop-blur-sm p-4">
+      <div className="bg-surface-primary border border-surface-elevated w-full max-w-md rounded-4xl overflow-hidden shadow-card flex flex-col max-h-[90vh]">
         
         {/* HEADER */}
-        <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+        <div className="p-6 border-b border-surface-elevated flex justify-between items-center bg-surface-secondary">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-emerald-100 rounded-xl">
-                <FolderOpen className="text-emerald-600" size={24} />
+            <div className="p-2 bg-brand-primary/10 rounded-xl">
+                <FolderOpen className="text-brand-primary" size={24} />
             </div>
             <div>
-                <h3 className="text-slate-900 font-black text-lg leading-none">
+                <h3 className="text-text-primary font-black text-lg leading-none">
                     {editingId ? 'Editar Categoria' : 'Categorias'}
                 </h3>
-                <p className="text-slate-500 text-xs mt-1 font-bold uppercase tracking-widest">
+                <p className="text-text-muted text-xxs mt-1 font-bold uppercase tracking-ultra-wide">
                     Personalize sua gestão
                 </p>
             </div>
           </div>
-          <button onClick={() => { resetForm(); onClose(); }} className="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors">
+          <button onClick={() => { resetForm(); onClose(); }} className="p-2 hover:bg-surface-elevated rounded-full text-text-muted transition-colors">
             <X size={20} />
           </button>
         </div>
         {/* FORMULÁRIO DINÂMICO (Adicionar ou Editar) */}
-        <form onSubmit={handleSave} className={`p-6 border-b border-slate-200 transition-colors ${editingId ? 'bg-amber-50' : 'bg-white'}`}>
+        <form onSubmit={handleSave} className={`p-6 border-b border-surface-elevated transition-colors ${editingId ? 'bg-brand-accent/5' : 'bg-surface-primary'}`}>
           <div className="space-y-4">
             <div>
-              <label className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-1.5 block">
+              <label className="text-xxs font-black text-text-muted uppercase tracking-ultra-wide mb-1.5 block">
                 {editingId ? 'Novo Nome da Categoria' : 'Nome da Categoria'}
               </label>
               <input 
@@ -98,7 +93,7 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ex: Assinaturas, Mercado..."
-                className="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-sm text-slate-900 focus:outline-none focus:border-emerald-500 shadow-sm"
+                className="w-full bg-surface-primary border border-surface-elevated rounded-2xl px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-brand-primary shadow-soft"
                 autoFocus
               />
             </div>
@@ -107,14 +102,14 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({
                 <button 
                   type="button"
                   onClick={() => setType('expense')}
-                  className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase border transition-all ${type === 'expense' ? 'bg-red-50 border-red-300 text-red-600' : 'bg-white border-slate-300 text-slate-600'}`}
+                  className={`flex-1 py-2.5 rounded-2xl text-xxs font-black uppercase border transition-all ${type === 'expense' ? 'bg-status-danger/10 border-status-danger/30 text-status-danger' : 'bg-surface-primary border-surface-elevated text-text-muted'}`}
                 >
                   Despesa
                 </button>
                 <button 
                   type="button"
                   onClick={() => setType('income')}
-                  className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase border transition-all ${type === 'income' ? 'bg-emerald-50 border-emerald-300 text-emerald-600' : 'bg-white border-slate-300 text-slate-600'}`}
+                  className={`flex-1 py-2.5 rounded-2xl text-xxs font-black uppercase border transition-all ${type === 'income' ? 'bg-status-success/10 border-brand-primary/30 text-brand-primary' : 'bg-surface-primary border-surface-elevated text-text-muted'}`}
                 >
                   Receita
                 </button>
@@ -125,7 +120,7 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({
                     <button 
                         type="button" 
                         onClick={resetForm}
-                        className="p-3 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200"
+                        className="p-3 bg-surface-elevated text-text-secondary rounded-2xl hover:bg-surface-secondary"
                         title="Cancelar Edição"
                     >
                         <RotateCcw size={20} />
@@ -134,8 +129,8 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({
                 <button 
                   type="submit" 
                   disabled={isSubmitting || !name}
-                  className={`flex-1 py-3 rounded-xl font-black text-sm transition-all shadow-lg flex items-center justify-center gap-2 ${
-                      editingId ? 'bg-amber-500 text-black hover:bg-amber-400' : 'bg-emerald-600 text-white hover:bg-emerald-500'
+                  className={`flex-1 py-3 rounded-2xl font-black text-sm transition-all shadow-soft flex items-center justify-center gap-2 ${
+                      editingId ? 'bg-brand-accent text-text-onBrand hover:bg-brand-accent/90' : 'bg-brand-primary text-text-onBrand hover:bg-brand-primary/90'
                   }`}
                 >
                   {editingId ? <Check size={18}/> : <Plus size={18} />}
@@ -146,25 +141,25 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({
         </form>
 
         {/* LISTA COM OPÇÕES DE EDITAR E EXCLUIR */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar bg-white">
+        <div className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar bg-surface-primary">
           {categories.length === 0 ? (
-            <div className="text-center py-10 text-slate-400">
-                <Tag size={40} className="mx-auto mb-2" />
-                <p className="text-xs font-bold uppercase">Nenhuma categoria cadastrada</p>
+            <div className="text-center py-10 text-text-muted">
+                <Tag size={40} className="mx-auto mb-2 opacity-20" />
+                <p className="text-xxs font-bold uppercase tracking-ultra-wide">Nenhuma categoria cadastrada</p>
             </div>
           ) : (
             categories.sort((a,b) => a.name.localeCompare(b.name)).map((cat) => (
-              <div key={cat.id} className={`flex items-center justify-between p-3 rounded-2xl border transition-all ${editingId === cat.id ? 'bg-amber-50 border-amber-300' : 'bg-slate-50 border-slate-200 hover:border-slate-300'}`}>
+              <div key={cat.id} className={`flex items-center justify-between p-3 rounded-3xl border transition-all ${editingId === cat.id ? 'bg-brand-accent/10 border-brand-accent/30' : 'bg-surface-secondary border-surface-elevated hover:border-text-muted/30'}`}>
                 <div className="flex items-center gap-3">
-                  <div className={`w-2 h-2 rounded-full ${cat.type === 'income' ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
-                  <span className="text-sm font-bold text-slate-800">{cat.name}</span>
+                  <div className={`w-2 h-2 rounded-full ${cat.type === 'income' ? 'bg-brand-primary' : 'bg-status-danger'}`}></div>
+                  <span className="text-sm font-bold text-text-primary">{cat.name}</span>
                 </div>
                 
                 <div className="flex gap-1">
                     {/* Botão Editar */}
                     <button 
                         onClick={() => startEdit(cat)}
-                        className="p-2 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all"
+                        className="p-2 text-text-muted hover:text-brand-accent hover:bg-brand-accent/10 rounded-xl transition-all"
                         title="Editar"
                     >
                         <Pencil size={16} />
@@ -177,7 +172,7 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({
                                 onDelete(cat.id!);
                             }
                         }}
-                        className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                        className="p-2 text-text-muted hover:text-status-danger hover:bg-status-danger/10 rounded-xl transition-all"
                         title="Excluir"
                     >
                         <Trash2 size={16} />

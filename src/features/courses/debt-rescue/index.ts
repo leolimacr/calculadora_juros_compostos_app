@@ -1,4 +1,4 @@
-import type { Course } from './types';
+import type { Course } from '~types';
 import { debtRescueCourseMeta } from './course.meta';
 import { module01 } from './modules/module-01';
 import { module02 } from './modules/module-02';

@@ -12,7 +12,7 @@ export const CourseTrackPage: React.FC = () => {
   const safeCourseSlug = (courseSlug || 'dividas') as CourseSlug;
   const course = coursesRegistry[safeCourseSlug];
 
-  const { progress, isLoading, getCourseCompletionPercentage } = useCourseProgress(safeCourseSlug);
+  const { progress, isLoading, getCourseCompletionPercentage } = useCourseProgress(String(safeCourseSlug || ''));
 
   const { currentModuleSlug, currentLessonSlug, moduleStates } = useMemo(() => {
     if (!progress || !course) {

@@ -14,6 +14,7 @@ export interface CalculationInputs {
   iof?: number;
   taxMode: TaxMode;
   useInflation?: boolean;
+  ignoreIR: boolean;
 }
 
 export interface NormalizedInputs {

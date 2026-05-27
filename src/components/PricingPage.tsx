@@ -8,7 +8,7 @@ interface PricingProps {
   currentPlan: 'free' | 'pro' | 'premium';
   onBack: () => void;
   isAuthenticated: boolean;
-  userId?: string; 
+  userId?: string;
 }
 
 const PricingPage: React.FC<PricingProps> = ({ onNavigate, currentPlan, onBack, isAuthenticated, userId }) => {
@@ -16,7 +16,6 @@ const PricingPage: React.FC<PricingProps> = ({ onNavigate, currentPlan, onBack, 
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
 
   const handleSubscriptionClick = async (baseUrl: string, planTarget: string) => {
-    // 1. Verificação de Login
     if (!isAuthenticated) {
       if (window.confirm("Você precisa estar logado para assinar. Ir para login?")) {
         onNavigate('login');
@@ -24,23 +23,17 @@ const PricingPage: React.FC<PricingProps> = ({ onNavigate, currentPlan, onBack, 
       return;
     }
 
-    // 2. Verificação de Plano Existente
     if (currentPlan === planTarget || (currentPlan === 'premium' && planTarget === 'pro')) {
       alert("Você já possui este plano ativo!");
       return;
     }
 
-    // 3. Verificação de ID (DIAGNÓSTICO COM ALERTA)
     if (!userId) {
       alert("ERRO: ID do usuário não encontrado. Tente sair e entrar na conta novamente.");
       return;
     }
 
-    // 4. Construção do Link
     const finalUrl = `${baseUrl}?client_reference_id=${userId}`;
-
-    // ⚠️ ALERTA DE TESTE (Vai aparecer na sua tela)
-    // alert(`ID ENCONTRADO: ${userId}\n\nAbrindo Stripe...`);
 
     if (isNative) {
       await Browser.open({ url: finalUrl });
@@ -48,23 +41,23 @@ const PricingPage: React.FC<PricingProps> = ({ onNavigate, currentPlan, onBack, 
       window.open(finalUrl, '_blank');
     }
   };
+
   const proFeatures = [
-    { icon: Zap,      text: 'Lançamentos ilimitados — sem teto, sem corte' },
-    { icon: Brain,    text: 'Nexus com memória de 120 dias do seu histórico' },
-    { icon: Shield,   text: 'Histórico de conversas salvo por 30 dias' },
+    { icon: Zap, text: 'Lançamentos ilimitados para o Controla virar rotina real' },
+    { icon: BarChart3, text: 'Filtros, médias e leitura do mês sem bloqueios do plano gratuito' },
+    { icon: Brain, text: 'Nexus com mais contexto da sua rotina para análises mais úteis' },
+    { icon: Shield, text: 'Plano ideal para quem quer resolver muito bem o controle diário' },
   ];
 
   const premiumFeatures = [
-    { icon: Brain,     text: 'Nexus com memória de 4 anos — contexto real de longo prazo' },
-    { icon: BarChart3, text: 'Web Search em tempo real: cotações, taxas e notícias no chat' },
-    { icon: Target,    text: 'Histórico de conversas salvo por 90 dias' },
-    { icon: Shield,    text: 'Acesso completo a todas as ferramentas do ecossistema' },
+    { icon: CheckCircle, text: 'Tudo do Pro incluído, sem trocar o que já funciona' },
+    { icon: Target, text: 'Central Financeira como camada principal para conectar rotina, dívidas, investimentos e patrimônio' },
+    { icon: Brain, text: 'Mais contexto para o Nexus orientar prioridades com visão mais ampla' },
+    { icon: Shield, text: 'Acesso à camada mais completa do ecossistema Finanças Pro Invest' },
   ];
 
   return (
     <div className="min-h-screen bg-white animate-in fade-in duration-500">
-
-      {/* HERO DA PRICING */}
       <div className="max-w-3xl mx-auto px-4 pt-12 pb-4 text-center">
         <button
           onClick={onBack}
@@ -74,50 +67,51 @@ const PricingPage: React.FC<PricingProps> = ({ onNavigate, currentPlan, onBack, 
         </button>
 
         <p className="text-[11px] font-black uppercase tracking-[0.2em] text-emerald-600 mb-3">
-          Planos
+          Free, Pro e Premium
         </p>
         <h1 className="text-4xl md:text-5xl font-black text-slate-900 leading-tight mb-4">
-          Quanto custa tomar decisões<br />
+          Comece no Controla.<br />
           <span className="text-emerald-600">
-            sem clareza financeira?
+            Evolua para o ecossistema completo.
           </span>
         </h1>
-        <p className="text-slate-500 text-base max-w-xl mx-auto leading-relaxed">
-          O Finanças Pro Invest centraliza dívidas, patrimônio e metas num só lugar —
-          e o Nexus te diz o próximo passo certo. Escolha o plano que faz sentido pro seu momento.
+        <p className="text-slate-500 text-base max-w-2xl mx-auto leading-relaxed">
+          O Free coloca você em movimento. O Pro remove a fricção do controle diário.
+          O Premium deixa de ser só controle e passa a ser acompanhamento financeiro mais completo,
+          com a Central como camada principal de organização.
         </p>
       </div>
 
-      {/* CARDS */}
       <div className="max-w-5xl mx-auto px-4 py-10 grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-
-        {/* FREE */}
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 flex flex-col">
           <div className="mb-5">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Gratuito</p>
-            <h3 className="text-xl font-black text-slate-900">Para começar</h3>
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Free</p>
+            <h3 className="text-xl font-black text-slate-900">Entrada</h3>
             <p className="text-slate-500 text-xs mt-1 leading-relaxed">
-              Veja como funciona, sem compromisso.
+              Para testar o método, começar no Controla e sentir valor antes de subir de nível.
             </p>
           </div>
+
           <div className="mb-6">
             <span className="text-3xl font-black text-slate-900">R$ 0</span>
             <span className="text-slate-400 text-sm"> /sempre</span>
           </div>
+
           <ul className="space-y-3 mb-8 flex-grow">
             <li className="flex items-start gap-2 text-sm text-slate-600">
               <Check size={15} className="text-slate-400 mt-0.5 shrink-0" />
-              Até 30 lançamentos
+              Até 30 lançamentos no Controla
             </li>
             <li className="flex items-start gap-2 text-sm text-slate-600">
               <Check size={15} className="text-slate-400 mt-0.5 shrink-0" />
-              Nexus IA com memória de 10 dias
+              Visão básica da sua rotina financeira
             </li>
             <li className="flex items-start gap-2 text-sm text-slate-600">
               <Check size={15} className="text-slate-400 mt-0.5 shrink-0" />
-              Ferramentas de simulação gratuitas
+              Visão inicial da Central para entender a evolução do produto
             </li>
           </ul>
+
           <button
             disabled
             className="w-full py-3 bg-slate-100 text-slate-400 rounded-xl font-bold uppercase text-[11px] tracking-widest cursor-default"
@@ -126,24 +120,27 @@ const PricingPage: React.FC<PricingProps> = ({ onNavigate, currentPlan, onBack, 
           </button>
         </div>
 
-        {/* PRO */}
         <div className={`rounded-2xl border p-6 flex flex-col transition-all ${
           currentPlan === 'pro'
             ? 'border-sky-400 bg-sky-50'
             : 'border-sky-200 bg-white shadow-lg shadow-sky-100'
         }`}>
           <div className="mb-5">
-            <p className="text-[10px] font-black uppercase tracking-widest text-sky-500 mb-1">Pro Mobile</p>
-            <h3 className="text-xl font-black text-slate-900">Para quem quer controle</h3>
+            <p className="text-[10px] font-black uppercase tracking-widest text-sky-500 mb-1">Pro</p>
+            <h3 className="text-xl font-black text-slate-900">Controla completo</h3>
             <p className="text-slate-500 text-xs mt-1 leading-relaxed">
-              Organize sua rotina financeira sem limitação de lançamentos.
+              Para quem quer transformar o Controla em rotina séria, sem pagar ainda pela camada completa do ecossistema.
             </p>
           </div>
+
           <div className="mb-6">
             <span className="text-3xl font-black text-slate-900">R$ 9,90</span>
             <span className="text-slate-400 text-sm"> /mês</span>
-            <p className="text-[11px] text-sky-600 font-bold mt-1">Controle financeiro real por R$ 9,90/mês</p>
+            <p className="text-[11px] text-sky-600 font-bold mt-1">
+              O plano do Controla para rotina sem travas
+            </p>
           </div>
+
           <ul className="space-y-3 mb-8 flex-grow">
             {proFeatures.map(({ icon: Icon, text }) => (
               <li key={text} className="flex items-start gap-2 text-sm text-slate-700">
@@ -152,6 +149,7 @@ const PricingPage: React.FC<PricingProps> = ({ onNavigate, currentPlan, onBack, 
               </li>
             ))}
           </ul>
+
           <button
             onClick={() => handleSubscriptionClick('https://buy.stripe.com/dRm7sNdcCe8p2vn5nXaAw02', 'pro')}
             className={`w-full py-3.5 rounded-xl font-black uppercase text-[11px] tracking-widest transition-all flex items-center justify-center gap-2 ${
@@ -160,26 +158,31 @@ const PricingPage: React.FC<PricingProps> = ({ onNavigate, currentPlan, onBack, 
                 : 'bg-sky-600 hover:bg-sky-500 text-white active:scale-95'
             }`}
           >
-            {currentPlan === 'pro' ? <><CheckCircle size={14} /> Plano ativo</> : isAuthenticated ? <>Assinar Pro <ArrowRight size={14} /></> : 'Fazer login'}
+            {currentPlan === 'pro'
+              ? <><CheckCircle size={14} /> Plano ativo</>
+              : isAuthenticated
+                ? <>Assinar Pro <ArrowRight size={14} /></>
+                : 'Fazer login'}
           </button>
         </div>
 
-        {/* PREMIUM */}
         <div className={`relative rounded-2xl border p-6 flex flex-col transition-all ${
           currentPlan === 'premium'
             ? 'border-emerald-400 bg-emerald-50'
             : 'border-emerald-300 bg-white shadow-xl shadow-emerald-100'
         }`}>
           <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-emerald-500 text-white px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow">
-            Mais escolhido
+            Próximo nível
           </div>
+
           <div className="mb-5 mt-2">
-            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-1">Premium Completo</p>
-            <h3 className="text-xl font-black text-slate-900">Para quem quer crescer</h3>
+            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-1">Premium</p>
+            <h3 className="text-xl font-black text-slate-900">Finanças Pro Invest completo</h3>
             <p className="text-slate-500 text-xs mt-1 leading-relaxed">
-              Ecossistema completo com IA de longo prazo e dados em tempo real.
+              Para quem quer parar de olhar peças soltas e passar a acompanhar a vida financeira como um sistema.
             </p>
           </div>
+
           <div className="mb-2">
             <span className="text-3xl font-black text-slate-900">
               {billingCycle === 'monthly' ? 'R$ 19,90' : 'R$ 16,58'}
@@ -217,6 +220,7 @@ const PricingPage: React.FC<PricingProps> = ({ onNavigate, currentPlan, onBack, 
               </li>
             ))}
           </ul>
+
           <button
             onClick={() => handleSubscriptionClick(
               billingCycle === 'monthly'
@@ -237,13 +241,11 @@ const PricingPage: React.FC<PricingProps> = ({ onNavigate, currentPlan, onBack, 
         </div>
       </div>
 
-      {/* GARANTIA */}
       <div className="max-w-2xl mx-auto px-4 pb-16 text-center space-y-4">
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-6">
-          <p className="text-sm font-black text-slate-800 mb-1">Sem fidelidade. Sem multa. Sem risco.</p>
+          <p className="text-sm font-black text-slate-800 mb-1">O plano certo depende do estágio, não do ego.</p>
           <p className="text-xs text-slate-500 leading-relaxed max-w-md mx-auto">
-            Se o produto não entregar valor, você cancela em menos de 1 minuto direto pelo Stripe.
-            Seus dados ficam salvos por 30 dias após o cancelamento.
+            Free para começar. Pro para rotina séria. Premium para visão completa. Assim a escada de valor fica clara e natural.
           </p>
         </div>
         <p className="text-xs text-slate-400">

@@ -30,7 +30,6 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
 
   const nickname = userMeta?.nickname || userDisplayName || 'Investidor';
   const firstName = nickname.split(' ')[0].toUpperCase();
-  const isPro = userMeta?.plan === 'pro' || userMeta?.plan === 'premium';
   
   const handleDeepLink = (path: string) => {
     const appScheme = `financasproinvest://${path}`;

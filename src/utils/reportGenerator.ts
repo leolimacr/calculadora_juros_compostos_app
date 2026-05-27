@@ -103,13 +103,13 @@ export const generateFinancialReport = async (transactions: any[], categoryFilte
     }
   });
 
-  const totalPages = doc.internal.getNumberOfPages();
+  const totalPages = (doc.internal as any).getNumberOfPages();
   for (let p = totalPages; p > lastPageDrawn; p--) {
     doc.deletePage(p);
   }
   
   const allPages = (doc.internal as any).pages as Record<number, any[]>;
-  const totalPagesDebug = doc.internal.getNumberOfPages();
+  const totalPagesDebug = (doc.internal as any).getNumberOfPages();
 
   console.log('=== DEBUG PDF ===');
   console.log('Total de paginas:', totalPagesDebug);

@@ -1,8 +1,14 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import path from 'path'
 
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
   build: {
     target: 'esnext'
   },
@@ -14,7 +20,6 @@ export default defineConfig({
         secure: false,
         rewrite: (path) => path.replace(/^\/api\/market/, '')
       },
-      // 👇 NOVO: proxy para o Banco Central
       '/api-bcb': {
         target: 'https://api.bcb.gov.br',
         changeOrigin: true,

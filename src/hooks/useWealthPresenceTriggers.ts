@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Goal } from '../services/goalService';
 import { ActiveAsset } from '../components/tools/wealth/ActiveWealthManager';
-import { PresenceEventService } from '../services/presenceEventService';
+import { PresenceEventService } from '../services/PresenceEventService';
 
 interface UseWealthPresenceTriggersParams {
   userId: string | undefined;

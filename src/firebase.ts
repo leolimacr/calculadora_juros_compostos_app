@@ -19,6 +19,14 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
+
+export const authReadyPromise = new Promise<void>((resolve) => {
+  const unsubscribe = auth.onAuthStateChanged(() => {
+    resolve();
+    unsubscribe();
+  });
+});
+
 export const firestore = getFirestore(app);
 export const db = getDatabase(app);
 export const database = db;

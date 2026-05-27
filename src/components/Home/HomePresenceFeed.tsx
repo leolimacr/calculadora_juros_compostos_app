@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowRight, AlertTriangle } from 'lucide-react';
 import { firestore } from '../../firebase';
-import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit, onSnapshot, getDocs } from 'firebase/firestore';
 import { PresenceEventService } from '../../services/PresenceEventService';
 
 interface PresenceEvent {
@@ -10,6 +10,7 @@ interface PresenceEvent {
   urgency: 'low' | 'medium' | 'high';
   urgencyScore: number;
   expiresAt: { seconds: number };
+  seenAt?: { seconds: number } | null;
   status: string;
   message: { title: string; body: string; ctaLabel: string };
   deepLink: string;
@@ -36,41 +37,100 @@ export const HomePresenceFeed: React.FC<Props> = ({ userId, isAuthenticated, onN
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!isAuthenticated || !userId) { setLoading(false); return; }
+    if (!isAuthenticated || !userId) {
+      setEvents([]);
+      setLoading(false);
+      return;
+    }
 
-    const fetchEvents = async () => {
-      try {
-        const now = Math.floor(Date.now() / 1000);
-        const q = query(
-          collection(firestore, 'users', userId, 'presenceEvents'),
-          where('status', '==', 'pending'),
-          where('channel', 'in', ['in_app', 'push']),
-          orderBy('urgencyScore', 'desc'),
-          limit(6) // busca mais para filtrar expirados no cliente
-        );
-        const snap = await getDocs(q);
-        const items = snap.docs
-          .map(d => ({ eventId: d.id, ...d.data() } as PresenceEvent))
-          .filter(ev => !ev.expiresAt || ev.expiresAt.seconds > now)
-          .slice(0, 3);
-        setEvents(items);
-        // Marcar impressão dos eventos reais (fire-and-forget)
-        items.forEach(ev => {
-          if (!ev.eventId.startsWith('static-') && userId) {
-            import('firebase/firestore').then(({ doc, updateDoc, Timestamp }) => {
-              const ref = doc(firestore, 'users', userId, 'presenceEvents', ev.eventId);
-              updateDoc(ref, { seenAt: Timestamp.now() }).catch(() => {});
-            });
-          }
-        });
-      } catch {
-        // Coleção ainda não existe — silencioso na fase 1
-      } finally {
-        setLoading(false);
-      }
+    let unsubscribe: (() => void) | null = null;
+
+    const markSeen = (items: PresenceEvent[]) => {
+      items.forEach(ev => {
+        const alreadySeen = !!ev.seenAt?.seconds;
+        if (!ev.eventId.startsWith('static-') && userId && !alreadySeen) {
+          import('firebase/firestore').then(({ doc, updateDoc, Timestamp }) => {
+            const ref = doc(firestore, 'users', userId, 'presenceEvents', ev.eventId);
+            updateDoc(ref, { seenAt: Timestamp.now() }).catch(() => {});
+          });
+        }
+      });
     };
 
-    fetchEvents();
+    const start = async () => {
+      const q = query(
+        collection(firestore, 'users', userId, 'presenceEvents'),
+        where('status', '==', 'pending'),
+        where('channel', 'in', ['in_app', 'push']),
+        orderBy('urgencyScore', 'desc'),
+        limit(6)
+      );
+
+      unsubscribe = onSnapshot(
+        q,
+        (snap) => {
+          const now = Math.floor(Date.now() / 1000);
+          const items = snap.docs
+            .map(d => ({ eventId: d.id, ...d.data() } as PresenceEvent))
+            .filter(ev => !ev.expiresAt || ev.expiresAt.seconds > now)
+            .slice(0, 3);
+
+          setEvents(items);
+          setLoading(false);
+          markSeen(items);
+        },
+        async (error) => {
+          console.error('[HomePresenceFeed] Erro ao ouvir presenceEvents:', error);
+
+          const requiresIndex =
+            error &&
+            typeof error === 'object' &&
+            'code' in error &&
+            (error as any).code === 'failed-precondition';
+
+          if (!requiresIndex) {
+            setLoading(false);
+            return;
+          }
+
+          try {
+            const fallbackQ = query(
+              collection(firestore, 'users', userId, 'presenceEvents'),
+              where('status', '==', 'pending'),
+              limit(20)
+            );
+
+            const fallbackSnap = await getDocs(fallbackQ);
+            const now = Math.floor(Date.now() / 1000);
+            const items = fallbackSnap.docs
+              .map(d => ({ eventId: d.id, ...d.data() } as PresenceEvent))
+              .filter(ev => (ev.channel === 'in_app' || ev.channel === 'push'))
+              .filter(ev => !ev.expiresAt || ev.expiresAt.seconds > now)
+              .sort((a, b) => (b.urgencyScore || 0) - (a.urgencyScore || 0))
+              .slice(0, 3);
+
+            console.log('[HomePresenceFeed] Fallback carregado', {
+              totalDocs: fallbackSnap.size,
+              renderedDocs: items.length,
+              items,
+            });
+
+            setEvents(items);
+            markSeen(items);
+          } catch (fallbackError) {
+            console.error('[HomePresenceFeed] Fallback query também falhou:', fallbackError);
+          } finally {
+            setLoading(false);
+          }
+        }
+      );
+    };
+
+    start();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, [userId, isAuthenticated]);
 
   const staticFallbackByPersona: Record<string, PresenceEvent[]> = {

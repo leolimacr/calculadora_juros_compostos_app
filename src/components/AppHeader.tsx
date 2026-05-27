@@ -1,43 +1,35 @@
 import React from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
-import { LogOut, Settings, Sparkles, Eye, EyeOff, Menu, Globe, CreditCard } from 'lucide-react';
-interface UserMetaInfo {
-  nickname?: string;
-  plan?: string;
-  [key: string]: unknown;
-}
+import { LogOut, Settings, Sparkles, Eye, EyeOff, Menu, Globe, CreditCard, Compass } from 'lucide-react';
+import { useNavigation } from '../hooks/useNavigation';
+import { UserMeta } from '../types';
 
 interface AppHeaderProps {
-  currentTool: string;
   isAuthenticated: boolean;
-  userMeta: UserMetaInfo | null;
+  userMeta: UserMeta | null | undefined;
   userDisplayName?: string;
-  userEmail?: string | null;
   isPrivacyMode: boolean;
   onTogglePrivacy: () => void;
-  onNavigate: (tool: string) => void;
   onLogout: () => void;
   onOpenMobileMenu: () => void;
 }
-	//Alteração para fazer novo build
+
 const AppHeader: React.FC<AppHeaderProps> = ({
-  currentTool,
   isAuthenticated,
   userMeta,
   userDisplayName,
   isPrivacyMode,
   onTogglePrivacy,
-  onNavigate,
   onLogout,
   onOpenMobileMenu,
 }) => {
   const isNative = Capacitor.isNativePlatform();
-  //correção simples
+  const { currentTool, handleNavigate } = useNavigation();
+  // @ts-ignore - nickname pode existir no objeto vindo do firestore
   const rawName = userMeta?.nickname || userDisplayName || 'Investidor';
   const firstName = rawName.split(' ')[0]; 
 
-  // CORREÇÃO CRÍTICA: Abre o navegador do SISTEMA, evitando o "Loop" de login
   const handleOpenWebsite = async () => {
 	 await Browser.open({ url: 'https://www.financasproinvest.com.br', windowName: '_system' });
   };
@@ -45,19 +37,14 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   return (
     <header className="fixed top-0 left-0 w-full z-[100] bg-[#eaf4ff]/95 backdrop-blur-md border-b border-sky-100 h-16 flex items-center px-4 md:px-8 shadow-lg transition-all duration-300">
       
-      {/* LADO ESQUERDO: LOGO */}
       <div className="flex items-center gap-2 md:gap-3 shrink-0">
-        <div className="flex items-center gap-2 md:gap-3 cursor-pointer group" onClick={() => onNavigate('home')}>
+        <div className="flex items-center gap-2 md:gap-3 cursor-pointer group" onClick={() => handleNavigate('home')}>
           <img src="/icon.png" alt="Logo" className="w-8 h-8 md:w-9 md:h-9 rounded-lg shadow-lg" />
-        
-		  
-		  
-		  <h1 className="text-sm md:text-xl font-black text-sky-600 tracking-tighter uppercase whitespace-nowrap">
+          <h1 className="text-sm md:text-xl font-black text-sky-600 tracking-tighter uppercase whitespace-nowrap">
 		    Finanças Pro Invest
 		  </h1>		  
         </div>
 
-        {/* BLOCO CONTROLa + ABRIR SITE (colado no Bem-vindo) */}
             {currentTool === 'manager' && (
               <div className="flex flex-col items-start ml-8 md:ml-12 lg:ml-16 mr-2 leading-none animate-in fade-in slide-in-from-right-2 duration-500">
                 <span className="text-[11px] md:text-sm font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-yellow-400 to-amber-500 tracking-tight uppercase whitespace-nowrap drop-shadow-sm">
@@ -77,23 +64,19 @@ const AppHeader: React.FC<AppHeaderProps> = ({
         
       </div>
 
-      {/* LADO DIREITO */}
       <div className="flex items-center justify-end gap-2 md:gap-4 flex-1">
         
-        {/* CENÁRIO 1: NÃO LOGADO -> APENAS BOTÃO ENTRAR (Sem Menu Sanduíche) */}
         {!isAuthenticated && (
           <button 
-            onClick={() => onNavigate('login')} 
+            onClick={() => handleNavigate('login')} 
             className="text-[10px] md:text-xs font-black text-white bg-gradient-to-r from-sky-600 to-indigo-600 rounded-lg px-4 py-2 uppercase tracking-tight shadow-lg shadow-sky-500/20 active:scale-95 transition-all"
           >
             Entrar
           </button>
         )}
 
-        {/* CENÁRIO 2: LOGADO -> MOSTRA TUDO */}
         {isAuthenticated && (
           <>
-            {/* DESKTOP: Saudação Completa */}
             <div className="hidden xl:flex items-center gap-3 mr-2 text-sm border-r border-slate-800 pr-4">
               <div className="flex flex-col text-right leading-none">
 				<span className="text-slate-700 text-[11px] font-black uppercase mb-1">Seja bem-vindo(a),</span>
@@ -106,35 +89,34 @@ const AppHeader: React.FC<AppHeaderProps> = ({
               </button>
             </div>
 
-            {/* MOBILE: Saudação Compacta */}
             <div className="xl:hidden flex flex-col items-end text-right mr-1 leading-none animate-in fade-in">
-              <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">
-                Seja
-              </span>
-              <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">
-                bem vindo(a),
-              </span>
+              <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Seja</span>
+              <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">bem vindo(a),</span>
               <span className="text-xs font-black text-emerald-400 tracking-tight">
                 {firstName}!
               </span>
             </div>
 
-            {/* ÍCONES DE AÇÃO (Desktop) */}
             <div className="hidden md:flex items-center gap-2">
-              <button onClick={() => onNavigate('chat')} className="flex items-center gap-2 px-6 py-2 rounded-full border text-[10px] font-black uppercase transition-all bg-slate-300 border-slate-800 text-sky-800 hover:bg-slate-100">
+              <button onClick={() => handleNavigate('chat')} className="flex items-center gap-2 px-6 py-2 rounded-full border text-[10px] font-black uppercase transition-all bg-slate-300 border-slate-800 text-sky-800 hover:bg-slate-100">
                 <Sparkles size={14} /> Nexus IA
               </button>
               <button
-                onClick={() => onNavigate('minhas-dividas')}
+                onClick={() => handleNavigate('minhas-dividas')}
                 className="flex items-center gap-2 px-5 py-2 rounded-full border text-[10px] font-black uppercase transition-all bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100"
               >
                 <CreditCard size={14} /> Minhas Dívidas
               </button>
-              <button onClick={() => onNavigate('settings')} className="p-2 text-slate-400 hover:text-white transition-colors"><Settings size={18} /></button>
+              <button 
+                onClick={() => handleNavigate('test-explorar')} 
+                className="flex items-center gap-2 px-3 py-2 rounded-full border text-[10px] font-black uppercase transition-all bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"
+              >
+                <Compass size={14} /> <span className="hidden lg:inline">Explorar</span>
+              </button>
+              <button onClick={() => handleNavigate('settings')} className="p-2 text-slate-400 hover:text-white transition-colors"><Settings size={18} /></button>
               <button onClick={onLogout} className="p-2 text-slate-500 hover:text-red-400 transition-colors"><LogOut size={18} /></button>
             </div>
 
-            {/* MENU HAMBÚRGUER (SÓ APARECE SE ESTIVER LOGADO E NO MOBILE) */}
             {!isNative && (
               <div className="lg:hidden flex items-center gap-2">
                 <button 

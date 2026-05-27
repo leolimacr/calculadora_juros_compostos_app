@@ -1,74 +1,49 @@
-import { useState, useEffect } from 'react';
-import { Goal, fetchGoals, createGoal, updateGoal, deleteGoal } from '../services/goalService';
-import { Timestamp } from 'firebase/firestore';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Goal, createGoal, updateGoal, deleteGoal } from '../services/goalService';
+import { createGoalRealtimeBridge } from '../services/goal.realtime';
+import { queryKeys } from '../core/query/queryKeys';
 
 export const useGoals = (userId: string | undefined) => {
-  const [goals, setGoals] = useState<Goal[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const key = queryKeys.goals.byUser(userId || 'anonymous');
 
   useEffect(() => {
-    if (!userId) {
-      setGoals([]);
-      setLoading(false);
-      return;
-    }
+    if (!userId) return;
+    const bridge = createGoalRealtimeBridge(userId);
+    const unsubscribe = bridge.subscribe(() => {});
+    return unsubscribe;
+  }, [userId, key]);
 
-    const loadGoals = async () => {
-      try {
-        setLoading(true);
-        const data = await fetchGoals(userId);
-        setGoals(data);
-        setError(null);
-      } catch (err) {
-        setError('Erro ao carregar metas');
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadGoals();
-  }, [userId]);
+  const { data: goals = [], isLoading: loading, error } = useQuery<Goal[], Error>({
+    queryKey: key,
+    queryFn: () => Promise.resolve([]),
+    enabled: !!userId,
+  });
 
   const addGoal = async (goalData: Omit<Goal, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => {
     if (!userId) throw new Error('Usuário não autenticado');
-    try {
-      const newGoal = await createGoal(userId, goalData);
-      setGoals(prev => [newGoal as Goal, ...prev]);
-      return newGoal;
-    } catch (err) {
-      console.error(err);
-      throw err;
-    }
+    const newGoal = await createGoal(userId, goalData);
+    queryClient.invalidateQueries({ queryKey: key });
+    return newGoal;
   };
 
   const editGoal = async (goalId: string, updates: Partial<Goal>) => {
     if (!userId) throw new Error('Usuário não autenticado');
-    try {
-      await updateGoal(userId, goalId, updates);
-      setGoals(prev => prev.map(g => g.id === goalId ? { ...g, ...updates, updatedAt: Timestamp.now() } : g));
-    } catch (err) {
-      console.error(err);
-      throw err;
-    }
+    await updateGoal(userId, goalId, updates);
+    queryClient.invalidateQueries({ queryKey: key });
   };
 
   const removeGoal = async (goalId: string) => {
     if (!userId) throw new Error('Usuário não autenticado');
-    try {
-      await deleteGoal(userId, goalId);
-      setGoals(prev => prev.filter(g => g.id !== goalId));
-    } catch (err) {
-      console.error(err);
-      throw err;
-    }
+    await deleteGoal(userId, goalId);
+    queryClient.invalidateQueries({ queryKey: key });
   };
 
   return {
     goals,
     loading,
-    error,
+    error: error?.message || null,
     addGoal,
     editGoal,
     removeGoal,

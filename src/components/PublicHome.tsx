@@ -1,24 +1,17 @@
-import { fetchAssetQuote } from '../services/marketService';
-import { storage, firestore } from '../firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { useNavigate } from 'react-router-dom';
+import { firestore } from '../firebase';
 import { useGoals } from '../hooks/useGoals';
 import { useAssets } from '../hooks/useAssets';
 import { useDebts } from '../hooks/useDebts';
 import { usePresenceTriggers } from '../hooks/usePresenceTriggers';
 import { useWealthPresenceTriggers } from '../hooks/useWealthPresenceTriggers';
 import { calcularProximoAporte, diasAteProximoAporte } from '../utils/dateHelpers';
-import { collection, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { MarkdownViewer } from './Public/MarkdownViewer';
-import { courses } from './Public/Courses';
+import { doc, deleteDoc } from 'firebase/firestore';
 import React, { useEffect, useState, useMemo } from 'react';
-import { ALL_B3_TICKERS } from '../data/tickers';
 import { ContentModal, AssetModal } from './Public/HomeModals';
 import { InfiniteTicker } from './Public/MarketComponents';
 import { getLatestNews } from '../services/newsService';
 import { HomeHero } from './Home/HomeHero';
 import { HomeResumoFinanceiro } from './Home/HomeResumoFinanceiro';
-import { HomePresenceFeed } from './Home/HomePresenceFeed';
 import { HomeJornada } from './Home/HomeJornada';
 import { HomeEcossistema } from './Home/HomeEcossistema';
 import { HomeSecoesSuporte } from './Home/HomeSecoesSuporte';
@@ -26,9 +19,9 @@ import { HomeCursos } from './Home/HomeCursos';
 import { HomeConteudo } from './Home/HomeConteudo';
 import { HomeTerminalMercado } from './Home/HomeTerminalMercado';
 import { HomeFooter } from './Home/HomeFooter';
+import { PresenceAlertsBanner } from './Home/PresenceAlertsBanner';
 import {
-  LogOut, Sparkles, Wallet, Search, ArrowRight, Instagram, Linkedin, Mail,
-  TrendingUp, PieChart, AlertTriangle, CreditCard, Target, Newspaper, BarChart3
+  LogOut
 } from 'lucide-react';
 
 const CLOUD_API_URL = '/api/market';
@@ -43,13 +36,9 @@ const RADAR_NEWS = [
 ];
 
 export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthenticated, userMeta, isPrivacyMode }) => {
-  const navigate = useNavigate();
 
   // --- ESTADO: Notícias ---
   const [radarNews, setRadarNews] = useState<any[]>(RADAR_NEWS);
-  const [showNewsAdmin, setShowNewsAdmin] = useState(false);
-  const [newsForm, setNewsForm] = useState({ id: '', title: '', summary: '', content: '', coverImage: '' });
-  const [uploadingImage, setUploadingImage] = useState(false);
 
   // --- ESTADO: Patrimônio ---
   const [patrimonioAtivo] = useState<number>(userMeta?.resumoFinanceiro?.patrimonioAtivo || 0);
@@ -108,6 +97,8 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
   const [activeInfoModal, setActiveInfoModal] = useState<string | null>(null);
   const [selectedArticle, setSelectedArticle] = useState<any | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<any | null>(null);
+  const [_showNewsAdmin, setShowNewsAdmin] = useState(false);
+  const [newsForm, setNewsForm] = useState({ id: '', title: '', summary: '', content: '', coverImage: '' });
 
   // --- EFEITO: Buscar notícias ---
   const fetchNews = async () => {
@@ -164,46 +155,6 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
     return () => clearInterval(interval);
   }, []);
 
-  // --- HANDLERS: Notícias ---
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadingImage(true);
-    try {
-      const storageRef = ref(storage, `news/${Date.now()}-${file.name}`);
-      await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(storageRef);
-      setNewsForm((prev) => ({ ...prev, coverImage: url }));
-    } catch { alert('Erro ao fazer upload da imagem.'); }
-    finally { setUploadingImage(false); }
-  };
-
-  const handleSaveNews = async () => {
-    try {
-      if (newsForm.id) {
-        await updateDoc(doc(firestore, 'noticias', newsForm.id), {
-          title: newsForm.title, summary: newsForm.summary,
-          content: newsForm.content, coverImage: newsForm.coverImage,
-        });
-        alert('Notícia atualizada com sucesso!');
-      } else {
-        await addDoc(collection(firestore, 'noticias'), {
-          title: newsForm.title, summary: newsForm.summary,
-          content: newsForm.content, coverImage: newsForm.coverImage,
-          date: new Date().toISOString().split('T')[0],
-          category: 'Geral', tag: 'Notícia', badge: 'Novo', readTime: '3 min',
-        });
-        alert('Notícia salva com sucesso!');
-      }
-      setNewsForm({ id: '', title: '', summary: '', content: '', coverImage: '' });
-      setShowNewsAdmin(false);
-      fetchNews();
-    } catch (error) {
-      console.error('Erro ao salvar:', error);
-      alert('Erro ao salvar a notícia.');
-    }
-  };
-
   const handleDeleteNews = async (id: string) => {
     try {
       await deleteDoc(doc(firestore, 'noticias', id));
@@ -216,7 +167,7 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col overflow-x-hidden">
+    <div className="bg-slate-50 flex flex-col overflow-x-hidden">
       <HomeHero
         heroPersona={heroPersona}
         setHeroPersona={setHeroPersona}
@@ -256,11 +207,8 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
         valorProximoAporte={valorProximoAporte}
       />
 
-      <HomePresenceFeed
+      <PresenceAlertsBanner
         userId={userMeta?.uid ?? null}
-        isAuthenticated={isAuthenticated}
-        onNavigate={onNavigate}
-        heroPersona={heroPersona}
       />
 
       <HomeJornada heroPersona={heroPersona} />
@@ -332,6 +280,16 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
               <LogOut size={20} className="text-slate-500" />
             </button>
             <selectedArticle.component />
+          </div>
+        </div>
+      )}
+      {selectedCourse && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 md:p-8">
+          <div className="bg-white rounded-3xl max-w-4xl w-full p-8 relative mt-8 mb-8">
+            <button onClick={() => setSelectedCourse(null)} className="absolute top-6 right-6 p-2 hover:bg-slate-100 rounded-xl transition-colors">
+              <LogOut size={20} className="text-slate-500" />
+            </button>
+            <selectedCourse.component />
           </div>
         </div>
       )}

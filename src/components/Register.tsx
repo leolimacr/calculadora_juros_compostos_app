@@ -26,8 +26,9 @@ const Register: React.FC = () => {
     }
     setLoading(true);
     try {
-      await register(email, password, name);
-      navigate('/dashboard');
+      await register(email, password);
+      // '/' é o entry resolver temporário do app
+      navigate('/');
     } catch (err: any) {
       setLocalError('Erro ao criar conta: ' + err.message);
     } finally {

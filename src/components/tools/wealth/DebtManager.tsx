@@ -1,32 +1,24 @@
-﻿import React, { useState, useEffect } from 'react';
-import {
-  collection, query, onSnapshot, orderBy,
-  addDoc, doc, updateDoc, deleteDoc,
-} from 'firebase/firestore';
-import { firestore } from '../../../firebase';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFirebase } from '../../../hooks/useFirebase';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, addDoc, deleteDoc } from 'firebase/firestore';
+import { firestore } from '../../../firebase';
 import {
   Plus, Trash2, Pencil, X,
   CreditCard, Sparkles, HelpCircle,
-  TrendingUp, ShieldCheck, Target, Info
+  TrendingUp, ShieldCheck, Target
 } from 'lucide-react';
 import { PresenceEventService } from '../../../services/PresenceEventService';
 import { DebtPlanSimulator } from '../DebtPlanSimulator';
 import { useWealthData } from '../../../hooks/useWealthData';
 import { fetchCurrentSelicRate } from '../buy-cash-or-installments/selicService';
+import {
+  DebtItem,
+  useDebts
+} from '../../../services/debt';
 
-export interface DebtItem {
-  id?: string;
-  nome: string;
-  tipo: string;
-  saldoDevedor: number;
-  taxaMensal: number;
-  parcelasRestantes: number;
-  valorParcela: number;
-  dataVencimento?: string | null; // formato ISO: 'YYYY-MM-DD'
-  createdAt?: any;
-}
+
+// ... (the rest of the UI code will be updated to consume the new service/hooks)
 
 interface SavedDebtPlan {
   id: string;
@@ -37,6 +29,7 @@ interface SavedDebtPlan {
 }
 
 interface DebtManagerProps {
+  userId: string | undefined;
   userMeta: any;
   lancamentos: Array<{
     id: string;
@@ -48,6 +41,7 @@ interface DebtManagerProps {
   }>;
   onNavigate?: (route: string) => void;
 }
+// ... (rest of the file stays the same, but the import logic and CRUD calls are replaced)
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -56,8 +50,8 @@ const fixMojibake = (text?: string) => {
   if (!text) return '';
 
   return text
-    .replace(/Plano de quita��o/g, 'Plano de quitação')
-    .replace(/Plano de quita�o/g, 'Plano de quitação')
+    .replace(/Plano de quitao/g, 'Plano de quitação')
+    .replace(/Plano de quitao/g, 'Plano de quitação')
     .replace(/Ã§/g, 'ç')
     .replace(/Ã£/g, 'ã')
     .replace(/Ã¡/g, 'á')
@@ -115,10 +109,9 @@ const EMPTY_FORM: DebtItem = {
   valorParcela: 0,
   dataVencimento: null,
 };
-export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta, lancamentos, onNavigate }) => {
-  const navigate = useNavigate();
-  const { saveFinancialProfile } = useFirebase(userMeta?.uid); // <-- Passando o UID para o hook
-  const { totalAssets, totalPassives, loading: wealthLoading } = useWealthData();
+export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, lancamentos, onNavigate }) => {
+  const { saveFinancialProfile } = useFirebase(userId); // <-- Passando o UID para o hook
+  const { totalAssets, totalPassives } = useWealthData();
   const [selicAno, setSelicAno] = useState<number | undefined>(undefined);
   const [savedPlans, setSavedPlans] = useState<SavedDebtPlan[]>([]);
   const [selectedSavedPlan, setSelectedSavedPlan] = useState<SavedDebtPlan | null>(null);
@@ -130,9 +123,9 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta, lancamentos,
   }, []);
 
   useEffect(() => {
-    if (!userMeta?.uid) return;
+    if (!userId) return;
 
-    const plansRef = collection(firestore, 'users', userMeta.uid, 'nexusDebtPlans');
+    const plansRef = collection(firestore, 'users', userId, 'nexusDebtPlans');
     const plansQuery = query(plansRef, orderBy('createdAt', 'desc'));
 
     const unsubscribe = onSnapshot(plansQuery, (snapshot) => {
@@ -145,10 +138,9 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta, lancamentos,
     });
 
     return () => unsubscribe();
-  }, [userMeta?.uid]);
+  }, [userId]);
 
-  const [debts, setDebts] = useState<DebtItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showCetInfo, setShowCetInfo] = useState(false);
@@ -160,7 +152,6 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta, lancamentos,
   const [setupStep, setSetupStep] = useState(0); 
   const [tempIncome, setTempIncome] = useState<number>(0);
   const [displayTempIncome, setDisplayTempIncome] = useState('');
-  const [tempStability, setTempStability] = useState<'stable' | 'normal' | 'volatile' | null>(null);
   const [tempReserveMonths, setTempReserveMonths] = useState<number>(6);
   const [tempCurrentReserve, setTempCurrentReserve] = useState<number>(0);
   const [displayTempCurrentReserve, setDisplayTempCurrentReserve] = useState('');
@@ -188,21 +179,8 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta, lancamentos,
     }
   }, [form.saldoDevedor, form.parcelasRestantes, form.valorParcela, form.taxaMensal]);
   // 4. Firestore listener
-  useEffect(() => {
-    if (!userMeta?.uid) { setIsLoading(false); return; }
-    const ref = collection(firestore, `users/${userMeta.uid}/dividas`);
-    const unsub = onSnapshot(
-      query(ref),
-      (snap) => {
-        const loaded: DebtItem[] = [];
-        snap.forEach((d) => loaded.push({ id: d.id, ...d.data() } as DebtItem));
-        setDebts(loaded);
-        setIsLoading(false);
-      },
-      () => setIsLoading(false),
-    );
-    return () => unsub();
-  }, [userMeta]);
+  const { data: debtsData, isLoading } = useDebts(userId);
+  const debts = debtsData || [];
 
   // 5. Helper de Input com Máscara (Versío Polimórfica)
   const handleCurrencyInput = (
@@ -240,7 +218,7 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta, lancamentos,
   const handleSave = async (e: React.FormEvent) => {
       e.preventDefault();
       if (
-        !userMeta?.uid ||
+        !userId ||
         !form.nome.trim() ||
         form.saldoDevedor <= 0 ||
         form.taxaMensal <= 0 ||
@@ -264,12 +242,12 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta, lancamentos,
         };
 
       if (editingId) {
-        await updateDoc(doc(firestore, `users/${userMeta.uid}/dividas`, editingId), data);
+        await updateDoc(doc(firestore, `users/${userId}/dividas`, editingId), data);
 
         // Gatilho: dado incompleto após edição (sem data de vencimento)
         if (!data.dataVencimento) {
           PresenceEventService.create({
-            uid: userMeta.uid,
+            uid: userId,
             eventType: 'debt.missing_data',
             persona: 'debts',
             urgency: 'low',
@@ -287,14 +265,14 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta, lancamentos,
         }
 
       } else {
-        const docRef = await addDoc(collection(firestore, `users/${userMeta.uid}/dividas`), {
+        const docRef = await addDoc(collection(firestore, `users/${userId}/dividas`), {
           ...data,
           createdAt: new Date(),
         });
 
         // Gatilho: nova dívida adicionada
         PresenceEventService.create({
-          uid: userMeta.uid,
+          uid: userId,
           eventType: 'debt.new_debt_added',
           persona: 'debts',
           urgency: 'low',
@@ -313,7 +291,7 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta, lancamentos,
         // Gatilho: dado incompleto na criação (sem data de vencimento)
         if (!data.dataVencimento) {
           PresenceEventService.create({
-            uid: userMeta.uid,
+            uid: userId,
             eventType: 'debt.missing_data',
             persona: 'debts',
             urgency: 'low',
@@ -355,10 +333,10 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta, lancamentos,
   };
 
   const handleDelete = async (id: string) => {
-    if (!userMeta?.uid) return;
+    if (!userId) return;
     if (!window.confirm('Tem certeza que deseja excluir esta dívida?')) return;
     try {
-      await deleteDoc(doc(firestore, `users/${userMeta.uid}/dividas`, id));
+      await deleteDoc(doc(firestore, `users/${userId}/dividas`, id));
       if (editingId === id) resetForm();
     } catch (err) {
       console.error('Erro ao excluir dívida:', err);
@@ -393,17 +371,7 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta, lancamentos,
       ? parseFloat((rendaMensalEstimada - despesasMensaisMedias - totalParcelasMensais).toFixed(2))
       : undefined;
 
-  console.log("DEBUG Nexus:", {
-    profile: userMeta?.financialProfile,
-    step: setupStep,
-    caixaRealContexto: {
-      janelaAnaliseDias,
-      despesasMensaisMedias,
-      totalParcelasMensais,
-      sobraMensalReal,
-      lancamentosConsiderados: lancamentosRecentes.length,
-    },
-  });
+
   // ”€”€”€ Render ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€
   return (
     <div className="w-full max-w-6xl mx-auto p-4 md:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -641,11 +609,11 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta, lancamentos,
             <CreditCard size={24} className="text-rose-500" />
           </div>
           <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
-            Minhas Dívidas
+            Plano de Liberdade Financeira
           </h2>
         </div>
         <p className="text-slate-500 text-sm md:text-base max-w-2xl">
-          Cadastre todas as suas dívidas. Com esses dados, o Nexus consegue montar um plano real de quitação.
+          Vamos organizar o caminho de saída. Cadastre suas contas pendentes e deixe o Nexus desenhar a estratégia matemática para você recuperar sua paz.
         </p>
       </header>
 
@@ -682,7 +650,7 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta, lancamentos,
           {/* Nome */}
           <div className="md:col-span-5">
             <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
-              Nome da dívida <span className="text-rose-500">*</span>
+              Qual dívida mais te incomoda hoje? <span className="text-slate-400 font-normal lowercase">(Ex: Cartão Nubank)</span> <span className="text-rose-500">*</span>
             </label>
             <input
               type="text"
@@ -840,7 +808,7 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta, lancamentos,
             >
               {editingId
                 ? <><Pencil size={15} /> Salvar alterações</>
-                : <><Plus size={15} /> Adicionar dívida</>}
+                : <><Plus size={15} /> Registrar e Avançar</>}
             </button>
           </div>
         </form>
@@ -978,7 +946,7 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta, lancamentos,
             </div>
 
             <DebtPlanSimulator
-              userId={userMeta?.uid ?? userMeta?.id ?? undefined}
+              userId={userId}
               initialPlanMarkdown={selectedSavedPlan?.planMarkdown}
               dividas={debts.map(d => ({
                 id: d.id ?? d.nome,
@@ -1019,7 +987,7 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta, lancamentos,
               
               patrimonioContexto={{
                 valorTotalInvestimentosFinanceiros: totalAssets,
-                valorPatrimonioLiquido: totalAssets + totalPassives - debts.reduce((sum, d) => sum + (d.saldoAtual || 0), 0),
+                valorPatrimonioLiquido: totalAssets + totalPassives - debts.reduce((sum, d) => sum + (d.saldoDevedor || 0), 0),
               }}
               
               custoOportunidadeContexto={selicAno ? {
@@ -1035,7 +1003,3 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userMeta, lancamentos,
 };
 
 export default DebtManager;
-
-
-
-

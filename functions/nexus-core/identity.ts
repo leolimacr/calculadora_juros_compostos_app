@@ -18,7 +18,7 @@ export class NexusIdentity {
 
   static getSystemPrompt(
     userName: string,
-    context: any,
+    _context: any,
     marketData: string,
     transactions: string,
     goals: string,
@@ -26,7 +26,7 @@ export class NexusIdentity {
     assetsSummary: string,
     passivesSummary: string,
     patrimonioLiquido: string,
-    isFirst: boolean,
+    _isFirst: boolean,
     userData: any, // Vamos usar any temporariamente para facilitar a passagem do objeto completo UserDataResult
     historyDescription: string
   ): string {

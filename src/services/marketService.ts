@@ -92,6 +92,11 @@ const STOCK_FALLBACK = [
 // SERVIÇO
 // ============================================================================
 
+const getOptimalRange = (symbol: string): string => {
+  const isB3 = symbol.endsWith('.SA') || symbol === '^BVSP';
+  return isB3 ? '1d' : '1mo';
+};
+
 // --- Busca de Histórico ---
 export const fetchHistoricalData = async (
   symbol: string,
@@ -129,10 +134,11 @@ export const fetchHistoricalData = async (
       apiSymbol = `${symbol}.SA`;
     }
 
-    const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${apiSymbol}?range=${range}&interval=${interval}`;
+    const targetRange = getOptimalRange(apiSymbol);
+    const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${apiSymbol}?range=${targetRange}&interval=${interval}`;
     const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
 
-    console.log(`[MarketService] Tentando Yahoo: ${apiSymbol}`);
+    console.log(`[MarketService] Tentando Yahoo: ${apiSymbol} (range: ${targetRange})`);
     const res = await fetch(proxyUrl);
 
     if (res.ok) {

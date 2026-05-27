@@ -461,7 +461,7 @@ export class DiscretionEngine {
         message: string, 
         intent: string, 
         history: any[],
-        userData: any
+        _userData: any
     ): boolean {
         // Nunca sugerir em saudações simples
         if (intent === 'greeting') return false;

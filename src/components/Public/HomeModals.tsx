@@ -18,6 +18,7 @@ export const ContentModal = ({ title, icon: Icon, children, onClose }: any) => (
   </div>
 );
 export const AssetModal = ({ asset, onClose }: { asset: { symbol: string; category: string }, onClose: () => void }) => {  	
+  console.log('DEBUG AssetModal Received Asset:', asset);
   const [isFull, setIsFull] = useState(false); // ✅ Estado para controlar o tamanho da tela
   
   const normalizeCryptoPair = (raw: string) => {
@@ -39,26 +40,23 @@ export const AssetModal = ({ asset, onClose }: { asset: { symbol: string; catego
   const getTradingViewSymbol = (s: string, cat: string) => {
     const sym = s.toUpperCase().trim();
 
-    if (cat === 'index') {
-      if (sym.includes('IBOV') || sym === '^BVSP') return 'BMFBOVESPA:IBOV';
-      if (sym.includes('S&P') || sym === '^GSPC') return 'SP:SPX';
-    }
+    // Mapeamento de Índices e Moedas
+    if (sym === '^GSPC' || sym === 'GSPC' || sym === 'S&P 500') return 'CAPITALCOM:SPX500';
+    if (sym === 'USD' || sym === 'USDBRL') return 'FX_IDC:USDBRL';
+    if (sym === 'EUR' || sym === 'EURBRL') return 'FX_IDC:EURBRL';
+    if (sym.includes('IBOV') || sym === '^BVSP') return 'BMFBOVESPA:IBOV';
 
-    if (cat === 'currency') {
-      if (sym === 'USD' || sym === 'USDBRL') return 'FX_IDC:USDBRL';
-      if (sym === 'EUR' || sym === 'EURBRL') return 'FX_IDC:EURBRL';
-    }
+    // Mapeamento explícito de Criptoativos com Prefixos de Exchange
+    if (sym.includes('BTC') && sym.includes('BRL')) return 'BINANCE:BTCBRL';
+    if (sym.includes('BTC') && (sym.includes('USD') || sym.includes('USDT'))) return 'BITSTAMP:BTCUSD';
+    
+    if (sym.includes('ETH') && sym.includes('BRL')) return 'BINANCE:ETHBRL';
+    if (sym.includes('ETH') && (sym.includes('USD') || sym.includes('USDT'))) return 'BITSTAMP:ETHUSD';
+    
+    if (sym.includes('BNB') && sym.includes('BRL')) return 'BINANCE:BNBBRL';
+    if (sym.includes('SOL') && sym.includes('BRL')) return 'BINANCE:SOLBRL';
 
-    if (cat === 'crypto') {
-      const { base, quote } = normalizeCryptoPair(sym);
-
-      if (quote === 'BRL') return `BINANCE:${base}BRL`;
-      if (quote === 'USD') return `COINBASE:${base}USD`;
-      if (quote === 'USDT') return `BINANCE:${base}USDT`;
-
-      return `BINANCE:${base}BRL`;
-    }
-
+    // Fallback B3
     return `BMFBOVESPA:${sym.replace('.SA', '')}`;
   };
   
@@ -66,7 +64,7 @@ export const AssetModal = ({ asset, onClose }: { asset: { symbol: string; catego
     <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/95 backdrop-blur-sm p-4">
       
       {/* Container do Modal com transição suave entre normal e full screen */}
-      <div className={`bg-[#0f172a] border border-slate-700 flex flex-col overflow-hidden transition-all duration-300 relative 
+      <div className={`bg-[#0f172a] border border-slate-700 flex flex-col overflow-hidden relative 
         ${isFull ? 'fixed inset-0 w-full h-full rounded-none z-[10001]' : 'w-full max-w-5xl h-[600px] rounded-2xl'}`}>
         
         {/* Header do Modal */}
@@ -104,13 +102,14 @@ export const AssetModal = ({ asset, onClose }: { asset: { symbol: string; catego
         {/* Iframe do Gráfico */}
         <div className="flex-1 bg-black relative">
             <iframe 
-                src={`https://s.tradingview.com/widgetembed/?frameElementId=tradingview_widget&symbol=${getTradingViewSymbol(asset.symbol, asset.category)}&interval=D&hidesidetoolbar=1&theme=dark&style=1&timezone=America%2FSao_Paulo`}
+                key={`${asset.symbol}-${asset.category}`}
+                src={`https://s.tradingview.com/widgetembed/?symbol=${getTradingViewSymbol(asset.symbol, asset.category)}&interval=D&hidesidetoolbar=1&theme=dark&style=1&timezone=America%2FSao_Paulo&locale=br&withdateranges=1`}
                 className="w-full h-full absolute inset-0 border-0" 
                 allowTransparency 
                 allowFullScreen
             ></iframe>
         </div>
-      </div>
-    </div>
-  );
-};
+        </div>
+        </div>
+        );
+        };

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { DebtItem } from './useDebts';
 import { PresenceEventService } from '../services/PresenceEventService';
 
@@ -22,12 +22,8 @@ export const usePresenceTriggers = ({
   debts,
   debtsLoading,
 }: UsePresenceTriggersParams) => {
-  // Ref para evitar re-disparos no mesmo ciclo de vida
-  const evaluatedRef = useRef(false);
-
   useEffect(() => {
-    if (!userId || debtsLoading || evaluatedRef.current) return;
-    evaluatedRef.current = true;
+    if (!userId || debtsLoading) return;
 
     const evaluate = async () => {
       for (const debt of debts) {
@@ -40,7 +36,15 @@ export const usePresenceTriggers = ({
           const days = daysUntil(dateStr);
 
           if (days >= 0 && days <= 3) {
-            await PresenceEventService.create({
+            console.log('[usePresenceTriggers] Avaliando debt.due_soon_3d', {
+              userId,
+              debtId,
+              debtName: debt.nome,
+              dueDate: dateStr,
+              days,
+            });
+
+            const created = await PresenceEventService.create({
               uid: userId,
               eventType: 'debt.due_soon_3d',
               persona: 'debts',
@@ -55,6 +59,11 @@ export const usePresenceTriggers = ({
               expiresInHours: days <= 0 ? 24 : days * 24,
               resourceId: debtId,
               payload: { debtName: debt.nome, dueDate: dateStr, amount: debt.valorParcela },
+            });
+
+            console.log('[usePresenceTriggers] Resultado debt.due_soon_3d', {
+              debtId,
+              created,
             });
           } else if (days > 3 && days <= 7) {
             await PresenceEventService.create({
@@ -144,7 +153,7 @@ export const usePresenceTriggers = ({
                   body: `Você não registra gastos há ${Math.floor(daysSinceTx)} dias. O Nexus trabalha melhor com dados frescos.`,
                   ctaLabel: 'Registrar gasto',
                 },
-                deepLink: 'controla',
+                deepLink: 'manager',
                 cooldownHours: 72,
                 expiresInHours: 7 * 24,
                 resourceId: userId,
@@ -155,23 +164,9 @@ export const usePresenceTriggers = ({
         } catch { /* silencioso */ }
       }
 
-      // --- debt.inactive_7d (sem dívidas carregadas ou lista vazia após onboarding) ---
-      if (debts.length === 0) {
-        await PresenceEventService.create({
-          uid: userId,
-          eventType: 'debt.inactive_7d',
-          persona: 'debts',
-          urgency: 'low',
-          message: {
-            title: 'Tudo bem com o plano?',
-            body: 'Você ainda não tem dívidas cadastradas. Cadastre para acompanhar com mais contexto.',
-            ctaLabel: 'Cadastrar dívidas',
-          },
-          deepLink: 'minhas-dividas',
-          cooldownHours: 168,
-          expiresInHours: 14 * 24,
-        });
-      }
+      // debt.inactive_7d não deve nascer apenas porque a lista veio vazia.
+      // Esse evento precisa ser baseado em tempo real de inatividade/presença,
+      // não em ausência imediata de registros nesta leitura.
     };
 
     evaluate();

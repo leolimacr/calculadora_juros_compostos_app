@@ -73,7 +73,7 @@ export const HomeSecoesSuporte: React.FC<Props> = ({ heroPersona, onNavigate, on
         <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_top_right,_rgba(16,185,129,0.35),_transparent_35%)]" />
         <div className="relative z-10 max-w-3xl">
           <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/10 text-white text-[10px] font-black uppercase tracking-widest mb-4">Feito para a realidade brasileira</span>
-          <h3 className="text-2xl md:text-3xl font-black tracking-tight mb-3">{heroPersona === 'dividas' ? 'Tecnologia para organizar a realidade e permanecer útil quando a vida financeira muda.' : 'Tecnologia para acompanhar patrimônio com mais contexto, continuidade e menos ruído.'}</h3>
+          <h3 className="text-2xl md:text-3xl font-black tracking-tight mb-3">Inteligência que fala a sua língua — simples, útil e sempre ao seu lado.</h3>
           <p className="text-slate-200 text-sm md:text-base leading-relaxed">{heroPersona === 'dividas' ? 'O Finanças Pro Invest foi desenhado para ajudar você a sair do improviso, construir uma base confiável e continuar recebendo apoio quando sua realidade mudar.' : 'O Finanças Pro Invest combina cadastro patrimonial, rotina financeira e apoio do Nexus para transformar contexto em decisão prática e acompanhamento contínuo.'}</p>
         </div>
       </div>
@@ -90,7 +90,7 @@ export const HomeSecoesSuporte: React.FC<Props> = ({ heroPersona, onNavigate, on
           <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-bold text-slate-600">{heroPersona === 'dividas' ? 'Entrada inicial + acompanhamento contínuo' : 'Acompanhamento + revisão contínua'}</span>
         </div>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-          <button onClick={() => onNavigate(heroPersona === 'dividas' ? 'minhas-dividas' : 'investimentos')} className="bg-emerald-500 hover:bg-emerald-600 text-white font-black px-8 py-4 rounded-2xl transition-all shadow-[0_16px_35px_-18px_rgba(16,185,129,0.65)] inline-flex items-center justify-center gap-2 w-full sm:w-auto"><span>{heroPersona === 'dividas' ? 'Cadastrar minhas dívidas' : 'Cadastrar meus investimentos'}</span><ArrowRight size={20} /></button>
+          <button onClick={() => onNavigate(heroPersona === 'dividas' ? 'minhas-dividas' : 'investimentos')} className="bg-emerald-500 hover:bg-emerald-600 text-white font-black px-8 py-4 rounded-2xl transition-all shadow-[0_16px_35px_-18px_rgba(16,185,129,0.65)] inline-flex items-center justify-center gap-2 w-full sm:w-auto"><span>{heroPersona === 'dividas' ? 'Quero organizar meu dinheiro' : 'Quero ver meu futuro financeiro'}</span><ArrowRight size={20} /></button>
           <button onClick={() => isAuthenticated ? onNavigate('manager') : onStartNow()} className="bg-white hover:bg-slate-100 text-slate-900 font-black px-8 py-4 rounded-2xl transition-all border border-slate-300 shadow-sm inline-flex items-center justify-center gap-2 w-full sm:w-auto"><span>{heroPersona === 'dividas' ? 'Registrar minha rotina no Controla' : 'Organizar minha rotina no Controla'}</span><ArrowRight size={20} /></button>
         </div>
       </div>

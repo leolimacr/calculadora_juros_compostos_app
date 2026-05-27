@@ -1,14 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { FolderPlus } from 'lucide-react';
 import CategoryManager from './CategoryManager';
+import { Transaction, Category } from '../../../types';
 
-const TransactionForm: React.FC<any> = ({ 
+interface TransactionFormProps {
+  onSave: (data: any) => Promise<void>;
+  onCancel: () => void;
+  initialData?: Partial<Transaction> | null;
+  categories: Category[];
+  onSaveCategory: (category: Category) => Promise<void>;
+  onDeleteCategory: (id: string) => Promise<void>;
+}
+
+const TransactionForm: React.FC<TransactionFormProps> = ({ 
   onSave, 
   onCancel, 
-  expenseCategories, 
-  incomeCategories, 
-  onUpdateExpenseCategories, 
-  onUpdateIncomeCategories,
   initialData,  
   categories = [],
   onSaveCategory,
@@ -23,17 +29,26 @@ const TransactionForm: React.FC<any> = ({
   
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
+  // Sync state when initialData changes (modal reopen)
+  useEffect(() => {
+    setDescription(initialData?.description || '');
+    setAmount(initialData?.amount || '');
+    setType(initialData?.type || 'expense');
+    setCategory(initialData?.category || '');
+    setDate(initialData?.date || new Date().toISOString().split('T')[0]);
+  }, [initialData]);
+
   // ✅ CORREÇÃO: Calcula dinamicamente a partir de `categories` (reativo e em tempo real)
   const currentCategoryList = categories
-    .filter(c => c.type === type)
-    .map(c => c.name);
+    .filter((c: Category) => c.type === type)
+    .map((c: Category) => c.name);
 
   useEffect(() => {
-    // Se estiver editando, mantém a categoria do item. Se for novo, pega a primeira da lista.
-    if (!initialData) {
+    // Se for novo lançamento e não houver categoria pré-selecionada, pega a primeira da lista.
+    if (!initialData?.id && !initialData?.category) {
       setCategory(currentCategoryList[0] || 'Outros');
     }
-  }, [type, categories]);
+  }, [type, categories, initialData]);
   const handleSave = async () => {
     const numericAmount = Number(amount);
     if (!description.trim()) return alert("Informe uma descrição para o lançamento.");
@@ -60,14 +75,14 @@ const TransactionForm: React.FC<any> = ({
         onDelete={onDeleteCategory} 
       />
       <div className="space-y-4 p-2">
-        <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
-          <button onClick={() => setType('expense')} className={`flex-1 py-2 rounded-lg font-black uppercase text-xs transition-all ${type === 'expense' ? 'bg-red-500 text-white shadow-sm' : 'text-slate-600'}`}>Despesa</button>
-          <button onClick={() => setType('income')} className={`flex-1 py-2 rounded-lg font-black uppercase text-xs transition-all ${type === 'income' ? 'bg-emerald-500 text-white shadow-sm' : 'text-slate-600'}`}>Receita</button>
+        <div className="flex bg-surface-elevated p-1 rounded-2xl border border-surface-elevated">
+          <button onClick={() => setType('expense')} className={`flex-1 py-2 rounded-xl font-black uppercase text-xxs transition-all ${type === 'expense' ? 'bg-status-danger text-text-onBrand shadow-soft' : 'text-text-muted'}`}>Despesa</button>
+          <button onClick={() => setType('income')} className={`flex-1 py-2 rounded-xl font-black uppercase text-xxs transition-all ${type === 'income' ? 'bg-brand-primary text-text-onBrand shadow-soft' : 'text-text-muted'}`}>Receita</button>
         </div>
         
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-500 uppercase ml-1">Valor</label>
+            <label className="text-xxs font-black text-text-muted uppercase ml-1">Valor</label>
             <input 
               type="text" 
               inputMode="numeric" 
@@ -77,39 +92,39 @@ const TransactionForm: React.FC<any> = ({
                 const value = e.target.value.replace(/\D/g, '');
                 setAmount(value ? Number(value) / 100 : '');
               }} 
-              className="w-full bg-white p-4 rounded-xl text-slate-900 font-bold outline-none border border-slate-200 focus:border-emerald-500" 
+              className="w-full bg-surface-primary p-4 rounded-2xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary" 
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-500 uppercase ml-1">Data</label>
-            <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full bg-white p-4 rounded-xl text-slate-900 outline-none border border-slate-200 focus:border-emerald-500 text-sm" />
+            <label className="text-xxs font-black text-text-muted uppercase ml-1">Data</label>
+            <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full bg-surface-primary p-4 rounded-2xl text-text-primary outline-none border border-surface-elevated focus:border-brand-primary text-sm" />
           </div>
         </div>
 
         <div className="space-y-1">
-          <label className="text-[10px] font-black text-slate-500 uppercase ml-1">Descrição</label>
-          <input type="text" placeholder="Ex: Aluguel, Supermercado..." value={description} onChange={e => setDescription(e.target.value)} className="w-full bg-white p-4 rounded-xl text-slate-900 font-medium outline-none border border-slate-200 focus:border-emerald-500" />
+          <label className="text-xxs font-black text-text-muted uppercase ml-1">Descrição</label>
+          <input type="text" placeholder="Ex: Aluguel, Supermercado..." value={description} onChange={e => setDescription(e.target.value)} className="w-full bg-surface-primary p-4 rounded-2xl text-text-primary font-medium outline-none border border-surface-elevated focus:border-brand-primary" />
         </div>
 
         <div className="space-y-1">
-          <label className="text-[10px] font-black text-slate-500 uppercase ml-1">Categoria</label>
-          <select value={category} onChange={e => setCategory(e.target.value)} className="w-full bg-white p-4 rounded-xl text-slate-900 outline-none border border-slate-200 focus:border-emerald-500 appearance-none">
+          <label className="text-xxs font-black text-text-muted uppercase ml-1">Categoria</label>
+          <select value={category} onChange={e => setCategory(e.target.value)} className="w-full bg-surface-primary p-4 rounded-2xl text-text-primary outline-none border border-surface-elevated focus:border-brand-primary appearance-none">
             {currentCategoryList.map((c: string) => <option key={c} value={c}>{c}</option>)}
           </select>
           
           <button 
             type="button"
             onClick={() => setIsCategoryModalOpen(true)}
-            className="mt-2 w-full py-3 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-400 text-slate-700 hover:text-emerald-600 font-bold text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+            className="mt-2 w-full py-3 rounded-2xl bg-surface-secondary hover:bg-brand-primary/10 border border-surface-elevated hover:border-brand-primary/30 text-text-secondary hover:text-brand-primary font-bold text-xxs uppercase tracking-ultra-wide transition-all flex items-center justify-center gap-2"
           >
             <FolderPlus size={16} />
             <span>Gerenciar Categorias</span>
           </button>
         </div>
         <div className="flex gap-3 pt-4">
-          <button onClick={onCancel} className="flex-1 py-4 text-slate-500 font-bold uppercase text-xs tracking-widest">Cancelar</button>
-          <button onClick={handleSave} disabled={isSaving} className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl active:scale-95 disabled:opacity-50">
+          <button onClick={onCancel} className="flex-1 py-4 text-text-muted font-bold uppercase text-xxs tracking-ultra-wide">Cancelar</button>
+          <button onClick={handleSave} disabled={isSaving} className="flex-1 py-4 bg-brand-primary text-text-onBrand rounded-3xl font-black uppercase text-xxs tracking-ultra-wide shadow-brand-glow active:scale-95 disabled:opacity-50">
               {isSaving ? 'Processando...' : initialData ? 'Atualizar' : 'Salvar'}
           </button>
         </div>

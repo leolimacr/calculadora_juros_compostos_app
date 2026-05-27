@@ -18,7 +18,8 @@ const Login: React.FC = () => {
     setLoading(true);
     try {
       await login(email, password);
-      navigate('/dashboard');
+      // '/' é o entry resolver temporário do app
+      navigate('/');
     } catch (err: any) {
       setLocalError('Falha ao entrar. Verifique email e senha.');
     } finally {

@@ -19,7 +19,7 @@ export const LessonPage: React.FC = () => {
 
   const course = coursesRegistry[safeCourseSlug];
 
-  const { progress, isLoading, markLessonAsCompleted, isLessonCompleted } = useCourseProgress(safeCourseSlug);
+  const { progress, isLoading, markLessonAsCompleted, isLessonCompleted } = useCourseProgress(String(safeCourseSlug || ''));
   const [isCompleting, setIsCompleting] = useState(false);
   const [canComplete, setCanComplete] = useState(false);
 

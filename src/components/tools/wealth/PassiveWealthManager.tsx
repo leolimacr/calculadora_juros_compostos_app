@@ -12,10 +12,10 @@ export interface PassiveAsset {
 }
 
 interface PassiveWealthManagerProps {
-  userMeta: any;
+  userId: string | undefined;
 }
 
-export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ userMeta }) => {
+export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ userId }) => {
   const [assets, setAssets] = useState<PassiveAsset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -53,12 +53,12 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
 
   // Leitura de Dados (Subcoleção: passivos)
   useEffect(() => {
-    if (!userMeta?.uid) {
+    if (!userId) {
       setIsLoading(false);
       return;
     }
 
-    const assetsRef = collection(firestore, `users/${userMeta.uid}/passivos`);
+    const assetsRef = collection(firestore, `users/${userId}/passivos`);
     const q = query(assetsRef);
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -74,18 +74,18 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
     });
 
     return () => unsubscribe();
-  }, [userMeta]);
+  }, [userId]);
 
   // Função Salvar (Criar ou Editar)
   const handleSaveAsset = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userMeta?.uid || currentAsset.currentValue < 0 || currentAsset.description.trim() === '') return;
+    if (!userId || currentAsset.currentValue < 0 || currentAsset.description.trim() === '') return;
 
     setIsSubmitting(true);
     try {
       if (editingId) {
         // MODO EDIÇÃO
-        const assetRef = doc(firestore, `users/${userMeta.uid}/passivos`, editingId);
+        const assetRef = doc(firestore, `users/${userId}/passivos`, editingId);
         await updateDoc(assetRef, {
           description: currentAsset.description,
           category: currentAsset.category,
@@ -98,11 +98,11 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
         const currentTotal = assets.reduce((acc, curr) => acc + curr.currentValue, 0);
         const newTotalPatrimonioPassivo = currentTotal + diff;
 
-        const userDocRef = doc(firestore, 'users', userMeta.uid);
+        const userDocRef = doc(firestore, 'users', userId);
         await setDoc(userDocRef, { resumoFinanceiro: { patrimonioPassivo: newTotalPatrimonioPassivo } }, { merge: true });
       } else {
         // MODO CRIAÇÃO
-        const assetsRef = collection(firestore, `users/${userMeta.uid}/passivos`);
+        const assetsRef = collection(firestore, `users/${userId}/passivos`);
         await addDoc(assetsRef, {
           description: currentAsset.description,
           category: currentAsset.category,
@@ -112,7 +112,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
 
         const newTotalPatrimonioPassivo = assets.reduce((acc, curr) => acc + curr.currentValue, 0) + currentAsset.currentValue;
 
-        const userDocRef = doc(firestore, 'users', userMeta.uid);
+        const userDocRef = doc(firestore, 'users', userId);
         await setDoc(userDocRef, { resumoFinanceiro: { patrimonioPassivo: newTotalPatrimonioPassivo } }, { merge: true });
       }
 
@@ -144,22 +144,21 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
     setDisplayValue('');
     setEditingId(null);
   };
-
   // Função Excluir
   const handleDeleteAsset = async (assetId: string, assetValue: number) => {
-    if (!userMeta?.uid || !assetId) return;
+    if (!userId || !assetId) return;
 
     const confirmDelete = window.confirm("Tem certeza que deseja excluir este bem?");
     if (!confirmDelete) return;
 
     try {
-      const assetDocRef = doc(firestore, `users/${userMeta.uid}/passivos`, assetId);
+      const assetDocRef = doc(firestore, `users/${userId}/passivos`, assetId);
       await deleteDoc(assetDocRef);
 
       const currentTotal = assets.reduce((acc, curr) => acc + curr.currentValue, 0);
       const newTotalPatrimonioPassivo = currentTotal - assetValue;
 
-      const userDocRef = doc(firestore, 'users', userMeta.uid);
+      const userDocRef = doc(firestore, 'users', userId);
       await updateDoc(userDocRef, {
         "resumoFinanceiro.patrimonioPassivo": newTotalPatrimonioPassivo >= 0 ? newTotalPatrimonioPassivo : 0
       });
@@ -172,7 +171,9 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
       alert("Houve um erro ao tentar excluir o bem.");
     }
   };
-  
+
+  const totalBens = assets.reduce((acc, asset) => acc + (asset.currentValue || 0), 0);
+
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-8 py-6 space-y-8 animate-in fade-in duration-500 pb-32 bg-slate-50/95 rounded-[2.5rem] border border-slate-200 shadow-sm">
       {/* Cabeçalho */}
@@ -182,11 +183,11 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
             <Home size={24} className="text-emerald-400" />
           </div>
           <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
-            Patrimônio Passivo
+            Bens Patrimoniais
           </h2>
         </div>
         <p className="text-slate-500 text-sm md:text-base max-w-2xl">
-          Bens de valor que compõem sua riqueza consolidada. Registre aqui seus imóveis, veículos, terrenos e outros bens materiais.
+          Registre aqui os bens reais que compõem seu patrimônio consolidado, como imóveis, veículos, terrenos e outros itens de maior valor.
         </p>
       </header>
 
@@ -288,13 +289,18 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
 
       {/* Lista de Passivos */}
       <div className="mt-8">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
           <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
             <Landmark size={20} className="text-slate-400" /> Seus Bens Registrados
           </h3>
-          <span className="text-xs font-bold bg-slate-800/80 text-slate-300 px-3 py-1 rounded-full border border-slate-700/80">
-            {assets.length} {assets.length === 1 ? 'bem' : 'bens'}
-          </span>
+          <div className="flex flex-wrap gap-2">
+            <span className="text-xs font-bold bg-slate-800/80 text-slate-300 px-3 py-1 rounded-full border border-slate-700/80">
+              {assets.length} {assets.length === 1 ? 'bem' : 'bens'}
+            </span>
+            <span className="text-xs font-black bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full border border-emerald-200">
+              Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalBens)}
+            </span>
+          </div>
         </div>
 
         {isLoading ? (
@@ -305,7 +311,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
               <Car size={24} className="text-emerald-400" />
             </div>
             <p className="text-slate-400 font-medium mb-2">Nenhum bem registrado ainda</p>
-            <p className="text-slate-500 text-sm">Adicione seu primeiro imóvel ou veículo no formulário acima.</p>
+            <p className="text-slate-500 text-sm">Adicione seu primeiro bem patrimonial no formulário acima e comece a consolidar sua visão de patrimônio.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -50,3 +50,4 @@ functions/BKP*
 /data/
 /types/
 src/firebase-config.private.ts
+.aider*

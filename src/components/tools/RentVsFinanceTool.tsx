@@ -45,7 +45,18 @@ const ModernSlider = ({ label, value, min, max, step, onChange, formatFn, disabl
   </div>
 );
 
-const ModernNumberInput = ({ label, value, onChange, min, max, step, prefix, suffix }) => {
+interface ModernNumberInputProps {
+  label: string;
+  value: number | string | null;
+  onChange: (val: number | string) => void;
+  min?: number;
+  max?: number;
+  step?: number;
+  prefix?: string;
+  suffix?: string;
+}
+
+const ModernNumberInput: React.FC<ModernNumberInputProps> = ({ label, value, onChange, min, max, step, prefix, suffix }) => {
   const formatCurrencyInput = (val) => {
     if (val === '' || val == null || isNaN(val)) return '';
 
@@ -191,8 +202,8 @@ export const RentVsFinanceTool = ({ onNavigate, isAuthenticated }) => {
 
   const updateParam = (key, value) => setParams((prev) => ({ ...prev, [key]: value }));
 
-  const [selicCurrent, setSelicCurrent] = useState(null);
-  const [selicStatus, setSelicStatus] = useState('idle');
+  const [selicCurrent, setSelicCurrent] = useState<number | null>(null);
+  const [selicStatus, setSelicStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle');
 
   useEffect(() => {
     let isMounted = true;
@@ -232,7 +243,7 @@ export const RentVsFinanceTool = ({ onNavigate, isAuthenticated }) => {
   const derivedFinancingRate = useMemo(() => {
     if (params.useCurrentSelic) {
       const baseSelic = Number.isFinite(selicCurrent) ? selicCurrent : params.selicManual;
-      return Math.max(0, baseSelic + params.bankSpread);
+      return Math.max(0, (baseSelic || 0) + params.bankSpread);
     }
     return Math.max(0, params.financingRateManual);
   }, [
@@ -518,7 +529,7 @@ export const RentVsFinanceTool = ({ onNavigate, isAuthenticated }) => {
                     value={
                       params.useCurrentSelic
                         ? Number.isFinite(selicCurrent)
-                          ? selicCurrent
+                          ? (selicCurrent as number)
                           : params.selicManual
                         : params.selicManual
                     }
