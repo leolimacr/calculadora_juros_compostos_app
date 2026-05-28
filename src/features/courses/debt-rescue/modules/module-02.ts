@@ -4,6 +4,7 @@ export const module02: CourseModule = {
   id: 'modulo-02',
   title: 'Levantando suas dívidas sem travar',
   slug: 'levantando-suas-dividas-sem-travar',
+  description: 'Como listar e organizar seus débitos sem desespero.',
   objective:
     'Ajudar a pessoa a mapear suas dívidas mesmo quando faltam taxa, contrato, parcelas ou saldo exato.',
   order: 2,

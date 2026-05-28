@@ -6,8 +6,8 @@ export default ({ userMeta, usagePercentage, isPremium }: any) => {
   const isAtLimit = usagePercentage >= 100;
 
   const getTitle = () => {
-    if (isAtLimit) return "Rotina produtiva — remova as travas para continuar";
-    if (isNearLimit) return "Seu ritmo está forte. Mantenha-o sem interrupções";
+    if (isAtLimit) return "Sua rotina já ganhou tração. O Pro ajuda você a seguir sem quebrar esse ritmo.";
+    if (isNearLimit) return "Seu ritmo está forte. O Pro ajuda sua rotina a seguir com mais fluidez.";
     return `${userMeta.launchCount} lançamentos — sua base está crescendo`;
   };
 
@@ -29,7 +29,7 @@ export default ({ userMeta, usagePercentage, isPremium }: any) => {
       </div>
       {isAtLimit && (
         <p className="text-xxs text-amber-700 font-bold mt-2 uppercase tracking-ultra-wide">
-          Com o Pro, você mantém seu ritmo sem pausas
+          Mais continuidade para sua rotina no dia a dia.
         </p>
       )}
     </div>

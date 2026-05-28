@@ -4,6 +4,7 @@ export const module01: CourseModule = {
   id: 'modulo-01-investidor',
   title: 'Primeiros Passos no Mundo dos Investimentos',
   slug: 'primeiros-passos-no-mundo-dos-investimentos',
+  description: 'Entenda os fundamentos e a importância de começar a investir.',
   objective:
     'Entender o que é investir, por que é importante e desmistificar alguns conceitos básicos.',
   order: 1,

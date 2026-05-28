@@ -18,24 +18,24 @@ const QuickActionCard: React.FC<QuickActionCardProps> = ({
     <button
       type="button"
       onClick={onAction}
-      className={`w-full group relative overflow-hidden rounded-2xl p-5 text-left transition-all active:scale-[0.98] shadow-sm border ${
+      className={`w-full group relative overflow-hidden rounded-[2rem] p-6 text-left transition-all active:scale-[0.98] border ${
         isDisabled
-          ? 'bg-amber-50 border-amber-200'
-          : 'bg-white border-slate-200 hover:border-emerald-300 hover:shadow-md'
+          ? 'bg-slate-50 border-slate-200 opacity-60'
+          : 'bg-white border-slate-200 hover:border-emerald-300 hover:shadow-xl hover:-translate-y-0.5 shadow-sm'
       }`}
     >
-      <div className="flex items-center gap-4">
-        <div className={`p-3 rounded-xl transition-colors ${
-          isDisabled ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600 group-hover:bg-emerald-500 group-hover:text-white'
+      <div className="flex items-center gap-5">
+        <div className={`p-4 rounded-2xl transition-all ${
+          isDisabled ? 'bg-slate-100 text-slate-400' : 'bg-emerald-500 text-white shadow-lg shadow-emerald-200 group-hover:scale-110'
         }`}>
-          <Plus size={20} strokeWidth={3} />
+          <Plus size={24} strokeWidth={3} />
         </div>
         <div>
-          <h3 className={`text-sm font-black uppercase tracking-tight ${isDisabled ? 'text-amber-900' : 'text-slate-900'}`}>
-            Lançar Transação
+          <h3 className={`text-base font-black uppercase tracking-tight ${isDisabled ? 'text-slate-500' : 'text-slate-900'}`}>
+            Registrar Rotina
           </h3>
-          <p className={`text-[10px] font-bold uppercase tracking-widest ${isDisabled ? 'text-amber-700' : 'text-slate-500'}`}>
-            {isDisabled ? 'Limite mensal atingido' : 'Rápido e simples'}
+          <p className={`text-[10px] font-bold uppercase tracking-[0.2em] mt-0.5 ${isDisabled ? 'text-slate-400' : 'text-emerald-600'}`}>
+            {isDisabled ? 'Limite mensal atingido' : 'Mantenha sua constância'}
           </p>
         </div>
       </div>

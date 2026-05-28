@@ -4,6 +4,7 @@ export const module04: CourseModule = {
   id: 'modulo-04',
   title: 'O que pagar primeiro',
   slug: 'o-que-pagar-primeiro',
+  description: 'Como reorganizar seu orçamento para criar fôlego financeiro.',
   objective:
     'Ensinar critérios simples de prioridade para proteger a sobrevivência, reduzir dano e organizar a sequência de ataque às dívidas.',
   order: 4,

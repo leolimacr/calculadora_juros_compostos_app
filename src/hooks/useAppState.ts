@@ -10,6 +10,7 @@ import { useReengagementTrigger } from './useReengagementTrigger';
 import { NotificationService } from '../services/NotificationService';
 import { getPrioritizedInsight, UserContext, NexusInsight } from '../services/nexusInsightEngine';
 import { Transaction, Category, UserMeta } from '../types';
+import { getConsecutiveDays } from '../utils/streakUtils';
 
 export interface AppState {
   user: ReturnType<typeof useAuth>['user'];
@@ -126,7 +127,8 @@ export function useAppState(): AppState {
             launchCount: lancamentos.length,
             launchLimit: userMeta?.launchLimit || 30,
             monthBalance: balance,
-            hasFirstInvestment: lancamentos.some((t: any) => t.category?.toLowerCase().includes('investimento'))
+            hasFirstInvestment: lancamentos.some((t: any) => t.category?.toLowerCase().includes('investimento')),
+            streak: getConsecutiveDays(lancamentos)
           };
 
           // 2. Obtém insight para a notificação

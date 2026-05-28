@@ -4,6 +4,7 @@ export const module05: CourseModule = {
   id: 'modulo-05',
   title: 'Estratégias práticas para sair do aperto',
   slug: 'estrategias-praticas-para-sair-do-aperto',
+  description: 'Técnicas de negociação e priorização de pagamentos.',
   objective:
     'Transformar diagnóstico em ação: negociar com calma, cortar gastos com inteligência, abrir espaço no orçamento e evitar novas armadilhas.',
   order: 5,

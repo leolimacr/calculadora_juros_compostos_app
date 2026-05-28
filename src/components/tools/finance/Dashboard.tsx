@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { 
   Wallet, 
@@ -9,13 +9,17 @@ import {
   Eye,
   EyeOff,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  X
 } from 'lucide-react';
 import UsageIndicator from './UsageIndicator';
 import TransactionHistory from './TransactionHistory';
 import FilterBar from './FilterBar';
 import CategoryManager from './CategoryManager';
 import { generateFinancialReport } from '../../../utils/reportGenerator';
+import { getConsecutiveDays } from '../../../utils/streakUtils';
+import { getOperationalInsight, buildUserContext, NexusInsight } from '../../../services/nexusInsightEngine';
+
 const Dashboard: React.FC<any> = (props) => {
   const { 
     transactions = [], 
@@ -33,10 +37,38 @@ const Dashboard: React.FC<any> = (props) => {
     isPrivacyMode,
     onTogglePrivacy,
     onEditTransaction,
-    onNavigate
+    onNavigate,
+    lastActionTimestamp // Prop opcional para detectar novos lançamentos
   } = props;
 
+  const [inlineInsight, setInlineInsight] = useState<NexusInsight | null>(null);
+  const [showInsight, setShowInsight] = useState(false);
+
+  const streak = useMemo(() => getConsecutiveDays(transactions), [transactions]);
+
+  // Efeito para monitorar novos lançamentos e disparar insight
+  useEffect(() => {
+    if (lastActionTimestamp && transactions.length > 0) {
+      const ctx = buildUserContext({
+        launchCount: transactions.length,
+        transactionsToday: transactions.filter(t => t.date === new Date().toISOString().split('T')[0]).length,
+        monthBalance: stats.balance,
+        isPremium,
+        isFirstSession: userMeta?.isFirstSession
+      });
+
+      const insight = getOperationalInsight(ctx);
+      if (insight) {
+        setInlineInsight(insight);
+        setShowInsight(true);
+        const timer = setTimeout(() => setShowInsight(false), 5000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [lastActionTimestamp, transactions.length]);
+
   if (isLoading) {
+
     return (
       <div className="flex flex-col gap-4 p-6 w-full min-h-screen bg-white dark:bg-gray-900">
         <div className="h-8 rounded-xl w-1/3 bg-gray-200 dark:bg-gray-700 animate-pulse" />
@@ -396,7 +428,7 @@ const Dashboard: React.FC<any> = (props) => {
     onClick={() => { onNavigate('home'); setTimeout(() => { document.getElementById('secao-ferramentas')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 100); }}
     className="hidden md:flex mb-4 items-center gap-2 text-text-muted hover:text-brand-secondary transition-all font-black uppercase text-xxs tracking-ultra-wide"
   >
-    ← Voltar para as Ferramentas
+    ← Voltar
   </button>
 )}
 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -410,9 +442,20 @@ const Dashboard: React.FC<any> = (props) => {
       <h2 className="text-lg md:text-2xl font-black text-text-primary tracking-tight uppercase leading-tight">
         Controla
       </h2>
-      <p className="text-text-muted text-xxs md:text-xs font-bold uppercase tracking-ultra-wide">
-        {periodLabel}
-      </p>
+      <div className="flex items-center gap-2">
+        <p className="text-text-muted text-xxs md:text-xs font-bold uppercase tracking-ultra-wide">
+          {periodLabel}
+        </p>
+        {streak > 1 ? (
+          <div className="flex items-center gap-1.5 px-2.5 py-0.5 bg-amber-50 border border-amber-100 rounded-full animate-in fade-in slide-in-from-top-1">
+            <span className="text-amber-600 text-[9px] md:text-[10px] font-black uppercase tracking-widest leading-none">🔥 {streak} dias</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 px-2.5 py-0.5 bg-surface-primary border border-surface-elevated rounded-full opacity-60">
+            <span className="text-text-muted text-[9px] md:text-[10px] font-black uppercase tracking-widest leading-none">Começar ofensiva 🔥</span>
+          </div>
+        )}
+      </div>
     </div>
   </div>
 
@@ -463,15 +506,40 @@ const Dashboard: React.FC<any> = (props) => {
       
       {!isFirstAccess && <UsageIndicator userMeta={userMeta} usagePercentage={usagePercentage} isPremium={isPremium} />}
 
+      {/* TOAST DE INSIGHT OPERACIONAL */}
+      {showInsight && inlineInsight && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-md animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="bg-brand-primary text-text-onBrand p-4 rounded-3xl shadow-brand-glow flex items-start gap-3 border border-brand-primary/20 backdrop-blur-md bg-opacity-95">
+            <div className="bg-surface-primary/20 p-2 rounded-2xl shrink-0">
+              <Zap size={18} className="text-text-onBrand" />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs font-black uppercase tracking-ultra-wide mb-1 opacity-90">{inlineInsight.message.title}</p>
+              <p className="text-sm font-medium leading-relaxed">{inlineInsight.message.body}</p>
+            </div>
+            <button 
+              onClick={() => setShowInsight(false)}
+              className="p-1 hover:bg-surface-primary/10 rounded-lg transition-colors"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* EMPTY STATE — PRIMEIRO ACESSO */}
       {isFirstAccess ? (
         <div className="py-16 px-6 bg-surface-primary border border-dashed border-brand-primary/30 rounded-4xl text-center">
           <div className="w-16 h-16 bg-surface-secondary rounded-3xl border border-surface-elevated flex items-center justify-center mx-auto mb-5">
             <Plus size={28} className="text-brand-primary" />
           </div>
-          <p className="text-text-primary font-black text-lg mb-2">Seu painel está em branco</p>
+          <p className="text-text-primary font-black text-lg mb-2">
+            {userMeta?.isFirstSession ? 'Bem-vindo! Vamos começar?' : 'Seu painel está em branco'}
+          </p>
           <p className="text-text-secondary text-sm max-w-sm mx-auto leading-relaxed mb-6">
-            Adicione seu primeiro lançamento — uma entrada ou saída — e o Controla começa a montar sua visão financeira automaticamente.
+            {userMeta?.isFirstSession 
+              ? 'Que tal lançar sua primeira receita? É rápido e me ajuda a te entender melhor.'
+              : 'Registre sua primeira receita ou despesa. Eu cuido dos cálculos para você.'}
           </p>
           <button
             onClick={isLimitReached && !isPremium ? onShowPaywall : onOpenForm}
@@ -754,7 +822,14 @@ const Dashboard: React.FC<any> = (props) => {
             <div className="bg-surface-primary border border-surface-elevated rounded-4xl p-5 shadow-soft">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                  <h3 className="text-text-primary font-black text-xxs uppercase tracking-ultra-wide">Análise de Médias</h3>
+                  <h3 className="text-text-primary font-black text-xxs uppercase tracking-ultra-wide flex items-center gap-2">
+                    Análise de Médias
+                    {!isPremium && (
+                      <span className="text-[8px] px-1.5 py-0.5 bg-brand-secondary/10 text-brand-secondary rounded-full font-bold tracking-normal normal-case">
+                        No Pro, sua visão de rotina ganha mais fluidez
+                      </span>
+                    )}
+                  </h3>
                   <p className="text-text-muted text-xxs font-bold uppercase tracking-ultra-wide mt-1">
                     Média mensal por categoria · apenas despesas
                   </p>

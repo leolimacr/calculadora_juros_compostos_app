@@ -4,6 +4,7 @@ export const module02: CourseModule = {
   id: 'modulo-02-investidor',
   title: 'Seu Perfil de Investidor e Objetivos',
   slug: 'seu-perfil-de-investidor-e-objetivos',
+  description: 'Aprenda a definir seu perfil e metas financeiras claras.',
   objective:
     'Descobrir seu perfil de investidor e alinhar seus objetivos financeiros com as opções de investimento.',
   order: 2,

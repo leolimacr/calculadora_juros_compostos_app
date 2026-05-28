@@ -99,7 +99,7 @@ export const ToolLayout = ({ title, icon, onBack, children, description, badge }
         onClick={() => { onBack('home'); setTimeout(() => { document.getElementById('secao-ferramentas')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 100); }}
         className="mt-6 mb-8 flex items-center gap-2 text-slate-500 hover:text-sky-700 transition-all font-black uppercase text-[10px] tracking-[0.2em]"
       >
-        ← Voltar para as Ferramentas
+        ← Voltar
       </button>
 
       <div className="bg-slate-50 border border-slate-200 p-6 md:p-12 rounded-[3rem] shadow-[0_30px_80px_rgba(15,23,42,0.10)] relative overflow-hidden">

@@ -6,7 +6,7 @@ class NexusIdentity {
         const firstName = (userName || 'Investidor').split(' ')[0];
         return `Olá, ${firstName}! Me chamo Nexus e sou o consultor do Finanças Pro Invest. É um prazer falar com você!`;
     }
-    static getSystemPrompt(userName, context, marketData, transactions, goals, simulations, assetsSummary, passivesSummary, patrimonioLiquido, isFirst, userData, historyDescription) {
+    static getSystemPrompt(userName, _context, marketData, transactions, goals, simulations, assetsSummary, passivesSummary, patrimonioLiquido, _isFirst, userData, historyDescription) {
         const firstName = (userName || 'Investidor').split(' ')[0];
         const now = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
         return `Você é o Nexus, consultor financeiro do Finanças Pro Invest.

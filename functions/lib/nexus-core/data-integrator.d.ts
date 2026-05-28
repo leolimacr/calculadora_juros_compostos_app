@@ -3,16 +3,6 @@ export interface FinancialProfile {
     emergencyReserveTarget: number;
     emergencyReserveCurrent: number;
 }
-export interface UserDataResult {
-    goals: UserGoal[];
-    recentTransactions: UserTransaction[];
-    simulations: UserSimulation[];
-    financialProfile?: FinancialProfile;
-    summary: string;
-    hasData: boolean;
-    dataStatus: 'ok' | 'empty' | 'error';
-    error?: string;
-}
 export interface UserGoal {
     id: string;
     name: string;
@@ -43,6 +33,7 @@ export interface UserDataResult {
     goals: UserGoal[];
     recentTransactions: UserTransaction[];
     simulations: UserSimulation[];
+    financialProfile?: FinancialProfile;
     summary: string;
     hasData: boolean;
     dataStatus: 'ok' | 'empty' | 'error';
@@ -52,9 +43,9 @@ export declare class DataIntegrator {
     static gatherUserData(userId: string, userPlan?: string): Promise<UserDataResult>;
     private static fetchRecentTransactionsWithTimeout;
     private static fetchUserGoalsWithTimeout;
-    static formatTransactionsForPrompt(transactions: UserTransaction[], context: any): string;
-    static formatGoalsForPrompt(goals: UserGoal[], context: any): string;
-    static formatSimulationsForPrompt(simulations: UserSimulation[], context: any): string;
+    static formatTransactionsForPrompt(transactions: UserTransaction[], _context: any): string;
+    static formatGoalsForPrompt(goals: UserGoal[], _context: any): string;
+    static formatSimulationsForPrompt(simulations: UserSimulation[], _context: any): string;
     private static filterRelevantTransactions;
     private static generateTransactionSummary;
     private static generateDataSummary;

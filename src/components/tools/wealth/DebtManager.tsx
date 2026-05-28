@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useFirebase } from '../../../hooks/useFirebase';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, addDoc, deleteDoc } from 'firebase/firestore';
 import { firestore } from '../../../firebase';
@@ -380,7 +379,7 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, lanc
         onClick={() => { onNavigate?.('home'); setTimeout(() => { const el = document.getElementById('secao-ferramentas'); if (el) { const top = el.getBoundingClientRect().top + window.scrollY - 90; window.scrollTo({ top, behavior: 'smooth' }); } }, 100); }}
         className="mb-6 text-teal-600 hover:opacity-70 font-bold text-xs uppercase tracking-widest transition-colors flex items-center gap-1"
       >
-        ← Voltar para as ferramentas
+        ← Voltar
       </button>
 
       {/* SEÇíO DE PERFIL FINANCEIRO (MÉTODO GUIADO) */}
@@ -474,17 +473,17 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, lanc
                   <p className="text-teal-50 text-sm leading-relaxed">É o seu <strong>balío de oxigênio</strong>. Ter um valor guardado evita que você faça novas dívidas em imprevistos. É a base da sua paz.</p>
                   <p className="font-semibold text-sm pt-2">Como í© a estabilidade da sua fonte de renda hoje?</p>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <button onClick={() => { setTempStability('stable'); setTempReserveMonths(4); setSetupStep(3); }} className="bg-white/10 hover:bg-white/20 p-4 rounded-xl border border-white/10 text-left text-sm transition-all group">
+                    <button onClick={() => { setTempReserveMonths(4); setSetupStep(3); }} className="bg-white/10 hover:bg-white/20 p-4 rounded-xl border border-white/10 text-left text-sm transition-all group">
                       <ShieldCheck size={18} className="mb-2 text-teal-200 group-hover:text-white" />
                       <div className="font-bold">Estável</div>
                       <div className="text-[10px] text-teal-100">Ex: Concursado, Aposentado</div>
                     </button>
-                    <button onClick={() => { setTempStability('normal'); setTempReserveMonths(6); setSetupStep(3); }} className="bg-white/10 hover:bg-white/20 p-4 rounded-xl border border-white/10 text-left text-sm transition-all group">
+                    <button onClick={() => { setTempReserveMonths(6); setSetupStep(3); }} className="bg-white/10 hover:bg-white/20 p-4 rounded-xl border border-white/10 text-left text-sm transition-all group">
                       <TrendingUp size={18} className="mb-2 text-teal-200 group-hover:text-white" />
                       <div className="font-bold">Regular</div>
                       <div className="text-[10px] text-teal-100">Ex: CLT / Empresa Privada</div>
                     </button>
-                    <button onClick={() => { setTempStability('volatile'); setTempReserveMonths(12); setSetupStep(3); }} className="bg-white/10 hover:bg-white/20 p-4 rounded-xl border border-white/10 text-left text-sm transition-all group">
+                    <button onClick={() => { setTempReserveMonths(12); setSetupStep(3); }} className="bg-white/10 hover:bg-white/20 p-4 rounded-xl border border-white/10 text-left text-sm transition-all group">
                       <Target size={18} className="mb-2 text-teal-200 group-hover:text-white" />
                       <div className="font-bold">Volátil</div>
                       <div className="text-[10px] text-teal-100">Ex: Autônomo, Empresário</div>

@@ -333,7 +333,7 @@ class DiscretionEngine {
         const isGreeting = simpleGreetings.some(greeting => message.toLowerCase().startsWith(greeting) && message.split(' ').length <= 4);
         return isGreeting;
     }
-    static shouldSuggestActions(message, intent, history, userData) {
+    static shouldSuggestActions(message, intent, history, _userData) {
         if (intent === 'greeting')
             return false;
         if (message.includes('rápido') || message.includes('urgente') || message.includes('agora')) {

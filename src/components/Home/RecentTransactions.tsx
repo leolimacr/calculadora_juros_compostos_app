@@ -19,33 +19,33 @@ const RecentTransactions: React.FC<RecentTransactionsProps> = ({
     .slice(0, 5);
 
   return (
-    <div className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xs font-black text-slate-900 uppercase tracking-widest">Últimos Lançamentos</h2>
+    <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Últimos Lançamentos</h2>
         <button
           onClick={() => onNavigate('manager')}
-          className="text-[10px] font-black text-emerald-600 uppercase tracking-widest hover:underline flex items-center gap-0.5"
+          className="text-[10px] font-black text-emerald-600 uppercase tracking-widest hover:underline flex items-center gap-1"
         >
-          Ver tudo <ChevronRight size={12} />
+          Ver tudo <ChevronRight size={14} />
         </button>
       </div>
 
       {recent.length === 0 ? (
-        <div className="py-4 text-center">
-          <p className="text-xs text-slate-500 font-medium">Nenhum lançamento recente.</p>
+        <div className="py-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+          <p className="text-xs text-slate-400 font-bold uppercase tracking-tight">Nenhum lançamento recente</p>
         </div>
       ) : (
-        <ul className="space-y-2">
+        <ul className="space-y-3">
           {recent.map((t) => (
             <li
               key={t.id}
-              className="flex items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-100 rounded-xl hover:border-slate-200 transition-colors"
+              className="flex items-center justify-between gap-4 p-3.5 bg-slate-50 border border-slate-100 rounded-2xl hover:border-slate-200 hover:bg-white transition-all group"
             >
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold text-slate-900 truncate">{t.description || 'Sem descrição'}</p>
-                <p className="text-[10px] text-slate-500 uppercase font-medium tracking-tight mt-0.5">
+                <p className="text-sm font-black text-slate-900 truncate tracking-tight">{t.description || 'Sem descrição'}</p>
+                <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mt-1">
                   {t.date ? new Date(t.date.replace(/-/g, '/')).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '—'} ·{' '}
-                  {t.category || 'Outros'}
+                  <span className="text-slate-500">{t.category || 'Outros'}</span>
                 </p>
               </div>
               <span className={`text-xs font-black shrink-0 ${t.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>

@@ -9,6 +9,7 @@ import { module06 } from './modules/module-06';
 
 export const debtRescueCourse: Course = {
   meta: debtRescueCourseMeta,
+  isPublished: true,
   modules: [
     module01,
     module02,

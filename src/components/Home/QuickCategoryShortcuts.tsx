@@ -46,19 +46,19 @@ const QuickCategoryShortcuts: React.FC<QuickCategoryShortcutsProps> = ({ transac
   if (!topCategories || topCategories.length === 0) return null;
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-500">
-      <div className="flex items-center gap-2 mb-3">
-        <div className="bg-amber-100 p-1.5 rounded-lg">
-          <Zap size={14} className="text-amber-600 fill-amber-600" />
+    <div className="bg-white border border-slate-200 rounded-[2rem] p-6 shadow-sm animate-in fade-in slide-in-from-top-2 duration-500">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="bg-amber-100 p-2 rounded-xl">
+          <Zap size={16} className="text-amber-600 fill-amber-600" />
         </div>
-        <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">Lançar rápido</h3>
+        <h3 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.2em]">Lançar rápido</h3>
       </div>
       <div className="flex flex-wrap gap-2">
         {topCategories.map(category => (
           <button
             key={category}
             onClick={() => onQuickAdd(category, 'expense')}
-            className="px-4 py-2 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 transition-all active:scale-95"
+            className="px-5 py-2.5 bg-slate-50 hover:bg-emerald-500 hover:border-emerald-500 hover:text-white border border-slate-100 rounded-2xl text-[11px] font-black uppercase tracking-wider text-slate-600 transition-all active:scale-95 shadow-sm"
           >
             {category}
           </button>

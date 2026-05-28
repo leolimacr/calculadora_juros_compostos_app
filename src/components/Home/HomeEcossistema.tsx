@@ -53,12 +53,15 @@ export const HomeEcossistema: React.FC<Props> = ({ heroPersona, onNavigate, onSt
                   <div className="w-8 h-8 rounded-xl bg-white/80 flex items-center justify-center text-slate-800 border border-slate-200 shadow-sm">{card.icon}</div>
                   <div><p className="text-xs font-black text-slate-900 leading-tight">{card.title}</p><p className="text-[10px] uppercase tracking-[0.16em] text-slate-500 font-bold">{card.subtitle}</p></div>
                 </div>
-                <span className="mt-auto inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 group-hover:text-slate-900">{heroPersona === 'dividas' ? 'Abrir etapa' : 'Abrir módulo'}<ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" /></span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-};
+                <span className="mt-auto inline-flex items-center gap-1 text-[10px] font-bold text-slate-500 group-hover:text-slate-700 transition-colors uppercase tracking-wider">
+                  {heroPersona === 'dividas' ? 'Conhecer ferramenta' : 'Conhecer módulo'}
+                  <ArrowRight size={12} className="group-hover:translate-x-0.5 transition-transform" />
+                </span>
+                </button>
+                ))}
+                </div>
+                </div>
+                </div>
+                </section>
+                );
+                };

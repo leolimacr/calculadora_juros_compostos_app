@@ -16,17 +16,17 @@ export default function PaywallModal({ open, onClose, feature }: PaywallModalPro
   const isIA = feature?.toLowerCase().includes('nexus') || feature?.toLowerCase().includes('ia') || feature?.toLowerCase().includes('chat');
   
   const context = {
-    title: isControla ? 'Mantenha seu ritmo de controle' : isIA ? 'Amplie sua visão estratégica' : 'Eleve seu nível de controle',
+    title: isControla ? 'Você está criando uma rotina de controle real' : isIA ? 'Sua evolução pode ganhar mais profundidade' : 'Eleve seu nível de controle',
     subtitle: isControla 
-      ? 'Você atingiu o limite do plano gratuito. Migre para o Pro para continuar registrando sua rotina sem interrupções.'
-      : 'Sua jornada no plano Free chegou a um marco importante. Evolua para o ecossistema completo e tenha análises profundas.',
+      ? 'Você deu um passo importante. O plano Free te trouxe até aqui; o Pro garante que sua rotina siga sem interrupções e com mais clareza.'
+      : 'Sua jornada no Free já tomou forma. No Pro, você amplia sua visão com análises profundas que acompanham sua vida financeira.',
     icon: isControla ? <TrendingUp size={22} className="text-emerald-400" /> : <Sparkles size={22} className="text-violet-400" />,
-    cta: isControla ? 'Manter meu ritmo' : 'Ampliar minha visão',
+    cta: isControla ? 'Continuar meu ritmo com mais fluidez' : 'Ampliar minha visão com mais contexto',
     benefits: isControla ? [
-      { icon: <Zap size={14} className="text-amber-500" />, text: 'Lançamentos ilimitados no Controla' },
-      { icon: <LayoutGrid size={14} className="text-sky-500" />, text: 'Filtros avançados e leitura mensal completa' },
-      { icon: <Brain size={14} className="text-emerald-500" />, text: 'Nexus com mais contexto da sua rotina' },
-      { icon: <Target size={14} className="text-indigo-500" />, text: 'Eficiência total no controle diário' },
+      { icon: <Zap size={14} className="text-amber-500" />, text: 'Lançamentos ilimitados para sua rotina não parar' },
+      { icon: <LayoutGrid size={14} className="text-sky-500" />, text: 'Filtros e visão mensal para entender melhor o que mudou' },
+      { icon: <Brain size={14} className="text-emerald-500" />, text: 'Insights mais úteis com mais contexto da sua rotina' },
+      { icon: <Target size={14} className="text-indigo-500" />, text: 'Mais fluidez para acompanhar seu dinheiro no dia a dia' },
     ] : [
       { icon: <Zap size={14} className="text-amber-500" />, text: 'Perguntas ilimitadas ao Nexus IA' },
       { icon: <TrendingUp size={14} className="text-emerald-500" />, text: 'Visão completa de Investimentos e Patrimônio' },
@@ -84,7 +84,7 @@ export default function PaywallModal({ open, onClose, feature }: PaywallModalPro
             onClick={onClose}
             className="w-full text-slate-400 hover:text-slate-600 font-bold text-[10px] uppercase tracking-widest py-2 transition-colors"
           >
-            Continuar no plano gratuito
+            Continuar no Free por enquanto
           </button>
         </div>
       </div>

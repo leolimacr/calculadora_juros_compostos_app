@@ -20,6 +20,8 @@ import { HomeConteudo } from './Home/HomeConteudo';
 import { HomeTerminalMercado } from './Home/HomeTerminalMercado';
 import { HomeFooter } from './Home/HomeFooter';
 import { PresenceAlertsBanner } from './Home/PresenceAlertsBanner';
+import PreAuthModal from './Auth/PreAuthModal';
+import { useAuthInterceptor } from '../hooks/useAuthInterceptor';
 import {
   LogOut
 } from 'lucide-react';
@@ -35,7 +37,15 @@ const RADAR_NEWS = [
   { id: 3, tag: 'Mercado Imobiliário', date: 'Análise Setorial', title: 'Aluguel vs Financiamento: O cenário mudou', excerpt: 'Com as novas taxas de juros, a velha regra de "quem casa quer casa" precisa ser recalculada na ponta do lápis.' },
 ];
 
-export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthenticated, userMeta, isPrivacyMode }) => {
+export const PublicHome: React.FC<any> = ({ onNavigate, isAuthenticated, userMeta, isPrivacyMode }) => {
+
+  const {
+    showPreAuth,
+    handleProtectedAction,
+    closePreAuth,
+    goToLogin,
+    goToRegister
+  } = useAuthInterceptor(isAuthenticated, onNavigate);
 
   // --- ESTADO: Notícias ---
   const [radarNews, setRadarNews] = useState<any[]>(RADAR_NEWS);
@@ -172,8 +182,8 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
         heroPersona={heroPersona}
         setHeroPersona={setHeroPersona}
         isAuthenticated={isAuthenticated}
-        onNavigate={onNavigate}
-        onStartNow={onStartNow}
+        onNavigate={handleProtectedAction}
+        onStartNow={() => handleProtectedAction('register')}
         isPrivacyMode={isPrivacyMode}
         userMeta={userMeta}
         patrimonioAtivo={patrimonioAtivo}
@@ -181,6 +191,24 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
         patrimonioTotal={patrimonioTotal}
         metas={metas ?? []}
       />
+
+      {/* BARRA DE CONFIANÇA (PROVA SOCIAL) */}
+      <div className="bg-white border-y border-slate-100 py-6">
+        <div className="max-w-[1400px] mx-auto px-6 flex flex-wrap items-center justify-center gap-y-4 gap-x-8 md:gap-x-16 text-center">
+          <div className="flex items-center gap-2 text-slate-500 font-bold text-[10px] md:text-xs uppercase tracking-widest">
+            <span className="text-emerald-500 text-lg">🔒</span>
+            Criptografia de ponta — Seus dados estão seguros
+          </div>
+          <div className="flex items-center gap-2 text-slate-500 font-bold text-[10px] md:text-xs uppercase tracking-widest">
+            <span className="text-sky-500 text-lg">☁️</span>
+            Hospedado no Google Cloud — Estabilidade e segurança
+          </div>
+          <div className="flex items-center gap-2 text-slate-500 font-bold text-[10px] md:text-xs uppercase tracking-widest">
+            <span className="text-rose-500 text-lg">❤️</span>
+            Feito para te ajudar a dormir melhor — Sem julgamentos
+          </div>
+        </div>
+      </div>
 
       <InfiniteTicker
         data={{
@@ -194,8 +222,8 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
 
       <HomeResumoFinanceiro
         heroPersona={heroPersona}
-        onNavigate={onNavigate}
-        onStartNow={onStartNow}
+        onNavigate={handleProtectedAction}
+        onStartNow={() => handleProtectedAction('register')}
         isAuthenticated={isAuthenticated}
         isPrivacyMode={isPrivacyMode}
         userMeta={userMeta}
@@ -215,15 +243,15 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
 
       <HomeEcossistema
         heroPersona={heroPersona}
-        onNavigate={onNavigate}
-        onStartNow={onStartNow}
+        onNavigate={handleProtectedAction}
+        onStartNow={() => handleProtectedAction('register')}
         isAuthenticated={isAuthenticated}
       />
 
       <HomeSecoesSuporte
         heroPersona={heroPersona}
-        onNavigate={onNavigate}
-        onStartNow={onStartNow}
+        onNavigate={handleProtectedAction}
+        onStartNow={() => handleProtectedAction('register')}
         isAuthenticated={isAuthenticated}
       />
 
@@ -255,12 +283,19 @@ export const PublicHome: React.FC<any> = ({ onNavigate, onStartNow, isAuthentica
       <HomeFooter
         heroPersona={heroPersona}
         isAuthenticated={isAuthenticated}
-        onNavigate={onNavigate}
-        onStartNow={onStartNow}
+        onNavigate={handleProtectedAction}
+        onStartNow={() => handleProtectedAction('register')}
         setActiveInfoModal={setActiveInfoModal}
       />
 
       {/* Modais globais */}
+      <PreAuthModal
+        open={showPreAuth}
+        onClose={closePreAuth}
+        onCreateAccount={goToRegister}
+        onLogin={goToLogin}
+      />
+
       {selectedAsset && (
         <AssetModal
           asset={selectedAsset}

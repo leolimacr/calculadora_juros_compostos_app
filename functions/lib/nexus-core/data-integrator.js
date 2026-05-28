@@ -179,10 +179,10 @@ class DataIntegrator {
             }
         });
     }
-    static formatTransactionsForPrompt(transactions, context) {
+    static formatTransactionsForPrompt(transactions, _context) {
         if (!transactions || transactions.length === 0)
             return 'Nenhuma transação recente registrada.';
-        const relevant = this.filterRelevantTransactions(transactions, context);
+        const relevant = this.filterRelevantTransactions(transactions, _context);
         if (relevant.length === 0)
             return 'Nenhuma transação relevante para o contexto atual.';
         const oldestTx = relevant.length > 0 ? relevant[relevant.length - 1] : null;
@@ -201,17 +201,17 @@ class DataIntegrator {
         });
         return `**RESUMO CALCULADO (use estes valores nas respostas):**\n${summary}\n\n**ÚLTIMAS TRANSAÇÕES (apenas para contexto, não some manualmente):**\n${recentList.join('\n')}`;
     }
-    static formatGoalsForPrompt(goals, context) {
+    static formatGoalsForPrompt(goals, _context) {
         if (!goals || goals.length === 0)
             return 'Nenhuma meta financeira registrada.';
         return `**METAS ATIVAS (${goals.length}):**\n${goals.map(g => `• ${g.name}: R$ ${g.currentAmount}/${g.targetAmount}`).join('\n')}`;
     }
-    static formatSimulationsForPrompt(simulations, context) {
+    static formatSimulationsForPrompt(simulations, _context) {
         if (!simulations || simulations.length === 0)
             return 'Nenhuma simulação recente.';
         return `**SIMULAÇÕES (${simulations.length}):**\n${simulations.map(s => `• ${s.label}`).join('\n')}`;
     }
-    static filterRelevantTransactions(transactions, context) {
+    static filterRelevantTransactions(transactions, _context) {
         return transactions;
     }
     static generateTransactionSummary(transactions, daysToFetch) {
@@ -223,7 +223,7 @@ class DataIntegrator {
         const expenseCount = recent.filter(t => t.type === 'expense').length;
         return `${period}:\n• Receitas: R$ ${income.toLocaleString('pt-BR')}\n• Despesas: R$ ${expenses.toLocaleString('pt-BR')} (${expenseCount})\n• Saldo: R$ ${savings.toLocaleString('pt-BR')}\n• Economia: ${income > 0 ? ((savings / income) * 100).toFixed(1) : 0}%`;
     }
-    static generateDataSummary(goals, transactions, simulations, financialProfile) {
+    static generateDataSummary(goals, transactions, _simulations, financialProfile) {
         const activeGoals = goals.filter(g => new Date(g.deadline) > new Date() && g.currentAmount < g.targetAmount).length;
         let summaryText = "";
         if (financialProfile) {

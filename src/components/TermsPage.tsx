@@ -1,5 +1,6 @@
 import React from 'react';
 import { Helmet } from 'react-helmet';
+import { ArrowLeft } from 'lucide-react';
 
 export const TermsPage = () => {
   return (
@@ -8,6 +9,15 @@ export const TermsPage = () => {
         <title>Termos de Uso - Finanças Pro Invest</title>
         <meta name="description" content="Termos e condições de uso do aplicativo Finanças Pro Invest." />
       </Helmet>
+
+      {/* Botão Voltar */}
+      <button 
+        onClick={() => window.location.href = '/'}
+        className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors mb-8 text-sm font-bold uppercase tracking-widest"
+      >
+        <ArrowLeft size={16} /> Voltar ao site
+      </button>
+
       <h1 className="text-3xl font-bold mb-6">Termos de Uso</h1>
       <p className="text-sm text-gray-600 mb-8">Última atualização: 17 de fevereiro de 2026</p>
       <div className="prose prose-sm max-w-none">

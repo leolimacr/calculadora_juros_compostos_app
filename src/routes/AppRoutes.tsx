@@ -2,7 +2,6 @@ import React from 'react';
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import OnboardingWizard from '../components/OnboardingWizard';
 import {
-  Dashboard,
   AiChatPage,
   FireCalculatorTool,
   CompoundInterestTool,
@@ -56,7 +55,6 @@ const ProtectedRoute = ({
 const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
   const { bridgeReady } = useTransactionsContext();
   const { 
-    currentTool, 
     handleNavigate, 
     handleAuthSuccess, 
     homeKey 
@@ -180,9 +178,8 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
               </div>
             ) : (
                 <LoggedInHomePanel
-                  transactions={lancamentos}
-                  isPrivacyMode={isPrivacyMode}
-                  onTogglePrivacy={() => setIsPrivacyMode((prev) => !prev)}
+                  transactions={state.lancamentos}
+                  isPrivacyMode={state.isPrivacyMode}
                   onOpenForm={state.openTransactionForm}
                   onNavigate={(tool) => handleNavigate(tool)}
                   isLimitReached={isLimitReached}
@@ -226,8 +223,6 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
               isPremium={isPremium}
               lancamentos={lancamentos}
               userMeta={userMeta}
-              usagePercentage={usagePercentage}
-              isLimitReached={isLimitReached}
               onNavigate={handleNavigate}
             />
           } 

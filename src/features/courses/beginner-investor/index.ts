@@ -10,6 +10,7 @@ import { module06 } from './modules/module-06';
 
 export const beginnerInvestorCourse: Course = {
   meta: beginnerInvestorCourseMeta,
+  isPublished: true,
   modules: [
     module01,
     module02,

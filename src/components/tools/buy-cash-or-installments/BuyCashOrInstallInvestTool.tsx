@@ -130,7 +130,7 @@ export default function BuyCashOrInstallInvestTool({ onNavigate }: { onNavigate?
             className="cvp-back-btn"
             onClick={() => { onNavigate?.('home'); setTimeout(() => { document.getElementById('secao-ferramentas')?.scrollIntoView({ behavior: 'smooth' }); }, 100); }}
           >
-            ← Voltar para as ferramentas
+            ← Voltar
           </button>
           <p className="cvp-eyebrow">Ferramenta financeira</p>
           <h1>Comprar à vista ou parcelar e investir?</h1>

@@ -4,6 +4,7 @@ export const module06: CourseModule = {
   id: 'modulo-06-investidor',
   title: 'Próximos Passos e Mentalidade de Longo Prazo',
   slug: 'proximos-passos-e-mentalidade-de-longo-prazo',
+  description: 'Construa a mentalidade correta para o sucesso no longo prazo.',
   objective:
     'Consolidar o aprendizado e preparar o investidor para uma jornada de sucesso e consistência.',
   order: 6,

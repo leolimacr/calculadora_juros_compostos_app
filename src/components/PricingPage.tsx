@@ -43,10 +43,10 @@ const PricingPage: React.FC<PricingProps> = ({ onNavigate, currentPlan, onBack, 
   };
 
   const proFeatures = [
-    { icon: Zap, text: 'Lançamentos ilimitados para o Controla virar rotina real' },
-    { icon: BarChart3, text: 'Filtros, médias e leitura do mês sem bloqueios do plano gratuito' },
-    { icon: Brain, text: 'Nexus com mais contexto da sua rotina para análises mais úteis' },
-    { icon: Shield, text: 'Plano ideal para quem quer resolver muito bem o controle diário' },
+    { icon: Zap, text: 'Lance quantas transações quiser, sem parar no meio da rotina' },
+    { icon: BarChart3, text: 'Veja seu mês com mais clareza usando filtros e médias avançadas' },
+    { icon: Brain, text: 'Receba insights mais úteis com uma leitura mais completa da sua rotina' },
+    { icon: Shield, text: 'Tenha uma experiência mais fluida para cuidar do dinheiro no dia a dia' },
   ];
 
   const premiumFeatures = [

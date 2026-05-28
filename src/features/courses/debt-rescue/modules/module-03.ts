@@ -4,6 +4,7 @@ export const module03: CourseModule = {
   id: 'modulo-03',
   title: 'Entendendo por que a dívida cresce',
   slug: 'entendendo-por-que-a-divida-cresce',
+  description: 'Entenda os mecanismos que fazem a dívida crescer.',
   objective:
     'Explicar em linguagem simples como os juros funcionam, por que o mínimo do cartão engana e o que faz uma dívida virar bola de neve.',
   order: 3,

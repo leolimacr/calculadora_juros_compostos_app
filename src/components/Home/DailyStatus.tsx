@@ -20,28 +20,28 @@ const DailyStatus: React.FC<DailyStatusProps> = ({ lancamentos }) => {
   const transactionCount = todayTransactions.length;
 
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+    <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-xl text-white shadow-sm ${
+        <div className="flex items-center gap-4">
+          <div className={`p-3 rounded-2xl text-white shadow-lg transition-all ${
             hasTransactionsToday ? 'bg-emerald-500 shadow-emerald-200' : 'bg-amber-500 shadow-amber-200'
           }`}>
-            {hasTransactionsToday ? <CheckCircle size={18} /> : <Sun size={18} />}
+            {hasTransactionsToday ? <CheckCircle size={20} /> : <Sun size={20} />}
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-bold text-slate-900">
+            <span className="text-base font-black text-slate-900 tracking-tight">
               {hasTransactionsToday
                 ? `${transactionCount} lançamento${transactionCount > 1 ? 's' : ''} hoje`
                 : 'Nenhum lançamento hoje'}
             </span>
-            <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">
+            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.15em] mt-0.5">
               {hasTransactionsToday ? 'Você já lançou hoje' : 'Mantenha o ritmo'}
             </span>
           </div>
         </div>
         {/* Optional: Add a subtle activity indicator if no transactions */}
         {!hasTransactionsToday && (
-          <Activity size={18} className="text-amber-400 opacity-70" />
+          <Activity size={20} className="text-amber-400 opacity-40 animate-pulse" />
         )}
       </div>
     </div>

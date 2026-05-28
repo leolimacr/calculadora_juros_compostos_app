@@ -9,7 +9,10 @@ import ToastContainer from '../components/Toast';
 import { useAppState } from '../hooks/useAppState';
 import { useNavigation } from '../hooks/useNavigation';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { useOnboarding } from '../hooks/useOnboarding';
+import OnboardingOverlay from '../components/Onboarding/OnboardingOverlay';
 import PageShell from './PageShell';
+import { NexusAdvisoryContext } from '../services/nexusInsightEngine';
 
 import AppOnlyBlock from '../components/AppOnlyBlock';
 
@@ -45,8 +48,54 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state }) => {
     isMobileBrowser,
   } = state;
 
+  const nexusAdvisoryContext = React.useMemo((): NexusAdvisoryContext | undefined => {
+    if (!lancamentos) return undefined;
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+
+    const monthTransactions = lancamentos.filter(t => {
+      const [y, m] = t.date.split('-').map(Number);
+      return y === currentYear && m === currentMonth;
+    });
+
+    const currentMonthBalance = monthTransactions.reduce(
+      (acc, t) => acc + (t.type === 'income' ? t.amount : -t.amount),
+      0
+    );
+
+    const categorySpending = monthTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((acc, t) => {
+        acc[t.category] = (acc[t.category] || 0) + t.amount;
+        return acc;
+      }, {} as Record<string, number>);
+
+    return {
+      currentMonthBalance,
+      categorySpending,
+      isPremium: !!userMeta?.isPremium,
+    };
+  }, [lancamentos, userMeta]);
+
+  const { step, nextStep, skip, finish } = useOnboarding(lancamentos.length);
+
+  const handleOnboardingLaunch = () => {
+    handleNavigate('controla');
+    setTimeout(() => {
+      openTransactionForm();
+    }, 100);
+  };
+
+  const handleOnboardingNext = () => {
+    if (step === 1) {
+      handleNavigate('controla');
+    }
+    nextStep();
+  };
+
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-200 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
       <AppHeader
         isAuthenticated={isAuthenticated}
         userMeta={userMeta}
@@ -106,10 +155,19 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state }) => {
             const usageCount = lancamentos.filter((t: any) => t.category === catName).length;
             await deleteCategory(id, usageCount);
           }}
+          nexusAdvisoryContext={nexusAdvisoryContext}
         />
       </ContentModal>
 
       <ToastContainer toasts={[]} removeToast={() => {}} />
+
+      <OnboardingOverlay
+        step={step}
+        onNext={handleOnboardingNext}
+        onSkip={skip}
+        onFinish={finish}
+        onLaunch={handleOnboardingLaunch}
+      />
     </div>
   );
 };

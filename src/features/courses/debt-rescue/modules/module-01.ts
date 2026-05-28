@@ -4,6 +4,7 @@ export const module01: CourseModule = {
   id: 'modulo-01',
   title: 'Respirar antes de resolver',
   slug: 'respirar-antes-de-resolver',
+  description: 'O primeiro passo psicológico e técnico para sair das dívidas.',
   objective:
     'Reduzir a vergonha, quebrar a paralisia e mostrar que dá para começar com os dados que a pessoa já tem.',
   order: 1,

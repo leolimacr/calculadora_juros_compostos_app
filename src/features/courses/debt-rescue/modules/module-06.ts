@@ -4,6 +4,7 @@ export const module06: CourseModule = {
   id: 'modulo-06',
   title: 'Manutenção e recomeço',
   slug: 'manutencao-e-recomeco',
+  description: 'O caminho para a liberdade e como evitar novas dívidas.',
   objective:
     'Consolidar hábitos mínimos, celebrar o progresso conquistado e preparar a transição para uma vida financeira mais estável.',
   order: 6,

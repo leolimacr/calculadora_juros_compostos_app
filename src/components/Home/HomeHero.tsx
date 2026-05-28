@@ -64,21 +64,21 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
 
           <h1 className="text-5xl md:text-6xl lg:text-[5.2rem] font-black text-slate-950 leading-[0.98] tracking-[-0.04em] mb-5 animate-in fade-in slide-in-from-bottom-6 duration-1000 delay-150">
             {heroPersona === 'dividas' ? (
-              <>Saia das dívidas com<br />um plano claro e <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-700 via-emerald-500 to-sky-600">realista.</span></>
+              <>Dívidas não definem você.<br />Elas são um problema matemático.<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-700 via-emerald-500 to-sky-600">E a gente resolve juntos.</span></>
             ) : (
-              <>Seu dinheiro organizado,<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-emerald-400 to-sky-500">seu futuro mais claro.</span></>
+              <>Seu dinheiro trabalhando por você.<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-emerald-400 to-sky-500">Veja cada ativo no lugar certo.</span></>
             )}
           </h1>
 
           <p className="text-lg md:text-xl text-slate-600 max-w-lg mb-8 leading-relaxed font-medium animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200">
             {heroPersona === 'dividas'
-              ? 'O Finanças Pro Invest organiza suas contas, mostra o que priorizar e te guia até a liberdade financeira — mesmo que você não entenda de matemática.'
-              : 'Acompanhe tudo o que você tem, veja seu patrimônio crescer e tome decisões com confiança — sem complicação.'}
+              ? 'Um plano realista, baseado na sua vida, sem julgamentos.'
+              : 'Tome decisões com clareza e veja seu patrimônio crescer com inteligência.'}
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-300">
             <button onClick={() => onNavigate(heroPersona === 'dividas' ? 'minhas-dividas' : 'investimentos')} className="bg-emerald-500 hover:bg-emerald-600 text-white font-black px-8 py-4 rounded-2xl transition-all shadow-[0_16px_35px_-18px_rgba(16,185,129,0.65)] flex items-center justify-center gap-2 w-full sm:w-auto">
-              <span>{heroPersona === 'dividas' ? 'Quero organizar meu dinheiro' : 'Quero ver meu futuro financeiro'}</span>
+              <span>{heroPersona === 'dividas' ? 'Cadastrar minha primeira dívida grátis' : 'Quero ver meu futuro financeiro'}</span>
               <ArrowRight size={20} />
             </button>
             <button onClick={() => { const el = document.getElementById('como-funciona'); if (el) { const y = el.getBoundingClientRect().top + window.scrollY - 90; window.scrollTo({ top: y, behavior: 'smooth' }); } }} className="bg-white hover:bg-slate-100 text-slate-900 font-black px-8 py-4 rounded-2xl transition-all border border-slate-300 shadow-sm flex items-center justify-center gap-2 w-full sm:w-auto">

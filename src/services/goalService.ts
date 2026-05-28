@@ -28,6 +28,7 @@ export interface Goal {
   dataInicio: Timestamp; // data de início da meta (primeiro aporte)
   dataFim?: Timestamp; // opcional, para meta com data final
   ativa: boolean;
+  type?: 'nexus_reserve' | 'custom';
   lembretes: {
     cincoDias: boolean;
     vespera: boolean;
@@ -37,8 +38,6 @@ export interface Goal {
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
-
-const COLLECTION_NAME = 'metas';
 
 // Criar uma nova meta
 export const createGoal = async (userId: string, goalData: Omit<Goal, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => {
@@ -127,4 +126,28 @@ export const fetchActiveGoals = async (userId: string): Promise<Goal[]> => {
     console.error('Erro ao buscar metas ativas:', error);
     throw error;
   }
+};
+
+export const createNexusReserve = async (
+  userId: string,
+  title: string,
+  amount: number,
+  dueDate: string
+): Promise<any> => {
+  return createGoal(userId, {
+    title: `Reserva: ${title}`,
+    targetAmount: amount,
+    targetDate: dueDate,
+    valor: amount,
+    frequencia: 'mensal',
+    ativa: true,
+    type: 'nexus_reserve',
+    dataInicio: Timestamp.now(),
+    lembretes: {
+      cincoDias: false,
+      vespera: true,
+      dia: true,
+      canal: 'push',
+    },
+  });
 };

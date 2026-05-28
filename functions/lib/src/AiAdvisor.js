@@ -168,10 +168,10 @@ class DataIntegrator {
             }
         });
     }
-    static formatTransactionsForPrompt(transactions, context) {
+    static formatTransactionsForPrompt(transactions, _context) {
         if (!transactions || transactions.length === 0)
             return 'Nenhuma transação recente registrada.';
-        const relevant = this.filterRelevantTransactions(transactions, context);
+        const relevant = this.filterRelevantTransactions(transactions, _context);
         if (relevant.length === 0)
             return 'Nenhuma transação relevante para o contexto atual.';
         const summary = this.generateTransactionSummary(relevant);
@@ -182,17 +182,17 @@ class DataIntegrator {
         });
         return `**RESUMO CALCULADO (use estes valores nas respostas):**\n${summary}\n\n**ÚLTIMAS TRANSAÇÕES (apenas para contexto, não some manualmente):**\n${recentList.join('\n')}`;
     }
-    static formatGoalsForPrompt(goals, context) {
+    static formatGoalsForPrompt(goals, _context) {
         if (!goals || goals.length === 0)
             return 'Nenhuma meta financeira registrada.';
         return `**METAS ATIVAS (${goals.length}):**\n${goals.map(g => `• ${g.name}: R$ ${g.currentAmount}/${g.targetAmount}`).join('\n')}`;
     }
-    static formatSimulationsForPrompt(simulations, context) {
+    static formatSimulationsForPrompt(simulations, _context) {
         if (!simulations || simulations.length === 0)
             return 'Nenhuma simulação recente.';
         return `**SIMULAÇÕES (${simulations.length}):**\n${simulations.map(s => `• ${s.label}`).join('\n')}`;
     }
-    static filterRelevantTransactions(transactions, context) {
+    static filterRelevantTransactions(transactions, _context) {
         return transactions;
     }
     static generateTransactionSummary(transactions) {

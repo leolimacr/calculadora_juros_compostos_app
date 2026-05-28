@@ -3,7 +3,7 @@ export interface MarketQuote {
   name: string;
   price: number;
   changePercent: number;
-  category: 'index' | 'stock';
+  category: 'currency' | 'crypto' | 'index' | 'stock' | 'indicator';
 }
 
 export interface HistoricalDataPoint {

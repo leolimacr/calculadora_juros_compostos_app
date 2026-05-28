@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { FolderPlus } from 'lucide-react';
 import CategoryManager from './CategoryManager';
 import { Transaction, Category } from '../../../types';
+import { NexusAdvisoryContext } from '../../../services/nexusInsightEngine';
+import NexusInlineAdvisor from './NexusInlineAdvisor';
 
 interface TransactionFormProps {
   onSave: (data: any) => Promise<void>;
@@ -10,6 +12,7 @@ interface TransactionFormProps {
   categories: Category[];
   onSaveCategory: (category: Category) => Promise<void>;
   onDeleteCategory: (id: string) => Promise<void>;
+  nexusAdvisoryContext?: NexusAdvisoryContext;
 }
 
 const TransactionForm: React.FC<TransactionFormProps> = ({ 
@@ -18,7 +21,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   initialData,  
   categories = [],
   onSaveCategory,
-  onDeleteCategory
+  onDeleteCategory,
+  nexusAdvisoryContext
 }) => {
   const [description, setDescription] = useState(initialData?.description || '');
   const [amount, setAmount] = useState(initialData?.amount || '');
@@ -122,6 +126,12 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             <span>Gerenciar Categorias</span>
           </button>
         </div>
+
+        <NexusInlineAdvisor 
+          draft={{ amount: Number(amount), category, type }}
+          context={nexusAdvisoryContext}
+        />
+
         <div className="flex gap-3 pt-4">
           <button onClick={onCancel} className="flex-1 py-4 text-text-muted font-bold uppercase text-xxs tracking-ultra-wide">Cancelar</button>
           <button onClick={handleSave} disabled={isSaving} className="flex-1 py-4 bg-brand-primary text-text-onBrand rounded-3xl font-black uppercase text-xxs tracking-ultra-wide shadow-brand-glow active:scale-95 disabled:opacity-50">

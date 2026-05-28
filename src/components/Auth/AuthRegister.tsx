@@ -46,9 +46,9 @@ const AuthRegister: React.FC<{ onSuccess: () => void, onSwitchToLogin: () => voi
   // --- TELA DE SUCESSO (ENVIADO) ---
   if (emailSent) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen w-full px-4 bg-white">
+      <div className="flex flex-col items-center justify-center min-h-screen w-full px-4 bg-slate-50">
         <div className="w-full max-w-md">
-          <div className="bg-sky-50 rounded-2xl border border-sky-200 shadow-lg overflow-hidden">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="h-1 w-full bg-gradient-to-r from-indigo-500 via-emerald-400 to-sky-500"></div>
             <div className="p-8 text-center">
               <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-200">
@@ -66,7 +66,7 @@ const AuthRegister: React.FC<{ onSuccess: () => void, onSwitchToLogin: () => voi
               </div>
               <button 
                 onClick={onSwitchToLogin} 
-                className="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-black py-4 rounded-xl transition-all active:scale-[0.98] shadow-md shadow-emerald-500/30 flex items-center justify-center gap-2 text-sm uppercase tracking-wider"
+                className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black py-4 rounded-xl transition-all active:scale-[0.98] shadow-md shadow-emerald-500/30 flex items-center justify-center gap-2 text-sm uppercase tracking-wider"
               >
                 Fazer Login <ArrowRight size={18} />
               </button>
@@ -79,9 +79,17 @@ const AuthRegister: React.FC<{ onSuccess: () => void, onSwitchToLogin: () => voi
 
   // --- TELA DE FORMULÁRIO (PADRÃO) ---
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen w-full px-4 bg-white">
+    <div className="flex flex-col items-center justify-center min-h-screen w-full px-4 bg-slate-50 pt-20">
       <div className="w-full max-w-md">
-        <div className="bg-sky-50 rounded-2xl border border-sky-200 shadow-lg overflow-hidden">
+        {/* Botão Voltar */}
+        <button 
+          onClick={() => window.location.href = '/'}
+          className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors mb-4 ml-2 text-sm font-bold uppercase tracking-widest"
+        >
+          <ArrowRight size={16} className="rotate-180" /> Voltar ao site
+        </button>
+
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
           
           {/* Detalhe decorativo no topo */}
           <div className="h-1 w-full bg-gradient-to-r from-indigo-500 via-emerald-400 to-sky-500"></div>
@@ -160,7 +168,7 @@ const AuthRegister: React.FC<{ onSuccess: () => void, onSwitchToLogin: () => voi
               <button 
                 type="submit" 
                 disabled={loading}
-                className="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-black py-4 rounded-xl transition-all active:scale-[0.98] shadow-md shadow-emerald-500/30 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm uppercase tracking-wider"
+                className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black py-4 rounded-xl transition-all active:scale-[0.98] shadow-md shadow-emerald-500/30 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm uppercase tracking-wider"
               >
                 {loading ? 'CRIANDO CONTA...' : 'CRIAR CONTA'} <ArrowRight size={18} />
               </button>

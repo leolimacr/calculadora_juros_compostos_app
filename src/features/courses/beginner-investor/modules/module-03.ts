@@ -4,6 +4,7 @@ export const module03: CourseModule = {
   id: 'modulo-03-investidor',
   title: 'Onde Investir: Renda Fixa vs. Renda Variável',
   slug: 'onde-investir-renda-fixa-vs-renda-variavel',
+  description: 'Conheça as diferenças entre Renda Fixa e Renda Variável.',
   objective:
     'Compreender as duas principais classes de ativos e suas características fundamentais.',
   order: 3,

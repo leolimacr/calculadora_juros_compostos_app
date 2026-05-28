@@ -4,6 +4,7 @@ export const module05: CourseModule = {
   id: 'modulo-05-investidor',
   title: 'O Poder do Tempo: Juros Compostos e Longo Prazo',
   slug: 'o-poder-do-tempo-juros-compostos-e-longo-prazo',
+  description: 'Entenda como o tempo e os juros compostos trabalham para você.',
   objective:
     'Entender como os juros compostos funcionam e por que o tempo é o maior aliado do investidor.',
   order: 5,

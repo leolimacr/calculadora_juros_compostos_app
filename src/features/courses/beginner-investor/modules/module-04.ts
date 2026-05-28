@@ -4,6 +4,7 @@ export const module04: CourseModule = {
   id: 'modulo-04-investidor',
   title: 'Diversificação: O Segredo para a Segurança',
   slug: 'diversificacao-o-segredo-para-a-seguranca',
+  description: 'Descubra como proteger seu patrimônio através da diversificação.',
   objective:
     'Entender o que é diversificação e por que ela é crucial para proteger seus investimentos.',
   order: 4,

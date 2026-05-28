@@ -25,9 +25,7 @@ interface PageShellProps {
 
 const PageShell: React.FC<PageShellProps> = ({ currentTool, isAuthRoute = false, children }) => (
   <div
-    className={`${isAuthRoute ? 'pt-0 pb-0' : 'pt-16 pb-24'} min-h-screen h-full ${
-      usesLightBackground(currentTool) ? 'bg-slate-50' : 'bg-[#020617]'
-    }`}
+    className={`${isAuthRoute ? 'pt-0 pb-0' : 'pt-16 pb-24'} min-h-screen h-full bg-slate-50`}
   >
     {children}
   </div>
