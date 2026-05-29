@@ -1,5 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
+import { getCards } from '../../../services/cardService';
+import { useAuth } from '../../../contexts/AuthContext';
+import { CreditCard } from '../../../types';
 
 interface TransactionHistoryProps {
   transactions: any[];
@@ -9,6 +12,23 @@ interface TransactionHistoryProps {
 }
 
 const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, onDelete, onEdit, isPrivacyMode }) => {
+  const { user } = useAuth();
+  const [userCards, setUserCards] = useState<CreditCard[]>([]);
+
+  useEffect(() => {
+    if (user?.uid) {
+      getCards(user.uid).then(setUserCards).catch(console.error);
+    }
+  }, [user?.uid]);
+
+  const cardMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    userCards.forEach(c => {
+      map[c.id] = c.name;
+    });
+    return map;
+  }, [userCards]);
+
   return (
     <div className="bg-surface-primary border border-surface-elevated rounded-4xl overflow-hidden shadow-soft">
       <div className="overflow-x-auto">
@@ -36,7 +56,16 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, o
                     {new Date(t.date.replace(/-/g, '/')).toLocaleDateString('pt-BR')}
                   </td>
                   <td className="px-4 py-3 text-sm text-text-primary font-bold leading-tight">
-                    {t.description}
+                    <div className="flex flex-col gap-1">
+                      {t.description}
+                      {t.paymentMethod === 'credit' && (
+                        <div className="flex">
+                          <span className="px-1.5 py-0.5 bg-brand-secondary/10 border border-brand-secondary/20 rounded-md text-[9px] font-black text-brand-secondary uppercase tracking-wider">
+                            {t.cardId && cardMap[t.cardId] ? cardMap[t.cardId] : 'Crédito'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <span className="inline-flex items-center px-2.5 py-1 bg-surface-secondary border border-surface-elevated rounded-full text-xxs font-bold text-text-secondary">

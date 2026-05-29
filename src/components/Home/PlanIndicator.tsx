@@ -12,25 +12,12 @@ const PlanIndicator: React.FC<PlanIndicatorProps> = ({
   launchCount,
   launchLimit,
 }) => {
+  if (isPro) {
+    return null;
+  }
+
   const usagePercentage = Math.min((launchCount / launchLimit) * 100, 100);
   const isNearLimit = usagePercentage >= 80;
-
-  if (isPro) {
-    return (
-      <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm flex items-center justify-between group hover:border-emerald-200 transition-all">
-        <div className="flex items-center gap-4">
-          <div className="bg-emerald-500 p-3 rounded-2xl text-white shadow-lg shadow-emerald-200 group-hover:scale-110 transition-transform">
-            <Crown size={20} />
-          </div>
-          <div>
-            <p className="text-sm font-black text-slate-900 tracking-tight">Plano Pro ativo</p>
-            <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest mt-0.5">Sua rotina está livre para seguir sem atrito</p>
-          </div>
-        </div>
-        <Sparkles size={18} className="text-emerald-400 animate-pulse" />
-      </div>
-    );
-  }
 
   return (
     <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">

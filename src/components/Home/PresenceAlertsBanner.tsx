@@ -22,7 +22,7 @@ export const PresenceAlertsBanner: React.FC<Props> = ({ userId }) => {
         >
           <div className="flex items-center gap-2">
             <span className="text-amber-600 font-bold text-sm">
-              {hasAlerts ? `⚠️ ${events.length} alerta(s) pendente(s)` : 'SEUS ALERTA AQUI'}
+              {hasAlerts ? `⚠️ ${events.length} alerta(s) pendente(s)` : 'SEUS ALERTAS AQUI'}
             </span>
           </div>
           <ChevronDown 

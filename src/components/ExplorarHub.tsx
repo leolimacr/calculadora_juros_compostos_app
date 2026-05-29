@@ -29,6 +29,17 @@ export const ExplorarHub: React.FC<ExplorarHubProps> = ({ onNavigate, routerNavi
   const [marketData, setMarketData] = useState<MarketData>({ indices: [], stocks: [], currencies: [], cryptos: [], indicators: [] });
   const [selectedAsset, setSelectedAsset] = useState<{ symbol: string; category: string } | null>(null);
 
+  // Estado para controlar a transparência do título no scroll
+  const [isScrolled, setIsScrolled] = React.useState(false);
+
+  React.useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   useEffect(() => {
     getLatestNews(9).then((news) => { if (news) setRadarNews(news); });
     fetchMarketQuotes().then(res => {
@@ -50,12 +61,20 @@ export const ExplorarHub: React.FC<ExplorarHubProps> = ({ onNavigate, routerNavi
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-12">
-      <div className="max-w-7xl mx-auto p-6 md:p-12 space-y-12">
-        <h1 className="text-3xl font-black uppercase tracking-tighter">Explorar</h1>
+    <>
+      {/* Barra Fixa Invisível para Título EXPLORAR (Mobile Only) */}
+      <div className={`fixed top-28 left-0 z-[100] md:hidden h-14 w-full px-4 flex items-center bg-transparent pointer-events-none transition-all duration-300 ${isScrolled ? 'opacity-5' : 'opacity-100'}`}>
+        <h1 className="text-4xl font-black uppercase tracking-tighter bg-gradient-to-r from-slate-700 via-blue-800 to-slate-900 bg-clip-text text-transparent drop-shadow-[0_2px_4px_rgba(0,0,0,0.2)] pointer-events-auto">
+          Explorar
+        </h1>
+      </div>
 
-        <section>
-          <h2 className="text-lg font-bold mb-4">Ferramentas</h2>
+      <div className="min-h-screen bg-slate-50 text-slate-900 pb-12 pt-28 md:pt-0">
+        <div className="max-w-7xl mx-auto p-6 md:p-12 space-y-12">
+          <h1 className="hidden md:block text-3xl font-black uppercase tracking-tighter">Explorar</h1>
+
+          <section>
+            <h2 className="text-lg font-bold mb-4">Ferramentas</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {ferramentas.map(f => (
               <button key={f.id} onClick={() => onNavigate(f.id)} className="p-6 bg-white border border-slate-200 rounded-2xl text-left hover:border-sky-500 transition-all flex items-center gap-4">
@@ -124,5 +143,6 @@ export const ExplorarHub: React.FC<ExplorarHubProps> = ({ onNavigate, routerNavi
         )}
       </div>
     </div>
+    </>
   );
 };

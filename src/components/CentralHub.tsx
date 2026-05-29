@@ -58,6 +58,18 @@ const CentralHub: React.FC<CentralHubProps> = ({
   onNavigate,
 }) => {
   const [lockedModule, setLockedModule] = useState<string | null>(null);
+
+  // Estado para controlar a transparência do título no scroll
+  const [isScrolled, setIsScrolled] = React.useState(false);
+
+  React.useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   const { passives = [], totalAssets = 0, patrimonioLiquido = 0 } = useWealthData();
   const navigate = useNavigate();
 
@@ -323,14 +335,22 @@ const CentralHub: React.FC<CentralHubProps> = ({
   } as const;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 pt-6 pb-10 space-y-6">
-      <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-white to-slate-50 border border-slate-200 border-l-4 border-l-emerald-500 p-6 md:p-8 text-slate-900 shadow-sm">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.08),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(16,185,129,0.06),transparent_28%)]" />
-        <div className="relative">
-          <div className="flex flex-wrap items-center gap-3 mb-4">
-            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
-              Central Financeira
-            </span>
+    <>
+      {/* Barra Fixa Invisível para Título CENTRAL (Mobile Only) */}
+      <div className={`fixed top-16 left-0 z-[100] md:hidden h-14 w-full px-4 flex items-center bg-transparent pointer-events-none transition-all duration-300 ${isScrolled ? 'opacity-5' : 'opacity-100'}`}>
+        <h1 className="text-4xl font-black tracking-tighter bg-gradient-to-r from-slate-900 via-indigo-900 to-indigo-700 bg-clip-text text-transparent drop-shadow-[0_2px_4px_rgba(0,0,0,0.1)] pointer-events-auto">
+          Central
+        </h1>
+      </div>
+
+      <div className="max-w-6xl mx-auto px-4 pt-14 md:pt-6 pb-10 space-y-6 animate-in fade-in duration-300">
+        <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-white to-slate-50 border border-slate-200 border-l-4 border-l-emerald-500 p-6 md:p-8 text-slate-900 shadow-sm">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.08),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(16,185,129,0.06),transparent_28%)]" />
+          <div className="relative">
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+              <span className="hidden md:inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                Central Financeira
+              </span>
             <span
               className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.2em] ${
                 isPremium
@@ -659,6 +679,7 @@ const CentralHub: React.FC<CentralHubProps> = ({
         </div>
       )}
     </div>
+    </>
   );
 };
 

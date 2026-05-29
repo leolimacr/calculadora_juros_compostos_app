@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
-import { LogOut, Settings, Sparkles, Eye, EyeOff, Menu, Globe, CreditCard, Compass, ArrowLeft } from 'lucide-react';
+import { LogOut, Settings, Sparkles, Eye, EyeOff, Menu, Globe, CreditCard, Compass, ArrowLeft, Crown } from 'lucide-react';
 import { useNavigation } from '../hooks/useNavigation';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { UserMeta } from '../types';
@@ -14,6 +14,8 @@ interface AppHeaderProps {
   onTogglePrivacy: () => void;
   onLogout: () => void;
   onOpenMobileMenu: () => void;
+  isPro?: boolean;
+  isPremium?: boolean;
 }
 
 const MAIN_ROUTES = ['/app/home', '/app/controla', '/app/central', '/app/mais', '/app/explorar', '/'];
@@ -26,6 +28,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   onTogglePrivacy,
   onLogout,
   onOpenMobileMenu,
+  isPro,
+  isPremium,
 }) => {
   const isNative = Capacitor.isNativePlatform();
   const { currentTool, handleNavigate } = useNavigation();
@@ -33,6 +37,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   const navigate = useNavigate();
 
   const isMainRoute = useMemo(() => MAIN_ROUTES.includes(location.pathname), [location.pathname]);
+
+  const isStrictlyPro = isAuthenticated && isPro && !isPremium;
 
   const handleSmartBack = useCallback(() => {
     // Se houver histórico de navegação na sessão atual, volta. 
@@ -105,6 +111,17 @@ const AppHeader: React.FC<AppHeaderProps> = ({
 
         {isAuthenticated && (
           <>
+            {isStrictlyPro && (
+              <div 
+                className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-700 mr-4 animate-in fade-in zoom-in duration-300"
+                role="status"
+                aria-label="Plano Pro ativo"
+              >
+                <Crown size={12} className="fill-emerald-600" />
+                <span className="text-[10px] font-black uppercase tracking-wider">Pro Ativo</span>
+              </div>
+            )}
+
             <div className="hidden xl:flex items-center gap-3 mr-2 text-sm border-r border-slate-200 pr-4">
               <div className="flex flex-col text-right leading-none">
 				<span className="text-slate-500 text-[11px] font-black uppercase mb-1">Seja bem-vindo(a),</span>
@@ -117,6 +134,16 @@ const AppHeader: React.FC<AppHeaderProps> = ({
               </button>
             </div>
 
+            {isStrictlyPro && (
+              <div 
+                className="xl:hidden flex items-center justify-center w-6 h-6 rounded-lg bg-emerald-500 text-white shadow-lg shadow-emerald-200/50 mr-2"
+                role="status"
+                aria-label="Plano Pro ativo"
+              >
+                <Crown size={12} />
+              </div>
+            )}
+
             <div className="xl:hidden flex flex-col items-end text-right mr-1 leading-none animate-in fade-in">
               <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Seja</span>
               <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">bem vindo(a),</span>
@@ -128,18 +155,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             <div className="hidden md:flex items-center gap-2">
               <button onClick={() => handleNavigate('chat')} className="flex items-center gap-2 px-6 py-2 rounded-full border text-[10px] font-black uppercase transition-all bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200">
                 <Sparkles size={14} className="text-violet-500" /> Nexus IA
-              </button>
-              <button
-                onClick={() => handleNavigate('minhas-dividas')}
-                className="flex items-center gap-2 px-5 py-2 rounded-full border text-[10px] font-black uppercase transition-all bg-rose-50 border-rose-100 text-rose-700 hover:bg-rose-100"
-              >
-                <CreditCard size={14} /> Minhas Dívidas
-              </button>
-              <button 
-                onClick={() => handleNavigate('test-explorar')} 
-                className="flex items-center gap-2 px-3 py-2 rounded-full border text-[10px] font-black uppercase transition-all bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200"
-              >
-                <Compass size={14} /> <span className="hidden lg:inline">Explorar</span>
               </button>
               <button onClick={() => handleNavigate('settings')} className="p-2 text-slate-400 hover:text-slate-900 transition-colors"><Settings size={18} /></button>
               <button onClick={onLogout} className="p-2 text-slate-400 hover:text-red-500 transition-colors"><LogOut size={18} /></button>

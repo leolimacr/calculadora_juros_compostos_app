@@ -104,6 +104,8 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state }) => {
         onTogglePrivacy={() => setIsPrivacyMode(!isPrivacyMode)}
         onLogout={handleLogout}
         onOpenMobileMenu={() => setMobileMenuOpen(true)}
+        isPro={state.isPro}
+        isPremium={state.isPremium}
       />
 
       <main className="flex-1 overflow-y-auto">
@@ -156,6 +158,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state }) => {
             await deleteCategory(id, usageCount);
           }}
           nexusAdvisoryContext={nexusAdvisoryContext}
+          transactions={lancamentos}
         />
       </ContentModal>
 

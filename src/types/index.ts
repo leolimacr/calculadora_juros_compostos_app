@@ -1,3 +1,9 @@
+export interface CreditCard {
+  id: string;
+  name: string;
+  isActive?: boolean;
+}
+
 export interface Transaction {
   id: string;
   userId: string;
@@ -6,6 +12,8 @@ export interface Transaction {
   description: string;
   category: string;
   amount: number;
+  paymentMethod?: 'money' | 'credit';
+  cardId?: string;
 }
 
 export interface Category {

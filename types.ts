@@ -48,6 +48,11 @@ export interface UserMeta {
 
 export type TransactionType = 'income' | 'expense';
 
+export interface CreditCard {
+  id: string;
+  name: string;
+}
+
 export interface Transaction {
   id: string;
   type: TransactionType;
@@ -55,6 +60,8 @@ export interface Transaction {
   description: string;
   category: string;
   amount: number;
+  paymentMethod?: 'money' | 'credit';
+  cardId?: string;
 }
 
 export type FilterPeriod = 'tudo' | 'hoje' | 'mes' | 'ano';

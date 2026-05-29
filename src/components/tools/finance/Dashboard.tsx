@@ -41,43 +41,19 @@ const Dashboard: React.FC<any> = (props) => {
     lastActionTimestamp // Prop opcional para detectar novos lançamentos
   } = props;
 
+  // Estado para controlar a transparência do título no scroll
+  const [isScrolled, setIsScrolled] = React.useState(false);
+
+  React.useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   const [inlineInsight, setInlineInsight] = useState<NexusInsight | null>(null);
   const [showInsight, setShowInsight] = useState(false);
-
-  const streak = useMemo(() => getConsecutiveDays(transactions), [transactions]);
-
-  // Efeito para monitorar novos lançamentos e disparar insight
-  useEffect(() => {
-    if (lastActionTimestamp && transactions.length > 0) {
-      const ctx = buildUserContext({
-        launchCount: transactions.length,
-        transactionsToday: transactions.filter(t => t.date === new Date().toISOString().split('T')[0]).length,
-        monthBalance: stats.balance,
-        isPremium,
-        isFirstSession: userMeta?.isFirstSession
-      });
-
-      const insight = getOperationalInsight(ctx);
-      if (insight) {
-        setInlineInsight(insight);
-        setShowInsight(true);
-        const timer = setTimeout(() => setShowInsight(false), 5000);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [lastActionTimestamp, transactions.length]);
-
-  if (isLoading) {
-
-    return (
-      <div className="flex flex-col gap-4 p-6 w-full min-h-screen bg-white dark:bg-gray-900">
-        <div className="h-8 rounded-xl w-1/3 bg-gray-200 dark:bg-gray-700 animate-pulse" />
-        <div className="h-28 rounded-2xl w-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
-        <div className="h-28 rounded-2xl w-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
-        <div className="h-48 rounded-2xl w-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
-      </div>
-    );
-  }
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [viewMode, setViewMode] = useState<'day' | 'month' | 'year' | 'all' | 'period'>('month');
@@ -97,22 +73,12 @@ const Dashboard: React.FC<any> = (props) => {
   const [customPeriodStart, setCustomPeriodStart] = useState('');
   const [customPeriodEnd, setCustomPeriodEnd] = useState('');
   const [showCustomPeriodPicker, setShowCustomPeriodPicker] = useState(false);
-  const safeTransactions = Array.isArray(transactions) ? transactions : [];
-  const showBackToTools = !!onNavigate && !Capacitor.isNativePlatform();
-  
-  const changeDate = (offset: number) => {
-    const newDate = new Date(currentDate);
-    if (viewMode === 'day') newDate.setDate(newDate.getDate() + offset);
-    else if (viewMode === 'month') newDate.setMonth(newDate.getMonth() + offset);
-    else if (viewMode === 'year') newDate.setFullYear(newDate.getFullYear() + offset);
-    setCurrentDate(newDate);
-  };
+  const [visibleCount, setVisibleCount] = useState(10);
 
-  const handleDateSelect = (dateString: string) => {
-    if (!dateString) return;
-    const [year, month, day] = dateString.split('-').map(Number);
-    setCurrentDate(new Date(year, month - 1, day));
-  };
+  const safeTransactions = useMemo(() => Array.isArray(transactions) ? transactions : [], [transactions]);
+  const showBackToTools = !!onNavigate && !Capacitor.isNativePlatform();
+
+  const streak = useMemo(() => getConsecutiveDays(safeTransactions), [safeTransactions]);
 
   const periodLabel = useMemo(() => {
       if (viewMode === 'all') return 'Tudo';
@@ -189,14 +155,49 @@ const Dashboard: React.FC<any> = (props) => {
   }, [safeTransactions, selectedCategories, typeFilter, currentDate, viewMode, startDate, endDate, sortMode, searchQuery]);
 
   const stats = useMemo(() => {
-    let income = 0; let expenses = 0;
+    let income = 0; 
+    let expenses = 0;
+    let balanceImpact = 0;
+
     filtered.forEach((t: any) => {
         const val = Number(t?.amount) || 0;
-        if (t?.type === 'income') income += val;
-        else expenses += val;
+        const isCredit = t?.paymentMethod === 'credit';
+
+        if (t?.type === 'income') {
+          income += val;
+          balanceImpact += val;
+        } else {
+          expenses += val;
+          // Apenas reduz o saldo se não for crédito (dinheiro/débito/legado)
+          if (!isCredit) {
+            balanceImpact -= val;
+          }
+        }
     });
-    return { income, expenses, balance: income - expenses };
+    
+    return { income, expenses, balance: balanceImpact };
   }, [filtered]);
+
+  // Efeito para monitorar novos lançamentos e disparar insight
+  useEffect(() => {
+    if (lastActionTimestamp && safeTransactions.length > 0) {
+      const ctx = buildUserContext({
+        launchCount: safeTransactions.length,
+        transactionsToday: safeTransactions.filter(t => t.date === new Date().toISOString().split('T')[0]).length,
+        monthBalance: stats.balance,
+        isPremium,
+        isFirstSession: userMeta?.isFirstSession
+      });
+
+      const insight = getOperationalInsight(ctx);
+      if (insight) {
+        setInlineInsight(insight);
+        setShowInsight(true);
+        const timer = setTimeout(() => setShowInsight(false), 5000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [lastActionTimestamp, safeTransactions.length, stats.balance, isPremium, userMeta?.isFirstSession]);
 
   const categoryStats = useMemo(() => {
     const map = new Map();
@@ -217,6 +218,7 @@ const Dashboard: React.FC<any> = (props) => {
     }).join(', ') : '#334155 0deg 360deg'})`;
     return { data, gradient };
   }, [filtered]);
+
   const categorySummary = useMemo(() => {
     const map = new Map<string, { income: number; expense: number; total: number; count: number }>();
 
@@ -254,6 +256,7 @@ const Dashboard: React.FC<any> = (props) => {
 
     return result.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
   }, [filtered, sortMode]);
+
   const categoryTransactionsMap = useMemo(() => {
     const map = new Map<string, any[]>();
 
@@ -405,22 +408,98 @@ const Dashboard: React.FC<any> = (props) => {
     return result.sort((a, b) => a.category.localeCompare(b.category, 'pt-BR', { sensitivity: 'base' }));
   }, [safeTransactions, averagesWindow, includeCurrentMonth, averageMode, customPeriodStart, customPeriodEnd]);
 
-  const handleExportPDF = () => {
-    const catLabel = selectedCategories.length === 0 ? 'Todas Categorias' : selectedCategories.join(', ');
-    generateFinancialReport(filtered, `${catLabel} - ${periodLabel}`, userMeta?.email || 'Investidor');
-  };
   const categoryNames = useMemo(() => {
     const fromDb = categories.map((c: any) => c.name);
     const fromTransactions = safeTransactions.map((t: any) => t?.category).filter(Boolean);
     return Array.from(new Set([...fromDb, ...fromTransactions])).sort();
   }, [categories, safeTransactions]);
 
+  if (isLoading && transactions.length === 0) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 md:px-8 py-6 space-y-8 animate-in fade-in duration-500 pb-32 bg-surface-secondary rounded-5xl border border-surface-elevated shadow-card">
+        {/* Skeleton Header */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-slate-200 animate-pulse" />
+            <div className="space-y-2">
+              <div className="h-5 w-32 bg-slate-200 rounded animate-pulse" />
+              <div className="h-3 w-24 bg-slate-100 rounded animate-pulse" />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <div className="w-12 h-12 rounded-3xl bg-slate-100 animate-pulse" />
+            <div className="w-32 h-12 rounded-3xl bg-slate-100 animate-pulse" />
+          </div>
+        </div>
+
+        {/* Skeleton Hero Card */}
+        <div className="bg-surface-primary border border-surface-elevated rounded-4xl p-8 shadow-soft text-center space-y-4">
+          <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto animate-bounce">
+            <Wallet size={24} className="text-emerald-500 opacity-50" />
+          </div>
+          <div className="space-y-2">
+            <p className="text-slate-900 font-black text-lg">Preparando seus números...</p>
+            <p className="text-slate-500 text-xs font-medium">Organizando sua visão estratégica com carinho.</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+             <div className="h-48 bg-slate-50/50 rounded-4xl animate-pulse border border-slate-100" />
+             <div className="h-48 bg-slate-50/50 rounded-4xl animate-pulse border border-slate-100" />
+          </div>
+        </div>
+
+        {/* Skeleton Transactions List */}
+        <div className="space-y-4">
+          <div className="h-4 w-48 bg-slate-200 rounded animate-pulse ml-2" />
+          <div className="space-y-3">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="h-20 bg-white border border-slate-100 rounded-3xl animate-pulse" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const changeDate = (offset: number) => {
+    const newDate = new Date(currentDate);
+    if (viewMode === 'day') newDate.setDate(newDate.getDate() + offset);
+    else if (viewMode === 'month') newDate.setMonth(newDate.getMonth() + offset);
+    else if (viewMode === 'year') newDate.setFullYear(newDate.getFullYear() + offset);
+    setCurrentDate(newDate);
+  };
+
+  const handleDateSelect = (dateString: string) => {
+    if (!dateString) return;
+    const [year, month, day] = dateString.split('-').map(Number);
+    setCurrentDate(new Date(year, month - 1, day));
+  };
+
+  const handleExportPDF = () => {
+    const catLabel = selectedCategories.length === 0 ? 'Todas Categorias' : selectedCategories.join(', ');
+    generateFinancialReport(filtered, `${catLabel} - ${periodLabel}`, userMeta?.email || 'Investidor');
+  };
+
   const isFirstAccess = safeTransactions.length === 0;
 
   return (
-    
-    <div className="max-w-7xl mx-auto px-4 md:px-8 py-6 space-y-8 animate-in fade-in duration-500 pb-32 bg-surface-secondary rounded-5xl border border-surface-elevated shadow-card">
-      <CategoryManager isOpen={isCategoryModalOpen} onClose={() => setIsCategoryModalOpen(false)} categories={categories} onSave={onSaveCategory} onDelete={onDeleteCategory} />
+    <>
+      {/* Barra Fixa Invisível para Título CONTROLA (Mobile Only) */}
+      <div className={`fixed top-16 left-0 z-[100] md:hidden h-14 w-full px-4 flex items-center bg-transparent pointer-events-none transition-all duration-300 ${isScrolled ? 'opacity-5' : 'opacity-100'}`}>
+        <div className="flex items-center gap-3 pointer-events-auto">
+          <img
+            src="/controla-icon.png"
+            alt="Ícone do Controla"
+            className="w-9 h-9 rounded-xl shadow-md border border-emerald-200/50 bg-white object-cover"
+          />
+          <h2 className="text-3xl font-black tracking-tight uppercase leading-tight bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-400 bg-clip-text text-transparent drop-shadow-[0_2px_4px_rgba(0,0,0,0.1)]">
+            Controla
+          </h2>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 md:px-8 pt-14 md:pt-6 pb-32 space-y-8 animate-in fade-in duration-500 bg-surface-secondary rounded-5xl border border-surface-elevated shadow-card">
+        <CategoryManager isOpen={isCategoryModalOpen} onClose={() => setIsCategoryModalOpen(false)} categories={categories} onSave={onSaveCategory} onDelete={onDeleteCategory} />
 
 	  {/* HEADER DO GERENCIADOR */}
 {showBackToTools && (
@@ -436,10 +515,10 @@ const Dashboard: React.FC<any> = (props) => {
     <img
       src="/controla-icon.png"
       alt="Ícone do Controla"
-      className="w-8 h-8 md:w-9 md:h-9 rounded-xl shadow-soft border border-surface-elevated bg-surface-primary object-cover"
+      className="hidden md:block w-8 h-8 md:w-9 md:h-9 rounded-xl shadow-soft border border-surface-elevated bg-surface-primary object-cover"
     />
     <div className="flex flex-col">
-      <h2 className="text-lg md:text-2xl font-black text-text-primary tracking-tight uppercase leading-tight">
+      <h2 className="hidden md:block text-lg md:text-2xl font-black text-text-primary tracking-tight uppercase leading-tight">
         Controla
       </h2>
       <div className="flex items-center gap-2">
@@ -642,20 +721,45 @@ const Dashboard: React.FC<any> = (props) => {
             {showTransactions ? (
               <>
                 <TransactionHistory
-                  transactions={filtered}
+                  transactions={filtered.slice(0, visibleCount)}
                   onDelete={onDeleteTransaction}
                   onEdit={onEditTransaction}
                   isPrivacyMode={isPrivacyMode}
                 />
-                {filtered.length > 5 && (
+                
+                <div className="space-y-3 mt-4">
+                  {/* Linha 1: Mostrar mais e Mostrar todos (apenas se houver mais para mostrar) */}
+                  {filtered.length > visibleCount && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setVisibleCount(prev => prev + 5)}
+                        className="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all active:scale-95 shadow-sm"
+                      >
+                        + 5 Lançamentos
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setVisibleCount(filtered.length)}
+                        className="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all active:scale-95 shadow-sm"
+                      >
+                        Mostrar Todos
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Linha 2: Recolher tudo e Resetar contagem */}
                   <button
                     type="button"
-                    onClick={() => setShowTransactions(false)}
-                    className="flex items-center justify-center gap-2 px-5 py-3 rounded-3xl text-xxs font-black uppercase tracking-ultra-wide border transition-all active:scale-95 w-full sm:w-auto bg-surface-elevated border-surface-elevated text-text-secondary hover:bg-surface-secondary"
+                    onClick={() => {
+                      setShowTransactions(false);
+                      setVisibleCount(10); // Reseta para os 10 iniciais para a próxima abertura
+                    }}
+                    className="flex items-center justify-center gap-2 px-5 py-3 rounded-3xl text-xxs font-black uppercase tracking-ultra-wide border transition-all active:scale-95 w-full bg-surface-elevated border-surface-elevated text-text-secondary hover:bg-surface-secondary"
                   >
                     Recolher lançamentos <ChevronUp size={16} />
                   </button>
-                )}
+                </div>
               </>
             ) : (
               <div className="bg-surface-primary border border-surface-elevated rounded-4xl px-6 py-8 shadow-soft">
@@ -1160,6 +1264,7 @@ const Dashboard: React.FC<any> = (props) => {
           )}
       </div>}
     </div>
+    </>
   );
 };
 
