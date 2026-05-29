@@ -2,6 +2,8 @@ export interface CreditCard {
   id: string;
   name: string;
   isActive?: boolean;
+  closingDay?: number;
+  dueDay?: number;
 }
 
 export interface Transaction {

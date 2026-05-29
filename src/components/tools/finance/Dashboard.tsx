@@ -19,6 +19,11 @@ import CategoryManager from './CategoryManager';
 import { generateFinancialReport } from '../../../utils/reportGenerator';
 import { getConsecutiveDays } from '../../../utils/streakUtils';
 import { getOperationalInsight, buildUserContext, NexusInsight } from '../../../services/nexusInsightEngine';
+import { getCards } from '../../../services/cardService';
+import { getCurrentInvoice } from '../../../utils/invoiceUtils';
+import { CreditCard } from '../../../types';
+import { useAuth } from '../../../contexts/AuthContext';
+import { CreditCard as CardIcon, Check } from 'lucide-react';
 
 const Dashboard: React.FC<any> = (props) => {
   const { 
@@ -40,6 +45,26 @@ const Dashboard: React.FC<any> = (props) => {
     onNavigate,
     lastActionTimestamp // Prop opcional para detectar novos lançamentos
   } = props;
+
+  const { user } = useAuth();
+  const [userCards, setUserCards] = useState<CreditCard[]>([]);
+
+  useEffect(() => {
+    if (user?.uid) {
+      getCards(user.uid).then(setUserCards).catch(console.error);
+    }
+  }, [user?.uid, transactions]); // Recarrega se houver novos lançamentos
+
+  const safeTransactions = useMemo(() => Array.isArray(transactions) ? transactions : [], [transactions]);
+
+  const activeInvoices = useMemo(() => {
+    return userCards
+      .map(card => {
+        const invoice = getCurrentInvoice(card, safeTransactions);
+        return invoice ? { ...invoice, cardName: card.name, cardId: card.id } : null;
+      })
+      .filter((inv): inv is NonNullable<typeof inv> => inv !== null && inv.total > 0);
+  }, [userCards, safeTransactions]);
 
   // Estado para controlar a transparência do título no scroll
   const [isScrolled, setIsScrolled] = React.useState(false);
@@ -74,8 +99,6 @@ const Dashboard: React.FC<any> = (props) => {
   const [customPeriodEnd, setCustomPeriodEnd] = useState('');
   const [showCustomPeriodPicker, setShowCustomPeriodPicker] = useState(false);
   const [visibleCount, setVisibleCount] = useState(10);
-
-  const safeTransactions = useMemo(() => Array.isArray(transactions) ? transactions : [], [transactions]);
   const showBackToTools = !!onNavigate && !Capacitor.isNativePlatform();
 
   const streak = useMemo(() => getConsecutiveDays(safeTransactions), [safeTransactions]);
@@ -186,7 +209,9 @@ const Dashboard: React.FC<any> = (props) => {
         transactionsToday: safeTransactions.filter(t => t.date === new Date().toISOString().split('T')[0]).length,
         monthBalance: stats.balance,
         isPremium,
-        isFirstSession: userMeta?.isFirstSession
+        isFirstSession: userMeta?.isFirstSession,
+        cards: userCards,
+        transactions: safeTransactions
       });
 
       const insight = getOperationalInsight(ctx);
@@ -583,6 +608,45 @@ const Dashboard: React.FC<any> = (props) => {
           </div>
       </div>
       
+      {/* SEÇÃO DE FATURAS (NOVO) */}
+      {activeInvoices.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {activeInvoices.map((inv) => (
+            <div key={inv.cardId} className="bg-surface-primary border border-surface-elevated p-4 rounded-3xl shadow-soft flex items-center gap-4 group">
+              <div className="p-3 bg-brand-secondary/10 rounded-2xl text-brand-secondary group-hover:scale-110 transition-transform">
+                <CardIcon size={20} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-text-muted text-[10px] font-black uppercase tracking-widest truncate">
+                  Fatura Atual • {inv.cardName}
+                </p>
+                <h3 className="text-lg font-black text-text-primary mt-0.5">
+                  {isPrivacyMode ? '••••' : `R$ ${inv.total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`}
+                </h3>
+                <p className="text-xxs font-bold text-text-muted uppercase tracking-tighter mt-1">
+                  Fecha em {new Date(inv.periodEnd.replace(/-/g, '/')).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                </p>
+              </div>
+              <div className="hidden group-hover:block animate-in fade-in slide-in-from-right-1">
+                <button 
+                  onClick={() => onOpenForm({ 
+                    type: 'expense', 
+                    category: 'Pagamento de Fatura', 
+                    amount: inv.total, 
+                    description: `Fatura ${inv.cardName}`,
+                    date: new Date().toISOString().split('T')[0]
+                  })}
+                  className="p-2 bg-surface-secondary hover:bg-brand-primary/10 text-brand-primary rounded-xl transition-colors shadow-sm"
+                  title="Registrar Pagamento"
+                >
+                  <Check size={18} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {!isFirstAccess && <UsageIndicator userMeta={userMeta} usagePercentage={usagePercentage} isPremium={isPremium} />}
 
       {/* TOAST DE INSIGHT OPERACIONAL */}
@@ -595,6 +659,25 @@ const Dashboard: React.FC<any> = (props) => {
             <div className="flex-1">
               <p className="text-xs font-black uppercase tracking-ultra-wide mb-1 opacity-90">{inlineInsight.message.title}</p>
               <p className="text-sm font-medium leading-relaxed">{inlineInsight.message.body}</p>
+              {inlineInsight.message.ctaLabel && (
+                <button 
+                  onClick={() => {
+                    if (inlineInsight.action?.type === 'pay_invoice' && inlineInsight.action.payload) {
+                      onOpenForm({
+                        type: 'expense',
+                        category: 'Pagamento de Fatura',
+                        amount: inlineInsight.action.payload.amount,
+                        description: `Fatura ${inlineInsight.action.payload.cardName}`,
+                        date: new Date().toISOString().split('T')[0]
+                      });
+                      setShowInsight(false);
+                    }
+                  }}
+                  className="mt-2 px-4 py-1.5 bg-surface-primary text-brand-primary rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-surface-secondary transition-all active:scale-95 shadow-sm"
+                >
+                  {inlineInsight.message.ctaLabel}
+                </button>
+              )}
             </div>
             <button 
               onClick={() => setShowInsight(false)}

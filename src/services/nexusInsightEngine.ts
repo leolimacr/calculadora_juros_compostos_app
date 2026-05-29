@@ -1,15 +1,19 @@
 import { extractUpcomingBill } from './nexusContextUtils';
 import { DebtItem } from './debt/debt.types';
+import { CreditCard, Transaction } from '../types';
 
 // Tipos
 export interface NexusInsightAction {
   label: string;
-  type: 'reserve' | 'adjust' | 'remind' | 'simulate' | 'review';
+  type: 'reserve' | 'adjust' | 'remind' | 'simulate' | 'review' | 'pay_invoice';
   requiresPlan?: 'pro' | 'premium';
   payload?: {
-    value: number;
-    title: string;
-    targetDate: string;
+    value?: number;
+    title?: string;
+    targetDate?: string;
+    cardId?: string;
+    amount?: number;
+    cardName?: string;
   };
 }
 
@@ -46,9 +50,14 @@ export interface UserContext {
   reserveGoalMet?: boolean;
   debtJustPaidOff?: boolean;
   isFirstSession?: boolean;
+  cards?: CreditCard[];
+  transactions?: Transaction[];
   upcomingCreditCardBill?: {
     daysToClose: number;
     estimatedValue: number;
+    cardName?: string;
+    cardId?: string;
+    dueDate?: string;
   };
 }
 
@@ -379,6 +388,8 @@ function prepareInsight(insight: NexusInsight, ctx: UserContext): NexusInsight {
   if (bill) {
     vars.days = bill.daysToClose;
     vars.value = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(bill.estimatedValue);
+    vars.cardName = bill.cardName || 'seu cartão';
+    vars.when = bill.daysToClose === 0 ? 'HOJE' : 'AMANHÃ';
   }
 
   vars.streak = ctx.streak;
@@ -396,6 +407,14 @@ function prepareInsight(insight: NexusInsight, ctx: UserContext): NexusInsight {
       value: bill.estimatedValue,
       title: `Fatura (${bill.daysToClose} dias)`,
       targetDate: new Date(Date.now() + bill.daysToClose * 86400000).toISOString().split('T')[0],
+    };
+  }
+
+  if (bill && prepared.action?.type === 'pay_invoice' && bill.cardId) {
+    prepared.action.payload = {
+      cardId: bill.cardId,
+      amount: bill.estimatedValue,
+      cardName: bill.cardName
     };
   }
 
@@ -504,6 +523,27 @@ const OPERATIONAL_CATALOG: Array<{
       },
       deepLink: 'manager',
       priority: 'inline',
+    },
+  },
+  {
+    id: 'op-pay-invoice',
+    condition: (ctx) => {
+      const bill = extractUpcomingBill(ctx);
+      return !!bill && !!bill.cardId && (bill.daysToClose === 0 || bill.daysToClose === 1);
+    },
+    insight: {
+      id: 'op-pay-invoice',
+      message: {
+        title: 'Vencimento de Fatura',
+        body: 'A fatura do seu cartão {cardName} vence {when} ({value}). Deseja registrar o pagamento?',
+        ctaLabel: 'Pagar Agora',
+      },
+      deepLink: 'manager',
+      priority: 'inline',
+      action: {
+        label: 'Registrar pagamento',
+        type: 'pay_invoice'
+      }
     },
   },
 ];

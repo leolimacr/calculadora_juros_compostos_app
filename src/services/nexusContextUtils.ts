@@ -1,38 +1,86 @@
 import { UserContext } from './nexusInsightEngine';
 import { DebtItem } from './debt/debt.types';
+import { getCurrentInvoice } from '../utils/invoiceUtils';
 
 export function extractUpcomingBill(ctx: UserContext, debts?: DebtItem[]): UserContext['upcomingCreditCardBill'] {
   // 1. Se o contexto já veio preenchido (ex: de um cálculo externo), usa ele.
   if (ctx.upcomingCreditCardBill) return ctx.upcomingCreditCardBill;
 
-  if (!debts) return undefined;
+  const candidates: Array<{ 
+    daysToClose: number; 
+    estimatedValue: number; 
+    cardName?: string; 
+    cardId?: string; 
+    dueDate?: string;
+    isCard?: boolean;
+  }> = [];
 
-  // 2. Filtra por tipo de cartão e presença de vencimento
-  const cardDebts = debts.filter(d => 
-    (d.tipo === 'Cartão rotativo' || d.tipo === 'Cartão de crédito') && 
-    d.dataVencimento
-  );
+  // 2. Coleta dados de cartões reais
+  if (ctx.cards && ctx.transactions) {
+    ctx.cards.forEach(card => {
+      const invoice = getCurrentInvoice(card, ctx.transactions!);
+      if (invoice && invoice.total > 0) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const dueDate = new Date(invoice.dueDate);
+        dueDate.setHours(0, 0, 0, 0);
+        const diffTime = dueDate.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 3600 * 24));
+        
+        candidates.push({
+          daysToClose: diffDays,
+          estimatedValue: invoice.total,
+          cardName: card.name,
+          cardId: card.id,
+          dueDate: invoice.dueDate,
+          isCard: true
+        });
+      }
+    });
+  }
 
-  if (cardDebts.length === 0) return undefined;
+  // 3. Coleta dados de dívidas (legado ou rotativo manual)
+  if (debts) {
+    const cardDebts = debts.filter(d => 
+      (d.tipo === 'Cartão rotativo' || d.tipo === 'Cartão de crédito') && 
+      d.dataVencimento
+    );
+    cardDebts.forEach(d => {
+       const today = new Date();
+       today.setHours(0, 0, 0, 0);
+       const dueDate = new Date(d.dataVencimento!);
+       dueDate.setHours(0, 0, 0, 0);
+       const diffTime = dueDate.getTime() - today.getTime();
+       const diffDays = Math.ceil(diffTime / (1000 * 3600 * 24));
+       
+       candidates.push({
+         daysToClose: diffDays,
+         estimatedValue: d.valorParcela || d.saldoDevedor,
+         cardName: d.nome,
+         isCard: false
+       });
+    });
+  }
 
-  // 3. Ordene por vencimento mais próximo
-  const sorted = [...cardDebts].sort((a, b) => a.dataVencimento!.localeCompare(b.dataVencimento!));
-  const nearest = sorted[0];
+  if (candidates.length === 0) return undefined;
 
-  // 4. Calcule diffDays
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const dueDate = new Date(nearest.dataVencimento!);
-  dueDate.setHours(0, 0, 0, 0);
+  // 4. Ordenação: Cartões primeiro, depois vencimento mais próximo
+  candidates.sort((a, b) => {
+    if (a.isCard && !b.isCard) return -1;
+    if (!a.isCard && b.isCard) return 1;
+    return a.daysToClose - b.daysToClose;
+  });
 
-  const diffTime = dueDate.getTime() - today.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 3600 * 24));
+  const nearest = candidates[0];
 
   // 5. Se 0 <= diffDays <= 5, retorna os dados
-  if (diffDays >= 0 && diffDays <= 5) {
+  if (nearest.daysToClose >= 0 && nearest.daysToClose <= 5) {
     return {
-      daysToClose: diffDays,
-      estimatedValue: nearest.valorParcela || nearest.saldoDevedor
+      daysToClose: nearest.daysToClose,
+      estimatedValue: nearest.estimatedValue,
+      cardName: nearest.cardName,
+      cardId: nearest.cardId,
+      dueDate: nearest.dueDate
     };
   }
 

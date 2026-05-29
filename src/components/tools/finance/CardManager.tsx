@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Plus, CreditCard as CardIcon, Trash2, EyeOff, Eye, RefreshCw } from 'lucide-react';
+import { X, Plus, CreditCard as CardIcon, Trash2, EyeOff, Eye, RefreshCw, Calendar, Settings2, Check } from 'lucide-react';
 import { addCard, getCards, updateCard, deleteCard } from '../../../services/cardService';
 import { CreditCard, Transaction } from '../../../types';
 
@@ -13,9 +13,14 @@ interface CardManagerProps {
 const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, transactions }) => {
   const [cards, setCards] = useState<CreditCard[]>([]);
   const [newCardName, setNewCardName] = useState('');
+  const [newClosingDay, setNewClosingDay] = useState<string>('');
+  const [newDueDay, setNewDueDay] = useState<string>('');
   const [isAdding, setIsAdding] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [editingCardId, setEditingCardId] = useState<string | null>(null);
+  const [editClosingDay, setEditClosingDay] = useState<string>('');
+  const [editDueDay, setEditDueDay] = useState<string>('');
 
   useEffect(() => {
     if (isOpen && userId) {
@@ -39,14 +44,41 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
     if (!newCardName.trim()) return;
     setIsAdding(true);
     try {
-      await addCard(userId, newCardName.trim());
+      await addCard(
+        userId, 
+        newCardName.trim(), 
+        newClosingDay ? Number(newClosingDay) : undefined, 
+        newDueDay ? Number(newDueDay) : undefined
+      );
       setNewCardName('');
+      setNewClosingDay('');
+      setNewDueDay('');
       await loadCards();
     } catch (error) {
       console.error("Erro ao adicionar cartão:", error);
       alert("Erro ao salvar cartão.");
     } finally {
       setIsAdding(false);
+    }
+  };
+
+  const handleStartEdit = (card: CreditCard) => {
+    setEditingCardId(card.id);
+    setEditClosingDay(card.closingDay?.toString() || '');
+    setEditDueDay(card.dueDay?.toString() || '');
+  };
+
+  const handleSaveEdit = async (cardId: string) => {
+    try {
+      await updateCard(userId, cardId, {
+        closingDay: editClosingDay ? Number(editClosingDay) : undefined,
+        dueDay: editDueDay ? Number(editDueDay) : undefined
+      });
+      setEditingCardId(null);
+      await loadCards();
+    } catch (error) {
+      console.error("Erro ao atualizar cartão:", error);
+      alert("Erro ao salvar alterações.");
     }
   };
 
@@ -94,7 +126,7 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-surface-primary w-full max-w-md rounded-4xl shadow-2xl border border-surface-elevated overflow-hidden flex flex-col max-h-[80vh]">
+      <div className="bg-surface-primary w-full max-w-md rounded-4xl shadow-2xl border border-surface-elevated overflow-hidden flex flex-col max-h-[85vh]">
         <div className="p-6 border-b border-surface-elevated flex items-center justify-between bg-surface-secondary/50">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-brand-primary/10 rounded-xl text-brand-primary">
@@ -125,22 +157,50 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
           </div>
 
           {!showHidden && (
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Nome do cartão (ex: Nubank)"
-                value={newCardName}
-                onChange={(e) => setNewCardName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-                className="flex-1 bg-surface-secondary p-4 rounded-2xl text-text-primary font-medium outline-none border border-surface-elevated focus:border-brand-primary text-sm"
-              />
-              <button
-                onClick={handleAdd}
-                disabled={isAdding || !newCardName.trim()}
-                className="p-4 bg-brand-primary text-text-onBrand rounded-2xl shadow-brand-glow active:scale-95 disabled:opacity-50 transition-transform"
-              >
-                <Plus size={20} />
-              </button>
+            <div className="space-y-3 bg-surface-secondary/30 p-4 rounded-3xl border border-surface-elevated">
+              <p className="text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">Novo Cartão</p>
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  placeholder="Nome do cartão (ex: Nubank)"
+                  value={newCardName}
+                  onChange={(e) => setNewCardName(e.target.value)}
+                  className="w-full bg-surface-primary p-4 rounded-2xl text-text-primary font-medium outline-none border border-surface-elevated focus:border-brand-primary text-sm shadow-sm"
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Dia Fechamento</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="31"
+                      placeholder="Ex: 5"
+                      value={newClosingDay}
+                      onChange={(e) => setNewClosingDay(e.target.value)}
+                      className="w-full bg-surface-primary p-3 rounded-xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Dia Vencimento</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="31"
+                      placeholder="Ex: 12"
+                      value={newDueDay}
+                      onChange={(e) => setNewDueDay(e.target.value)}
+                      className="w-full bg-surface-primary p-3 rounded-xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary text-xs"
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={handleAdd}
+                  disabled={isAdding || !newCardName.trim()}
+                  className="w-full py-4 bg-brand-primary text-text-onBrand rounded-2xl shadow-brand-glow active:scale-95 disabled:opacity-50 transition-all font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2"
+                >
+                  <Plus size={16} /> Adicionar Cartão
+                </button>
+              </div>
             </div>
           )}
 
@@ -163,44 +223,117 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
               <div className="grid grid-cols-1 gap-2">
                 {filteredCards.map((card) => {
                   const hasHistory = checkCardHistory(card.id);
+                  const isEditing = editingCardId === card.id;
+
                   return (
-                    <div key={card.id} className="flex items-center justify-between p-4 bg-surface-secondary rounded-2xl border border-surface-elevated group hover:border-text-muted/30 transition-colors">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-bold text-text-primary">{card.name}</span>
-                        {hasHistory && !showHidden && (
-                          <span className="text-[9px] font-bold text-text-muted uppercase tracking-tighter mt-0.5">Com histórico</span>
-                        )}
-                      </div>
-                      
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {!showHidden ? (
-                          <>
+                    <div key={card.id} className="bg-surface-secondary rounded-3xl border border-surface-elevated overflow-hidden transition-all group hover:border-text-muted/30">
+                      <div className="p-4 flex items-center justify-between">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-text-primary">{card.name}</span>
+                          {!isEditing && (card.closingDay || card.dueDay) && (
+                            <div className="flex items-center gap-3 mt-1">
+                              {card.closingDay && (
+                                <div className="flex items-center gap-1 text-text-muted">
+                                  <Calendar size={10} />
+                                  <span className="text-[9px] font-bold uppercase tracking-tighter">Corte: Dia {card.closingDay}</span>
+                                </div>
+                              )}
+                              {card.dueDay && (
+                                <div className="flex items-center gap-1 text-brand-primary">
+                                  <Calendar size={10} />
+                                  <span className="text-[9px] font-bold uppercase tracking-tighter">Venc: Dia {card.dueDay}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {!showHidden ? (
+                            <>
+                              {!isEditing ? (
+                                <>
+                                  <button
+                                    onClick={() => handleStartEdit(card)}
+                                    className="p-2 text-text-muted hover:text-brand-primary hover:bg-brand-primary/10 rounded-xl transition-all"
+                                    title="Configurar Datas"
+                                  >
+                                    <Settings2 size={16} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleToggleStatus(card)}
+                                    className="p-2 text-text-muted hover:text-brand-secondary hover:bg-brand-secondary/10 rounded-xl transition-all"
+                                    title="Ocultar Cartão"
+                                  >
+                                    <EyeOff size={16} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteCard(card)}
+                                    className={`p-2 transition-all rounded-xl ${hasHistory ? 'text-text-muted/40 cursor-not-allowed' : 'text-text-muted hover:text-status-danger hover:bg-status-danger/10'}`}
+                                    title={hasHistory ? "Não pode excluir (tem histórico)" : "Excluir Cartão"}
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </>
+                              ) : (
+                                <button
+                                  onClick={() => setEditingCardId(null)}
+                                  className="p-2 text-text-muted hover:text-status-danger hover:bg-status-danger/10 rounded-xl transition-all"
+                                  title="Cancelar Edição"
+                                >
+                                  <X size={16} />
+                                </button>
+                              )}
+                            </>
+                          ) : (
                             <button
                               onClick={() => handleToggleStatus(card)}
-                              className="p-2 text-text-muted hover:text-brand-secondary hover:bg-brand-secondary/10 rounded-xl transition-all"
-                              title="Ocultar Cartão"
+                              className="p-2 text-text-muted hover:text-brand-primary hover:bg-brand-primary/10 rounded-xl transition-all flex items-center gap-2 px-3"
                             >
-                              <EyeOff size={16} />
+                              <Eye size={16} />
+                              <span className="text-[10px] font-black uppercase tracking-widest">Reativar</span>
                             </button>
-                            <button
-                              onClick={() => handleDeleteCard(card)}
-                              className={`p-2 transition-all rounded-xl ${hasHistory ? 'text-text-muted/40 cursor-not-allowed' : 'text-text-muted hover:text-status-danger hover:bg-status-danger/10'}`}
-                              title={hasHistory ? "Não pode excluir (tem histórico)" : "Excluir Cartão"}
-                              disabled={false} // Deixa habilitado para mostrar o alert explicativo se tiver histórico
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            onClick={() => handleToggleStatus(card)}
-                            className="p-2 text-text-muted hover:text-brand-primary hover:bg-brand-primary/10 rounded-xl transition-all flex items-center gap-2 px-3"
-                          >
-                            <Eye size={16} />
-                            <span className="text-[10px] font-black uppercase tracking-widest">Reativar</span>
-                          </button>
-                        )}
+                          )}
+                        </div>
                       </div>
+
+                      {/* Área de Edição de Datas */}
+                      {isEditing && (
+                        <div className="px-4 pb-4 pt-0 animate-in slide-in-from-top-2 duration-200">
+                          <div className="bg-surface-primary/50 p-4 rounded-2xl border border-surface-elevated space-y-4">
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Dia Corte</label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="31"
+                                  value={editClosingDay}
+                                  onChange={(e) => setEditClosingDay(e.target.value)}
+                                  className="w-full bg-surface-primary p-2 rounded-xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary text-xs"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Dia Vencimento</label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="31"
+                                  value={editDueDay}
+                                  onChange={(e) => setEditDueDay(e.target.value)}
+                                  className="w-full bg-surface-primary p-2 rounded-xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary text-xs"
+                                />
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => handleSaveEdit(card.id)}
+                              className="w-full py-3 bg-brand-primary text-text-onBrand rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all"
+                            >
+                              <Check size={14} /> Salvar Configuração
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

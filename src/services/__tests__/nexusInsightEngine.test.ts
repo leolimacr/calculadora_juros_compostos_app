@@ -144,6 +144,40 @@ describe('NexusInsightEngine', () => {
       expect(insight?.id).toBe('op-growth-positive');
     });
 
+    it('deve retornar o insight de pagamento de fatura quando dueDate for hoje', () => {
+      const ctx = buildUserContext({
+        upcomingCreditCardBill: {
+          daysToClose: 0,
+          estimatedValue: 2500,
+          cardName: 'Mastercard',
+          cardId: 'c1'
+        },
+      });
+
+      const insight = getOperationalInsight(ctx);
+      expect(insight?.id).toBe('op-pay-invoice');
+      expect(insight?.message.body).toContain('Mastercard');
+      expect(insight?.message.body).toContain('HOJE');
+      expect(insight?.message.body).toContain('2.500,00');
+      expect(insight?.action?.type).toBe('pay_invoice');
+      expect(insight?.action?.payload?.amount).toBe(2500);
+    });
+
+    it('deve retornar o insight de pagamento de fatura quando dueDate for amanhã', () => {
+      const ctx = buildUserContext({
+        upcomingCreditCardBill: {
+          daysToClose: 1,
+          estimatedValue: 1200,
+          cardName: 'Visa',
+          cardId: 'c2'
+        },
+      });
+
+      const insight = getOperationalInsight(ctx);
+      expect(insight?.id).toBe('op-pay-invoice');
+      expect(insight?.message.body).toContain('AMANHÃ');
+    });
+
     it('deve retornar null quando nenhuma condição operacional for atendida', () => {
       const ctx = buildUserContext({
         transactionsToday: 1,

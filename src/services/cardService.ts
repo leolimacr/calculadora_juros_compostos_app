@@ -18,8 +18,13 @@ import {
   /**
    * Adiciona um novo cartão nominal para o usuário.
    */
-  export const addCard = async (userId: string, name: string): Promise<string> => {
-    const docRef = await addDoc(getCardsCollection(userId), { name, isActive: true });
+  export const addCard = async (userId: string, name: string, closingDay?: number, dueDay?: number): Promise<string> => {
+    const docRef = await addDoc(getCardsCollection(userId), { 
+      name, 
+      isActive: true,
+      closingDay: closingDay || null,
+      dueDay: dueDay || null
+    });
     return docRef.id;
   };
   
