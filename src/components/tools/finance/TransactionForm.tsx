@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { FolderPlus } from 'lucide-react';
 import CategoryManager from './CategoryManager';
 import CardManager from './CardManager';
@@ -11,7 +11,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 interface TransactionFormProps {
   onSave: (data: any) => Promise<void>;
   onCancel: () => void;
-  initialData?: Partial<Transaction> | null;
+  initialData?: (Partial<Transaction> & { autoFocusAmount?: boolean }) | null;
   categories: Category[];
   onSaveCategory: (category: Category) => Promise<void>;
   onDeleteCategory: (id: string) => Promise<void>;
@@ -30,6 +30,12 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   transactions
 }) => {
   const { user } = useAuth();
+  const amountInputRef = useRef<HTMLInputElement>(null);
+  
+  // Flag de travamento para Faturas Inteligentes
+  const isLocked = (initialData as any)?.isLocked || false;
+  const lockMessage = (initialData as any)?.lockMessage || "";
+
   const [description, setDescription] = useState(initialData?.description || '');
   const [amount, setAmount] = useState(initialData?.amount || '');
   const [type, setType] = useState<'income' | 'expense'>(initialData?.type || 'expense');
@@ -37,6 +43,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const [date, setDate] = useState(initialData?.date || new Date().toISOString().split('T')[0]);
   const [paymentMethod, setPaymentMethod] = useState<'money' | 'credit'>(initialData?.paymentMethod || 'money');
   const [cardId, setCardId] = useState<string>(initialData?.cardId || '');
+  const [installments, setInstallments] = useState<number>(initialData?.installments || 1);
   const [userCards, setUserCards] = useState<CreditCard[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   
@@ -69,22 +76,31 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     setDate(initialData?.date || new Date().toISOString().split('T')[0]);
     setPaymentMethod(initialData?.paymentMethod || 'money');
     setCardId(initialData?.cardId || '');
-  }, [initialData]);
+    setInstallments(initialData?.installments || 1);
+
+    // Auto-focus amount if requested
+    if (initialData?.autoFocusAmount && !isLocked) {
+      setTimeout(() => {
+        amountInputRef.current?.focus();
+        amountInputRef.current?.select();
+      }, 100);
+    }
+  }, [initialData, isLocked]);
 
   // Reset payment method and cardId when type is 'income'
   useEffect(() => {
-    if (type === 'income') {
+    if (type === 'income' && !isLocked) {
       setPaymentMethod('money');
       setCardId('');
     }
-  }, [type]);
+  }, [type, isLocked]);
 
   // Reset cardId if paymentMethod is changed to 'money'
   useEffect(() => {
-    if (paymentMethod === 'money') {
+    if (paymentMethod === 'money' && !isLocked) {
       setCardId('');
     }
-  }, [paymentMethod]);
+  }, [paymentMethod, isLocked]);
 
   // ✅ CORREÇÃO: Calcula dinamicamente a partir de `categories` (reativo e em tempo real)
   const currentCategoryList = categories
@@ -92,11 +108,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     .map((c: Category) => c.name);
 
   useEffect(() => {
-    // Se for novo lançamento e não houver categoria pré-selecionada, pega a primeira da lista.
-    if (!initialData?.id && !initialData?.category) {
-      setCategory(currentCategoryList[0] || 'Outros');
+    // Se for novo lançamento e não houver categoria pré-selecionada, inicia vazio para forçar escolha
+    if (!initialData?.id && !initialData?.category && !isLocked) {
+      setCategory('');
     }
-  }, [type, categories, initialData]);
+  }, [type, categories, initialData, isLocked]);
 
   const handleCloseCardManager = (updatedCards?: CreditCard[]) => {
     if (updatedCards) setUserCards(updatedCards.filter(c => c.isActive !== false));
@@ -109,9 +125,16 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     if (!numericAmount || numericAmount <= 0) return alert("Informe um valor válido maior que zero.");
     if (!category) return alert("Selecione uma categoria.");
     
-    // Validação de Cartão: Se for crédito, obriga a selecionar um cartão se houver cartões cadastrados
-    if (paymentMethod === 'credit' && !cardId && userCards.length > 0) {
-      return alert("Por favor, selecione qual cartão foi utilizado para este lançamento.");
+    // Validação de Cartão
+    if (paymentMethod === 'credit' && !isLocked) {
+      if (!cardId && userCards.length > 0) {
+        return alert("Por favor, selecione qual cartão foi utilizado para este lançamento.");
+      }
+      
+      const selectedCard = userCards.find(c => c.id === cardId);
+      if (selectedCard && (!selectedCard.closingDay || !selectedCard.dueDay)) {
+        return alert("Este cartão não possui datas de fechamento e vencimento configuradas. Configure-o antes de usá-lo.");
+      }
     }
     
     setIsSaving(true);
@@ -123,7 +146,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       category, 
       date,
       paymentMethod,
-      cardId: paymentMethod === 'credit' ? (cardId || null) : null
+      cardId: paymentMethod === 'credit' ? (cardId || null) : null,
+      installments: paymentMethod === 'credit' ? installments : 1
     });
   };
 
@@ -141,17 +165,43 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         onClose={handleCloseCardManager}
         userId={user?.uid || ''}
         transactions={transactions}
+        onEditTransaction={() => {}} // Placeholder aqui pois o form já está aberto
       />
       <div className="space-y-4 p-2">
+        {isLocked && (
+          <div className="bg-amber-50 border border-amber-200 p-3 rounded-2xl flex gap-3 animate-in fade-in slide-in-from-top-2">
+            <div className="p-2 bg-amber-500/10 rounded-xl text-amber-600 h-fit">
+              <FolderPlus size={18} />
+            </div>
+            <p className="text-[10px] font-medium text-amber-800 leading-relaxed">
+              {lockMessage}
+            </p>
+          </div>
+        )}
+
         <div className="flex bg-surface-elevated p-1 rounded-2xl border border-surface-elevated">
-          <button onClick={() => setType('expense')} className={`flex-1 py-2 rounded-xl font-black uppercase text-xxs transition-all ${type === 'expense' ? 'bg-status-danger text-text-onBrand shadow-soft' : 'text-text-muted'}`}>Despesa</button>
-          <button onClick={() => setType('income')} className={`flex-1 py-2 rounded-xl font-black uppercase text-xxs transition-all ${type === 'income' ? 'bg-brand-primary text-text-onBrand shadow-soft' : 'text-text-muted'}`}>Receita</button>
+          <button 
+            disabled={isLocked}
+            onClick={() => setType('expense')} 
+            className={`flex-1 py-2 rounded-xl font-black uppercase text-xxs transition-all ${type === 'expense' ? 'bg-status-danger text-text-onBrand shadow-soft' : 'text-text-muted'} ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            Despesa
+          </button>
+          <button 
+            disabled={isLocked}
+            onClick={() => setType('income')} 
+            className={`flex-1 py-2 rounded-xl font-black uppercase text-xxs transition-all ${type === 'income' ? 'bg-brand-primary text-text-onBrand shadow-soft' : 'text-text-muted'} ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            Receita
+          </button>
         </div>
         
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
             <label className="text-xxs font-black text-text-muted uppercase ml-1">Valor</label>
             <input 
+              ref={amountInputRef}
+              disabled={isLocked}
               type="text" 
               inputMode="numeric" 
               placeholder="R$ 0,00" 
@@ -160,27 +210,47 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 const value = e.target.value.replace(/\D/g, '');
                 setAmount(value ? Number(value) / 100 : '');
               }} 
-              className="w-full bg-surface-primary p-4 rounded-2xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary" 
+              className={`w-full bg-surface-primary p-4 rounded-2xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary ${isLocked ? 'opacity-70 bg-slate-50 cursor-not-allowed' : ''}`} 
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-xxs font-black text-text-muted uppercase ml-1">Data</label>
-            <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full bg-surface-primary p-4 rounded-2xl text-text-primary outline-none border border-surface-elevated focus:border-brand-primary text-sm" />
+            <label className="text-xxs font-black text-text-muted uppercase ml-1">Data de Pagamento</label>
+            <input 
+              type="date" 
+              disabled={isLocked}
+              value={date} 
+              onChange={e => setDate(e.target.value)} 
+              className={`w-full bg-surface-primary p-4 rounded-2xl text-text-primary outline-none border border-surface-elevated focus:border-brand-primary text-sm ${isLocked ? 'opacity-70 bg-slate-50 cursor-not-allowed' : ''}`} 
+            />
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="space-y-1">
             <label className="text-xxs font-black text-text-muted uppercase ml-1">Descrição</label>
-            <input type="text" placeholder="Ex: Aluguel, Supermercado..." value={description} onChange={e => setDescription(e.target.value)} className="w-full bg-surface-primary p-4 rounded-2xl text-text-primary font-medium outline-none border border-surface-elevated focus:border-brand-primary" />
+            <input 
+              type="text" 
+              disabled={isLocked}
+              placeholder="Ex: Aluguel, Supermercado..." 
+              value={description} 
+              onChange={e => setDescription(e.target.value)} 
+              className={`w-full bg-surface-primary p-4 rounded-2xl text-text-primary font-medium outline-none border border-surface-elevated focus:border-brand-primary ${isLocked ? 'opacity-70 bg-slate-50 cursor-not-allowed' : ''}`} 
+            />
           </div>
 
           <div className="space-y-1">
             <label className="text-xxs font-black text-text-muted uppercase ml-1">Categoria</label>
-            <select value={category} onChange={e => setCategory(e.target.value)} className="w-full bg-surface-primary p-4 rounded-2xl text-text-primary outline-none border border-surface-elevated focus:border-brand-primary appearance-none">
-              {currentCategoryList.map((c: string) => <option key={c} value={c}>{c}</option>)}
-            </select>
+            {isLocked ? (
+              <div className="w-full bg-surface-primary p-4 rounded-2xl text-text-primary font-bold border border-surface-elevated opacity-70 cursor-not-allowed text-sm">
+                {category}
+              </div>
+            ) : (
+              <select value={category} onChange={e => setCategory(e.target.value)} className="w-full bg-surface-primary p-4 rounded-2xl text-text-primary outline-none border border-surface-elevated focus:border-brand-primary appearance-none">
+                <option value="">Selecione a categoria...</option>
+                {currentCategoryList.map((c: string) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            )}
           </div>
         </div>
 
@@ -226,16 +296,37 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                   >
                     <option value="">{userCards.length > 1 ? 'Selecione o seu cartão...' : 'Cartão não identificado'}</option>
                     {userCards.map(card => (
-                      <option key={card.id} value={card.id}>{card.name}</option>
+                      <option key={card.id} value={card.id}>
+                        {card.name} {(!card.closingDay || !card.dueDay) ? ' (Sem data!)' : ''}
+                      </option>
                     ))}
                   </select>
                 </div>
               )}
             </div>
+
             {paymentMethod === 'credit' && (
-              <p className="text-[9px] font-bold text-text-muted uppercase tracking-wider ml-1 mt-1">
-                Gasto no crédito não altera o saldo agora.
-              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 animate-in fade-in slide-in-from-bottom-1 duration-200">
+                <div className="space-y-1">
+                  <label className="text-xxs font-black text-text-muted uppercase ml-1">Parcelas</label>
+                  <select 
+                    value={installments} 
+                    onChange={e => setInstallments(Number(e.target.value))} 
+                    className="w-full bg-surface-primary p-4 rounded-2xl text-text-primary outline-none border border-surface-elevated focus:border-brand-primary appearance-none text-sm"
+                  >
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 18, 24, 36, 48].map(n => (
+                      <option key={n} value={n}>{n === 1 ? 'À vista (1x)' : `${n} parcelas`}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center">
+                  <p className="text-[9px] font-bold text-text-muted uppercase tracking-wider ml-1 mt-1">
+                    {installments > 1 
+                      ? `Serão gerados ${installments} lançamentos de ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(amount) / installments)}.`
+                      : 'Gasto no crédito não altera o saldo agora.'}
+                  </p>
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -254,7 +345,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           context={nexusAdvisoryContext}
         />
 
-        <div className="flex gap-3 pt-4">
+        <div className="sticky bottom-0 bg-white pt-4 pb-2 mt-4 flex gap-3 border-t border-slate-100">
           <button onClick={onCancel} className="flex-1 py-4 text-text-muted font-bold uppercase text-xxs tracking-ultra-wide">Cancelar</button>
           <button onClick={handleSave} disabled={isSaving} className="flex-1 py-4 bg-brand-primary text-text-onBrand rounded-3xl font-black uppercase text-xxs tracking-ultra-wide shadow-brand-glow active:scale-95 disabled:opacity-50">
               {isSaving ? 'Processando...' : initialData ? 'Atualizar' : 'Salvar'}

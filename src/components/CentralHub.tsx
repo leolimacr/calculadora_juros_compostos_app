@@ -70,7 +70,14 @@ const CentralHub: React.FC<CentralHubProps> = ({
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const { passives = [], totalAssets = 0, patrimonioLiquido = 0 } = useWealthData();
+  const { 
+    passives = [], 
+    totalInvestments = 0, 
+    totalProperty = 0, 
+    patrimonioLiquido = 0 
+  } = useWealthData();
+
+  const totalAssets = totalInvestments + totalProperty;
   const navigate = useNavigate();
 
   const handleSmartBack = useCallback(() => {

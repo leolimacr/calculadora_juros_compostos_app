@@ -19,7 +19,13 @@ export const useFirebase = (userId?: string) => {
   const { data: userMeta, isLoading: metaLoading } = useUserMeta(userId);
   const userMetaLoaded = !metaLoading;
   const { categories, loading: categoriesLoading, saveCategory, deleteCategory } = useCategories(userId);
-  const { transactions: lancamentos, loading: transLoading, saveLancamento, deleteLancamento } = useTransactions(userId);
+  const { 
+    transactions: lancamentos, 
+    loading: transLoading, 
+    isSyncing: transSyncing,
+    saveLancamento, 
+    deleteLancamento 
+  } = useTransactions(userId);
 
   useEffect(() => {
     setLoading(metaLoading || categoriesLoading || transLoading);
@@ -62,6 +68,7 @@ export const useFirebase = (userId?: string) => {
     userMeta,
     userMetaLoaded,
     loading,
+    isSyncing: transSyncing,
     saveLancamento,
     deleteLancamento,
     saveCategory,

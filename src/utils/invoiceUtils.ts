@@ -1,4 +1,29 @@
-import { CreditCard, Transaction } from '../types';
+import { CreditCard, Transaction, RecurringBill } from '../types';
+
+/**
+ * Verifica se uma conta recorrente foi paga no mês atual.
+ * Baseia-se no nome da conta (description) ou categoria.
+ */
+export function isBillPaid(bill: RecurringBill, transactions: Transaction[]): boolean {
+  const today = new Date();
+  const currentMonth = today.getMonth();
+  const currentYear = today.getFullYear();
+
+  return transactions.some(t => {
+    if (t.type !== 'expense') return false;
+    
+    const tDate = new Date(t.date.replace(/-/g, '/'));
+    const isSameMonth = tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear;
+    
+    if (!isSameMonth) return false;
+
+    // Critério de correspondência: Nome contido na descrição ou categoria idêntica
+    const descMatch = t.description.toLowerCase().includes(bill.name.toLowerCase());
+    const categoryMatch = t.category === bill.category;
+
+    return descMatch || categoryMatch;
+  });
+}
 
 export function getCurrentInvoice(
   card: CreditCard,
@@ -72,4 +97,45 @@ export function getCurrentInvoice(
   const total = cardTransactions.reduce((acc, t) => acc + (Number(t.amount) || 0), 0);
 
   return { total, periodStart, periodEnd, dueDate };
+}
+
+/**
+ * Calcula em qual mês/ano uma transação de cartão de crédito será cobrada.
+ * Retorna um objeto com o mês e ano do VENCIMENTO da fatura.
+ */
+export function getInvoiceBillingMonth(
+  card: CreditCard,
+  transactionDate: string
+): { month: number; year: number; dueDate: string } {
+  const [y, m, d] = transactionDate.split('-').map(Number);
+  const closingDay = card.closingDay || 1;
+  const dueDay = card.dueDay || 10;
+
+  let billingMonth = m - 1; // 0-indexed
+  let billingYear = y;
+
+  if (d > closingDay) {
+    // Se a compra foi após o fechamento, cai na fatura do próximo mês
+    billingMonth++;
+    if (billingMonth > 11) {
+      billingMonth = 0;
+      billingYear++;
+    }
+  }
+
+  // O vencimento é no mesmo mês da fatura (ou no próximo se dueDay < closingDay)
+  let dueMonth = billingMonth;
+  let dueYear = billingYear;
+
+  if (dueDay < closingDay) {
+    dueMonth++;
+    if (dueMonth > 11) {
+      dueMonth = 0;
+      dueYear++;
+    }
+  }
+
+  const dueDate = `${dueYear}-${String(dueMonth + 1).padStart(2, '0')}-${String(dueDay).padStart(2, '0')}`;
+
+  return { month: billingMonth, year: billingYear, dueDate };
 }

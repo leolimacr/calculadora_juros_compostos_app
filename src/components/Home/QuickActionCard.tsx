@@ -32,7 +32,7 @@ const QuickActionCard: React.FC<QuickActionCardProps> = ({
         </div>
         <div>
           <h3 className={`text-base font-black uppercase tracking-tight ${isDisabled ? 'text-slate-500' : 'text-slate-900'}`}>
-            Registrar Rotina
+            Registrar Despesa ou Receita
           </h3>
           <p className={`text-[10px] font-bold uppercase tracking-[0.2em] mt-0.5 ${isDisabled ? 'text-slate-400' : 'text-emerald-600'}`}>
             {isDisabled ? 'Limite mensal atingido' : 'Mantenha sua constância'}

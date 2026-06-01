@@ -7,6 +7,8 @@ import App from './App';
 import './index.css';
 import { AuthProvider } from './contexts/AuthContext';
 import { TransactionsProvider } from './contexts/TransactionsContext';
+import { DebtProvider } from './contexts/DebtContext';
+import { FinanceProvider } from './contexts/FinanceContext';
 import ErrorBoundary from './ErrorBoundary';
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
@@ -16,7 +18,11 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
         <ErrorBoundary>
           <AuthProvider>
             <TransactionsProvider>
-              <App />
+              <DebtProvider>
+                <FinanceProvider>
+                  <App />
+                </FinanceProvider>
+              </DebtProvider>
             </TransactionsProvider>
           </AuthProvider>
         </ErrorBoundary>

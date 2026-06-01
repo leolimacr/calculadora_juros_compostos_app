@@ -26,6 +26,7 @@ import { TermsPage } from '../components/TermsPage';
 import { PrivacyPage } from '../components/PrivacyPage';
 import CentralHub from '../components/CentralHub';
 import LoggedInHomePanel from '../components/Home/LoggedInHomePanel';
+import AppCockpit from '../components/Home/AppCockpit';
 import { ExplorarHub } from '../components/ExplorarHub';
 import AppLayout from '../layouts/AppLayout';
 import PublicLayout from '../layouts/PublicLayout';
@@ -33,7 +34,10 @@ import { useAppState } from '../hooks/useAppState';
 import { useNavigation } from '../hooks/useNavigation';
 import { courseRoutes, CourseRoutesShell } from './courseRoutes';
 import { useTransactionsContext } from '../contexts/TransactionsContext';
+import { useDebtContext } from '../contexts/DebtContext';
+import { useFinanceContext } from '../contexts/FinanceContext';
 import { ControlaPage } from '../components/tools/finance/ControlaPage';
+import AppLoadingScreen from '../components/AppLoadingScreen';
 
 interface AppRoutesProps {
   state: ReturnType<typeof useAppState>;
@@ -53,12 +57,39 @@ const ProtectedRoute = ({
 };
 
 const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
-  const { bridgeReady } = useTransactionsContext();
+  const { bridgeReady, hasConnectedAtLeastOnce: txConnected } = useTransactionsContext();
+  const { debtBridgeReady, hasConnectedAtLeastOnce: debtConnected } = useDebtContext();
+  const { financeBridgeReady, hasConnectedAtLeastOnce: financeConnected } = useFinanceContext();
+
+  const [loadingTime, setLoadingTime] = React.useState(0);
+
+  React.useEffect(() => {
+    const timer = setInterval(() => setLoadingTime(prev => prev + 100), 100);
+    return () => clearInterval(timer);
+  }, []);
+
+  const allReady = bridgeReady && debtBridgeReady && financeBridgeReady;
+  const anyConnected = txConnected || debtConnected || financeConnected;
+
+  // ESCALONAMENTO DE CARREGAMENTO (Ponto 4 do refinamento)
+  // T0-T3s: AppLoadingScreen (ideal)
+  // T3s-T7s: Se tiver cache, libera. Se nío, continua loading.
+  // T > 7s: Timeout / Erro (ou libera com o que tiver)
+  
+  const showFullLoading = !allReady && (
+    loadingTime < 3000 || 
+    (!anyConnected && loadingTime < 7000)
+  );
+
   const { 
     handleNavigate, 
     handleAuthSuccess, 
     homeKey 
   } = useNavigation();
+
+  if (state.isAuthenticated && showFullLoading) {
+    return <AppLoadingScreen loadingTime={loadingTime} />;
+  }
 
   const {
     user,
@@ -177,15 +208,14 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
                 <OnboardingWizard userId={user!.uid} onComplete={() => setOnboardingDismissed(true)} />
               </div>
             ) : (
-                <LoggedInHomePanel
+                <AppCockpit
                   transactions={state.lancamentos}
                   isPrivacyMode={state.isPrivacyMode}
-                  onOpenForm={state.openTransactionForm}
-                  onNavigate={(tool) => handleNavigate(tool)}
-                  isLimitReached={isLimitReached}
-                  hasPaidAccess={isPro || isPremium}
-                  onShowPaywall={() => setActiveModal('paywall')}
+                  onNavigate={(tool, state) => handleNavigate(tool, state)}
                   userMeta={userMeta}
+                  isPremium={isPremium}
+                  isPro={isPro}
+                  isSyncing={state.isSyncing}
                 />
             )
           } 
@@ -196,7 +226,9 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
           element={
             <ControlaPage
               transactions={lancamentos}
-              isLoading={state.isLoading || (lancamentos.length === 0 && !bridgeReady)}
+              isLoading={state.isLoading || (lancamentos.length === 0 && !txConnected)}
+              isSyncing={state.isSyncing}
+              isStale={!allReady && anyConnected}
               categories={categories}
               onDeleteTransaction={deleteLancamento}
               onNavigate={handleNavigate}
@@ -274,6 +306,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
               userMeta={userMeta}
               lancamentos={lancamentos}
               onNavigate={handleNavigate}
+              isSyncing={state.isSyncing}
             />
           } 
         />

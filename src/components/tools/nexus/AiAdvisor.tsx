@@ -489,7 +489,7 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
         </div>
       </div>
       {hubVisible ? (
-        <div className="flex-grow overflow-y-auto p-4 md:p-6 custom-scrollbar bg-slate-50">
+        <div className="flex-grow overflow-y-auto my-14 px-4 md:px-6 custom-scrollbar bg-slate-50">
           <div className="max-w-2xl mx-auto py-4">
 
             <div className="mb-6">
@@ -552,7 +552,7 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
           </div>
         </div>
       ) : (
-        <div className="flex-grow overflow-y-auto p-4 md:p-8 space-y-8 custom-scrollbar bg-slate-50">
+        <div className="flex-grow overflow-y-auto py-8 px-4 md:p-8 space-y-8 custom-scrollbar bg-slate-50">
           {messages.filter((msg) => !msg.isIntro).map((msg: Message, i: number) => (
             <div
               key={i}

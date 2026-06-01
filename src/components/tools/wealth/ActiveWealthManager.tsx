@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, onSnapshot, addDoc, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { firestore } from '../../../firebase'; // Ajuste o caminho se necessário
-import { TrendingUp, Plus, Trash2, Wallet, PieChart, Pencil, X } from 'lucide-react';
+import { TrendingUp, Plus, Trash2, Wallet, PieChart, Pencil, X, ShieldCheck, HelpCircle, ArrowRight, LayoutGrid, List } from 'lucide-react';
+import { useWealthData } from '../../../hooks/useWealthData';
+import { useWealthHistory } from '../../../hooks/useWealthHistory';
 
 export interface ActiveAsset {
   id?: string;
@@ -19,14 +21,47 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
   const [assets, setAssets] = useState<ActiveAsset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
+    return (localStorage.getItem('invest_view_mode') as 'grid' | 'list') || 'grid';
+  });
+  const [showViewTooltip, setShowViewTooltip] = useState(false);
+
+  const toggleViewMode = (mode: 'grid' | 'list') => {
+    setViewMode(mode);
+    localStorage.setItem('invest_view_mode', mode);
+  };
+
   // Estados do Formulário
   const [currentAsset, setCurrentAsset] = useState<ActiveAsset>({ name: '', category: 'Renda Fixa', currentValue: 0 });
   const [displayValue, setDisplayValue] = useState<string>(''); // Novo: Guarda a string formatada (ex: "1.500,00")
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  
+  // Confirmaçío de Saldos
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const { patrimonioLiquido, totalAssets, totalDebts } = useWealthData();
+  const { saveSnapshot, isSaving } = useWealthHistory(userId);
+
+  const totalValue = useMemo(() => assets.reduce((sum, a) => sum + a.currentValue, 0), [assets]);
+
+  const handleConfirmSaldos = async () => {
+    try {
+      await saveSnapshot({
+        totalNetWorth: patrimonioLiquido,
+        totalAssets: totalAssets,
+        totalDebts: totalDebts,
+        module: 'investments'
+      });
+      setShowConfirmModal(false);
+      alert('Investimentos validados com sucesso!');
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao validar investimentos.');
+    }
+  };
 
   // Função para lidar com a digitação do valor financeiro (da direita para esquerda)
-  const handleCurrencyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCurrencyChange = (e: React.ChangeEvent<INPUTElement>) => {
     // 1. Pega o valor digitado e remove tudo que não é número
     let value = e.target.value.replace(/\D/g, '');
     
@@ -176,8 +211,6 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
     }
   };
 
-  const totalInvestido = assets.reduce((acc, asset) => acc + (asset.currentValue || 0), 0);
-
   return (
     <div className="w-full max-w-6xl mx-auto p-4 md:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
@@ -299,12 +332,46 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
           <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
             <Wallet size={20} className="text-emerald-500" /> Sua Carteira de Investimentos
           </h3>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* VIEW SWITCHER */}
+            <div className="relative flex bg-slate-200/50 p-1 rounded-xl border border-slate-200">
+              <button
+                type="button"
+                onClick={() => toggleViewMode('grid')}
+                onMouseEnter={() => setShowViewTooltip(true)}
+                onMouseLeave={() => setShowViewTooltip(false)}
+                className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                <LayoutGrid size={16} />
+              </button>
+              <button
+                type="button"
+                onClick={() => toggleViewMode('list')}
+                onMouseEnter={() => setShowViewTooltip(true)}
+                onMouseLeave={() => setShowViewTooltip(false)}
+                className={`p-1.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                <List size={16} />
+              </button>
+
+              {/* Tooltip Educativo */}
+              {showViewTooltip && (
+                <div className="absolute bottom-full mb-2 right-0 z-50 w-48 p-3 bg-slate-800 text-white rounded-xl shadow-xl animate-in fade-in zoom-in duration-200 pointer-events-none">
+                  <p className="text-[10px] leading-tight font-medium">
+                    <span className="font-black text-emerald-400 uppercase tracking-widest block mb-1">Dica de Visualização</span>
+                    {viewMode === 'grid' 
+                      ? 'Mude para lista para uma visão mais compacta e organizada em linhas.' 
+                      : 'Mude para blocos para uma visão mais visual e destacada de cada ativo.'}
+                  </p>
+                </div>
+              )}
+            </div>
+
             <span className="text-xs font-bold bg-slate-100 text-slate-700 px-3 py-1 rounded-full border border-slate-200">
               {assets.length} {assets.length === 1 ? 'ativo' : 'ativos'}
             </span>
             <span className="text-xs font-black bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full border border-emerald-200">
-              Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalInvestido)}
+              Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalValue)}
             </span>
           </div>
         </div>
@@ -327,7 +394,7 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
               <Plus size={14} /> Adicionar primeiro ativo
             </button>
           </div>
-        ) : (
+        ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {assets.map((asset) => (
               <div key={asset.id} className="bg-white backdrop-blur-md border border-slate-200 rounded-xl p-5 hover:border-slate-300 transition-colors group relative overflow-hidden shadow-sm">
@@ -375,8 +442,124 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
               </div>
             ))}
           </div>
+        ) : (
+          <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-slate-50 border-b border-slate-100">
+                  <tr>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Ativo / Categoria</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Valor Atual</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {assets.map((asset) => (
+                    <tr key={asset.id} className="hover:bg-slate-50/50 transition-colors group">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-1.5 h-8 rounded-full ${
+                            asset.category === 'Renda Fixa' ? 'bg-sky-500' : 
+                            asset.category === 'Ações' ? 'bg-emerald-500' : 
+                            asset.category === 'FIIs' ? 'bg-indigo-500' : 
+                            asset.category === 'Exterior' ? 'bg-purple-500' : 
+                            asset.category === 'Cripto' ? 'bg-amber-500' : 'bg-slate-500'
+                          }`} />
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold text-slate-900">{asset.name}</span>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{asset.category}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span className="text-sm font-black text-slate-900">
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(asset.currentValue)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex justify-center gap-2">
+                          <button 
+                            onClick={() => handleEditClick(asset)} 
+                            className="p-2 text-slate-400 hover:text-emerald-600 transition-colors"
+                            title="Editar"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button 
+                            onClick={() => asset.id && handleDeleteAsset(asset.id, asset.currentValue)} 
+                            className="p-2 text-slate-400 hover:text-red-600 transition-colors"
+                            title="Excluir"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         )}
       </div>
+
+      {/* RITUAL DE VALIDAÇÃO (MOVIDO PARA O FINAL) */}
+      <div className="mt-12 mb-8 group relative overflow-hidden rounded-[2.5rem] bg-white border border-slate-200 p-8 shadow-soft">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -mr-32 -mt-32" />
+        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-4">
+            <div className="p-4 bg-emerald-500 text-white rounded-[2rem] shadow-emerald-500/20 shadow-lg">
+              <ShieldCheck size={32} />
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight leading-tight">Ritual de Governança</h3>
+              <p className="text-sm text-slate-500 font-medium">Confirme se seus investimentos estão atualizados hoje.</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowConfirmModal(true)}
+            className="flex items-center gap-3 px-8 py-4 bg-brand-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-brand-primary/90 transition-all shadow-brand-glow active:scale-95"
+          >
+            Validar Carteira Atual
+            <ArrowRight size={18} />
+          </button>
+        </div>
+      </div>
+
+      {/* MODAL DE CONFIRMAÇÃO */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-[3rem] p-8 max-w-md w-full shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-300">
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="p-5 bg-emerald-50 text-emerald-600 rounded-[2rem] mb-2">
+                <HelpCircle size={40} />
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Validar Investimentos?</h3>
+              <p className="text-slate-500 font-medium leading-relaxed">
+                Você confirma que todos os seus ativos financeiros (Renda Fixa, Ações, Cripto, etc.) estão com os valores atualizados na data de hoje? 
+                <br/><br/>
+                <span className="text-brand-primary font-bold italic">Isso garantirá a precisão absoluta do seu gráfico de evolução patrimonial.</span>
+              </p>
+              
+              <div className="flex flex-col w-full gap-3 pt-4">
+                <button
+                  onClick={handleConfirmSaldos}
+                  disabled={isSaving}
+                  className="w-full py-4 bg-brand-primary text-white rounded-2xl font-black uppercase tracking-widest hover:bg-brand-primary/90 transition-all flex items-center justify-center gap-2"
+                >
+                  {isSaving ? 'Salvando...' : 'Sim, Confirmar Agora'}
+                </button>
+                <button
+                  onClick={() => setShowConfirmModal(false)}
+                  className="w-full py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

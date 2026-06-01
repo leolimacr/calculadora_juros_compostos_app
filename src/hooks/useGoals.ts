@@ -15,11 +15,17 @@ export const useGoals = (userId: string | undefined) => {
     return unsubscribe;
   }, [userId, key]);
 
-  const { data: goals = [], isLoading: loading, error } = useQuery<Goal[], Error>({
+  const { data: goals = [], isLoading: loading, error, isFetching } = useQuery<Goal[], Error>({
     queryKey: key,
-    queryFn: () => Promise.resolve([]),
+    queryFn: () => {
+      const currentData = queryClient.getQueryData<Goal[]>(key);
+      return Promise.resolve(currentData ?? []);
+    },
     enabled: !!userId,
+    staleTime: Infinity,
   });
+
+  const isSyncing = isFetching && !loading;
 
   const addGoal = async (goalData: Omit<Goal, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => {
     if (!userId) throw new Error('Usuário não autenticado');
@@ -43,6 +49,7 @@ export const useGoals = (userId: string | undefined) => {
   return {
     goals,
     loading,
+    isSyncing,
     error: error?.message || null,
     addGoal,
     editGoal,

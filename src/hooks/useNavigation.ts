@@ -92,14 +92,14 @@ export const useNavigation = () => {
     return false;
   }, [currentTool]);
 
-  const handleNavigate = useCallback((tool: string) => {
+  const handleNavigate = useCallback((tool: string, state?: any) => {
     if (shouldRememberAuthReturn(tool)) {
       setPostAuthRedirect(currentTool);
     }
 
     // Se estiver em uma rota de curso e navegar para algo fora das rotas de curso,
     // o navigateTo já cuida de mudar o path.
-    navigateTo(tool);
+    navigateTo(tool, state);
   }, [shouldRememberAuthReturn, currentTool, navigateTo]);
 
   const handleAuthSuccess = useCallback(() => {

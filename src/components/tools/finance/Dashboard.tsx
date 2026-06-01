@@ -1,3 +1,4 @@
+import { useLocation } from 'react-router-dom';
 import React, { useState, useMemo, useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { 
@@ -19,13 +20,19 @@ import CategoryManager from './CategoryManager';
 import { generateFinancialReport } from '../../../utils/reportGenerator';
 import { getConsecutiveDays } from '../../../utils/streakUtils';
 import { getOperationalInsight, buildUserContext, NexusInsight } from '../../../services/nexusInsightEngine';
-import { getCards } from '../../../services/cardService';
-import { getCurrentInvoice } from '../../../utils/invoiceUtils';
-import { CreditCard } from '../../../types';
+import { useCards } from '../../../hooks/useCards';
+import { useBills } from '../../../hooks/useBills';
+import { getCurrentInvoice, isBillPaid } from '../../../utils/invoiceUtils';
+import { CreditCard, RecurringBill } from '../../../types';
 import { useAuth } from '../../../contexts/AuthContext';
-import { CreditCard as CardIcon, Check } from 'lucide-react';
+import { CreditCard as CardIcon, Check, RefreshCw, AlertCircle, Clock, Info } from 'lucide-react';
+import RecurringBillManager from './RecurringBillManager';
+import { useIsMobile } from '../../../hooks/useIsMobile';
+import CardManager from './CardManager';
 
 const Dashboard: React.FC<any> = (props) => {
+  const isMobile = useIsMobile();
+  const location = useLocation();
   const { 
     transactions = [], 
     categories = [], 
@@ -43,17 +50,56 @@ const Dashboard: React.FC<any> = (props) => {
     onTogglePrivacy,
     onEditTransaction,
     onNavigate,
-    lastActionTimestamp // Prop opcional para detectar novos lançamentos
+    lastActionTimestamp,
+    isSyncing,
+    isStale
   } = props;
 
   const { user } = useAuth();
-  const [userCards, setUserCards] = useState<CreditCard[]>([]);
+  const { cards: userCards } = useCards(user?.uid);
+  const { bills: recurringBills } = useBills(user?.uid);
+  const [isRecurringBillModalOpen, setIsRecurringBillModalOpen] = useState(false);
+  const [isCardModalOpen, setIsCardModalOpen] = useState(false);
 
   useEffect(() => {
-    if (user?.uid) {
-      getCards(user.uid).then(setUserCards).catch(console.error);
+    if (location.state && (location.state as any).openCards) {
+      setIsCardModalOpen(true);
+      // Limpa o estado para não reabrir ao atualizar
+      window.history.replaceState({}, document.title);
     }
-  }, [user?.uid, transactions]); // Recarrega se houver novos lançamentos
+  }, [location.state]);
+
+  // Lógica para a caixinha educativa (Frente 2)
+  const [showIntro, setShowIntro] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
+  const [dontShowFor15Days, setDontShowFor15Days] = useState(false);
+
+  const checkIntroSuppression = () => {
+    const skipUntil = localStorage.getItem('recurring_intro_skip_until');
+    if (skipUntil) {
+      const skipDate = new Date(skipUntil);
+      if (new Date() < skipDate) return true;
+    }
+    return false;
+  };
+
+  const handleRecurringButtonClick = () => {
+    if (isMobile && !checkIntroSuppression()) {
+      setShowIntro(true);
+    } else {
+      setIsRecurringBillModalOpen(true);
+    }
+  };
+
+  const handleConfirmIntro = () => {
+    if (dontShowFor15Days) {
+      const skipUntil = new Date();
+      skipUntil.setDate(skipUntil.getDate() + 15);
+      localStorage.setItem('recurring_intro_skip_until', skipUntil.toISOString());
+    }
+    setShowIntro(false);
+    setIsRecurringBillModalOpen(true);
+  };
 
   const safeTransactions = useMemo(() => Array.isArray(transactions) ? transactions : [], [transactions]);
 
@@ -65,6 +111,14 @@ const Dashboard: React.FC<any> = (props) => {
       })
       .filter((inv): inv is NonNullable<typeof inv> => inv !== null && inv.total > 0);
   }, [userCards, safeTransactions]);
+
+  const pendingBills = useMemo(() => {
+    return recurringBills.filter(bill => bill.isActive && !isBillPaid(bill, safeTransactions));
+  }, [recurringBills, safeTransactions]);
+
+  const totalPendingBills = useMemo(() => {
+    return pendingBills.reduce((acc, bill) => acc + bill.amount, 0);
+  }, [pendingBills]);
 
   // Estado para controlar a transparência do título no scroll
   const [isScrolled, setIsScrolled] = React.useState(false);
@@ -101,6 +155,27 @@ const Dashboard: React.FC<any> = (props) => {
   const [visibleCount, setVisibleCount] = useState(10);
   const showBackToTools = !!onNavigate && !Capacitor.isNativePlatform();
 
+  // NOVO SISTEMA DE RENDERIZAÇÃO (Ponto 2 do refinamento)
+  const [isCalculating, setIsCalculating] = useState(true);
+
+  useEffect(() => {
+    // Ejector seat: Máximo 500ms calculando
+    const timer = setTimeout(() => setIsCalculating(false), 500);
+    
+    // Se temos transações (cache ou realtime), liberamos após um pequeno respiro para o useMemo
+    if (safeTransactions.length >= 0) {
+      const calculationTimer = setTimeout(() => setIsCalculating(false), 300);
+      return () => {
+        clearTimeout(timer);
+        clearTimeout(calculationTimer);
+      };
+    }
+    return () => clearTimeout(timer);
+  }, [safeTransactions.length]);
+
+  const isReady = !isLoading || safeTransactions.length > 0;
+  const showSkeleton = !isReady || isCalculating;
+
   const streak = useMemo(() => getConsecutiveDays(safeTransactions), [safeTransactions]);
 
   const periodLabel = useMemo(() => {
@@ -115,11 +190,28 @@ const Dashboard: React.FC<any> = (props) => {
   }, [viewMode, currentDate, startDate, endDate]);
 
   const filtered = useMemo(() => {
+    // Se estiver em modo esqueleto profundo, retorna vazio
+    if (!isReady) return [];
+
     const normalize = (str: string) =>
       str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
     const query = normalize(searchQuery.trim());
-    const base = safeTransactions.filter((t: any) => {
+    
+    // Injeção de Faturas Virtuais
+    const virtualInvoices = activeInvoices.map(inv => ({
+      id: `virtual-inv-${inv.cardId}`,
+      description: `Fatura - ${inv.cardName}`,
+      amount: inv.total,
+      date: inv.dueDate || new Date().toISOString().split('T')[0],
+      category: `Fatura - Cartão ${inv.cardName}`,
+      type: 'expense',
+      paymentMethod: 'money', // Representa a saída do saldo real
+      isVirtual: true,
+      cardId: inv.cardId
+    }));
+
+    const base = [...safeTransactions, ...virtualInvoices].filter((t: any) => {
       const categoryMatch = selectedCategories.length === 0 || selectedCategories.includes(t?.category);
       const typeMatch = typeFilter === 'all' || t?.type === typeFilter;
       if (!categoryMatch || !typeMatch || !t.date) return false;
@@ -150,37 +242,19 @@ const Dashboard: React.FC<any> = (props) => {
     return [...base].sort((a: any, b: any) => {
       const dateA = a?.date || '';
       const dateB = b?.date || '';
-      const categoryA = (a?.category || 'Sem categoria').toString();
-      const categoryB = (b?.category || 'Sem categoria').toString();
-
-      if (sortMode === 'date-asc') {
-        return dateA.localeCompare(dateB);
-      }
-
-      if (sortMode === 'date-desc') {
-        return dateB.localeCompare(dateA);
-      }
-
-      if (sortMode === 'category-asc') {
-        const categoryCompare = categoryA.localeCompare(categoryB, 'pt-BR', { sensitivity: 'base' });
-        if (categoryCompare !== 0) return categoryCompare;
-        return dateB.localeCompare(dateA);
-      }
-
-      if (sortMode === 'category-desc') {
-        const categoryCompare = categoryB.localeCompare(categoryA, 'pt-BR', { sensitivity: 'base' });
-        if (categoryCompare !== 0) return categoryCompare;
-        return dateB.localeCompare(dateA);
-      }
-
+      if (sortMode === 'date-asc') return dateA.localeCompare(dateB);
+      if (sortMode === 'date-desc') return dateB.localeCompare(dateA);
       return 0;
     });
-  }, [safeTransactions, selectedCategories, typeFilter, currentDate, viewMode, startDate, endDate, sortMode, searchQuery]);
+  }, [safeTransactions, activeInvoices, selectedCategories, typeFilter, currentDate, viewMode, startDate, endDate, sortMode, searchQuery, isReady]);
 
   const stats = useMemo(() => {
+    if (!isReady) return { income: 0, expenses: 0, balance: 0, projectedBalance: 0 };
+
     let income = 0; 
     let expenses = 0;
-    let balanceImpact = 0;
+    let realBalance = 0;
+    let virtualImpact = 0;
 
     filtered.forEach((t: any) => {
         const val = Number(t?.amount) || 0;
@@ -188,18 +262,28 @@ const Dashboard: React.FC<any> = (props) => {
 
         if (t?.type === 'income') {
           income += val;
-          balanceImpact += val;
+          realBalance += val;
         } else {
           expenses += val;
-          // Apenas reduz o saldo se não for crédito (dinheiro/débito/legado)
-          if (!isCredit) {
-            balanceImpact -= val;
+          if (t.isVirtual) {
+            virtualImpact += val;
+          } else if (!isCredit) {
+            realBalance -= val;
           }
         }
     });
     
-    return { income, expenses, balance: balanceImpact };
-  }, [filtered]);
+    return { 
+      income, 
+      expenses, 
+      balance: realBalance,
+      projectedBalance: realBalance - virtualImpact - totalPendingBills
+    };
+  }, [filtered, isReady, totalPendingBills]);
+
+  const projectedBalance = useMemo(() => {
+    return stats.balance - totalPendingBills;
+  }, [stats.balance, totalPendingBills]);
 
   // Efeito para monitorar novos lançamentos e disparar insight
   useEffect(() => {
@@ -225,6 +309,8 @@ const Dashboard: React.FC<any> = (props) => {
   }, [lastActionTimestamp, safeTransactions.length, stats.balance, isPremium, userMeta?.isFirstSession]);
 
   const categoryStats = useMemo(() => {
+    if (!isReady) return { data: [], gradient: '' };
+
     const map = new Map();
     let totalExp = 0;
     filtered.filter((t: any) => t.type === 'expense').forEach((t: any) => {
@@ -242,9 +328,11 @@ const Dashboard: React.FC<any> = (props) => {
         return `${d.color} ${(start/100)*360}deg ${(end/100)*360}deg`;
     }).join(', ') : '#334155 0deg 360deg'})`;
     return { data, gradient };
-  }, [filtered]);
+  }, [filtered, isReady]);
 
   const categorySummary = useMemo(() => {
+    if (!isReady) return [];
+
     const map = new Map<string, { income: number; expense: number; total: number; count: number }>();
 
     filtered.forEach((t: any) => {
@@ -280,9 +368,11 @@ const Dashboard: React.FC<any> = (props) => {
     }
 
     return result.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
-  }, [filtered, sortMode]);
+  }, [filtered, sortMode, isReady]);
 
   const categoryTransactionsMap = useMemo(() => {
+    if (!isReady) return new Map<string, any[]>();
+
     const map = new Map<string, any[]>();
 
     filtered.forEach((t: any) => {
@@ -293,9 +383,12 @@ const Dashboard: React.FC<any> = (props) => {
     });
 
     return map;
-  }, [filtered]);
+  }, [filtered, isReady]);
 
   const averagesData = useMemo(() => {
+    // OPT 1: Lazy Calculation - Don't calculate if section is hidden
+    if (!showAverages || !isReady) return [];
+
     const today = new Date();
     const currentYear = today.getFullYear();
     const currentMonth = today.getMonth() + 1;
@@ -431,7 +524,7 @@ const Dashboard: React.FC<any> = (props) => {
     });
 
     return result.sort((a, b) => a.category.localeCompare(b.category, 'pt-BR', { sensitivity: 'base' }));
-  }, [safeTransactions, averagesWindow, includeCurrentMonth, averageMode, customPeriodStart, customPeriodEnd]);
+  }, [safeTransactions, averagesWindow, includeCurrentMonth, averageMode, customPeriodStart, customPeriodEnd, isReady]);
 
   const categoryNames = useMemo(() => {
     const fromDb = categories.map((c: any) => c.name);
@@ -439,10 +532,10 @@ const Dashboard: React.FC<any> = (props) => {
     return Array.from(new Set([...fromDb, ...fromTransactions])).sort();
   }, [categories, safeTransactions]);
 
-  if (isLoading && transactions.length === 0) {
+  if (showSkeleton) {
     return (
-      <div className="max-w-7xl mx-auto px-4 md:px-8 py-6 space-y-8 animate-in fade-in duration-500 pb-32 bg-surface-secondary rounded-5xl border border-surface-elevated shadow-card">
-        {/* Skeleton Header */}
+      <div className="max-w-7xl mx-auto px-4 md:px-8 pt-14 md:pt-6 pb-32 space-y-8 animate-in fade-in duration-500 bg-surface-secondary rounded-5xl border border-surface-elevated shadow-card">
+        {/* OPT 4: Enhanced Skeleton - Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-slate-200 animate-pulse" />
@@ -452,35 +545,28 @@ const Dashboard: React.FC<any> = (props) => {
             </div>
           </div>
           <div className="flex gap-2">
-            <div className="w-12 h-12 rounded-3xl bg-slate-100 animate-pulse" />
-            <div className="w-32 h-12 rounded-3xl bg-slate-100 animate-pulse" />
+            <div className="w-10 h-10 rounded-3xl bg-slate-100 animate-pulse" />
+            <div className="w-10 h-10 rounded-3xl bg-slate-100 animate-pulse" />
+            <div className="w-32 h-10 rounded-3xl bg-slate-100 animate-pulse" />
           </div>
         </div>
 
-        {/* Skeleton Hero Card */}
-        <div className="bg-surface-primary border border-surface-elevated rounded-4xl p-8 shadow-soft text-center space-y-4">
-          <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto animate-bounce">
-            <Wallet size={24} className="text-emerald-500 opacity-50" />
+        {/* Skeleton Balance Card */}
+        <div className="bg-surface-primary border border-surface-elevated rounded-4xl p-8 shadow-soft flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex flex-col items-center md:items-start gap-2">
+            <div className="h-3 w-24 bg-slate-100 rounded animate-pulse" />
+            <div className="h-8 w-40 bg-slate-200 rounded animate-pulse" />
           </div>
-          <div className="space-y-2">
-            <p className="text-slate-900 font-black text-lg">Preparando seus números...</p>
-            <p className="text-slate-500 text-xs font-medium">Organizando sua visão estratégica com carinho.</p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-             <div className="h-48 bg-slate-50/50 rounded-4xl animate-pulse border border-slate-100" />
-             <div className="h-48 bg-slate-50/50 rounded-4xl animate-pulse border border-slate-100" />
+          <div className="flex gap-8">
+            <div className="h-10 w-24 bg-slate-100 rounded animate-pulse" />
+            <div className="h-10 w-24 bg-slate-100 rounded animate-pulse" />
           </div>
         </div>
 
-        {/* Skeleton Transactions List */}
-        <div className="space-y-4">
-          <div className="h-4 w-48 bg-slate-200 rounded animate-pulse ml-2" />
-          <div className="space-y-3">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="h-20 bg-white border border-slate-100 rounded-3xl animate-pulse" />
-            ))}
-          </div>
+        {/* Skeleton Charts */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+           <div className="h-64 bg-surface-primary border border-surface-elevated rounded-5xl animate-pulse" />
+           <div className="h-64 bg-surface-primary border border-surface-elevated rounded-5xl animate-pulse" />
         </div>
       </div>
     );
@@ -505,6 +591,35 @@ const Dashboard: React.FC<any> = (props) => {
     generateFinancialReport(filtered, `${catLabel} - ${periodLabel}`, userMeta?.email || 'Investidor');
   };
 
+  const handleConfirmInvoicePayment = async (inv: any) => {
+    if (!user?.uid) return;
+    
+    // Converte a fatura virtual em uma transação real
+    const paymentData = {
+      type: 'expense',
+      category: `Fatura - Cartão ${inv.cardName}`,
+      amount: inv.total,
+      description: `Pagamento Fatura ${inv.cardName}`,
+      date: inv.dueDate || new Date().toISOString().split('T')[0],
+      paymentMethod: 'money',
+      userId: user.uid,
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      // Aqui usamos a prop onOpenForm mas passando os dados para salvar direto, 
+      // ou podemos simplesmente abrir o form já preenchido e travado.
+      // Para seguir sua regra de "confirmação", vamos abrir o form travado:
+      onOpenForm({
+        ...paymentData,
+        isLocked: true, // Nova flag para o TransactionForm
+        lockMessage: "Este lançamento é gerado automaticamente pelas suas compras no cartão. Para alterar o valor, edite as compras na Gestão de Cartões."
+      });
+    } catch (error) {
+      console.error("Erro ao processar confirmação de fatura:", error);
+    }
+  };
+
   const isFirstAccess = safeTransactions.length === 0;
 
   return (
@@ -523,8 +638,25 @@ const Dashboard: React.FC<any> = (props) => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 md:px-8 pt-14 md:pt-6 pb-32 space-y-8 animate-in fade-in duration-500 bg-surface-secondary rounded-5xl border border-surface-elevated shadow-card">
+      <div className="max-w-7xl mx-auto px-4 md:px-8 pt-14 md:pt-6 pb-32 space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-700 bg-surface-secondary rounded-5xl border border-surface-elevated shadow-card">
         <CategoryManager isOpen={isCategoryModalOpen} onClose={() => setIsCategoryModalOpen(false)} categories={categories} onSave={onSaveCategory} onDelete={onDeleteCategory} />
+
+        {/* SYNC BANNER (Ponto 1 e 4 do refinamento) */}
+        {isStale && (
+          <div className="flex items-center justify-between gap-4 px-6 py-3 bg-amber-50 border border-amber-100 rounded-3xl animate-in slide-in-from-top-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-100 rounded-xl text-amber-600">
+                <RefreshCw size={16} className="animate-spin" />
+              </div>
+              <p className="text-[10px] font-black text-amber-800 uppercase tracking-widest">
+                Modo Offline / Sincronizando: Alguns dados podem estar desatualizados
+              </p>
+            </div>
+            <span className="text-[8px] font-bold text-amber-500 uppercase px-2 py-1 bg-white rounded-lg border border-amber-100">
+              Somente Leitura
+            </span>
+          </div>
+        )}
 
 	  {/* HEADER DO GERENCIADOR */}
 {showBackToTools && (
@@ -564,6 +696,33 @@ const Dashboard: React.FC<any> = (props) => {
   </div>
 
   <div className="flex items-center gap-2 md:gap-3 self-start md:self-auto">
+    {/* BOTÃO RECORRÊNCIAS */}
+    <div className="relative">
+      <button
+        onClick={handleRecurringButtonClick}
+        onMouseEnter={() => !isMobile && setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+        className="p-2.5 md:p-3 rounded-3xl bg-surface-primary border border-surface-elevated text-text-muted hover:text-brand-secondary hover:border-brand-secondary transition-all active:scale-95 shadow-soft"
+      >
+        <RefreshCw size={18} />
+      </button>
+
+      {/* Tooltip Desktop */}
+      {!isMobile && showTooltip && (
+        <div className="absolute top-full mt-3 right-0 z-[110] w-64 p-4 bg-surface-primary border border-surface-elevated rounded-2xl shadow-2xl animate-in fade-in zoom-in duration-200 pointer-events-none">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="p-1 bg-brand-secondary/10 rounded-lg text-brand-secondary">
+              <Info size={14} />
+            </div>
+            <span className="text-[10px] font-black text-text-primary uppercase tracking-widest">Planejamento Estratégico</span>
+          </div>
+          <p className="text-[11px] leading-relaxed text-text-secondary font-medium">
+            Este botão organiza seu futuro. Ao cadastrar contas fixas e assinaturas, o Controla projeta seu saldo para o fim do mês, evitando surpresas.
+          </p>
+        </div>
+      )}
+    </div>
+
     {/* BOTÃO OLHINHO */}
     <button
       onClick={onTogglePrivacy}
@@ -591,6 +750,13 @@ const Dashboard: React.FC<any> = (props) => {
              <h2 className={`text-2xl font-black tracking-tight ${stats.balance >= 0 ? 'text-text-primary' : 'text-status-danger'}`}>
                 {isPrivacyMode ? '••••••' : `R$ ${stats.balance.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`}
              </h2>
+             {totalPendingBills > 0 && !isPrivacyMode && (
+               <p className="text-[10px] font-bold text-text-muted uppercase tracking-tight mt-1">
+                 Projeção: <span className={projectedBalance >= 0 ? 'text-brand-primary' : 'text-status-danger'}>
+                   R$ {projectedBalance.toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+                 </span> com pendentes
+               </p>
+             )}
           </div>
           <div className="flex items-center gap-6">
               <div className="flex flex-col">
@@ -624,20 +790,48 @@ const Dashboard: React.FC<any> = (props) => {
                   {isPrivacyMode ? '••••' : `R$ ${inv.total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`}
                 </h3>
                 <p className="text-xxs font-bold text-text-muted uppercase tracking-tighter mt-1">
-                  Fecha em {new Date(inv.periodEnd.replace(/-/g, '/')).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                  Vence em {new Date(inv.dueDate?.replace(/-/g, '/') || '').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                </p>
+              </div>
+              <div className="hidden group-hover:block animate-in fade-in slide-in-from-right-1">
+                {/* Botão Confirmar removido do Dashboard conforme solicitado - agora fica apenas na Gestão de Cartões */}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* SEÇÃO DE CONTAS PENDENTES (NOVO - FRENTE 2) */}
+      {pendingBills.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {pendingBills.map((bill) => (
+            <div key={bill.id} className="bg-surface-primary border border-surface-elevated p-4 rounded-3xl shadow-soft flex items-center gap-4 group">
+              <div className="p-3 bg-brand-primary/10 rounded-2xl text-brand-primary group-hover:scale-110 transition-transform">
+                <Clock size={20} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-text-muted text-[10px] font-black uppercase tracking-widest truncate">
+                  {bill.type === 'fixed' ? 'Conta Fixa' : 'Assinatura'} • Dia {bill.dueDay}
+                </p>
+                <h3 className="text-lg font-black text-text-primary mt-0.5 truncate">
+                  {bill.name}
+                </h3>
+                <p className={`text-sm font-black mt-1 ${bill.amount > 0 ? 'text-text-primary' : 'text-brand-primary'}`}>
+                  {isPrivacyMode ? '••••' : `R$ ${bill.amount.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`}
                 </p>
               </div>
               <div className="hidden group-hover:block animate-in fade-in slide-in-from-right-1">
                 <button 
                   onClick={() => onOpenForm({ 
                     type: 'expense', 
-                    category: 'Pagamento de Fatura', 
-                    amount: inv.total, 
-                    description: `Fatura ${inv.cardName}`,
-                    date: new Date().toISOString().split('T')[0]
+                    category: bill.category, 
+                    amount: bill.amount, 
+                    description: bill.name,
+                    date: new Date().toISOString().split('T')[0],
+                    autoFocusAmount: true
                   })}
                   className="p-2 bg-surface-secondary hover:bg-brand-primary/10 text-brand-primary rounded-xl transition-colors shadow-sm"
-                  title="Registrar Pagamento"
+                  title="Pagar agora"
                 >
                   <Check size={18} />
                 </button>
@@ -808,6 +1002,7 @@ const Dashboard: React.FC<any> = (props) => {
                   onDelete={onDeleteTransaction}
                   onEdit={onEditTransaction}
                   isPrivacyMode={isPrivacyMode}
+                  isDisabled={isStale}
                 />
                 
                 <div className="space-y-3 mt-4">
@@ -1346,6 +1541,71 @@ const Dashboard: React.FC<any> = (props) => {
             </div>
           )}
       </div>}
+
+      <RecurringBillManager 
+        isOpen={isRecurringBillModalOpen} 
+        onClose={(newBills) => {
+          setIsRecurringBillModalOpen(false);
+          if (newBills) setRecurringBills(newBills);
+        }} 
+        userId={user?.uid || ''} 
+        categories={categories}
+      />
+
+      <CardManager
+        isOpen={isCardModalOpen}
+        onClose={(newCards) => {
+          setIsCardModalOpen(false);
+          if (newCards) setUserCards(newCards);
+        }}
+        userId={user?.uid || ''}
+        transactions={safeTransactions}
+        onEditTransaction={onEditTransaction}
+      />
+
+      {/* Popover Educativo Mobile (Frente 2) */}
+      {showIntro && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-surface-primary w-full max-w-sm rounded-4xl shadow-2xl border border-surface-elevated overflow-hidden p-6 space-y-6 animate-in zoom-in duration-300">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-brand-secondary/10 rounded-2xl text-brand-secondary">
+                <RefreshCw size={24} className="animate-spin-slow" />
+              </div>
+              <h3 className="text-xl font-black text-text-primary tracking-tight leading-tight">
+                Planeje seu Futuro
+              </h3>
+            </div>
+
+            <p className="text-sm font-medium text-text-secondary leading-relaxed">
+              Este botão organiza seu futuro. Ao cadastrar contas fixas e assinaturas, o Controla projeta seu saldo para o fim do mês. Assim, você sabe exatamente quanto dinheiro terá <strong>livre</strong> para investir, evitando surpresas no orçamento.
+            </p>
+
+            <div className="space-y-4 pt-2">
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <div className="relative flex items-center">
+                  <input 
+                    type="checkbox" 
+                    checked={dontShowFor15Days}
+                    onChange={(e) => setDontShowFor15Days(e.target.checked)}
+                    className="peer appearance-none w-5 h-5 border-2 border-surface-elevated rounded-lg checked:bg-brand-secondary checked:border-brand-secondary transition-all"
+                  />
+                  <Check size={12} className="absolute left-1 text-white opacity-0 peer-checked:opacity-100 transition-opacity" />
+                </div>
+                <span className="text-xxs font-bold text-text-muted uppercase tracking-widest group-hover:text-text-secondary transition-colors">
+                  Não mostrar novamente nos próximos 15 dias
+                </span>
+              </label>
+
+              <button
+                onClick={handleConfirmIntro}
+                className="w-full py-4 bg-brand-secondary text-text-onBrand rounded-3xl font-black uppercase text-xxs tracking-ultra-wide shadow-soft active:scale-95 transition-transform"
+              >
+                Entendi e quero acessar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
     </>
   );

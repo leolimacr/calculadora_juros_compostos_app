@@ -1,25 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
-import { getCards } from '../../../services/cardService';
+import { useCards } from '../../../hooks/useCards';
 import { useAuth } from '../../../contexts/AuthContext';
-import { CreditCard } from '../../../types';
 
 interface TransactionHistoryProps {
   transactions: any[];
   onDelete: (id: string) => void;
   onEdit: (t: any) => void;
   isPrivacyMode: boolean;
+  isDisabled?: boolean;
 }
 
-const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, onDelete, onEdit, isPrivacyMode }) => {
+const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, onDelete, onEdit, isPrivacyMode, isDisabled }) => {
   const { user } = useAuth();
-  const [userCards, setUserCards] = useState<CreditCard[]>([]);
-
-  useEffect(() => {
-    if (user?.uid) {
-      getCards(user.uid).then(setUserCards).catch(console.error);
-    }
-  }, [user?.uid]);
+  const { cards: userCards } = useCards(user?.uid);
 
   const cardMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -30,7 +24,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, o
   }, [userCards]);
 
   return (
-    <div className="bg-surface-primary border border-surface-elevated rounded-4xl overflow-hidden shadow-soft">
+    <div className={`bg-surface-primary border border-surface-elevated rounded-4xl overflow-hidden shadow-soft ${isDisabled ? 'opacity-70 pointer-events-none' : ''}`}>
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
@@ -77,8 +71,22 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, o
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-center gap-2">
-                      <button onClick={() => onEdit(t)} className="p-2 text-text-muted hover:text-brand-secondary hover:bg-brand-secondary/10 active:bg-brand-secondary/20 rounded-lg transition-all" title="Editar"><Pencil size={16}/></button>
-                      <button onClick={() => { if (window.confirm(`Deseja excluir "${t.description}"?`)) onDelete(t.id); }} className="p-2 text-text-muted hover:text-status-danger hover:bg-status-danger/10 active:bg-status-danger/20 rounded-lg transition-all" title="Excluir"><Trash2 size={16}/></button>
+                      <button 
+                        onClick={() => onEdit(t)} 
+                        disabled={isDisabled}
+                        className="p-2 text-text-muted hover:text-brand-secondary hover:bg-brand-secondary/10 active:bg-brand-secondary/20 rounded-lg transition-all disabled:opacity-30" 
+                        title="Editar"
+                      >
+                        <Pencil size={16}/>
+                      </button>
+                      <button 
+                        onClick={() => { if (window.confirm(`Deseja excluir "${t.description}"?`)) onDelete(t.id); }} 
+                        disabled={isDisabled}
+                        className="p-2 text-text-muted hover:text-status-danger hover:bg-status-danger/10 active:bg-status-danger/20 rounded-lg transition-all disabled:opacity-30" 
+                        title="Excluir"
+                      >
+                        <Trash2 size={16}/>
+                      </button>
                     </div>
                   </td>
                 </tr>

@@ -48,11 +48,16 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           <div className="relative -top-5 mx-2">
             <button
               onClick={() => onAdd()}
-              className="flex flex-col items-center justify-center gap-1 transition-transform active:scale-90"
+              className="flex flex-col items-center justify-center gap-1 transition-transform active:scale-90 group/launch"
               title="Novo Lançamento"
             >
-              <div className="w-14 h-14 bg-gradient-to-tr from-emerald-500 to-teal-400 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/25 border-[4px] border-white ring-1 ring-slate-200">
-                <Plus size={28} strokeWidth={3} />
+              <div className="w-14 h-14 bg-gradient-to-tr from-emerald-500 to-teal-400 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/25 border-[4px] border-white ring-1 ring-slate-200 relative overflow-hidden">
+                <Plus size={28} strokeWidth={3} className="relative z-10" />
+                <img 
+                  src="/controla-icon.png" 
+                  alt="" 
+                  className="absolute inset-0 w-full h-full object-cover opacity-30 group-hover/launch:scale-110 transition-transform duration-500" 
+                />
               </div>
               <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mt-1">
                 Lançar
@@ -61,16 +66,16 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           </div>
 
           <button
-            onClick={() => handleNavigate('central')}
+            onClick={() => handleNavigate('chat')}
             className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-1.5 py-2 transition-all active:scale-95 ${
-              isCentralActive ? 'text-sky-500' : 'text-slate-500 hover:text-slate-700'
+              currentTool === 'chat' ? 'text-violet-500' : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            <div className={`p-1 rounded-lg transition-all ${isCentralActive ? 'bg-sky-400/10' : ''}`}>
-              <LayoutGrid size={24} strokeWidth={isCentralActive ? 2.5 : 2} />
+            <div className={`p-1 rounded-lg transition-all ${currentTool === 'chat' ? 'bg-violet-400/10' : ''}`}>
+              <Sparkles size={24} strokeWidth={currentTool === 'chat' ? 2.5 : 2} />
             </div>
             <span className="text-[9px] font-black uppercase tracking-widest leading-none">
-              Central
+              Nexus IA
             </span>
           </button>
 

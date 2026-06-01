@@ -1,23 +1,23 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './AuthContext';
-import { createTransactionsRealtimeBridge } from '../services/transaction.realtime';
+import { createDebtRealtimeBridge } from '../services/debt/debt.realtime';
 
-interface TransactionsContextValue {
-  bridgeReady: boolean;
+interface DebtContextValue {
+  debtBridgeReady: boolean;
   hasConnectedAtLeastOnce: boolean;
 }
 
-const TransactionsContext = createContext<TransactionsContextValue>({
-  bridgeReady: false,
+const DebtContext = createContext<DebtContextValue>({
+  debtBridgeReady: false,
   hasConnectedAtLeastOnce: false,
 });
 
-export function TransactionsProvider({ children }: { children: React.ReactNode }) {
+export function DebtProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const unsubscribeRef = useRef<(() => void) | null>(null);
-  const [bridgeReady, setBridgeReady] = useState(false);
+  const [debtBridgeReady, setDebtBridgeReady] = useState(false);
   const [hasConnectedAtLeastOnce, setHasConnectedAtLeastOnce] = useState(false);
 
   useEffect(() => {
@@ -26,17 +26,17 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         unsubscribeRef.current();
         unsubscribeRef.current = null;
       }
-      setBridgeReady(false);
+      setDebtBridgeReady(false);
       return;
     }
 
-    const bridge = createTransactionsRealtimeBridge(user.uid);
+    const bridge = createDebtRealtimeBridge(user.uid);
     unsubscribeRef.current = bridge.subscribe((data: any) => {
-      setBridgeReady(true);
+      setDebtBridgeReady(true);
       setHasConnectedAtLeastOnce(true);
       try {
         localStorage.setItem(
-          `fpi_tx_${user.uid}`,
+          `fpi_debts_${user.uid}`,
           JSON.stringify({ data, ts: Date.now() })
         );
       } catch {}
@@ -51,10 +51,10 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
   }, [user?.uid, queryClient]);
 
   return (
-    <TransactionsContext.Provider value={{ bridgeReady, hasConnectedAtLeastOnce }}>
+    <DebtContext.Provider value={{ debtBridgeReady, hasConnectedAtLeastOnce }}>
       {children}
-    </TransactionsContext.Provider>
+    </DebtContext.Provider>
   );
 }
 
-export const useTransactionsContext = () => useContext(TransactionsContext);
+export const useDebtContext = () => useContext(DebtContext);

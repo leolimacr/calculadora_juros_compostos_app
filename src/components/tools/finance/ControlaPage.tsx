@@ -6,6 +6,8 @@ interface ControlaPageProps {
   transactions: Transaction[];
   categories: Category[];
   isLoading: boolean;
+  isSyncing?: boolean;
+  isStale?: boolean;
   onDeleteTransaction: (id: string) => void;
   onNavigate: (tool: string) => void;
   onOpenForm: (initialData?: Partial<Transaction>) => void;
@@ -26,6 +28,8 @@ export const ControlaPage: React.FC<ControlaPageProps> = (props) => {
     <Dashboard
       transactions={props.transactions}
       isLoading={props.isLoading}
+      isSyncing={props.isSyncing}
+      isStale={props.isStale}
       categories={props.categories}
       onDeleteTransaction={props.onDeleteTransaction}
       onNavigate={props.onNavigate}

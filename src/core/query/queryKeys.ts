@@ -11,6 +11,7 @@ export const queryKeys = {
     all: ['wealth'] as const,
     assetsByUser: (userId: string) => ['wealth', userId, 'assets'] as const,
     passivesByUser: (userId: string) => ['wealth', userId, 'passives'] as const,
+    historyByUser: (userId: string) => ['wealth', userId, 'history'] as const,
   },
   user: {
     all: ['user'] as const,
@@ -23,6 +24,14 @@ export const queryKeys = {
   transactions: {
     all: ['transactions'] as const,
     byUser: (userId: string) => ['transactions', userId] as const,
+  },
+  cards: {
+    all: ['cards'] as const,
+    byUser: (userId: string) => ['cards', userId] as const,
+  },
+  bills: {
+    all: ['recurring_bills'] as const,
+    byUser: (userId: string) => ['recurring_bills', userId] as const,
   },
   presence: {
     all: ['presence'] as const,

@@ -1,43 +1,60 @@
-import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../core/query/queryKeys';
 import { saveDebt, updateDebt, deleteDebt } from './debtService';
 import { DebtItem } from './debt.types';
-import { createDebtRealtimeBridge } from './debt.realtime';
 import { createMutationHook } from '../../core/query/patterns/createMutationHook';
 import { invalidateDomain } from '../../core/query/patterns/invalidateDomain';
+import { useDebtContext } from '../../contexts/DebtContext';
 
 export const useDebts = (userId?: string) => {
+  const queryClient = useQueryClient();
+  const { debtBridgeReady } = useDebtContext();
   const key = queryKeys.debts.byUser(userId || 'anonymous');
 
-  useEffect(() => {
-    if (!userId) return;
-    const bridge = createDebtRealtimeBridge(userId);
-    const unsubscribe = bridge.subscribe(() => {});
-    return unsubscribe;
-  }, [userId, key]);
+  const cachedRaw = typeof window !== 'undefined' 
+    ? localStorage.getItem(`fpi_debts_${userId}`) 
+    : null;
+    
+  const cachedData = cachedRaw 
+    ? (() => { 
+        try { 
+          const p = JSON.parse(cachedRaw); 
+          // Cache válido por 24 horas para dívidas (mudam menos que transações)
+          return Date.now() - p.ts < 86_400_000 ? p.data : undefined; 
+        } catch { return undefined; } 
+      })()
+    : undefined;
 
-  return useQuery<DebtItem[], Error>({
+  const { data, isLoading, error, isFetching } = useQuery<DebtItem[], Error>({
     queryKey: key,
-    queryFn: () => Promise.resolve([]),
+    queryFn: () => {
+      const currentData = queryClient.getQueryData<DebtItem[]>(key);
+      return Promise.resolve(currentData ?? cachedData ?? []);
+    },
+    placeholderData: cachedData,
     enabled: !!userId,
+    staleTime: Infinity,
   });
+
+  const isSyncing = isFetching && !isLoading;
+
+  return {
+    data: data ?? cachedData ?? [],
+    isLoading: isLoading && !cachedData && !debtBridgeReady,
+    isSyncing,
+    isFetching,
+    error,
+  };
 };
 
 export const useCreateDebt = (userId: string) => {
-  return createMutationHook('debt', (debt: DebtItem) => saveDebt(userId, debt), {
-    onSuccess: () => invalidateDomain(queryKeys.debts.byUser(userId)),
-  })();
+  return createMutationHook('debt', (debt: DebtItem) => saveDebt(userId, debt))();
 };
 
 export const useUpdateDebt = (userId: string) => {
-  return createMutationHook('debt', ({ id, data }: { id: string, data: Partial<DebtItem> }) => updateDebt(userId, id, data), {
-    onSuccess: () => invalidateDomain(queryKeys.debts.byUser(userId)),
-  })();
+  return createMutationHook('debt', ({ id, data }: { id: string, data: Partial<DebtItem> }) => updateDebt(userId, id, data))();
 };
 
 export const useDeleteDebt = (userId: string) => {
-  return createMutationHook('debt', (id: string) => deleteDebt(userId, id), {
-    onSuccess: () => invalidateDomain(queryKeys.debts.byUser(userId)),
-  })();
+  return createMutationHook('debt', (id: string) => deleteDebt(userId, id))();
 };

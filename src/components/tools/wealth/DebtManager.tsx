@@ -1,19 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useFirebase } from '../../../hooks/useFirebase';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, addDoc, deleteDoc } from 'firebase/firestore';
 import { firestore } from '../../../firebase';
 import {
-  Plus, Trash2, Pencil, X,
+  Plus, Trash2, Pencil, X, Check,
   CreditCard, Sparkles, HelpCircle,
-  TrendingUp, ShieldCheck, Target
+  TrendingUp, ShieldCheck, Target,
+  LayoutGrid, List, History, ChevronRight,
+  ArrowLeft, AlertCircle, Trophy, PartyPopper,
+  ArrowRight
 } from 'lucide-react';
 import { PresenceEventService } from '../../../services/PresenceEventService';
 import { DebtPlanSimulator } from '../DebtPlanSimulator';
 import { useWealthData } from '../../../hooks/useWealthData';
+import { useWealthHistory } from '../../../hooks/useWealthHistory';
 import { fetchCurrentSelicRate } from '../buy-cash-or-installments/selicService';
 import {
   DebtItem,
-  useDebts
+  useDebts,
+  amortizeDebts
 } from '../../../services/debt';
 
 
@@ -39,8 +44,8 @@ interface DebtManagerProps {
     amount: number;
   }>;
   onNavigate?: (route: string) => void;
+  isSyncing?: boolean;
 }
-// ... (rest of the file stays the same, but the import logic and CRUD calls are replaced)
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -108,9 +113,63 @@ const EMPTY_FORM: DebtItem = {
   valorParcela: 0,
   dataVencimento: null,
 };
-export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, lancamentos, onNavigate }) => {
+
+export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, lancamentos, onNavigate, isSyncing }) => {
   const { saveFinancialProfile } = useFirebase(userId); // <-- Passando o UID para o hook
-  const { totalAssets, totalPassives } = useWealthData();
+  const { totalAssets, totalPassives, patrimonioLiquido, totalDebts: realTotalDebts } = useWealthData();
+
+  // NOVO SISTEMA DE RENDERIZAÇÃO
+  const [isCalculating, setIsCalculating] = useState(true);
+  const { data: debtsData, isLoading, isSyncing: debtsSyncing } = useDebts(userId);
+  const debts = debtsData || [];
+
+  // Confirmaçío de Saldos
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const { saveSnapshot, isSaving: isSavingSnapshot } = useWealthHistory(userId);
+
+  const handleAmortizeAll = async () => {
+    if (!userId) return;
+    if (!window.confirm("Isso irá abater UMA parcela de todas as suas dívidas ativas. Deseja continuar?")) return;
+
+    try {
+      await amortizeDebts(userId);
+      alert("Dívidas amortizadas com sucesso! Não esqueça de validar o saldo final.");
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao amortizar dívidas.");
+    }
+  };
+
+  const handleConfirmSaldos = async () => {
+    try {
+      await saveSnapshot({
+        totalNetWorth: patrimonioLiquido,
+        totalAssets: totalAssets,
+        totalDebts: realTotalDebts,
+        module: 'debts'
+      });
+      setShowConfirmModal(false);
+      alert('Saldos devedores validados com sucesso!');
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao validar dívidas.');
+    }
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsCalculating(false), 500);
+    if (debts.length >= 0) {
+      const calcTimer = setTimeout(() => setIsCalculating(false), 300);
+      return () => {
+        clearTimeout(timer);
+        clearTimeout(calcTimer);
+      };
+    }
+    return () => clearTimeout(timer);
+  }, [debts.length]);
+
+  const showSkeleton = (isLoading && debts.length === 0) || isCalculating;
+
   const [selicAno, setSelicAno] = useState<number | undefined>(undefined);
   const [savedPlans, setSavedPlans] = useState<SavedDebtPlan[]>([]);
   const [selectedSavedPlan, setSelectedSavedPlan] = useState<SavedDebtPlan | null>(null);
@@ -143,9 +202,20 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, lanc
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showCetInfo, setShowCetInfo] = useState(false);
+  const [showSavedPlansList, setShowSavedPlansList] = useState(false); // Estado para a segunda camada
   const [form, setForm] = useState<DebtItem>(EMPTY_FORM);
   const [displaySaldo, setDisplaySaldo] = useState('');
   const [displayParcela, setDisplayParcela] = useState('');
+
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
+    return (localStorage.getItem('debt_view_mode') as 'grid' | 'list') || 'grid';
+  });
+  const [showViewTooltip, setShowViewTooltip] = useState(false);
+
+  const toggleViewMode = (mode: 'grid' | 'list') => {
+    setViewMode(mode);
+    localStorage.setItem('debt_view_mode', mode);
+  };
 
   // 2. Estados do Guia de Fôlego (Método Guiado)
   const [setupStep, setSetupStep] = useState(0); 
@@ -164,22 +234,16 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, lanc
       setSetupStep(1);
     }
   }, [userMeta?.financialProfile]); // Agora ele só vigia o perfil, nío o step.
-  // 4. Auto-cálculo do CET (HP12c style)
+  // 4. HP12c Auto-calc
   useEffect(() => {
     const { saldoDevedor, parcelasRestantes, valorParcela } = form;
-    // Só calcula se tivermos os 3 pilares: PV, n e PMT
     if (saldoDevedor > 0 && parcelasRestantes > 0 && valorParcela > 0) {
       const cet = calculateCET(saldoDevedor, parcelasRestantes, valorParcela);
-      
-      // Evita loops infinitos de estado: só atualiza se a mudança for significativa (> 0.01%)
       if (Math.abs(cet - form.taxaMensal) > 0.01) {
         setForm(prev => ({ ...prev, taxaMensal: Number(cet.toFixed(2)) }));
       }
     }
   }, [form.saldoDevedor, form.parcelasRestantes, form.valorParcela, form.taxaMensal]);
-  // 4. Firestore listener
-  const { data: debtsData, isLoading } = useDebts(userId);
-  const debts = debtsData || [];
 
   // 5. Helper de Input com Máscara (Versío Polimórfica)
   const handleCurrencyInput = (
@@ -369,6 +433,21 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, lanc
     typeof rendaMensalEstimada === 'number'
       ? parseFloat((rendaMensalEstimada - despesasMensaisMedias - totalParcelasMensais).toFixed(2))
       : undefined;
+
+  const handleToggleNoDebts = async () => {
+    if (!userId || debts.length > 0) return;
+    const isDeclared = !!userMeta?.financialProfile?.declaredNoDebts;
+    try {
+      await saveFinancialProfile({
+        ...userMeta.financialProfile,
+        declaredNoDebts: !isDeclared
+      });
+    } catch (err) {
+      console.error('Erro ao salvar declaração de dívidas:', err);
+    }
+  };
+
+  const isDeclaredNoDebts = !!userMeta?.financialProfile?.declaredNoDebts && debts.length === 0;
 
 
   // ”€”€”€ Render ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€
@@ -602,18 +681,44 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, lanc
       )}
       {/* Cabeçalho */}
       
-      <header className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="p-3 bg-rose-50 rounded-xl border border-rose-100">
-            <CreditCard size={24} className="text-rose-500" />
+      <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-3 bg-rose-50 rounded-xl border border-rose-100">
+              <CreditCard size={24} className="text-rose-500" />
+            </div>
+            <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
+              Minhas dívidas
+            </h2>
           </div>
-          <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
-            Plano de Liberdade Financeira
-          </h2>
+          <p className="text-slate-500 text-sm md:text-base max-w-2xl">
+            Organize suas contas pendentes e deixe o Nexus desenhar a estratégia matemática para você recuperar sua paz.
+          </p>
         </div>
-        <p className="text-slate-500 text-sm md:text-base max-w-2xl">
-          Vamos organizar o caminho de saída. Cadastre suas contas pendentes e deixe o Nexus desenhar a estratégia matemática para você recuperar sua paz.
-        </p>
+
+        {/* Card: Não tenho dívidas (MELHORADO - Frente 1) */}
+        <label 
+          onClick={handleToggleNoDebts}
+          className={`flex items-center gap-4 bg-white border px-6 py-4 rounded-[2rem] shadow-sm transition-all group shrink-0 ${
+          debts.length > 0 
+            ? 'opacity-20 grayscale border-slate-100 cursor-not-allowed' 
+            : 'opacity-100 border-slate-200 cursor-pointer hover:border-brand-primary/30 active:scale-95'
+        }`}>
+          <div className="relative flex items-center">
+            <input 
+              type="checkbox" 
+              checked={isDeclaredNoDebts}
+              onChange={() => {}} // Tratado no label para melhor UX mobile
+              className="peer appearance-none w-6 h-6 border-2 border-slate-200 rounded-lg checked:bg-brand-primary checked:border-brand-primary transition-all"
+            />
+            <Check size={14} className="absolute left-1.5 text-white opacity-0 peer-checked:opacity-100 transition-opacity" />
+          </div>
+          <span className={`text-xs font-black uppercase tracking-widest transition-colors ${
+            debts.length > 0 ? 'text-slate-400' : isDeclaredNoDebts ? 'text-brand-primary' : 'text-slate-600 group-hover:text-slate-900'
+          }`}>
+            Não tenho dívidas
+          </span>
+        </label>
       </header>
 
       {/* Formulário */}
@@ -644,13 +749,15 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, lanc
           )}
         </div>
 
-        <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+        <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
 
           {/* Nome */}
-          <div className="md:col-span-5">
-            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
-              Qual dívida mais te incomoda hoje? <span className="text-slate-400 font-normal lowercase">(Ex: Cartão Nubank)</span> <span className="text-rose-500">*</span>
-            </label>
+          <div className="md:col-span-8">
+            <div className="h-6 flex items-center mb-2">
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                Qual dívida mais te incomoda hoje? <span className="text-slate-400 font-normal lowercase">(Ex: Cartão Nubank)</span> <span className="text-rose-500">*</span>
+              </label>
+            </div>
             <input
               type="text"
               required
@@ -662,10 +769,12 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, lanc
           </div>
 
           {/* Tipo */}
-          <div className="md:col-span-3">
-            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
-              Tipo <span className="text-rose-500">*</span>
-            </label>
+          <div className="md:col-span-4">
+            <div className="h-6 flex items-center mb-2">
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                Tipo <span className="text-rose-500">*</span>
+              </label>
+            </div>
             <select
               value={form.tipo}
               onChange={(e) => setForm((prev) => ({ ...prev, tipo: e.target.value }))}
@@ -676,10 +785,12 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, lanc
           </div>
 
           {/* Saldo devedor */}
-          <div className="md:col-span-5">
-            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
-              Saldo devedor atual <span className="text-rose-500">*</span>
-            </label>
+          <div className="md:col-span-4">
+            <div className="h-6 flex items-center mb-2">
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                Saldo devedor atual <span className="text-rose-500">*</span>
+              </label>
+            </div>
             <div className="relative">
               <span className="absolute left-4 top-[13px] text-slate-400 text-sm font-bold pointer-events-none">R$</span>
               <input
@@ -693,9 +804,10 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, lanc
               />
             </div>
           </div>
+
           {/* Taxa / CET (Calculado Automaticamente via HP12c) */}
           <div className="md:col-span-4">
-            <div className="flex items-center gap-1 mb-2">
+            <div className="h-6 flex items-center gap-1 mb-2">
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                 Taxa / CET mensal <span className="text-teal-600 font-normal lowercase">(automático)</span>
               </label>
@@ -704,13 +816,13 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, lanc
                   type="button"
                   onClick={() => setShowCetInfo((v) => !v)}
                   className="text-slate-400 hover:text-teal-600 transition-colors ml-1"
-                  aria-label="O que í© CET?"
+                  aria-label="O que é CET?"
                 >
                   <HelpCircle size={13} />
                 </button>
                 {showCetInfo && (
                   <div className="absolute left-0 top-6 z-20 w-72 bg-white border border-slate-200 rounded-xl shadow-lg p-4 text-xs text-slate-600 leading-relaxed animate-in fade-in zoom-in duration-200">
-                    <p className="font-bold text-slate-800 mb-1 text-sm">O que í© CET?</p>
+                    <p className="font-bold text-slate-800 mb-1 text-sm">O que é CET?</p>
                     <p className="mb-2">
                       É o <strong>custo real da sua dívida</strong>. O app calcula isso automaticamente cruzando o saldo, o prazo e o valor da sua parcela.
                     </p>
@@ -721,7 +833,7 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, lanc
                       onClick={() => setShowCetInfo(false)}
                       className="mt-3 text-teal-600 font-bold text-[10px] uppercase tracking-wide"
                     >
-                      Entendido œ“
+                      Entendido ✓
                     </button>
                   </div>
                 )}
@@ -738,15 +850,15 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, lanc
                 <span className="text-[9px] text-teal-600 font-black uppercase tracking-tighter">HP12c Mode</span>
               </div>
             </div>
-            <p className="mt-1 text-[9px] text-slate-400 italic">
-              * Calculado com base no saldo, parcelas e valor pago.
-            </p>
           </div>
+
           {/* Parcelas restantes */}
           <div className="md:col-span-4">
-            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
-              Parcelas restantes <span className="text-rose-500">*</span>
-            </label>
+            <div className="h-6 flex items-center mb-2">
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                Parcelas restantes <span className="text-rose-500">*</span>
+              </label>
+            </div>
             <input
               type="number"
               required
@@ -757,11 +869,14 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, lanc
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-colors"
             />
           </div>
+
           {/* Valor da parcela (obrigatório para o Nexus) */}
           <div className="md:col-span-4">
-            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
-              Valor da parcela <span className="text-red-500 font-normal lowercase">(obrigatório)</span>
-            </label>
+            <div className="h-6 flex items-center mb-2">
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                Valor da parcela <span className="text-red-500 font-normal lowercase">(obrigatório)</span>
+              </label>
+            </div>
             <div className="relative">
               <span className="absolute left-4 top-[13px] text-slate-400 text-sm font-bold pointer-events-none">R$</span>
               <input
@@ -774,83 +889,152 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, lanc
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-colors"
               />
             </div>
-            <p className="mt-1 text-[10px] text-slate-400 leading-tight">
-              O Nexus precisa deste valor para calcular seu fôlego financeiro.
-            </p>
           </div>
+
           {/* Data de vencimento */}
           <div className="md:col-span-4">
-            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
-              Próximo vencimento <span className="text-slate-400 font-normal lowercase">(recomendado)</span>
-            </label>
+            <div className="h-6 flex items-center mb-2">
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                Próximo vencimento <span className="text-slate-400 font-normal lowercase">(recomendado)</span>
+              </label>
+            </div>
             <input
               type="date"
               value={form.dataVencimento ?? ''}
               onChange={(e) => setForm((prev) => ({ ...prev, dataVencimento: e.target.value || null }))}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-colors"
             />
-            <p className="mt-1 text-[10px] text-slate-400 leading-tight">
-              Usado pelo sistema para avisar antes do vencimento.
-            </p>
           </div>
 
           {/* Submit */}
-          <div className="md:col-span-8 flex justify-end pt-2">
+          <div className="md:col-span-4">
+            <div className="h-6 mb-2 hidden md:block" /> {/* Espaçador para alinhar com os labels */}
             <button
               type="submit"
               disabled={isSubmitting}
-              className={`flex items-center gap-2 font-bold px-6 py-3 rounded-xl text-sm transition-all shadow-sm disabled:opacity-50 ${
+              className={`w-full flex items-center justify-center gap-2 font-black uppercase tracking-widest px-6 py-4 rounded-xl text-[10px] transition-all shadow-sm disabled:opacity-50 ${
                 editingId
                   ? 'bg-amber-500 hover:bg-amber-400 text-white'
-                  : 'bg-teal-600 hover:bg-teal-700 text-white'
+                  : 'bg-teal-600 hover:bg-teal-700 text-white shadow-brand-glow'
               }`}
             >
               {editingId
-                ? <><Pencil size={15} /> Salvar alterações</>
-                : <><Plus size={15} /> Registrar e Avançar</>}
+                ? <><Pencil size={14} /> Salvar alterações</>
+                : <><Plus size={14} /> Registrar e Avançar</>}
             </button>
           </div>
         </form>
       </div>
 
-      {/* Lista */}
+      {/* Lista / Feedback */}
       <div className="mb-8">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-            dívidas cadastradas
-            <span className="text-xs font-bold bg-slate-100 text-slate-500 px-3 py-1 rounded-full border border-slate-200">
-              {debts.length} {debts.length === 1 ? 'dívida' : 'dívidas'}
-            </span>
-          </h3>
-          {debts.length > 0 && (
-            <p className="text-sm font-black text-slate-800">
-              Total em dívidas:{' '}
-              <span className="text-rose-600">{formatCurrency(totalSaldo)}</span>
-            </p>
-          )}
-        </div>
+        {debts.length > 0 && (
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6 animate-in fade-in slide-in-from-top-2">
+            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+              dívidas cadastradas
+              <span className="text-xs font-bold bg-slate-100 text-slate-500 px-3 py-1 rounded-full border border-slate-200">
+                {debts.length} {debts.length === 1 ? 'dívida' : 'dívidas'}
+              </span>
+            </h3>
+            <div className="flex flex-wrap items-center gap-4">
+              {/* VIEW SWITCHER */}
+              <div className="relative flex bg-slate-200/50 p-1 rounded-xl border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => toggleViewMode('grid')}
+                  onMouseEnter={() => setShowViewTooltip(true)}
+                  onMouseLeave={() => setShowViewTooltip(false)}
+                  className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white text-teal-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  <LayoutGrid size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleViewMode('list')}
+                  onMouseEnter={() => setShowViewTooltip(true)}
+                  onMouseLeave={() => setShowViewTooltip(false)}
+                  className={`p-1.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white text-teal-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  <List size={16} />
+                </button>
+
+                {/* Tooltip Educativo */}
+                {showViewTooltip && (
+                  <div className="absolute bottom-full mb-2 right-0 z-50 w-48 p-3 bg-slate-800 text-white rounded-xl shadow-xl animate-in fade-in zoom-in duration-200 pointer-events-none">
+                    <p className="text-[10px] leading-tight font-medium">
+                      <span className="font-black text-teal-400 uppercase tracking-widest block mb-1">Dica de Visualização</span>
+                      {viewMode === 'grid' 
+                        ? 'Mude para lista para uma visão mais compacta e organizada em linhas.' 
+                        : 'Mude para blocos para uma visão mais visual de cada dívida.'}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {debts.length > 0 && (
+                <p className="text-sm font-black text-slate-800">
+                  Total em dívidas:{' '}
+                  <span className="text-rose-600">{formatCurrency(totalSaldo)}</span>
+                </p>
+              )}
+            </div>
+          </div>
+        )}
 
         {isLoading ? (
           <div className="text-center py-12 text-slate-400 animate-pulse text-sm">
             Carregando dívidas...
           </div>
         ) : debts.length === 0 ? (
-          <div className="py-14 px-6 bg-rose-50 border border-dashed border-rose-200 rounded-2xl text-center">
-            <div className="w-14 h-14 bg-rose-100 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-rose-200">
-              <CreditCard size={24} className="text-rose-500" />
+          /* TRATAMENTO DE ESTADOS VAZIOS (Frente 1 e 2) */
+          isDeclaredNoDebts ? (
+            /* ESTADO C: LIBERDADE FINANCEIRA (PARABÉNS) */
+            <div className="py-16 px-8 bg-emerald-50 border border-emerald-100 rounded-[3rem] text-center shadow-sm animate-in zoom-in-95 duration-500">
+              <div className="relative w-20 h-20 mx-auto mb-6">
+                <div className="absolute inset-0 bg-emerald-200 rounded-full blur-2xl opacity-40 animate-pulse" />
+                <div className="relative w-full h-full bg-white rounded-[2rem] flex items-center justify-center shadow-emerald-100 shadow-xl border border-emerald-100">
+                  <Trophy size={36} className="text-emerald-500" />
+                </div>
+                <PartyPopper size={20} className="absolute -top-1 -right-1 text-emerald-400 animate-bounce" />
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-tight leading-tight uppercase">Parabéns pela sua liberdade!</h3>
+              <p className="text-slate-600 text-base max-w-lg mx-auto leading-relaxed mb-8">
+                você está no controle total. Ter <strong>zero dívidas</strong> é o primeiro e mais importante grande passo para a construção da sua riqueza real.
+              </p>
+              <div className="flex flex-wrap justify-center gap-4">
+                <button
+                  onClick={() => onNavigate?.('investimentos')}
+                  className="px-8 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-widest rounded-2xl shadow-emerald-200 shadow-lg transition-all active:scale-95"
+                >
+                  Focar em Investimentos
+                </button>
+                <button
+                  onClick={handleToggleNoDebts}
+                  className="px-6 py-3.5 bg-white border border-emerald-100 text-emerald-600 hover:bg-emerald-50 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all"
+                >
+                  Alterar declaração
+                </button>
+              </div>
             </div>
-            <p className="text-slate-800 font-black text-base mb-1">Nenhuma dívida cadastrada ainda</p>
-            <p className="text-slate-500 text-sm max-w-xs mx-auto leading-relaxed mb-5">
-              Cadastre suas dívidas aqui em cima. Com esses dados, o Nexus consegue montar um plano real de quitação — do maior custo para o menor.
-            </p>
-            <button
-              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-              className="inline-flex items-center gap-2 bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-black uppercase tracking-widest px-5 py-2.5 rounded-xl transition-all active:scale-95"
-            >
-              <Plus size={14} /> Cadastrar primeira dívida
-            </button>
-          </div>
-        ) : (
+          ) : (
+            /* ESTADO B: CADASTRO PENDENTE (INCENTIVO) */
+            <div className="py-14 px-6 bg-rose-50 border border-dashed border-rose-200 rounded-[2.5rem] text-center animate-in fade-in duration-700">
+              <div className="w-14 h-14 bg-rose-100 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-rose-200 shadow-sm">
+                <CreditCard size={24} className="text-rose-500" />
+              </div>
+              <p className="text-slate-800 font-black text-base mb-1">Nenhuma dívida cadastrada ainda</p>
+              <p className="text-slate-500 text-sm max-w-md mx-auto leading-relaxed mb-6">
+                Cadastre suas dívidas aqui em cima. Com esses dados, o Nexus consegue montar um plano real de quitação — priorizando matematicamente o que mais te custa caro.
+              </p>
+              <button
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                className="inline-flex items-center gap-2 bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-black uppercase tracking-widest px-8 py-3.5 rounded-2xl transition-all active:scale-95 shadow-lg shadow-rose-200"
+              >
+                <Plus size={14} /> Cadastrar primeira dívida
+              </button>
+            </div>
+          )
+        ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {debts.map((debt) => (
               <div
@@ -907,96 +1091,296 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, lanc
               </div>
             ))}
           </div>
-        )}
-      </div>
-      {/* ”€”€ NEXUS DEBT PLAN (inline) ”€”€ */}
-        {debts.length > 0 && (
-          <div id="nexus-debt-plan" className="space-y-4">
-            <div className="rounded-2xl border border-emerald-200 bg-white/80 p-4 shadow-sm">
-              <h3 className="text-sm font-semibold text-slate-800">Planos já gerados</h3>
-              <p className="mt-2 text-xs leading-5 text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-                Os planos salvos refletem os dados existentes no sistema no momento em que foram gerados.
-                Se sua situação mudou depois disso, gere um novo plano para considerar as informações mais atuais.
-              </p>
-
-              <div className="mt-3 space-y-2">
-                {savedPlans.length === 0 ? (
-                  <p className="text-sm text-slate-500">Nenhum plano gerado ainda.</p>
-                ) : (
-                  savedPlans.map((plan) => (
-                    <button
-                      key={plan.id}
-                      type="button"
-                      className="block w-full rounded-xl border border-slate-200 px-3 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-slate-50"
-                      onClick={() => setSelectedSavedPlan(plan)}
-                    >
-                      {(() => {
-                        const rawTitle = fixMojibake(plan.title);
-                        const match = rawTitle.match(/(\d{2}\/\d{2}\/\d{4},?\s\d{2}:\d{2})/);
-
-                        if (!match) return rawTitle;
-
-                        return `Plano de quitação — ${match[1].replace(',', '')}`;
-                      })()}
-                    </button>
-                  ))
-                )}
-              </div>
+        ) : (
+          <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-slate-50 border-b border-slate-100">
+                  <tr>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Dívida / Tipo</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Saldo Devedor</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Taxa</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Parcelas</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Vlr. Parcela</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {debts.map((debt) => (
+                    <tr key={debt.id} className="hover:bg-slate-50/50 transition-colors group">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-1.5 h-8 rounded-full ${STRIPE_COLORS[debt.tipo] ?? 'bg-slate-400'}`} />
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold text-slate-900">{debt.nome}</span>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{debt.tipo}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span className="text-sm font-black text-rose-600">{formatCurrency(debt.saldoDevedor)}</span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="text-xs font-bold text-slate-700">{debt.taxaMensal}%</span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="text-xs font-bold text-slate-700">{debt.parcelasRestantes}x</span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span className="text-sm font-bold text-slate-700">{debt.valorParcela ? formatCurrency(debt.valorParcela) : '—'}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex justify-center gap-1">
+                          <button
+                            onClick={() => handleEdit(debt)}
+                            className="p-2 text-slate-400 hover:text-amber-500 transition-colors"
+                            title="Editar"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            onClick={() => debt.id && handleDelete(debt.id)}
+                            className="p-2 text-slate-400 hover:text-rose-500 transition-colors"
+                            title="Excluir"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-
-            <DebtPlanSimulator
-              userId={userId}
-              initialPlanMarkdown={selectedSavedPlan?.planMarkdown}
-              dividas={debts.map(d => ({
-                id: d.id ?? d.nome,
-                nome: d.nome,
-                saldoAtual: d.saldoDevedor,
-                taxaJurosMes: d.taxaMensal,
-                ...(d.valorParcela ? { parcelaMensal: d.valorParcela } : {}),
-              }))}
-              simulacao={{
-                totalDividas: debts.reduce((acc, d) => acc + d.saldoDevedor, 0),
-                prazoEstimadoQuitacaoAtual: debts.length > 0
-                  ? Math.max(...debts.map(d => d.parcelasRestantes))
-                  : 0,
-                ...(userMeta?.financialProfile?.monthlyIncome
-                  ? { rendaMensalEstimada: userMeta.financialProfile.monthlyIncome }
-                  : {}),
-                ...(despesasMensaisMedias > 0
-                  ? { despesasMensaisMedias }
-                  : {}),
-                ...(totalParcelasMensais > 0
-                  ? { totalParcelasMensais }
-                  : {}),
-                ...(typeof sobraMensalReal === 'number'
-                  ? { sobraMensalReal }
-                  : {}),
-                ...(janelaAnaliseDias > 0
-                  ? { janelaAnaliseDias }
-                  : {}),
-              }}
-              usuarioPerfil="endividado_iniciante"
-              perfilContexto={userMeta?.financialProfile ? {
-                estabilidade:
-                  userMeta.financialProfile.emergencyReserveTarget <= 4 ? 'estavel' :
-                  userMeta.financialProfile.emergencyReserveTarget >= 12 ? 'volatil' : 'regular',
-                reservaAtual: userMeta.financialProfile.emergencyReserveCurrent ?? 0,
-                metaReservaEmMeses: userMeta.financialProfile.emergencyReserveTarget ?? 6,
-              } : undefined}
-              
-              patrimonioContexto={{
-                valorTotalInvestimentosFinanceiros: totalAssets,
-                valorPatrimonioLiquido: totalAssets + totalPassives - debts.reduce((sum, d) => sum + (d.saldoDevedor || 0), 0),
-              }}
-              
-              custoOportunidadeContexto={selicAno ? {
-                selicAno,
-                cdiAno: selicAno - 0.1,
-                retornoLiquidoEstimadoAno: parseFloat((selicAno * 0.85).toFixed(2)),
-              } : undefined}
-            />
           </div>
         )}
+      </div>
+
+      {/* RITUAL DE VALIDAÇÃO (MOVIDO PARA APÓS A LISTA) */}
+      <div className="mb-8 group relative overflow-hidden rounded-[2.5rem] bg-white border border-slate-200 p-8 shadow-soft">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-rose-500/5 rounded-full blur-3xl -mr-32 -mt-32" />
+        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-4">
+            <div className="p-4 bg-rose-500 text-white rounded-[2rem] shadow-rose-500/20 shadow-lg">
+              <ShieldCheck size={32} />
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight leading-tight">Ritual de Governança</h3>
+              <p className="text-sm text-slate-500 font-medium">Mantenha seus saldos devedores sempre reais.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleAmortizeAll}
+              className="flex items-center gap-3 px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-95"
+            >
+              Abater Parcelas do Mês
+              <History size={18} />
+            </button>
+            <button
+              onClick={() => setShowConfirmModal(true)}
+              className="flex items-center gap-3 px-8 py-4 bg-brand-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-brand-primary/90 transition-all shadow-brand-glow active:scale-95"
+            >
+              Validar Saldos Atuais
+              <ArrowRight size={18} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* MODAL DE CONFIRMAÇÃO (MOVIDO PARA ACOMPANHAR O CARD) */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-[3rem] p-8 max-md w-full shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-300">
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="p-5 bg-rose-50 text-rose-600 rounded-[2rem] mb-2">
+                <HelpCircle size={40} />
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Validar Dívidas?</h3>
+              <p className="text-slate-500 font-medium leading-relaxed">
+                Você confirma que os saldos devedores de todas as suas dívidas estão atualizados conforme a data de hoje?
+                <br/><br/>
+                <span className="text-brand-primary font-bold italic">Dica: Verifique o saldo atual no app do seu banco ou credor para maior precisão.</span>
+              </p>
+              
+              <div className="flex flex-col w-full gap-3 pt-4">
+                <button
+                  onClick={handleConfirmSaldos}
+                  disabled={isSavingSnapshot}
+                  className="w-full py-4 bg-brand-primary text-white rounded-2xl font-black uppercase tracking-widest hover:bg-brand-primary/90 transition-all flex items-center justify-center gap-2"
+                >
+                  {isSavingSnapshot ? 'Salvando...' : 'Sim, Confirmar Saldos'}
+                </button>
+                <button
+                  onClick={() => setShowConfirmModal(false)}
+                  className="w-full py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ”€”€ SEÇÃO DE HISTÓRICO DE PLANOS (DUAS CAMADAS) ”€”€ */}
+      {debts.length > 0 && (
+        <div id="nexus-debt-plan-section" className="space-y-6 pt-4 border-t border-slate-100">
+          
+          {!showSavedPlansList ? (
+            /* PRIMEIRA CAMADA: CARD DE RESUMO */
+            <div className="bg-white border border-emerald-100 rounded-[2rem] p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 group hover:border-emerald-200 transition-all">
+              <div className="flex items-center gap-5">
+                <div className="p-4 bg-emerald-50 rounded-2xl text-emerald-600 group-hover:scale-110 transition-transform">
+                  <History size={28} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 tracking-tight uppercase">Planos Gerados pelo Nexus</h3>
+                  <p className="text-sm text-slate-500 font-medium">
+                    {savedPlans.length === 0 
+                      ? 'Você ainda não possui planos de quitação salvos.' 
+                      : `Você possui ${savedPlans.length} ${savedPlans.length === 1 ? 'estratégia salva' : 'estratégias salvas'} no seu histórico.`}
+                  </p>
+                </div>
+              </div>
+
+              {savedPlans.length > 0 && (
+                <button
+                  onClick={() => {
+                    setShowSavedPlansList(true);
+                    // Scroll suave para o topo da seção de histórico
+                    setTimeout(() => {
+                      const el = document.getElementById('nexus-debt-plan-section');
+                      el?.scrollIntoView({ behavior: 'smooth' });
+                    }, 100);
+                  }}
+                  className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 shadow-brand-glow active:scale-95 transition-all"
+                >
+                  Acessar Histórico
+                  <ChevronRight size={16} />
+                </button>
+              )}
+            </div>
+          ) : (
+            /* SEGUNDA CAMADA: LISTA DETALHADA E SIMULADOR */
+            <div className="animate-in fade-in slide-in-from-right-4 duration-500 space-y-6">
+              {/* Cabeçalho do Histórico */}
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => {
+                    setShowSavedPlansList(false);
+                    setSelectedSavedPlan(null);
+                  }}
+                  className="flex items-center gap-2 text-slate-400 hover:text-slate-600 font-black text-[10px] uppercase tracking-widest transition-colors"
+                >
+                  <ArrowLeft size={16} /> Voltar para Minhas Dívidas
+                </button>
+                <div className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-black uppercase border border-emerald-100">
+                  Modo Histórico
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* Lateral: Lista de Planos */}
+                <div className="lg:col-span-4 space-y-4">
+                  <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm">
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <List size={14} /> Selecione um Plano
+                    </h4>
+                    
+                    <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                      {savedPlans.map((plan) => (
+                        <button
+                          key={plan.id}
+                          onClick={() => setSelectedSavedPlan(plan)}
+                          className={`w-full text-left p-4 rounded-2xl border transition-all flex flex-col gap-1 group/item ${
+                            selectedSavedPlan?.id === plan.id 
+                              ? 'bg-emerald-50 border-emerald-200 ring-1 ring-emerald-200' 
+                              : 'bg-slate-50 border-slate-100 hover:border-emerald-200'
+                          }`}
+                        >
+                          <span className={`text-xs font-black uppercase tracking-tight ${selectedSavedPlan?.id === plan.id ? 'text-emerald-700' : 'text-slate-700'}`}>
+                            {(() => {
+                              const rawTitle = fixMojibake(plan.title);
+                              const match = rawTitle.match(/(\d{2}\/\d{2}\/\d{4},?\s\d{2}:\d{2})/);
+                              return match ? `Estratégia de ${match[1].replace(',', '')}` : rawTitle;
+                            })()}
+                          </span>
+                          <span className="text-[10px] text-slate-400 group-hover/item:text-emerald-500 transition-colors">Ver detalhes do plano →</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="mt-6 p-4 bg-amber-50 border border-amber-100 rounded-2xl">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle size={14} className="text-amber-600 shrink-0 mt-0.5" />
+                        <p className="text-[10px] leading-relaxed text-amber-800 font-medium">
+                          Estes planos foram gerados com dados do passado. Para uma análise atualizada, gere um novo plano no simulador abaixo.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Principal: O Plano Selecionado */}
+                <div className="lg:col-span-8">
+                  <DebtPlanSimulator
+                    userId={userId}
+                    initialPlanMarkdown={selectedSavedPlan?.planMarkdown}
+                    dividas={debts.map(d => ({
+                      id: d.id ?? d.nome,
+                      nome: d.nome,
+                      saldoAtual: d.saldoDevedor,
+                      taxaJurosMes: d.taxaMensal,
+                      ...(d.valorParcela ? { parcelaMensal: d.valorParcela } : {}),
+                    }))}
+                    simulacao={{
+                      totalDividas: debts.reduce((acc, d) => acc + d.saldoDevedor, 0),
+                      prazoEstimadoQuitacaoAtual: debts.length > 0
+                        ? Math.max(...debts.map(d => d.parcelasRestantes))
+                        : 0,
+                      ...(userMeta?.financialProfile?.monthlyIncome
+                        ? { rendaMensalEstimada: userMeta.financialProfile.monthlyIncome }
+                        : {}),
+                      ...(despesasMensaisMedias > 0
+                        ? { despesasMensaisMedias }
+                        : {}),
+                      ...(totalParcelasMensais > 0
+                        ? { totalParcelasMensais }
+                        : {}),
+                      ...(typeof sobraMensalReal === 'number'
+                        ? { sobraMensalReal }
+                        : {}),
+                      ...(janelaAnaliseDias > 0
+                        ? { janelaAnaliseDias }
+                        : {}),
+                    }}
+                    usuarioPerfil="endividado_iniciante"
+                    perfilContexto={userMeta?.financialProfile ? {
+                      estabilidade:
+                        userMeta.financialProfile.emergencyReserveTarget <= 4 ? 'estavel' :
+                        userMeta.financialProfile.emergencyReserveTarget >= 12 ? 'volatil' : 'regular',
+                      reservaAtual: userMeta.financialProfile.emergencyReserveCurrent ?? 0,
+                      metaReservaEmMeses: userMeta.financialProfile.emergencyReserveTarget ?? 6,
+                    } : undefined}
+                    
+                    patrimonioContexto={{
+                      valorTotalInvestimentosFinanceiros: totalAssets,
+                      valorPatrimonioLiquido: totalAssets + totalPassives - debts.reduce((sum, d) => sum + (d.saldoDevedor || 0), 0),
+                    }}
+                    
+                    custoOportunidadeContexto={selicAno ? {
+                      selicAno,
+                      cdiAno: selicAno - 0.1,
+                      retornoLiquidoEstimadoAno: parseFloat((selicAno * 0.85).toFixed(2)),
+                    } : undefined}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

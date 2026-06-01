@@ -1,10 +1,11 @@
 import { useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../core/query/queryKeys';
 import { UserMeta } from '../types';
 import { createUserMetaRealtimeBridge } from '../services/user.realtime';
 
 export const useUserMeta = (userId?: string) => {
+  const queryClient = useQueryClient();
   const key = queryKeys.user.profile(userId || 'anonymous');
 
   useEffect(() => {
@@ -14,9 +15,20 @@ export const useUserMeta = (userId?: string) => {
     return unsubscribe;
   }, [userId, key]);
 
-  return useQuery<UserMeta | null, Error>({
+  const { data = null, isLoading: loading, error, isFetching } = useQuery<UserMeta | null, Error>({
     queryKey: key,
-    queryFn: () => Promise.resolve(null),
+    queryFn: () => {
+      const currentData = queryClient.getQueryData<UserMeta | null>(key);
+      return Promise.resolve(currentData ?? null);
+    },
     enabled: !!userId,
+    staleTime: Infinity,
   });
+
+  return {
+    userMeta: data,
+    loading,
+    isSyncing: isFetching && !loading,
+    error: error?.message || null,
+  };
 };

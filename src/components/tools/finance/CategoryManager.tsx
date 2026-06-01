@@ -141,7 +141,8 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({
         </form>
 
         {/* LISTA COM OPÇÕES DE EDITAR E EXCLUIR */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar bg-surface-primary">
+        {/* O 'corredor' da barra agora Ã© fisicamente encurtado por margens verticais de 56px (1.5cm) */}
+        <div className="flex-1 overflow-y-auto my-14 px-4 space-y-2 custom-scrollbar bg-surface-primary">
           {categories.length === 0 ? (
             <div className="text-center py-10 text-text-muted">
                 <Tag size={40} className="mx-auto mb-2 opacity-20" />

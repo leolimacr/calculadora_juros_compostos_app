@@ -36,6 +36,7 @@ export interface AppState {
   isLoading: boolean;
   isPrivacyMode: boolean;
   setIsPrivacyMode: React.Dispatch<React.SetStateAction<boolean>>;
+  isSyncing: boolean;
   activeModal: string | null;
   setActiveModal: React.Dispatch<React.SetStateAction<string | null>>;
   mobileMenuOpen: boolean;
@@ -68,6 +69,7 @@ export function useAppState(): AppState {
     userMetaLoaded,
     usagePercentage,
     isLimitReached,
+    isSyncing,
   } = useFirebase(user?.uid);
   const { isPro, isPremium } = useSubscriptionAccess();
   const { isAppLocked, storedPin, handleUnlockSuccess } = useAppSecurity(user?.uid, isAuthenticated);
@@ -195,6 +197,7 @@ export function useAppState(): AppState {
     isLoading,
     isPrivacyMode,
     setIsPrivacyMode,
+    isSyncing,
     activeModal,
     setActiveModal,
     mobileMenuOpen,

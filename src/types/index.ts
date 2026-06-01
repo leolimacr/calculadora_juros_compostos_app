@@ -4,6 +4,18 @@ export interface CreditCard {
   isActive?: boolean;
   closingDay?: number;
   dueDay?: number;
+  limit?: number;
+}
+
+export interface RecurringBill {
+  id: string;
+  userId: string;
+  name: string;
+  amount: number;
+  dueDay: number;
+  category: string;
+  isActive: boolean;
+  type: 'fixed' | 'subscription'; // fixed = conta fixa, subscription = assinatura
 }
 
 export interface Transaction {
@@ -16,6 +28,9 @@ export interface Transaction {
   amount: number;
   paymentMethod?: 'money' | 'credit';
   cardId?: string;
+  installments?: number;        // Total de parcelas (ex: 12)
+  currentInstallment?: number; // Parcela atual (ex: 1)
+  installmentId?: string;      // ID único para agrupar as parcelas de uma mesma compra
 }
 
 export interface Category {
@@ -31,6 +46,7 @@ export interface FinancialProfile {
   monthlyIncome: number;
   emergencyReserveTarget: number;
   emergencyReserveCurrent: number;
+  declaredNoDebts?: boolean;
 }
 
 export interface UserMeta {
