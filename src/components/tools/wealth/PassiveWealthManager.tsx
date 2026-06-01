@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { collection, query, onSnapshot, addDoc, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import React, { useState, useEffect } from 'react';
+import { collection, query, getDocs, addDoc, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { firestore } from '../../../firebase'; // Mantido o seu caminho exato
-import { Building2, Plus, Trash2, Landmark, PieChart, Pencil, X, Car, LayoutGrid, List, ShieldCheck, HelpCircle, ArrowRight } from 'lucide-react';
+import { Building2, Plus, Trash2, Landmark, Pencil, X, Car, LayoutGrid, List, ShieldCheck, HelpCircle, ArrowRight } from 'lucide-react';
 import { useWealthData } from '../../../hooks/useWealthData';
 import { useWealthHistory } from '../../../hooks/useWealthHistory';
 
@@ -83,27 +83,30 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
 
   // Leitura de Dados (Subcoleção: passivos)
   useEffect(() => {
-    if (!userId) {
-      setIsLoading(false);
-      return;
-    }
+    const loadPassives = async () => {
+      if (!userId) {
+        setIsLoading(false);
+        return;
+      }
 
-    const assetsRef = collection(firestore, `users/${userId}/passivos`);
-    const q = query(assetsRef);
+      try {
+        const assetsRef = collection(firestore, `users/${userId}/passivos`);
+        // [FINOPS] Leitura única para evitar cobrança por tempo de tela
+        const snapshot = await getDocs(query(assetsRef));
+        const loadedAssets = snapshot.docs.map(doc => ({ 
+          id: doc.id, 
+          ...doc.data() 
+        } as PassiveAsset));
+        
+        setAssets(loadedAssets);
+      } catch (error) {
+        console.error("Erro ao buscar passivos:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const loadedAssets: PassiveAsset[] = [];
-      snapshot.forEach((doc) => {
-        loadedAssets.push({ id: doc.id, ...doc.data() } as PassiveAsset);
-      });
-      setAssets(loadedAssets);
-      setIsLoading(false);
-    }, (error) => {
-      console.error("Erro ao buscar passivos:", error);
-      setIsLoading(false);
-    });
-
-    return () => unsubscribe();
+    loadPassives();
   }, [userId]);
 
   // Função Salvar (Criar ou Editar)
@@ -147,6 +150,14 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
       }
 
       handleCancelEdit();
+
+      // NOVO: Auto-salvamento de snapshot para o gráfico de evolução
+      await saveSnapshot({
+        totalNetWorth: patrimonioLiquido,
+        totalAssets: totalAssets,
+        totalDebts: totalDebts,
+        module: 'property'
+      });
     } catch (error) {
       console.error("Erro ao salvar passivo:", error);
       alert("Houve um erro ao salvar seu bem.");
@@ -202,6 +213,14 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
       if (editingId === assetId) {
         handleCancelEdit();
       }
+
+      // NOVO: Auto-salvamento de snapshot para o gráfico de evolução
+      await saveSnapshot({
+        totalNetWorth: patrimonioLiquido,
+        totalAssets: totalAssets,
+        totalDebts: totalDebts,
+        module: 'property'
+      });
     } catch (error) {
       console.error("Erro ao excluir passivo:", error);
       alert("Houve um erro ao tentar excluir o bem.");

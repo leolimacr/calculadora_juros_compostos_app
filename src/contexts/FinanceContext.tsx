@@ -1,8 +1,11 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './AuthContext';
 import { createCardsRealtimeBridge } from '../services/card.realtime';
 import { createBillsRealtimeBridge } from '../services/bill.realtime';
+import { createAssetsRealtimeBridge, createPassivesRealtimeBridge } from '../services/wealth.realtime';
+import { createDebtRealtimeBridge } from '../services/debt/debt.realtime';
+import { createGoalRealtimeBridge } from '../services/goal.realtime';
+import { createCategoriesRealtimeBridge } from '../services/category.realtime';
 
 interface FinanceContextValue {
   financeBridgeReady: boolean;
@@ -21,38 +24,63 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   
   const unsubscribeCardsRef = useRef<(() => void) | null>(null);
   const unsubscribeBillsRef = useRef<(() => void) | null>(null);
+  const unsubscribeAssetsRef = useRef<(() => void) | null>(null);
+  const unsubscribePassivesRef = useRef<(() => void) | null>(null);
+  const unsubscribeDebtsRef = useRef<(() => void) | null>(null);
+  const unsubscribeGoalsRef = useRef<(() => void) | null>(null);
+  const unsubscribeCategoriesRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (!user?.uid) {
       if (unsubscribeCardsRef.current) unsubscribeCardsRef.current();
       if (unsubscribeBillsRef.current) unsubscribeBillsRef.current();
+      if (unsubscribeAssetsRef.current) unsubscribeAssetsRef.current();
+      if (unsubscribePassivesRef.current) unsubscribePassivesRef.current();
+      if (unsubscribeDebtsRef.current) unsubscribeDebtsRef.current();
+      if (unsubscribeGoalsRef.current) unsubscribeGoalsRef.current();
+      if (unsubscribeCategoriesRef.current) unsubscribeCategoriesRef.current();
+
       unsubscribeCardsRef.current = null;
       unsubscribeBillsRef.current = null;
+      unsubscribeAssetsRef.current = null;
+      unsubscribePassivesRef.current = null;
+      unsubscribeDebtsRef.current = null;
+      unsubscribeGoalsRef.current = null;
+      unsubscribeCategoriesRef.current = null;
       setFinanceBridgeReady(false);
       return;
     }
 
+    const uid = user.uid;
+
     // Bridge para Cartões
-    const cardsBridge = createCardsRealtimeBridge(user.uid);
-    unsubscribeCardsRef.current = cardsBridge.subscribe(() => {
-      // Quando pelo menos um snapshot chegar, consideramos parte da ponte pronta
-      checkReady();
-    });
+    const cardsBridge = createCardsRealtimeBridge(uid);
+    unsubscribeCardsRef.current = cardsBridge.subscribe(() => checkReady());
 
     // Bridge para Contas Fixas
-    const billsBridge = createBillsRealtimeBridge(user.uid);
-    unsubscribeBillsRef.current = billsBridge.subscribe(() => {
-      checkReady();
-    });
+    const billsBridge = createBillsRealtimeBridge(uid);
+    unsubscribeBillsRef.current = billsBridge.subscribe(() => checkReady());
 
-    let cardsLoaded = false;
-    let billsLoaded = false;
+    // [FINOPS] Centralizando Ativos e Passivos
+    const assetsBridge = createAssetsRealtimeBridge(uid);
+    unsubscribeAssetsRef.current = assetsBridge.subscribe(() => checkReady());
+
+    const passivesBridge = createPassivesRealtimeBridge(uid);
+    unsubscribePassivesRef.current = passivesBridge.subscribe(() => checkReady());
+
+    // [FINOPS] Centralizando Dívidas
+    const debtsBridge = createDebtRealtimeBridge(uid);
+    unsubscribeDebtsRef.current = debtsBridge.subscribe(() => checkReady());
+
+    // [FINOPS] Centralizando Metas
+    const goalsBridge = createGoalRealtimeBridge(uid);
+    unsubscribeGoalsRef.current = goalsBridge.subscribe(() => checkReady());
+
+    // [FINOPS] Centralizando Categorias
+    const categoriesBridge = createCategoriesRealtimeBridge(uid);
+    unsubscribeCategoriesRef.current = categoriesBridge.subscribe(() => checkReady());
 
     function checkReady() {
-      // Simples heurística: se ambos deram pelo menos um snapshot
-      // (mesmo que vazio), a ponte está pronta.
-      // Para simplificar, vamos considerar pronto se ambos os subscribes responderem.
-      // Mas o subscribe do bridgeBridge chama onUpdate imediatamente se houver cache no Firebase.
       setFinanceBridgeReady(true);
       setHasConnectedAtLeastOnce(true);
     }
@@ -60,6 +88,11 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     return () => {
       if (unsubscribeCardsRef.current) unsubscribeCardsRef.current();
       if (unsubscribeBillsRef.current) unsubscribeBillsRef.current();
+      if (unsubscribeAssetsRef.current) unsubscribeAssetsRef.current();
+      if (unsubscribePassivesRef.current) unsubscribePassivesRef.current();
+      if (unsubscribeDebtsRef.current) unsubscribeDebtsRef.current();
+      if (unsubscribeGoalsRef.current) unsubscribeGoalsRef.current();
+      if (unsubscribeCategoriesRef.current) unsubscribeCategoriesRef.current();
     };
   }, [user?.uid]);
 

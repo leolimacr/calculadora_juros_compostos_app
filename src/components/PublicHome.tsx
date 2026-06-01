@@ -26,10 +26,9 @@ import {
   LogOut
 } from 'lucide-react';
 
-const CLOUD_API_URL = '/api/market';
+const FIREBASE_FUNCTIONS_BASE_URL = import.meta.env.VITE_FIREBASE_FUNCTIONS_BASE_URL;
+const BCB_API_BASE_URL = import.meta.env.VITE_BCB_API_BASE_URL;
 const AWESOME_API_URL = 'https://economia.awesomeapi.com.br/last/USD-BRL,EUR-BRL,BTC-BRL,ETH-BRL,BNB-BRL,SOL-BRL,BTC-USD,ETH-USD,SOL-USD';
-const BCB_SELIC_URL = '/api-bcb/dados/serie/bcdata.sgs.432/dados/ultimos/1?formato=json';
-const BCB_IPCA_URL = '/api-bcb/dados/serie/bcdata.sgs.13522/dados/ultimos/1?formato=json';
 
 const RADAR_NEWS = [
   { id: 1, tag: 'Macroeconomia', date: 'Semana 08/2026', title: 'Copom mantém a taxa Selic em 15.% a.a.', excerpt: 'Com a inflação dando sinais de persistência, o Banco Central optou pela cautela. Entenda como isso afeta seus investimentos em Renda Fixa.' },
@@ -122,10 +121,10 @@ export const PublicHome: React.FC<any> = ({ onNavigate, isAuthenticated, userMet
     const fetchMarket = async () => {
       try {
         const [cloudRes, awesomeRes, selic, ipca] = await Promise.all([
-          fetch(CLOUD_API_URL).then(r => r.json()).catch(() => ({ indices: [], stocks: [] })),
+          fetch(`${FIREBASE_FUNCTIONS_BASE_URL}/getMarketData`).then(r => r.json()).catch(() => ({ indices: [], stocks: [] })),
           fetch(AWESOME_API_URL).then(r => r.json()).catch(() => ({})),
-          fetch(BCB_SELIC_URL).then(r => r.json()).catch(() => [{ valor: '11.25' }]),
-          fetch(BCB_IPCA_URL).then(r => r.json()).catch(() => [{ valor: '4.50' }]),
+          fetch(`${BCB_API_BASE_URL}/dados/serie/bcdata.sgs.432/dados/ultimos/1?formato=json`).then(r => r.json()).catch(() => [{ valor: '11.25' }]),
+          fetch(`${BCB_API_BASE_URL}/dados/serie/bcdata.sgs.13522/dados/ultimos/1?formato=json`).then(r => r.json()).catch(() => [{ valor: '4.50' }]),
         ]);
 
         const formatB = (item: any, type: string) => ({

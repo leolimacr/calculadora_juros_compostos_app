@@ -1,42 +1,25 @@
-import { useState, useEffect } from 'react';
-import { collection, query, onSnapshot } from 'firebase/firestore';
-import { firestore } from '../firebase';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../core/query/queryKeys';
 import { ActiveAsset } from '../components/tools/wealth/ActiveWealthManager';
 
 export const useAssets = (userId: string | undefined) => {
-  const [assets, setAssets] = useState<ActiveAsset[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const key = queryKeys.wealth.assetsByUser(userId || 'anonymous');
 
-  useEffect(() => {
-    if (!userId) {
-      setAssets([]);
-      setLoading(false);
-      return;
-    }
+  const { data: assets = [], isLoading: loading, error, isFetching } = useQuery<ActiveAsset[], Error>({
+    queryKey: key,
+    queryFn: () => {
+      const currentData = queryClient.getQueryData<ActiveAsset[]>(key);
+      return Promise.resolve(currentData ?? []);
+    },
+    enabled: !!userId,
+    staleTime: 1000 * 60 * 5, // 5 minutos de cache
+  });
 
-    const assetsRef = collection(firestore, `users/${userId}/ativos`);
-    const q = query(assetsRef);
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const loadedAssets: ActiveAsset[] = [];
-        snapshot.forEach((doc) => {
-          loadedAssets.push({ id: doc.id, ...doc.data() } as ActiveAsset);
-        });
-        setAssets(loadedAssets);
-        setLoading(false);
-      },
-      (err) => {
-        console.error('Erro ao buscar ativos:', err);
-        setError('Erro ao carregar ativos');
-        setLoading(false);
-      }
-    );
-
-    return () => unsubscribe();
-  }, [userId]);
-
-  return { assets, loading, error };
+  return { 
+    assets, 
+    loading, 
+    isSyncing: isFetching && !loading,
+    error: error?.message || null 
+  };
 };

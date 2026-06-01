@@ -1,42 +1,25 @@
-import { useState, useEffect } from 'react';
-import { collection, query, onSnapshot } from 'firebase/firestore';
-import { firestore } from '../firebase';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../core/query/queryKeys';
 import { PassiveAsset } from '../components/tools/wealth/PassiveWealthManager';
 
 export const usePassives = (userId: string | undefined) => {
-  const [passives, setPassives] = useState<PassiveAsset[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const key = queryKeys.wealth.passivesByUser(userId || 'anonymous');
 
-  useEffect(() => {
-    if (!userId) {
-      setPassives([]);
-      setLoading(false);
-      return;
-    }
+  const { data: passives = [], isLoading: loading, error, isFetching } = useQuery<PassiveAsset[], Error>({
+    queryKey: key,
+    queryFn: () => {
+      const currentData = queryClient.getQueryData<PassiveAsset[]>(key);
+      return Promise.resolve(currentData ?? []);
+    },
+    enabled: !!userId,
+    staleTime: 1000 * 60 * 5, // 5 minutos de cache
+  });
 
-    const passivesRef = collection(firestore, `users/${userId}/passivos`);
-    const q = query(passivesRef);
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const loadedPassives: PassiveAsset[] = [];
-        snapshot.forEach((doc) => {
-          loadedPassives.push({ id: doc.id, ...doc.data() } as PassiveAsset);
-        });
-        setPassives(loadedPassives);
-        setLoading(false);
-      },
-      (err) => {
-        console.error('Erro ao buscar passivos:', err);
-        setError('Erro ao carregar passivos');
-        setLoading(false);
-      }
-    );
-
-    return () => unsubscribe();
-  }, [userId]);
-
-  return { passives, loading, error };
+  return { 
+    passives, 
+    loading, 
+    isSyncing: isFetching && !loading,
+    error: error?.message || null 
+  };
 };

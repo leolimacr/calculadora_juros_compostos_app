@@ -34,7 +34,8 @@ import {
   Area,
   PieChart,
   Pie,
-  Cell
+  Cell,
+  LabelList
 } from 'recharts';
 import type { Transaction, UserMeta, RecurringBill, CreditCard as CreditCardType } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
@@ -78,6 +79,7 @@ const AppCockpit: React.FC<AppCockpitProps> = ({
   // Hooks de Dados Reais
   const { 
     assets,
+    passives,
     totalInvestments, 
     totalProperty, 
     patrimonioLiquido, 
@@ -99,7 +101,20 @@ const AppCockpit: React.FC<AppCockpitProps> = ({
       .sort((a, b) => b.value - a.value);
   }, [assets]);
 
-  const { cards: userCards = [], loading: loadingCards } = useCards(user?.uid);
+  // Composição de Bens por Categoria
+  const propertyComposition = useMemo(() => {
+    const categories: Record<string, number> = {};
+    passives.forEach(item => {
+      const cat = item.category || 'Outros';
+      categories[cat] = (categories[cat] || 0) + (item.currentValue || 0);
+    });
+
+    return Object.entries(categories)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [passives]);
+
+  const { cards: userCards = [], isLoading: loadingCards } = useCards(user?.uid);
 
   const safeTx = useMemo(() => Array.isArray(transactions) ? transactions : [], [transactions]);
 
@@ -197,7 +212,7 @@ const AppCockpit: React.FC<AppCockpitProps> = ({
     }
 
     const currentPL = patrimonioLiquido;
-    const currentInvest = totalInvestments + totalProperty;
+    const currentInvest = totalInvestments;
     // Fallback: Simulaçío baseada no valor atual (tracejada futuramente)
     return [
       { name: 'Jan', value: currentPL * 0.85, investments: currentInvest * 0.82, isReal: false },
@@ -206,7 +221,7 @@ const AppCockpit: React.FC<AppCockpitProps> = ({
       { name: 'Abr', value: currentPL * 0.95, investments: currentInvest * 0.93, isReal: false },
       { name: 'Mai', value: currentPL, investments: currentInvest, isReal: false }
     ];
-  }, [patrimonioLiquido, totalInvestments, totalProperty, wealthHistory]);
+  }, [patrimonioLiquido, totalInvestments, wealthHistory]);
 
   const formatCurrency = (val: number) => 
     val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -234,7 +249,7 @@ const AppCockpit: React.FC<AppCockpitProps> = ({
         onClick={item.action}
         className={`group relative flex flex-col p-6 rounded-[2rem] border transition-all text-left bg-white shadow-sm hover:shadow-xl hover:-translate-y-1 active:scale-[0.98] ${
           item.warning ? 'border-status-danger/30 hover:border-status-danger' : 'border-slate-200 hover:border-brand-primary/40'
-        } md:col-span-2 lg:col-span-2`}
+        }`}
       >
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -530,12 +545,12 @@ const AppCockpit: React.FC<AppCockpitProps> = ({
           <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Inventário de Gestão</h4>
           {!isPremium && <button onClick={() => onNavigate('pricing')} className="text-[10px] font-black text-emerald-600 uppercase hover:underline">Ver benefícios Pro</button>}
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-4 gap-4">
           {[
-            { id: 'dividas', label: 'Dívidas', icon: AlertCircle, color: 'rose', value: totals.debt, hasItems: totals.hasDebts, action: () => onNavigate('minhas-dividas'), isValidated: totals.validatedModules?.debts },
-            { id: 'cartoes', label: 'Cartões', icon: CreditCard, color: 'amber', value: totals.cards, hasItems: totals.hasCards, warning: totals.hasIncompleteCards, action: () => onNavigate('manager', { openCards: true }) },
             { id: 'invest', label: 'Investimentos', icon: TrendingUp, color: 'emerald', value: totals.investments, hasItems: totals.hasInvestments, action: () => onNavigate('investimentos'), locked: true, proFeature: '+ Rentabilidade Real', isValidated: totals.validatedModules?.investments },
-            { id: 'patrimonio', label: 'Bens', icon: Building2, color: 'sky', value: totals.bens, hasItems: totals.hasBens, action: () => onNavigate('passivos'), locked: true, proFeature: '+ Valorização Automática', isValidated: totals.validatedModules?.property }
+            { id: 'patrimonio', label: 'Bens', icon: Building2, color: 'sky', value: totals.bens, hasItems: totals.hasBens, action: () => onNavigate('passivos'), locked: true, proFeature: '+ Valorização Automática', isValidated: totals.validatedModules?.property },
+            { id: 'cartoes', label: 'Cartões', icon: CreditCard, color: 'amber', value: totals.cards, hasItems: totals.hasCards, warning: totals.hasIncompleteCards, action: () => onNavigate('manager', { openCards: true }) },
+            { id: 'dividas', label: 'Dívidas', icon: AlertCircle, color: 'rose', value: totals.debt, hasItems: totals.hasDebts, action: () => onNavigate('minhas-dividas'), isValidated: totals.validatedModules?.debts }
           ].map(item => {
             if (item.id === 'cartoes') return renderCardsCard(item);
             return renderInventoryCard(item);
@@ -544,9 +559,9 @@ const AppCockpit: React.FC<AppCockpitProps> = ({
       </div>
 
       {/* DASHBOARD DE ANÁLISE (GRÁFICOS) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="space-y-6">
         {/* EVOLUÇÃO PATRIMONIAL (FRENTE 3) */}
-        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-soft overflow-hidden group">
+        <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-soft overflow-hidden group">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
             <div className="flex items-center gap-3">
               <div className="p-3 bg-brand-primary/10 rounded-2xl text-brand-primary">
@@ -573,17 +588,17 @@ const AppCockpit: React.FC<AppCockpitProps> = ({
             </div>
           </div>
 
-          <div className={`h-64 w-full ${!isPremium ? 'blur-sm grayscale opacity-40 pointer-events-none' : ''}`}>
+          <div className={`h-80 w-full ${!isPremium ? 'blur-sm grayscale opacity-40 pointer-events-none' : ''}`}>
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={evolutionData}>
+              <AreaChart data={evolutionData} margin={{ top: 30, right: 30, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
                     <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
                   </linearGradient>
                   <linearGradient id="colorInvest" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -593,6 +608,7 @@ const AppCockpit: React.FC<AppCockpitProps> = ({
                   tickLine={false} 
                   tick={{ fontSize: 10, fontWeight: 'bold', fill: '#94a3b8' }}
                 />
+                <YAxis hide domain={['auto', 'auto']} padding={{ top: 40, bottom: 20 }} />
                 <Tooltip 
                   contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                   formatter={(val: number, name: string) => [
@@ -609,17 +625,61 @@ const AppCockpit: React.FC<AppCockpitProps> = ({
                   strokeDasharray={evolutionData.some(d => !d.isReal) ? "5 5" : "0"}
                   fillOpacity={1} 
                   fill="url(#colorValue)" 
-                />
+                >
+                  <LabelList 
+                    dataKey="value" 
+                    position="top" 
+                    offset={10}
+                    content={(props: any) => {
+                      const { x, y, value, index } = props;
+                      if (index !== 0 && index !== evolutionData.length - 1) return null;
+                      return (
+                        <text 
+                          x={x} 
+                          y={y - 10} 
+                          fill="#10b981" 
+                          fontSize={10} 
+                          fontWeight="bold" 
+                          textAnchor={index === 0 ? "start" : "end"}
+                        >
+                          {formatCurrency(value)}
+                        </text>
+                      );
+                    }}
+                  />
+                </Area>
                 <Area 
                   type="monotone" 
                   dataKey="investments" 
                   name="investments"
-                  stroke="#6366f1" 
+                  stroke="#f59e0b" 
                   strokeWidth={3} 
                   strokeDasharray={evolutionData.some(d => !d.isReal) ? "5 5" : "0"}
                   fillOpacity={0.6} 
                   fill="url(#colorInvest)" 
-                />
+                >
+                  <LabelList 
+                    dataKey="investments" 
+                    position="bottom" 
+                    offset={10}
+                    content={(props: any) => {
+                      const { x, y, value, index } = props;
+                      if (index !== 0 && index !== evolutionData.length - 1) return null;
+                      return (
+                        <text 
+                          x={x} 
+                          y={y + 20} 
+                          fill="#f59e0b" 
+                          fontSize={10} 
+                          fontWeight="bold" 
+                          textAnchor={index === 0 ? "start" : "end"}
+                        >
+                          {formatCurrency(value)}
+                        </text>
+                      );
+                    }}
+                  />
+                </Area>
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -630,7 +690,7 @@ const AppCockpit: React.FC<AppCockpitProps> = ({
               <span className="text-[10px] font-black uppercase text-slate-500">Patrimônio Líquido</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-[#6366f1]" />
+              <div className="w-3 h-3 rounded-full bg-[#f59e0b]" />
               <span className="text-[10px] font-black uppercase text-slate-500">Investimentos</span>
             </div>
           </div>
@@ -643,73 +703,162 @@ const AppCockpit: React.FC<AppCockpitProps> = ({
           )}
         </div>
 
-        {/* COMPOSIÇÃO DE INVESTIMENTOS */}
-        <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-soft overflow-hidden group">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="p-3 bg-brand-secondary/10 rounded-2xl text-brand-secondary">
-              <PieChartIcon size={22} />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* COMPOSIÇÃO DE INVESTIMENTOS */}
+          <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-soft overflow-hidden group">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl">
+                <TrendingUp size={22} />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-slate-900 tracking-tight leading-tight uppercase">Sua Carteira de Investimentos</h3>
+                <p className="text-xs text-slate-500 font-medium">Diversificação por categoria.</p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-lg font-black text-slate-900 tracking-tight leading-tight uppercase">Sua Carteira</h3>
-              <p className="text-xs text-slate-500 font-medium">Diversificação por categoria.</p>
-            </div>
-          </div>
 
-          <div className="h-64 w-full">
-            {investmentComposition.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={investmentComposition}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {investmentComposition.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={[
-                        '#10b981', // emerald-500
-                        '#6366f1', // indigo-500
-                        '#f59e0b', // amber-500
-                        '#ec4899', // pink-500
-                        '#06b6d4', // cyan-500
-                        '#8b5cf6'  // violet-500
-                      ][index % 6]} stroke="none" />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                    formatter={(val: number) => [formatCurrency(val), 'Total']}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-center space-y-3 opacity-40">
-                <div className="p-4 bg-slate-50 rounded-full">
-                  <Target size={32} className="text-slate-300" />
+            <div className="h-64 w-full">
+              {investmentComposition.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={investmentComposition}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {investmentComposition.map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={[
+                          '#10b981', // emerald-500
+                          '#6366f1', // indigo-500
+                          '#f59e0b', // amber-500
+                          '#ec4899', // pink-500
+                          '#06b6d4', // cyan-500
+                          '#8b5cf6'  // violet-500
+                        ][index % 6]} stroke="none" />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                      formatter={(val: number) => [formatCurrency(val), 'Total']}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-center space-y-3 opacity-40">
+                  <div className="p-4 bg-slate-50 rounded-full">
+                    <Target size={32} className="text-slate-300" />
+                  </div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Nenhum investimento <br/> cadastrado</p>
                 </div>
-                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Nenhum investimento <br/> cadastrado</p>
+              )}
+            </div>
+
+            {investmentComposition.length > 0 && (
+              <div className="mt-4 space-y-2">
+                <div className="flex flex-col gap-2 mb-4">
+                  {investmentComposition.map((item, index) => (
+                    <div key={item.name} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: [
+                          '#10b981', '#6366f1', '#f59e0b', '#ec4899', '#06b6d4', '#8b5cf6'
+                        ][index % 6] }} />
+                        <span className="text-[10px] font-black uppercase text-slate-500">{item.name}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-[10px] font-bold text-slate-900">{formatCurrency(item.value)}</span>
+                        <span className="text-[10px] font-bold text-slate-400">{((item.value / totalInvestments) * 100).toFixed(1)}%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase text-slate-900">Total Geral</span>
+                  <span className="text-[11px] font-black text-brand-primary">{formatCurrency(totalInvestments)}</span>
+                </div>
               </div>
             )}
           </div>
 
-          {investmentComposition.length > 0 && (
-            <div className="mt-4 space-y-2">
-              {investmentComposition.slice(0, 3).map((item, index) => (
-                <div key={item.name} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: [
-                      '#10b981', '#6366f1', '#f59e0b', '#ec4899', '#06b6d4', '#8b5cf6'
-                    ][index % 6] }} />
-                    <span className="text-[10px] font-black uppercase text-slate-500">{item.name}</span>
-                  </div>
-                  <span className="text-[10px] font-bold text-slate-900">{((item.value / totalInvestments) * 100).toFixed(1)}%</span>
-                </div>
-              ))}
+          {/* COMPOSIÇÃO DE BENS */}
+          <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-soft overflow-hidden group">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="p-3 bg-sky-50 text-sky-600 rounded-2xl">
+                <Building2 size={22} />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-slate-900 tracking-tight leading-tight uppercase">Bens</h3>
+                <p className="text-xs text-slate-500 font-medium">Distribuição do seu patrimônio físico.</p>
+              </div>
             </div>
-          )}
+
+            <div className="h-64 w-full">
+              {propertyComposition.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={propertyComposition}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {propertyComposition.map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={[
+                          '#0ea5e9', // sky-500
+                          '#8b5cf6', // violet-500
+                          '#f43f5e', // rose-500
+                          '#f59e0b', // amber-500
+                          '#10b981', // emerald-500
+                          '#6366f1'  // indigo-500
+                        ][index % 6]} stroke="none" />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                      formatter={(val: number) => [formatCurrency(val), 'Total']}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-center space-y-3 opacity-40">
+                  <div className="p-4 bg-slate-50 rounded-full">
+                    <Target size={32} className="text-slate-300" />
+                  </div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Nenhum bem <br/> cadastrado</p>
+                </div>
+              )}
+            </div>
+
+            {propertyComposition.length > 0 && (
+              <div className="mt-4 space-y-2">
+                <div className="flex flex-col gap-2 mb-4">
+                  {propertyComposition.map((item, index) => (
+                    <div key={item.name} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: [
+                          '#0ea5e9', '#8b5cf6', '#f43f5e', '#f59e0b', '#10b981', '#6366f1'
+                        ][index % 6] }} />
+                        <span className="text-[10px] font-black uppercase text-slate-500">{item.name}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-[10px] font-bold text-slate-900">{formatCurrency(item.value)}</span>
+                        <span className="text-[10px] font-bold text-slate-400">{((item.value / totalProperty) * 100).toFixed(1)}%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase text-slate-900">Total Geral</span>
+                  <span className="text-[11px] font-black text-brand-primary">{formatCurrency(totalProperty)}</span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

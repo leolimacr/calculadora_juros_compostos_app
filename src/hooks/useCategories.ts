@@ -10,17 +10,14 @@ export const useCategories = (userId?: string) => {
   const queryClient = useQueryClient();
   const key = queryKeys.categories.byUser(userId || 'anonymous');
 
-  useEffect(() => {
-    if (!userId) return;
-    const bridge = createCategoriesRealtimeBridge(userId);
-    const unsubscribe = bridge.subscribe(() => {});
-    return unsubscribe;
-  }, [userId, key]);
-
   const { data: categories = [], isLoading: loading, error } = useQuery<Category[], Error>({
     queryKey: key,
-    queryFn: () => Promise.resolve([]),
+    queryFn: () => {
+      const currentData = queryClient.getQueryData<Category[]>(key);
+      return Promise.resolve(currentData ?? []);
+    },
     enabled: !!userId,
+    staleTime: 1000 * 60 * 60, // Categorias raramente mudam, cache de 1 hora
   });
 
   const saveCategory = async (category: Omit<Category, 'userId'>) => {

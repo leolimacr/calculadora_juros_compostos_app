@@ -15,30 +15,18 @@ export const useWealthData = () => {
   const keyAssets = queryKeys.wealth.assetsByUser(uid || 'anonymous');
   const keyPassives = queryKeys.wealth.passivesByUser(uid || 'anonymous');
 
-  useEffect(() => {
-    if (!uid) return;
-    const bridgeAssets = createAssetsRealtimeBridge(uid);
-    const bridgePassives = createPassivesRealtimeBridge(uid);
-    const unsubAssets = bridgeAssets.subscribe(() => {});
-    const unsubPassives = bridgePassives.subscribe(() => {});
-    return () => {
-      unsubAssets();
-      unsubPassives();
-    };
-  }, [uid]);
-
   const { data: assets = [], isLoading: assetsLoading, isFetching: assetsFetching } = useQuery<ActiveAsset[], Error>({
     queryKey: keyAssets,
     queryFn: () => Promise.resolve([]),
     enabled: !!uid,
-    staleTime: Infinity,
+    staleTime: 1000 * 60 * 5, // 5 minutos de cache
   });
 
   const { data: passives = [], isLoading: passivesLoading, isFetching: passivesFetching } = useQuery<PassiveAsset[], Error>({
     queryKey: keyPassives,
     queryFn: () => Promise.resolve([]),
     enabled: !!uid,
-    staleTime: Infinity,
+    staleTime: 1000 * 60 * 5, // 5 minutos de cache
   });
 
   const { goals, loading: goalsLoading } = useGoals(uid);

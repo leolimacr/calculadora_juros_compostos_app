@@ -8,13 +8,6 @@ export const useGoals = (userId: string | undefined) => {
   const queryClient = useQueryClient();
   const key = queryKeys.goals.byUser(userId || 'anonymous');
 
-  useEffect(() => {
-    if (!userId) return;
-    const bridge = createGoalRealtimeBridge(userId);
-    const unsubscribe = bridge.subscribe(() => {});
-    return unsubscribe;
-  }, [userId, key]);
-
   const { data: goals = [], isLoading: loading, error, isFetching } = useQuery<Goal[], Error>({
     queryKey: key,
     queryFn: () => {
@@ -22,7 +15,7 @@ export const useGoals = (userId: string | undefined) => {
       return Promise.resolve(currentData ?? []);
     },
     enabled: !!userId,
-    staleTime: Infinity,
+    staleTime: 1000 * 60 * 10, // 10 minutos para metas
   });
 
   const isSyncing = isFetching && !loading;

@@ -1,13 +1,13 @@
-import { ref, DataSnapshot } from 'firebase/database';
+import { ref, query as rtdbQuery, limitToLast, DataSnapshot } from 'firebase/database';
 import { db } from '../firebase';
 import { Transaction } from '../types';
-import { createRealtimeBridge } from '../core/realtime';
+import { createRealtimeBridge } from '../core/realtime/realtimeBridge';
 import { queryKeys } from '../core/query/queryKeys';
 
 export const createTransactionsRealtimeBridge = (userId: string) => {
   return createRealtimeBridge<Transaction[]>({
     queryKey: queryKeys.transactions.byUser(userId),
-    query: ref(db, `transactions/${userId}`),
+    query: rtdbQuery(ref(db, `transactions/${userId}`), limitToLast(100)),
     type: 'rtdb',
     mapSnapshot: (snapshot: DataSnapshot) => {
       const data = snapshot.val();

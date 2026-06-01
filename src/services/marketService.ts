@@ -8,7 +8,8 @@ import { MarketQuote, HistoricalDataPoint } from '../types';
 const AWESOME_API_URL = 'https://economia.awesomeapi.com.br/last/USD-BRL,EUR-BRL,BTC-BRL,BTC-USD,ETH-BRL,BNB-BRL,SOL-BRL';
 
 // Rota Serverless para Índices e Ações
-const INDICES_API_URL = '/api/market';
+const FIREBASE_FUNCTIONS_BASE_URL = import.meta.env.VITE_FIREBASE_FUNCTIONS_BASE_URL;
+const INDICES_API_URL = `${FIREBASE_FUNCTIONS_BASE_URL}/getMarketData`;
 
 // Cache Cliente
 const CACHE_KEY = 'finpro_market_cache';
@@ -257,8 +258,7 @@ export const fetchAssetQuote = async (symbol: string): Promise<MarketQuote | nul
       const requestSymbol = normalizedCrypto.yahooSymbol;
 
       if (isProduction) {
-        const functionUrl = 'https://us-central1-financas-pro-invest.cloudfunctions.net/getAssetQuote';
-        const url = `${functionUrl}?symbol=${encodeURIComponent(requestSymbol)}`;
+        const url = `${FIREBASE_FUNCTIONS_BASE_URL}/getAssetQuote?symbol=${encodeURIComponent(requestSymbol)}`;
         const res = await fetch(url);
         if (!res.ok) return null;
 
@@ -298,8 +298,7 @@ export const fetchAssetQuote = async (symbol: string): Promise<MarketQuote | nul
     }
 
     if (isProduction) {
-      const functionUrl = 'https://us-central1-financas-pro-invest.cloudfunctions.net/getAssetQuote';
-      const url = `${functionUrl}?symbol=${encodeURIComponent(symbol)}`;
+      const url = `${FIREBASE_FUNCTIONS_BASE_URL}/getAssetQuote?symbol=${encodeURIComponent(symbol)}`;
       const res = await fetch(url);
       if (!res.ok) return null;
       const data = await res.json();

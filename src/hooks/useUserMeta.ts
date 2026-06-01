@@ -8,13 +8,6 @@ export const useUserMeta = (userId?: string) => {
   const queryClient = useQueryClient();
   const key = queryKeys.user.profile(userId || 'anonymous');
 
-  useEffect(() => {
-    if (!userId) return;
-    const bridge = createUserMetaRealtimeBridge(userId);
-    const unsubscribe = bridge.subscribe(() => {});
-    return unsubscribe;
-  }, [userId, key]);
-
   const { data = null, isLoading: loading, error, isFetching } = useQuery<UserMeta | null, Error>({
     queryKey: key,
     queryFn: () => {
@@ -22,7 +15,7 @@ export const useUserMeta = (userId?: string) => {
       return Promise.resolve(currentData ?? null);
     },
     enabled: !!userId,
-    staleTime: Infinity,
+    staleTime: 1000 * 60 * 10, // 10 minutos de cache
   });
 
   return {

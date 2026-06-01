@@ -1,13 +1,13 @@
-import { collection, query, QuerySnapshot, DocumentSnapshot, DocumentData } from 'firebase/firestore';
+import { collection, query, QuerySnapshot, DocumentSnapshot, DocumentData, limit } from 'firebase/firestore';
 import { firestore } from '../firebase';
 import { CreditCard } from '../types';
-import { createRealtimeBridge } from '../core/realtime';
+import { createRealtimeBridge } from '../core/realtime/realtimeBridge';
 import { queryKeys } from '../core/query/queryKeys';
 
 export const createCardsRealtimeBridge = (userId: string) => {
   return createRealtimeBridge<CreditCard[]>({
     queryKey: queryKeys.cards.byUser(userId),
-    query: query(collection(firestore, `users/${userId}/cartoes`)),
+    query: query(collection(firestore, `users/${userId}/cartoes`), limit(100)),
     type: 'firestore',
     mapSnapshot: (snapshot: QuerySnapshot<DocumentData> | DocumentSnapshot<DocumentData>) => {
       if ('docs' in snapshot) {

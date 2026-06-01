@@ -10,7 +10,8 @@ export async function fetchCurrentSelicRate(): Promise<number> {
   const end = new Date();
   const start = new Date();
   start.setMonth(start.getMonth() - 6);  
-  const url = `/api-bcb/dados/serie/bcdata.sgs.${SELIC_SERIES_CODE}/dados?formato=json&dataInicial=${formatDate(start)}&dataFinal=${formatDate(end)}`;
+  const BCB_API_BASE_URL = import.meta.env.VITE_BCB_API_BASE_URL;
+  const url = `${BCB_API_BASE_URL}/dados/serie/bcdata.sgs.${SELIC_SERIES_CODE}/dados?formato=json&dataInicial=${formatDate(start)}&dataFinal=${formatDate(end)}`;
     
   const response = await fetch(url, {
     headers: {

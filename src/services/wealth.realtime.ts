@@ -1,14 +1,14 @@
-import { collection, query, QuerySnapshot, DocumentSnapshot, DocumentData, orderBy } from 'firebase/firestore';
+import { collection, query, QuerySnapshot, DocumentSnapshot, DocumentData, orderBy, limit } from 'firebase/firestore';
 import { firestore } from '../firebase';
 import { ActiveAsset } from '../components/tools/wealth/ActiveWealthManager';
 import { PassiveAsset } from '../components/tools/wealth/PassiveWealthManager';
-import { createRealtimeBridge } from '../core/realtime';
+import { createRealtimeBridge } from '../core/realtime/realtimeBridge';
 import { queryKeys } from '../core/query/queryKeys';
 
 export const createAssetsRealtimeBridge = (userId: string) => {
   return createRealtimeBridge<ActiveAsset[]>({
     queryKey: queryKeys.wealth.assetsByUser(userId),
-    query: query(collection(firestore, `users/${userId}/ativos`), orderBy('currentValue', 'desc')),
+    query: query(collection(firestore, `users/${userId}/ativos`), orderBy('currentValue', 'desc'), limit(100)),
     type: 'firestore',
     mapSnapshot: (snapshot: QuerySnapshot<DocumentData> | DocumentSnapshot<DocumentData>) => {
       if ('docs' in snapshot) {
@@ -24,7 +24,7 @@ export const createAssetsRealtimeBridge = (userId: string) => {
 export const createPassivesRealtimeBridge = (userId: string) => {
   return createRealtimeBridge<PassiveAsset[]>({
     queryKey: queryKeys.wealth.passivesByUser(userId),
-    query: query(collection(firestore, `users/${userId}/passivos`), orderBy('currentValue', 'desc')),
+    query: query(collection(firestore, `users/${userId}/passivos`), orderBy('currentValue', 'desc'), limit(100)),
     type: 'firestore',
     mapSnapshot: (snapshot: QuerySnapshot<DocumentData> | DocumentSnapshot<DocumentData>) => {
       if ('docs' in snapshot) {

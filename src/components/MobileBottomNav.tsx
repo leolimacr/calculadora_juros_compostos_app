@@ -1,5 +1,5 @@
 import React from 'react';
-import { House, Plus, LayoutGrid, Menu } from 'lucide-react';
+import { House, Plus, Sparkles, Menu } from 'lucide-react';
 import { useNavigation } from '../hooks/useNavigation';
 import { Transaction } from '../types';
 

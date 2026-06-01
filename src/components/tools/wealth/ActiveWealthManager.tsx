@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, query, onSnapshot, addDoc, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, getDocs, addDoc, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { firestore } from '../../../firebase'; // Ajuste o caminho se necessário
 import { TrendingUp, Plus, Trash2, Wallet, PieChart, Pencil, X, ShieldCheck, HelpCircle, ArrowRight, LayoutGrid, List } from 'lucide-react';
 import { useWealthData } from '../../../hooks/useWealthData';
@@ -61,7 +61,7 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
   };
 
   // Função para lidar com a digitação do valor financeiro (da direita para esquerda)
-  const handleCurrencyChange = (e: React.ChangeEvent<INPUTElement>) => {
+  const handleCurrencyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     // 1. Pega o valor digitado e remove tudo que não é número
     let value = e.target.value.replace(/\D/g, '');
     
@@ -88,34 +88,39 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
 
   // Leitura de Dados
   useEffect(() => {
-    if (!userId) {
-      setIsLoading(false);
-      return;
-    }
+    const loadAssets = async () => {
+      if (!userId) {
+        setIsLoading(false);
+        return;
+      }
 
-    const assetsRef = collection(firestore, `users/${userId}/ativos`);
-    const q = query(assetsRef);
+      try {
+        const assetsRef = collection(firestore, `users/${userId}/ativos`);
+        // [FINOPS] Troca de onSnapshot por getDocs (leitura única sob demanda)
+        const snapshot = await getDocs(query(assetsRef));
+        const loadedAssets = snapshot.docs.map(doc => ({ 
+          id: doc.id, 
+          ...doc.data() 
+        } as ActiveAsset));
+        
+        setAssets(loadedAssets);
+      } catch (error) {
+        console.error("Erro ao buscar ativos:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const loadedAssets: ActiveAsset[] = [];
-      snapshot.forEach((doc) => {
-        loadedAssets.push({ id: doc.id, ...doc.data() } as ActiveAsset);
-      });
-      setAssets(loadedAssets);
-      setIsLoading(false);
-    }, (error) => {
-      console.error("Erro ao buscar ativos:", error);
-      setIsLoading(false);
-    });
+    loadAssets();
 
     // Registra que o usuário revisou o patrimônio agora
-    setDoc(
-      doc(firestore, 'users', userId),
-      { lastWealthReviewAt: new Date().toISOString() },
-      { merge: true }
-    ).catch(() => {});
-
-    return () => unsubscribe();
+    if (userId) {
+      setDoc(
+        doc(firestore, 'users', userId),
+        { lastWealthReviewAt: new Date().toISOString() },
+        { merge: true }
+      ).catch(() => {});
+    }
   }, [userId]);
 
   // Função Salvar (Criar ou Editar)
@@ -159,6 +164,15 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
       // Reseta formulário
       setCurrentAsset({ name: '', category: 'Renda Fixa', currentValue: 0 });
       setEditingId(null);
+
+      // NOVO: Auto-salvamento de snapshot para o gráfico de evolução
+      // Isso garante que cada mudança gere um ponto no gráfico
+      await saveSnapshot({
+        totalNetWorth: patrimonioLiquido,
+        totalAssets: totalAssets,
+        totalDebts: totalDebts,
+        module: 'investments'
+      });
     } catch (error) {
       console.error("Erro ao salvar ativo:", error);
       alert("Houve um erro ao salvar seu investimento.");
@@ -205,6 +219,14 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
       if (editingId === assetId) {
         handleCancelEdit();
       }
+
+      // NOVO: Auto-salvamento de snapshot para o gráfico de evolução
+      await saveSnapshot({
+        totalNetWorth: patrimonioLiquido,
+        totalAssets: totalAssets,
+        totalDebts: totalDebts,
+        module: 'investments'
+      });
     } catch (error) {
       console.error("Erro ao excluir ativo:", error);
       alert("Houve um erro ao tentar excluir o investimento.");
