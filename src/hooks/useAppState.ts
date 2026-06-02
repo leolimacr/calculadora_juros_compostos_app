@@ -22,6 +22,7 @@ export interface AppState {
   deleteLancamento: ReturnType<typeof useFirebase>['deleteLancamento'];
   saveCategory: ReturnType<typeof useFirebase>['saveCategory'];
   deleteCategory: ReturnType<typeof useFirebase>['deleteCategory'];
+  fetchHistory: ReturnType<typeof useFirebase>['fetchHistory'];
   userMeta: UserMeta | null | undefined;
   userMetaLoaded: boolean;
   usagePercentage: number;
@@ -57,6 +58,29 @@ export interface AppState {
 
 export function useAppState(): AppState {
   const { user, isAuthenticated, loading: authLoading, logout } = useAuth();
+
+  useEffect(() => {
+    if (isAuthenticated && user?.uid) {
+      const updateHeartbeat = async () => {
+        try {
+          const STORAGE_KEY = `fpi_last_heartbeat_${user.uid}`;
+          const today = new Date().toISOString().split('T')[0];
+          if (localStorage.getItem(STORAGE_KEY) !== today) {
+            const userRef = doc(firestore, 'users', user.uid);
+            await setDoc(userRef, { 
+              lastActiveAt: serverTimestamp() 
+            }, { merge: true });
+            
+            localStorage.setItem(STORAGE_KEY, today);
+          }
+        } catch (error) {
+          console.warn('[FinOps] Heartbeat bypass:', error);
+        }
+      };
+      updateHeartbeat();
+    }
+  }, [isAuthenticated, user?.uid]);
+
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const {
     lancamentos,
@@ -70,6 +94,7 @@ export function useAppState(): AppState {
     usagePercentage,
     isLimitReached,
     isSyncing,
+    fetchHistory,
   } = useFirebase(user?.uid);
   const { isPro, isPremium } = useSubscriptionAccess();
   const { isAppLocked, storedPin, handleUnlockSuccess } = useAppSecurity(user?.uid, isAuthenticated);
@@ -173,6 +198,28 @@ export function useAppState(): AppState {
 
   const isLoading = authLoading;
 
+  useEffect(() => {
+    if (isAuthenticated && user?.uid) {
+      const updateHeartbeat = async () => {
+        try {
+          const STORAGE_KEY = `fpi_last_heartbeat_${user.uid}`;
+          const today = new Date().toISOString().split('T')[0];
+          if (localStorage.getItem(STORAGE_KEY) !== today) {
+            const userRef = doc(firestore, 'users', user.uid);
+            await setDoc(userRef, { 
+              lastActiveAt: serverTimestamp() 
+            }, { merge: true });
+            
+            localStorage.setItem(STORAGE_KEY, today);
+          }
+        } catch (error) {
+          console.warn('[FinOps] Heartbeat bypass:', error);
+        }
+      };
+      updateHeartbeat();
+    }
+  }, [isAuthenticated, user?.uid]);
+
   return {
     user,
     isAuthenticated,
@@ -181,6 +228,7 @@ export function useAppState(): AppState {
     categories,
     saveLancamento,
     deleteLancamento,
+    fetchHistory,
     saveCategory,
     deleteCategory,
     userMeta,

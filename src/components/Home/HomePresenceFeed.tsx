@@ -58,72 +58,64 @@ export const HomePresenceFeed: React.FC<Props> = ({ userId, isAuthenticated, onN
     };
 
     const start = async () => {
-      const q = query(
-        collection(firestore, 'users', userId, 'presenceEvents'),
-        where('status', '==', 'pending'),
-        where('channel', 'in', ['in_app', 'push']),
-        orderBy('urgencyScore', 'desc'),
-        limit(6)
-      );
+      try {
+        const q = query(
+          collection(firestore, 'users', userId, 'presenceEvents'),
+          where('status', '==', 'pending'),
+          where('channel', 'in', ['in_app', 'push']),
+          orderBy('urgencyScore', 'desc'),
+          limit(6)
+        );
 
-      unsubscribe = onSnapshot(
-        q,
-        (snap) => {
+        // [FINOPS] Troca de onSnapshot por getDocs para carregamento único (mais barato)
+        const snap = await getDocs(q);
+        const now = Math.floor(Date.now() / 1000);
+        const items = snap.docs
+          .map(d => ({ eventId: d.id, ...d.data() } as PresenceEvent))
+          .filter(ev => !ev.expiresAt || ev.expiresAt.seconds > now)
+          .slice(0, 3);
+
+        setEvents(items);
+        setLoading(false);
+        markSeen(items);
+      } catch (error) {
+        console.error('[HomePresenceFeed] Erro ao buscar presenceEvents:', error);
+
+        const requiresIndex =
+          error &&
+          typeof error === 'object' &&
+          'code' in error &&
+          (error as any).code === 'failed-precondition';
+
+        if (!requiresIndex) {
+          setLoading(false);
+          return;
+        }
+
+        try {
+          const fallbackQ = query(
+            collection(firestore, 'users', userId, 'presenceEvents'),
+            where('status', '==', 'pending'),
+            limit(20)
+          );
+
+          const fallbackSnap = await getDocs(fallbackQ);
           const now = Math.floor(Date.now() / 1000);
-          const items = snap.docs
+          const items = fallbackSnap.docs
             .map(d => ({ eventId: d.id, ...d.data() } as PresenceEvent))
+            .filter(ev => (ev.channel === 'in_app' || ev.channel === 'push'))
             .filter(ev => !ev.expiresAt || ev.expiresAt.seconds > now)
+            .sort((a, b) => (b.urgencyScore || 0) - (a.urgencyScore || 0))
             .slice(0, 3);
 
           setEvents(items);
-          setLoading(false);
           markSeen(items);
-        },
-        async (error) => {
-          console.error('[HomePresenceFeed] Erro ao ouvir presenceEvents:', error);
-
-          const requiresIndex =
-            error &&
-            typeof error === 'object' &&
-            'code' in error &&
-            (error as any).code === 'failed-precondition';
-
-          if (!requiresIndex) {
-            setLoading(false);
-            return;
-          }
-
-          try {
-            const fallbackQ = query(
-              collection(firestore, 'users', userId, 'presenceEvents'),
-              where('status', '==', 'pending'),
-              limit(20)
-            );
-
-            const fallbackSnap = await getDocs(fallbackQ);
-            const now = Math.floor(Date.now() / 1000);
-            const items = fallbackSnap.docs
-              .map(d => ({ eventId: d.id, ...d.data() } as PresenceEvent))
-              .filter(ev => (ev.channel === 'in_app' || ev.channel === 'push'))
-              .filter(ev => !ev.expiresAt || ev.expiresAt.seconds > now)
-              .sort((a, b) => (b.urgencyScore || 0) - (a.urgencyScore || 0))
-              .slice(0, 3);
-
-            console.log('[HomePresenceFeed] Fallback carregado', {
-              totalDocs: fallbackSnap.size,
-              renderedDocs: items.length,
-              items,
-            });
-
-            setEvents(items);
-            markSeen(items);
-          } catch (fallbackError) {
-            console.error('[HomePresenceFeed] Fallback query também falhou:', fallbackError);
-          } finally {
-            setLoading(false);
-          }
+        } catch (fallbackError) {
+          console.error('[HomePresenceFeed] Fallback query também falhou:', fallbackError);
+        } finally {
+          setLoading(false);
         }
-      );
+      }
     };
 
     start();

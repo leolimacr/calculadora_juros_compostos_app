@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { firestore } from '../firebase';
-import { collection, query, onSnapshot, doc, updateDoc, orderBy, limit } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, orderBy, limit } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 
 export interface NexusEvent {
@@ -18,48 +18,51 @@ export const useNexusEvents = () => {
   const [event, setEvent] = useState<NexusEvent | null>(null);
 
   useEffect(() => {
-    if (!user) return;
+    const fetchEvents = async () => {
+      if (!user) return;
 
-    const eventsRef = collection(firestore, 'users', user.uid, 'presenceEvents');
-    // Lê os últimos 20 eventos e filtra no frontend para maior resiliência de schema
-    const q = query(eventsRef, orderBy('createdAt', 'desc'), limit(20));
+      try {
+        const eventsRef = collection(firestore, 'users', user.uid, 'presenceEvents');
+        // [FINOPS] Troca de onSnapshot por getDocs para carregamento único
+        const q = query(eventsRef, orderBy('createdAt', 'desc'), limit(20));
+        const snapshot = await getDocs(q);
+        
+        const now = Date.now();
+        const events: NexusEvent[] = snapshot.docs
+          .map(doc => ({ id: doc.id, ...doc.data() } as NexusEvent))
+          .filter(e => {
+              const isRead = e.read === true;
+              if (isRead) return false;
+              
+              if (e.expiresAt && typeof e.expiresAt.toMillis === 'function') {
+                  return e.expiresAt.toMillis() > now;
+              }
+              return true;
+          });
 
-    const unsub = onSnapshot(q, (snapshot) => {
-      const now = Date.now();
-      
-      const events: NexusEvent[] = snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() } as NexusEvent))
-        .filter(e => {
-            // Regras de filtragem resilientes
-            const isRead = e.read === true;
-            if (isRead) return false;
-            
-            // Verifica expiração: aceita se expiração não existir ou for no futuro
-            if (e.expiresAt && typeof e.expiresAt.toMillis === 'function') {
-                return e.expiresAt.toMillis() > now;
-            }
-            return true;
+        const urgencyMap = { high: 3, medium: 2, low: 1 };
+        const sorted = events.sort((a, b) => {
+          const uA = urgencyMap[a.urgency || 'low'] || 0;
+          const uB = urgencyMap[b.urgency || 'low'] || 0;
+          if (uA !== uB) return uB - uA;
+          return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
         });
 
-      // Priorização: High > Medium > Low, depois createdAt mais recente
-      const urgencyMap = { high: 3, medium: 2, low: 1 };
-      const sorted = events.sort((a, b) => {
-        const uA = urgencyMap[a.urgency || 'low'] || 0;
-        const uB = urgencyMap[b.urgency || 'low'] || 0;
-        if (uA !== uB) return uB - uA;
-        return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
-      });
+        setEvent(sorted[0] || null);
+      } catch (error) {
+        console.error('Erro ao buscar eventos Nexus:', error);
+        setEvent(null);
+      }
+    };
 
-      setEvent(sorted[0] || null);
-    }, () => setEvent(null));
-
-    return () => unsub();
+    fetchEvents();
   }, [user]);
 
   const dismiss = async (eventId: string) => {
     if (!user) return;
     try {
       await updateDoc(doc(firestore, 'users', user.uid, 'presenceEvents', eventId), { read: true });
+      setEvent(null); // Atualiza estado local após descartar
     } catch (e) {
       console.error('Erro ao descartar evento:', e);
     }

@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ref, push, remove, update } from 'firebase/database';
+import { ref, push, remove, update, set, query as rtdbQuery, orderByChild, limitToLast, get, endBefore } from 'firebase/database';
 import { db } from '../firebase';
 import { queryKeys } from '../core/query/queryKeys';
 import { Transaction } from '../types';
@@ -28,10 +28,58 @@ export const useTransactions = (userId?: string) => {
     staleTime: Infinity,
   });
 
+  // NOVO: Busca histórico antigo (paginação robusta via sortKey)
+  const fetchHistory = async (lastSortKey: string | null, limitCount = 50): Promise<Transaction[]> => {
+    if (!userId) return [];
+    try {
+      const transactionsRef = ref(db, `transactions/${userId}`);
+      
+      let q;
+      if (lastSortKey) {
+        // endBefore evita baixar o último item novamente
+        q = rtdbQuery(
+          transactionsRef, 
+          orderByChild('sortKey'), 
+          endBefore(lastSortKey), 
+          limitToLast(limitCount)
+        );
+      } else {
+        q = rtdbQuery(transactionsRef, orderByChild('sortKey'), limitToLast(limitCount));
+      }
+      
+      const snapshot = await get(q);
+      if (!snapshot.exists()) return [];
+      
+      const results: Transaction[] = [];
+      snapshot.forEach((child) => {
+        const val = child.val();
+        const id = child.key as string;
+        const dateClean = val.date.replace(/-/g, '');
+        
+        // Fallback robusto: YYYYMMDD_0000000000000_ID
+        const sortKey = val.sortKey || `${dateClean}_0000000000000_${id}`;
+        
+        results.push({ 
+          id, 
+          ...val, 
+          sortKey 
+        } as Transaction);
+      });
+      
+      // RTDB retorna ASC, invertemos para DESC no UI
+      return results.sort((a, b) => b.sortKey!.localeCompare(a.sortKey!));
+    } catch (err) {
+      console.error("Erro ao buscar histórico:", err);
+      return [];
+    }
+  };
+
   const saveLancamento = async (transaction: Omit<Transaction, 'id' | 'userId'> & { id?: string }) => {
     if (!userId) return;
     
-    // Edição de lançamento existente (não suporta alterar parcelamento de algo já criado por enquanto)
+    const now = Date.now();
+    const dateClean = transaction.date.replace(/-/g, '');
+
     if (transaction.id) {
         const transactionRef = ref(db, `transactions/${userId}/${transaction.id}`);
         const { id, ...dataToUpdate } = transaction;
@@ -42,9 +90,8 @@ export const useTransactions = (userId?: string) => {
 
     const transactionsRef = ref(db, `transactions/${userId}`);
 
-    // Lógica de Parcelamento
     if (transaction.paymentMethod === 'credit' && transaction.installments && transaction.installments > 1) {
-      const installmentId = `inst_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+      const installmentId = `inst_${now}_${Math.random().toString(36).substr(2, 5)}`;
       const totalAmount = transaction.amount;
       const installmentAmount = totalAmount / transaction.installments;
       const baseDate = new Date(transaction.date.replace(/-/g, '/'));
@@ -52,36 +99,44 @@ export const useTransactions = (userId?: string) => {
       const promises = [];
       for (let i = 1; i <= transaction.installments; i++) {
         const installmentDate = new Date(baseDate);
-        // Adiciona meses um a um
         installmentDate.setMonth(baseDate.getMonth() + (i - 1));
         
-        // Ajuste para evitar que 31/jan vire 03/mar (setMonth em data > 28)
-        // Se após setMonth o dia for diferente do dia base (ex: base 31, resultante 3 ou 2 ou 1), 
-        // significa que estourou o mês. Ajustamos para o último dia do mês anterior ao estouro.
         if (installmentDate.getDate() !== baseDate.getDate() && i > 1) {
-            // Volta para o último dia do mês pretendido
             const lastDayOfIntendedMonth = new Date(baseDate.getFullYear(), baseDate.getMonth() + i, 0);
             installmentDate.setDate(lastDayOfIntendedMonth.getDate());
             installmentDate.setMonth(lastDayOfIntendedMonth.getMonth());
             installmentDate.setFullYear(lastDayOfIntendedMonth.getFullYear());
         }
 
+        const newRef = push(transactionsRef);
+        const instDateStr = installmentDate.toISOString().split('T')[0];
+        const instDateClean = instDateStr.replace(/-/g, '');
+        
         const data = {
           ...transaction,
           userId,
           amount: installmentAmount,
           currentInstallment: i,
           installmentId,
-          date: installmentDate.toISOString().split('T')[0],
-          description: `${transaction.description} (${i}/${transaction.installments})`
+          date: instDateStr,
+          description: `${transaction.description} (${i}/${transaction.installments})`,
+          createdAtMs: now + i,
+          sortKey: `${instDateClean}_${now + i}_${newRef.key}`
         };
-        promises.push(push(transactionsRef, data));
+        promises.push(set(newRef, data));
       }
       await Promise.all(promises);
     } else {
-      // Lançamento normal (ou crédito à vista)
-      await push(transactionsRef, { ...transaction, userId });
+      const newRef = push(transactionsRef);
+      const data = { 
+        ...transaction, 
+        userId,
+        createdAtMs: now,
+        sortKey: `${dateClean}_${now}_${newRef.key}`
+      };
+      await set(newRef, data);
     }
+    queryClient.invalidateQueries({ queryKey: key });
   };
 
   const deleteLancamento = async (id: string) => {
@@ -100,5 +155,6 @@ export const useTransactions = (userId?: string) => {
     error: error?.message || null,
     saveLancamento,
     deleteLancamento,
+    fetchHistory,
   };
 };

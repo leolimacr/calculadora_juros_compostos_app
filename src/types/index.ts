@@ -31,6 +31,8 @@ export interface Transaction {
   installments?: number;        // Total de parcelas (ex: 12)
   currentInstallment?: number; // Parcela atual (ex: 1)
   installmentId?: string;      // ID único para agrupar as parcelas de uma mesma compra
+  createdAtMs?: number;        // Momento técnico de criação
+  sortKey?: string;            // Chave composta para ordenação e paginação
 }
 
 export interface Category {

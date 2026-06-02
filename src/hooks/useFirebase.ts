@@ -24,7 +24,8 @@ export const useFirebase = (userId?: string) => {
     loading: transLoading, 
     isSyncing: transSyncing,
     saveLancamento, 
-    deleteLancamento 
+    deleteLancamento,
+    fetchHistory 
   } = useTransactions(userId);
 
   useEffect(() => {
@@ -71,6 +72,7 @@ export const useFirebase = (userId?: string) => {
     isSyncing: transSyncing,
     saveLancamento,
     deleteLancamento,
+    fetchHistory,
     saveCategory,
     deleteCategory,
     saveFinancialProfile,
