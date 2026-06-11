@@ -324,7 +324,10 @@ exports.dailyPresenceCheck = (0, scheduler_1.onSchedule)({
     const db = (0, firestore_1.getFirestore)();
     const now = new Date();
     const nowMs = now.getTime();
-    const usersSnap = await db.collection('users').get();
+    const fifteenDaysAgo = new Date(nowMs - 15 * 24 * 60 * 60 * 1000);
+    const usersSnap = await db.collection('users')
+        .where('lastActiveAt', '>=', fifteenDaysAgo)
+        .get();
     for (const userDoc of usersSnap.docs) {
         const uid = userDoc.id;
         try {

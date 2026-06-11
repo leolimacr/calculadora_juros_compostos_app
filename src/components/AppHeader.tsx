@@ -1,10 +1,11 @@
 import React, { useCallback, useMemo } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
-import { LogOut, Settings, Sparkles, Eye, EyeOff, Menu, Globe, CreditCard, Compass, ArrowLeft, Crown } from 'lucide-react';
+import { LogOut, Settings, Sparkles, Eye, EyeOff, Menu, Globe, CreditCard, Compass, ArrowLeft, Crown, Bell } from 'lucide-react';
 import { useNavigation } from '../hooks/useNavigation';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { UserMeta } from '../types';
+import { useNotifications } from '../contexts/NotificationContext';
 
 interface AppHeaderProps {
   isAuthenticated: boolean;
@@ -16,6 +17,8 @@ interface AppHeaderProps {
   onOpenMobileMenu: () => void;
   isPro?: boolean;
   isPremium?: boolean;
+  isNotificationsOpen: boolean;
+  onOpenNotifications: (open: boolean) => void;
 }
 
 const MAIN_ROUTES = ['/app/home', '/app/controla', '/app/central', '/app/mais', '/app/explorar', '/'];
@@ -30,11 +33,14 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   onOpenMobileMenu,
   isPro,
   isPremium,
+  isNotificationsOpen,
+  onOpenNotifications,
 }) => {
   const isNative = Capacitor.isNativePlatform();
   const { currentTool, handleNavigate } = useNavigation();
   const location = useLocation();
   const navigate = useNavigate();
+  const { unreadCount } = useNotifications();
 
   const isMainRoute = useMemo(() => MAIN_ROUTES.includes(location.pathname), [location.pathname]);
 
@@ -100,6 +106,20 @@ const AppHeader: React.FC<AppHeaderProps> = ({
 
       <div className="flex items-center justify-end gap-2 md:gap-4 flex-1">
         
+        {isAuthenticated && (
+            <button 
+                onClick={() => onOpenNotifications(true)}
+                className="relative p-2.5 text-slate-600 hover:text-sky-600 hover:bg-sky-50 rounded-xl transition-all active:scale-95"
+            >
+                <Bell size={20} />
+                {unreadCount > 0 && (
+                    <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-rose-500 text-white text-[9px] font-black flex items-center justify-center rounded-full border-2 border-white animate-in zoom-in duration-300">
+                        {unreadCount}
+                    </span>
+                )}
+            </button>
+        )}
+
         {!isAuthenticated && (
           <button 
             onClick={() => handleNavigate('login')} 
@@ -153,9 +173,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             </div>
 
             <div className="hidden md:flex items-center gap-2">
-              <button onClick={() => handleNavigate('chat')} className="flex items-center gap-2 px-6 py-2 rounded-full border text-[10px] font-black uppercase transition-all bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200">
-                <Sparkles size={14} className="text-violet-500" /> Nexus IA
-              </button>
               <button onClick={() => handleNavigate('settings')} className="p-2 text-slate-400 hover:text-slate-900 transition-colors"><Settings size={18} /></button>
               <button onClick={onLogout} className="p-2 text-slate-400 hover:text-red-500 transition-colors"><LogOut size={18} /></button>
             </div>

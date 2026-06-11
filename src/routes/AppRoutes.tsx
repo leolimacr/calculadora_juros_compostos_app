@@ -1,8 +1,8 @@
 import React from 'react';
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import OnboardingWizard from '../components/OnboardingWizard';
+import NexusBriefingView from '../components/tools/nexus/NexusBriefingView';
 import {
-  AiChatPage,
   FireCalculatorTool,
   CompoundInterestTool,
   InflationTool,
@@ -134,7 +134,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
           path="/" 
           element={
             isAuthenticated ? (
-              <Navigate to="/app/home" replace />
+              <Navigate to={state.isMobileBrowser ? "/app/explorar" : "/app/home"} replace />
             ) : (
               <PublicHome
                 key={homeKey}
@@ -203,20 +203,24 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
         <Route 
           path="home" 
           element={
-            isAuthenticated && userMetaLoaded && userMeta?.onboardingCompleted === false ? (
-              <div className="min-h-screen bg-[#020617] flex items-center justify-center px-4">
-                <OnboardingWizard userId={user!.uid} onComplete={() => setOnboardingDismissed(true)} />
-              </div>
+            state.isMobileBrowser ? (
+              <Navigate to="/app/explorar" replace />
             ) : (
-                <AppCockpit
-                  transactions={state.lancamentos}
-                  isPrivacyMode={state.isPrivacyMode}
-                  onNavigate={(tool, state) => handleNavigate(tool, state)}
-                  userMeta={userMeta}
-                  isPremium={isPremium}
-                  isPro={isPro}
-                  isSyncing={state.isSyncing}
-                />
+              isAuthenticated && userMetaLoaded && userMeta?.onboardingCompleted === false ? (
+                <div className="min-h-screen bg-[#020617] flex items-center justify-center px-4">
+                  <OnboardingWizard userId={user!.uid} onComplete={() => setOnboardingDismissed(true)} />
+                </div>
+              ) : (
+                  <AppCockpit
+                    transactions={state.lancamentos}
+                    isPrivacyMode={state.isPrivacyMode}
+                    onNavigate={(tool, state) => handleNavigate(tool, state)}
+                    userMeta={userMeta}
+                    isPremium={isPremium}
+                    isPro={isPro}
+                    isSyncing={state.isSyncing}
+                  />
+              )
             )
           } 
         />
@@ -243,6 +247,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
               isPrivacyMode={isPrivacyMode}
               onTogglePrivacy={() => setIsPrivacyMode((prev) => !prev)}
               onEditTransaction={handleEditTransaction}
+              fetchMonth={state.fetchMonth}
             />
           }
         />
@@ -261,14 +266,16 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
         />
 
         <Route path="explorar" element={<ExplorarHub onNavigate={handleNavigate} routerNavigate={routerNavigate} />} />
-        
+
         <Route 
           path="ia" 
           element={
-            <AiChatPage
-              onNavigate={handleNavigate}
-              filteredTransactions={getAiContextTransactions()}
-              simulations={[]}
+            <NexusBriefingView
+              transactions={lancamentos}
+              goals={[]}
+              assets={state.assets}
+              passives={state.passives}
+              debts={state.debts}
             />
           } 
         />

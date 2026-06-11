@@ -4,18 +4,14 @@ import { firestore } from '../../../firebase'; // Ajuste o caminho se necessári
 import { TrendingUp, Plus, Trash2, Wallet, PieChart, Pencil, X, ShieldCheck, HelpCircle, ArrowRight, LayoutGrid, List } from 'lucide-react';
 import { useWealthData } from '../../../hooks/useWealthData';
 import { useWealthHistory } from '../../../hooks/useWealthHistory';
-
-export interface ActiveAsset {
-  id?: string;
-  name: string;
-  category: string;
-  currentValue: number;
-}
+import { ActiveAsset } from '../../../types';
 
 interface ActiveWealthManagerProps {
   userId: string | undefined;
   onNavigate?: (route: string) => void;
 }
+
+const ACTIVE_CATEGORIES = ['Renda Fixa', 'Ações', 'FIIs', 'Exterior', 'Cripto', 'Outros'];
 
 export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId, onNavigate }) => {
   const [assets, setAssets] = useState<ActiveAsset[]>([]);
@@ -32,14 +28,14 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
   };
 
   // Estados do Formulário
-  const [currentAsset, setCurrentAsset] = useState<ActiveAsset>({ name: '', category: 'Renda Fixa', currentValue: 0 });
+  const [currentAsset, setCurrentAsset] = useState<ActiveAsset>({ name: '', category: 'Renda Fixa', currentValue: 0, proposito: '' });
   const [displayValue, setDisplayValue] = useState<string>(''); // Novo: Guarda a string formatada (ex: "1.500,00")
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   
-  // Confirmaçío de Saldos
+  // Confirmação de Saldos
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const { patrimonioLiquido, totalAssets, totalDebts } = useWealthData();
+  const { patrimonioLiquido, totalAssets, totalDebts, totalInvestments, totalProperty } = useWealthData();
   const { saveSnapshot, isSaving } = useWealthHistory(userId);
 
   const totalValue = useMemo(() => assets.reduce((sum, a) => sum + a.currentValue, 0), [assets]);
@@ -49,6 +45,8 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
       await saveSnapshot({
         totalNetWorth: patrimonioLiquido,
         totalAssets: totalAssets,
+        totalInvestments: totalInvestments,
+        totalProperty: totalProperty,
         totalDebts: totalDebts,
         module: 'investments'
       });
@@ -130,14 +128,17 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
 
     setIsSubmitting(true);
     try {
+      const assetData = {
+        name: currentAsset.name,
+        category: currentAsset.category,
+        currentValue: currentAsset.currentValue,
+        proposito: currentAsset.proposito || '',
+      };
+
       if (editingId) {
         // MODO EDIÇÃO
         const assetRef = doc(firestore, `users/${userId}/ativos`, editingId);
-        await updateDoc(assetRef, {
-          name: currentAsset.name,
-          category: currentAsset.category,
-          currentValue: currentAsset.currentValue,
-        });
+        await updateDoc(assetRef, assetData);
 
         const oldAsset = assets.find(a => a.id === editingId);
         const diff = currentAsset.currentValue - (oldAsset ? oldAsset.currentValue : 0);
@@ -146,30 +147,31 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
 
         const userDocRef = doc(firestore, 'users', userId);
         await setDoc(userDocRef, { resumoFinanceiro: { patrimonioAtivo: newTotalPatrimonioAtivo } }, { merge: true });
+        
+        setAssets(prev => prev.map(a => a.id === editingId ? { id: editingId, ...assetData } : a));
       } else {
         // MODO CRIAÇÃO
         const assetsRef = collection(firestore, `users/${userId}/ativos`);
-        await addDoc(assetsRef, {
-          name: currentAsset.name,
-          category: currentAsset.category,
-          currentValue: currentAsset.currentValue,
-        });
+        const docRef = await addDoc(assetsRef, assetData);
 
         const newTotalPatrimonioAtivo = assets.reduce((acc, curr) => acc + curr.currentValue, 0) + currentAsset.currentValue;
 
         const userDocRef = doc(firestore, 'users', userId);
         await setDoc(userDocRef, { resumoFinanceiro: { patrimonioAtivo: newTotalPatrimonioAtivo } }, { merge: true });
+        
+        setAssets(prev => [...prev, { id: docRef.id, ...assetData }]);
       }
 
       // Reseta formulário
-      setCurrentAsset({ name: '', category: 'Renda Fixa', currentValue: 0 });
-      setEditingId(null);
+      handleCancelEdit();
 
       // NOVO: Auto-salvamento de snapshot para o gráfico de evolução
       // Isso garante que cada mudança gere um ponto no gráfico
       await saveSnapshot({
         totalNetWorth: patrimonioLiquido,
         totalAssets: totalAssets,
+        totalInvestments: totalInvestments,
+        totalProperty: totalProperty,
         totalDebts: totalDebts,
         module: 'investments'
       });
@@ -183,7 +185,7 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
 
   // Função Iniciar Edição
   const handleEditClick = (asset: ActiveAsset) => {
-    setCurrentAsset({ name: asset.name, category: asset.category, currentValue: asset.currentValue });
+    setCurrentAsset({ name: asset.name, category: asset.category, currentValue: asset.currentValue, proposito: asset.proposito || '' });
     // Ao clicar em editar, já formata o valor para a máscara da tela
     setDisplayValue(asset.currentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
     if (asset.id) setEditingId(asset.id);
@@ -192,7 +194,7 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
 
   // Função Cancelar Edição (ou Resetar Form)
   const handleCancelEdit = () => {
-    setCurrentAsset({ name: '', category: 'Renda Fixa', currentValue: 0 });
+    setCurrentAsset({ name: '', category: 'Renda Fixa', currentValue: 0, proposito: '' });
     setDisplayValue(''); // Limpa o campo visual também
     setEditingId(null);
   };
@@ -215,6 +217,8 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
       await updateDoc(userDocRef, {
         "resumoFinanceiro.patrimonioAtivo": newTotalPatrimonioAtivo >= 0 ? newTotalPatrimonioAtivo : 0
       });
+
+      setAssets(prev => prev.filter(a => a.id !== assetId));
 
       if (editingId === assetId) {
         handleCancelEdit();
@@ -284,7 +288,7 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
           )}
         </div>
 
-        <form onSubmit={handleSaveAsset} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <form onSubmit={handleSaveAsset} className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
           <div className="md:col-span-2">
             <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-2">
               Nome do Ativo (Ex: Tesouro Selic, HGLG11)
@@ -321,29 +325,57 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
             <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-0">
               Valor Total (R$)
             </label>
-            <div className="flex gap-2">			  <div className="relative w-full">
-                <span className="absolute left-4 top-[14px] text-slate-500 text-sm font-bold">R$</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  required
-                  placeholder="0,00"
-                  value={displayValue}
-                  onChange={handleCurrencyChange}
-                  className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className={`text-slate-950 font-black p-3 rounded-xl transition-all shadow-lg flex items-center justify-center min-w-[48px] ${
-                  editingId ? 'bg-amber-500 hover:bg-amber-400' : 'bg-emerald-500 hover:bg-emerald-400'
-                } disabled:bg-slate-700`}
-                title={editingId ? 'Salvar Alterações' : 'Adicionar Ativo'}
-              >
-                {editingId ? <Pencil size={20} /> : <Plus size={20} />}
-              </button>
+            <div className="relative w-full">
+              <span className="absolute left-4 top-[14px] text-slate-500 text-sm font-bold">R$</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                required
+                placeholder="0,00"
+                value={displayValue}
+                onChange={handleCurrencyChange}
+                className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
+              />
             </div>
+          </div>
+
+          {/* CAMPO PROPÓSITO (NEXUS) */}
+          <div className="md:col-span-3">
+            <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100/50">
+              <div className="flex items-center justify-between mb-2">
+                <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-700">
+                  Propósito do Investimento
+                  <div className="group relative">
+                    <HelpCircle size={14} className="text-emerald-400 cursor-help" />
+                    <div className="absolute left-0 bottom-full mb-2 w-64 p-3 bg-slate-900 text-white text-[10px] font-medium leading-relaxed rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                      <p className="font-black text-emerald-400 mb-1 uppercase tracking-widest text-left">Por que preencher o Propósito?</p>
+                      <p className="text-left leading-relaxed">Para o Finanças Pro Invest não ser apenas uma calculadora, o Nexus precisa entender sua vida. Se soubermos qual a meta deste investimento (ex: aposentadoria vs reserva), nossas análises de rentabilidade e risco serão muito mais precisas e humanas.</p>
+                      <p className="mt-2 text-slate-400 italic text-left">Ex: "Reserva de emergência para segurança da família." ou "Meta: Casa própria em 5 anos."</p>
+                    </div>
+                  </div>
+                </label>
+                <span className="text-[9px] font-black text-emerald-400 uppercase tracking-tighter">Inteligência Nexus</span>
+              </div>
+              <textarea
+                value={currentAsset.proposito || ''}
+                onChange={e => setCurrentAsset({ ...currentAsset, proposito: e.target.value })}
+                className="w-full px-4 py-2.5 rounded-xl border border-emerald-100/50 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all text-sm font-medium bg-white min-h-[60px] resize-none"
+                placeholder="Qual o objetivo deste investimento? O que você planeja conquistar com ele?"
+              />
+            </div>
+          </div>
+
+          <div className="md:col-span-1">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className={`w-full text-slate-950 font-black py-3.5 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 ${
+                editingId ? 'bg-amber-500 hover:bg-amber-400' : 'bg-emerald-500 hover:bg-emerald-400'
+              } disabled:bg-slate-700 h-[46px]`}
+              title={editingId ? 'Salvar Alterações' : 'Adicionar Ativo'}
+            >
+              {editingId ? <Pencil size={20} /> : <Plus size={20} />}
+            </button>
           </div>
         </form>
       </div>
@@ -419,7 +451,7 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
         ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {assets.map((asset) => (
-              <div key={asset.id} className="bg-white backdrop-blur-md border border-slate-200 rounded-xl p-5 hover:border-slate-300 transition-colors group relative overflow-hidden shadow-sm">
+              <div key={asset.id} className="bg-white backdrop-blur-md border border-slate-200 rounded-xl p-5 hover:border-slate-300 transition-colors group relative overflow-hidden shadow-sm flex flex-col h-full">
                 <div className={`absolute top-0 left-0 w-full h-1 ${
                   asset.category === 'Renda Fixa' ? 'bg-sky-500' : 
                   asset.category === 'Ações' ? 'bg-emerald-500' : 
@@ -455,7 +487,16 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
                   </div>
                 </div>
                 
-                <div>
+                <div className="flex-grow space-y-3">
+                  {asset.proposito && (
+                    <div className="bg-emerald-50/50 p-3 rounded-xl border border-emerald-100/50">
+                      <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1">Propósito</p>
+                      <p className="text-xs text-slate-700 font-medium italic">"{asset.proposito}"</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-auto pt-4 border-t border-slate-100">
                   <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Valor Atual</p>
                   <p className="text-2xl font-black text-slate-900">
                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(asset.currentValue)}
@@ -471,6 +512,7 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
                 <thead className="bg-slate-50 border-b border-slate-100">
                   <tr>
                     <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Ativo / Categoria</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Propósito</th>
                     <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Valor Atual</th>
                     <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Ações</th>
                   </tr>
@@ -492,6 +534,9 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
                             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{asset.category}</span>
                           </div>
                         </div>
+                      </td>
+                      <td className="px-6 py-4 max-w-xs">
+                        <span className="text-xs text-slate-500 font-medium line-clamp-1">{asset.proposito || '—'}</span>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <span className="text-sm font-black text-slate-900">

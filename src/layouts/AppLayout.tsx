@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import AppHeader from '../components/AppHeader';
 import AppMobileDrawer from '../components/AppMobileDrawer';
 import MobileBottomNav from '../components/MobileBottomNav';
+import NotificationHub from '../components/NotificationHub';
 import ContentModal from '../components/ContentModal';
 import TransactionForm from '../components/tools/finance/TransactionForm';
 import ToastContainer from '../components/Toast';
@@ -31,6 +32,8 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state }) => {
     lancamentos,
     isPrivacyMode,
     setIsPrivacyMode,
+    isNotificationsOpen,
+    setIsNotificationsOpen,
     mobileMenuOpen,
     setMobileMenuOpen,
     isNative,
@@ -106,6 +109,8 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state }) => {
         onOpenMobileMenu={() => setMobileMenuOpen(true)}
         isPro={state.isPro}
         isPremium={state.isPremium}
+        isNotificationsOpen={isNotificationsOpen}
+        onOpenNotifications={setIsNotificationsOpen}
       />
 
       <main className="flex-1 overflow-y-auto">
@@ -128,10 +133,17 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state }) => {
         <MobileBottomNav
           onOpenMore={() => handleNavigate('settings')}
           onAdd={openTransactionForm}
+          onOpenNotifications={setIsNotificationsOpen}
         />
       )}
 
       <AppOnlyBlock isMobileBrowser={isMobileBrowser} />
+
+      <NotificationHub
+        isOpen={isNotificationsOpen}
+        onClose={() => setIsNotificationsOpen(false)}
+        onNavigate={handleNavigate}
+      />
 
       <ContentModal
         isOpen={activeModal === 'transaction'}

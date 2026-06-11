@@ -10,4 +10,5 @@ export interface DebtItem {
   valorParcela: number;
   dataVencimento: string | null;
   createdAt?: Date;
+  proposito?: string; // [NEXUS] O que esta dívida representa ou como surgiu
 }

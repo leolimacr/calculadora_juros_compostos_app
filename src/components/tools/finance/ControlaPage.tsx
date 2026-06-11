@@ -21,6 +21,7 @@ interface ControlaPageProps {
   isPrivacyMode: boolean;
   onTogglePrivacy: () => void;
   onEditTransaction: (t: Transaction) => void;
+  fetchMonth?: (year: number, month: number) => Promise<void>;
 }
 
 export const ControlaPage: React.FC<ControlaPageProps> = (props) => {
@@ -44,6 +45,7 @@ export const ControlaPage: React.FC<ControlaPageProps> = (props) => {
       isPrivacyMode={props.isPrivacyMode}
       onTogglePrivacy={props.onTogglePrivacy}
       onEditTransaction={props.onEditTransaction}
+      fetchMonth={props.fetchMonth}
     />
   );
 };

@@ -106,26 +106,6 @@ const AppMobileDrawer: React.FC<AppMobileDrawerProps> = ({
           </button>
 
           <button
-            onClick={() => go('chat')}
-            className="w-full group relative p-px rounded-2xl bg-gradient-to-b from-sky-500/40 to-transparent transition-all active:scale-95 shadow-lg shadow-sky-950/20"
-          >
-            <div className="bg-[#0f172a] rounded-[15px] p-4 flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-indigo-600 text-white shadow-lg">
-                <Sparkles size={20} strokeWidth={2.5} />
-              </div>
-              <div className="flex-1 text-left leading-tight">
-                <span className="block text-[9px] font-black text-sky-500 uppercase tracking-widest mb-0.5">
-                  Inteligência
-                </span>
-                <span className="block text-[13px] font-bold text-white uppercase tracking-tight">
-                  Nexus IA
-                </span>
-              </div>
-              <ChevronRight size={16} className="text-slate-600 group-hover:text-sky-400" />
-            </div>
-          </button>
-
-          <button
             onClick={() => {
               onClose();
               if (isAuthenticated) onOpenCourse();

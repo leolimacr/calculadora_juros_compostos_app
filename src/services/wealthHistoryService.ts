@@ -19,6 +19,8 @@ export interface WealthSnapshot {
   userId: string;
   totalNetWorth: number;
   totalAssets: number;
+  totalInvestments: number; // Apenas Financeiro
+  totalProperty: number;    // Apenas Bens
   totalDebts: number;
   timestamp: any;
   date: string; // YYYY-MM-DD for easy grouping
@@ -36,6 +38,8 @@ export interface WealthSnapshot {
 export const saveWealthSnapshot = async (userId: string, data: {
   totalNetWorth: number;
   totalAssets: number;
+  totalInvestments: number;
+  totalProperty: number;
   totalDebts: number;
   module?: 'investments' | 'property' | 'debts';
 }) => {

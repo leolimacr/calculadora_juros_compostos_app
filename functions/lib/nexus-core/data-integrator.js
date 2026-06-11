@@ -103,35 +103,35 @@ class DataIntegrator {
                 const rtdb = (0, database_1.getDatabase)();
                 const path = `transactions/${userId}`;
                 const userTransactionsRef = rtdb.ref(path);
-                const snapshot = await userTransactionsRef.orderByKey().get();
+                const daysToFetch = this.getPeriodByPlan(userPlan);
+                const cutoffDate = new Date();
+                cutoffDate.setDate(cutoffDate.getDate() - daysToFetch);
+                const cutoffStr = cutoffDate.toISOString().split('T')[0];
+                const snapshot = await userTransactionsRef
+                    .orderByChild('date')
+                    .startAt(cutoffStr)
+                    .get();
                 clearTimeout(timeoutId);
                 if (!snapshot.exists()) {
                     resolve([]);
                     return;
                 }
                 const transactions = [];
-                logger.info(`🔍 [DEBUG DataIntegrator] userPlan recebido: "${userPlan}"`);
-                const daysToFetch = this.getPeriodByPlan(userPlan);
-                logger.info(`🔍 [DEBUG DataIntegrator] Dias calculados: ${daysToFetch}`);
-                const cutoffDate = new Date();
-                cutoffDate.setDate(cutoffDate.getDate() - daysToFetch);
                 snapshot.forEach((childSnapshot) => {
                     const data = childSnapshot.val();
                     const transactionDate = new Date(data.date);
-                    if (transactionDate >= cutoffDate) {
-                        transactions.push({
-                            id: childSnapshot.key || '',
-                            date: transactionDate,
-                            description: data.description?.trim() || 'Sem descrição',
-                            amount: parseFloat(data.amount) || 0,
-                            category: data.category || 'Outros',
-                            type: data.type === 'income' ? 'income' : 'expense',
-                            userId: data.userId || userId
-                        });
-                    }
+                    transactions.push({
+                        id: childSnapshot.key || '',
+                        date: transactionDate,
+                        description: data.description?.trim() || 'Sem descrição',
+                        amount: parseFloat(data.amount) || 0,
+                        category: data.category || 'Outros',
+                        type: data.type === 'income' ? 'income' : 'expense',
+                        userId: data.userId || userId
+                    });
                 });
                 transactions.sort((a, b) => b.date.getTime() - a.date.getTime());
-                logger.info(`[DataIntegrator] ${transactions.length} transações dos últimos ${daysToFetch} dias`);
+                logger.info(`[DataIntegrator] ${transactions.length} transações dos últimos ${daysToFetch} dias (Filtro: ${cutoffStr})`);
                 resolve(transactions);
             }
             catch (error) {

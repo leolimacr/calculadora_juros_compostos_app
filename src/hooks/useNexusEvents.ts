@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { firestore } from '../firebase';
-import { collection, query, getDocs, doc, updateDoc, orderBy, limit } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 
 export interface NexusEvent {
@@ -15,58 +15,80 @@ export interface NexusEvent {
 
 export const useNexusEvents = () => {
   const { user } = useAuth();
-  const [event, setEvent] = useState<NexusEvent | null>(null);
+  const [events, setEvents] = useState<NexusEvent[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchEvents = async () => {
-      if (!user) return;
+    if (!user) {
+      setEvents([]);
+      setLoading(false);
+      return;
+    }
 
-      try {
-        const eventsRef = collection(firestore, 'users', user.uid, 'presenceEvents');
-        // [FINOPS] Troca de onSnapshot por getDocs para carregamento único
-        const q = query(eventsRef, orderBy('createdAt', 'desc'), limit(20));
-        const snapshot = await getDocs(q);
-        
-        const now = Date.now();
-        const events: NexusEvent[] = snapshot.docs
-          .map(doc => ({ id: doc.id, ...doc.data() } as NexusEvent))
-          .filter(e => {
-              const isRead = e.read === true;
-              if (isRead) return false;
-              
-              if (e.expiresAt && typeof e.expiresAt.toMillis === 'function') {
-                  return e.expiresAt.toMillis() > now;
-              }
-              return true;
-          });
+    const eventsRef = collection(firestore, 'users', user.uid, 'presenceEvents');
+    const q = query(eventsRef, orderBy('createdAt', 'desc'), limit(20));
 
-        const urgencyMap = { high: 3, medium: 2, low: 1 };
-        const sorted = events.sort((a, b) => {
-          const uA = urgencyMap[a.urgency || 'low'] || 0;
-          const uB = urgencyMap[b.urgency || 'low'] || 0;
-          if (uA !== uB) return uB - uA;
-          return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
+    // [NEXUS REALTIME] Listener em tempo real para o sino e o hub estarem sempre sincronizados
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const now = Date.now();
+      const loadedEvents: NexusEvent[] = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as NexusEvent))
+        .filter(e => {
+            if (e.read === true) return false;
+            
+            // Verifica expiração
+            if (e.expiresAt && typeof e.expiresAt.toMillis === 'function') {
+                return e.expiresAt.toMillis() > now;
+            }
+            return true;
         });
 
-        setEvent(sorted[0] || null);
-      } catch (error) {
-        console.error('Erro ao buscar eventos Nexus:', error);
-        setEvent(null);
-      }
-    };
+      const urgencyMap = { high: 3, medium: 2, low: 1 };
+      const sorted = loadedEvents.sort((a, b) => {
+        const uA = urgencyMap[a.urgency || 'low'] || 0;
+        const uB = urgencyMap[b.urgency || 'low'] || 0;
+        if (uA !== uB) return uB - uA;
+        return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
+      });
 
-    fetchEvents();
-  }, [user]);
+      setEvents(sorted);
+      setLoading(false);
+    }, (error) => {
+      console.error('Erro no listener de eventos Nexus:', error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid]); // Dependência apenas do UID para estabilidade
 
   const dismiss = async (eventId: string) => {
     if (!user) return;
     try {
-      await updateDoc(doc(firestore, 'users', user.uid, 'presenceEvents', eventId), { read: true });
-      setEvent(null); // Atualiza estado local após descartar
+      const eventRef = doc(firestore, 'users', user.uid, 'presenceEvents', eventId);
+      await updateDoc(eventRef, { read: true });
+      // O onSnapshot cuidará de atualizar o estado local automaticamente
     } catch (e) {
       console.error('Erro ao descartar evento:', e);
     }
   };
 
-  return { event, dismiss };
+  const markAllAsRead = async () => {
+    if (!user || events.length === 0) return;
+    try {
+        const promises = events.map(e => 
+            updateDoc(doc(firestore, 'users', user.uid, 'presenceEvents', e.id), { read: true })
+        );
+        await Promise.all(promises);
+    } catch (e) {
+        console.error('Erro ao marcar todas como lidas:', e);
+    }
+  };
+
+  return { 
+    events, 
+    event: events[0] || null,
+    dismiss, 
+    markAllAsRead,
+    loading 
+  };
 };

@@ -5,6 +5,7 @@ export interface CreditCard {
   closingDay?: number;
   dueDay?: number;
   limit?: number;
+  proposito?: string; // [NEXUS] Finalidade emocional ou estratégica
 }
 
 export interface RecurringBill {
@@ -16,6 +17,24 @@ export interface RecurringBill {
   category: string;
   isActive: boolean;
   type: 'fixed' | 'subscription'; // fixed = conta fixa, subscription = assinatura
+  proposito?: string; // [NEXUS] Por que essa conta existe?
+}
+
+export interface ActiveAsset {
+  id?: string;
+  name: string;
+  category: string;
+  currentValue: number;
+  proposito?: string; // [NEXUS] Meta ou motivo do investimento
+}
+
+export interface PassiveAsset {
+  id?: string;
+  description: string;
+  category: string;
+  currentValue: number;
+  observations?: string;
+  proposito?: string; // [NEXUS] O que esse bem representa?
 }
 
 export interface Transaction {

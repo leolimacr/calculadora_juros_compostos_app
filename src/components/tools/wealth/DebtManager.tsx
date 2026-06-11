@@ -8,7 +8,7 @@ import {
   TrendingUp, ShieldCheck, Target,
   LayoutGrid, List, History, ChevronRight,
   ArrowLeft, AlertCircle, Trophy, PartyPopper,
-  ArrowRight
+  ArrowRight, BookOpen, Wallet
 } from 'lucide-react';
 import { PresenceEventService } from '../../../services/PresenceEventService';
 import { DebtPlanSimulator } from '../DebtPlanSimulator';
@@ -55,7 +55,6 @@ const fixMojibake = (text?: string) => {
 
   return text
     .replace(/Plano de quitao/g, 'Plano de quitação')
-    .replace(/Plano de quitao/g, 'Plano de quitação')
     .replace(/Ã§/g, 'ç')
     .replace(/Ã£/g, 'ã')
     .replace(/Ã¡/g, 'á')
@@ -71,14 +70,14 @@ const fixMojibake = (text?: string) => {
     .normalize('NFC');
 };
 
-// Funçío "HP12c" para calcular o CET (Taxa Interna de Retorno mensal)
+// Função "HP12c" para calcular o CET (Taxa Interna de Retorno mensal)
 const calculateCET = (pv: number, n: number, pmt: number): number => {
   if (pv <= 0 || n <= 0 || pmt <= 0 || (pmt * n) <= pv) return 0;
   let low = 0, high = 100; // Até 100% ao mês
   for (let i = 0; i < 50; i++) {
     let mid = (low + high) / 2;
     let rate = mid / 100;
-    // Fórmula de Prestaçío (Tabela Price): PMT = PV * [i(1+i)^n] / [(1+i)^n - 1]
+    // Fórmula de Prestação (Tabela Price): PMT = PV * [i(1+i)^n] / [(1+i)^n - 1]
     let pmtCalc = (pv * rate) / (1 - Math.pow(1 + rate, -n));
     if (pmtCalc > pmt) high = mid;
     else low = mid;
@@ -112,20 +111,85 @@ const EMPTY_FORM: DebtItem = {
   parcelasRestantes: 0,
   valorParcela: 0,
   dataVencimento: null,
+  proposito: ''
 };
 
 export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, lancamentos, onNavigate, isSyncing }) => {
-  const { saveFinancialProfile } = useFirebase(userId); // <-- Passando o UID para o hook
-  const { totalAssets, totalPassives, patrimonioLiquido, totalDebts: realTotalDebts } = useWealthData();
+  const { saveFinancialProfile } = useFirebase(userId); 
+  const { totalAssets, totalInvestments, totalProperty, totalPassives, patrimonioLiquido, totalDebts: realTotalDebts } = useWealthData();
 
-  // NOVO SISTEMA DE RENDERIZAÇÃO
   const [isCalculating, setIsCalculating] = useState(true);
   const { data: debtsData, isLoading, isSyncing: debtsSyncing } = useDebts(userId);
   const debts = debtsData || [];
 
-  // Confirmaçío de Saldos
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const { saveSnapshot, isSaving: isSavingSnapshot } = useWealthHistory(userId);
+
+  const [showSimulator, setShowSimulator] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<DebtItem>(EMPTY_FORM);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [showHistory, setShowHistory] = useState(false);
+  const [savedPlans, setSavedPlans] = useState<SavedDebtPlan[]>([]);
+  const [selicRate, setSelicRate] = useState<number>(10.75);
+
+  useEffect(() => {
+    fetchCurrentSelicRate().then(rate => setSelicRate(rate || 10.75));
+  }, []);
+
+  useEffect(() => {
+    if (!userId) return;
+    const q = query(
+      collection(firestore, 'users', userId, 'nexusDebtPlans'),
+      orderBy('createdAt', 'desc')
+    );
+    return onSnapshot(q, (snap) => {
+      const plans = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SavedDebtPlan));
+      setSavedPlans(plans);
+    });
+  }, [userId]);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userId) return;
+    setIsSubmitting(true);
+
+    try {
+      const debtData = {
+        ...form,
+        updatedAt: new Date(),
+        proposito: form.proposito || ''
+      };
+
+      if (editingId) {
+        await updateDoc(doc(firestore, 'users', userId, 'dividas', editingId), debtData);
+      } else {
+        await addDoc(collection(firestore, 'users', userId, 'dividas'), {
+          ...debtData,
+          createdAt: new Date()
+        });
+      }
+      setForm(EMPTY_FORM);
+      setEditingId(null);
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao salvar dívida.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEdit = (debt: DebtItem) => {
+    setForm({ ...debt, proposito: debt.proposito || '' });
+    setEditingId(debt.id || null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!userId || !window.confirm("Excluir esta dívida?")) return;
+    await deleteDoc(doc(firestore, 'users', userId, 'dividas', id));
+  };
 
   const handleAmortizeAll = async () => {
     if (!userId) return;
@@ -145,1006 +209,372 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, lanc
       await saveSnapshot({
         totalNetWorth: patrimonioLiquido,
         totalAssets: totalAssets,
+        totalInvestments: totalInvestments,
+        totalProperty: totalProperty,
         totalDebts: realTotalDebts,
         module: 'debts'
       });
       setShowConfirmModal(false);
-      alert('Saldos devedores validados com sucesso!');
+      alert("Dívidas validadas com sucesso!");
     } catch (err) {
       console.error(err);
-      alert('Erro ao validar dívidas.');
     }
   };
 
-  useEffect(() => {
-    const timer = setTimeout(() => setIsCalculating(false), 500);
-    if (debts.length >= 0) {
-      const calcTimer = setTimeout(() => setIsCalculating(false), 300);
-      return () => {
-        clearTimeout(timer);
-        clearTimeout(calcTimer);
-      };
-    }
-    return () => clearTimeout(timer);
-  }, [debts.length]);
-
-  const showSkeleton = (isLoading && debts.length === 0) || isCalculating;
-
-  const [selicAno, setSelicAno] = useState<number | undefined>(undefined);
-  const [savedPlans, setSavedPlans] = useState<SavedDebtPlan[]>([]);
-  const [selectedSavedPlan, setSelectedSavedPlan] = useState<SavedDebtPlan | null>(null);
-  // 1. Estados Gerais e CRUD
-  useEffect(() => {
-    fetchCurrentSelicRate()
-      .then(rate => setSelicAno(rate))
-      .catch(() => setSelicAno(14.75)); // fallback: Selic atual conhecida
-  }, []);
-
-  useEffect(() => {
-    if (!userId) return;
-
-    const plansRef = collection(firestore, 'users', userId, 'nexusDebtPlans');
-    const plansQuery = query(plansRef, orderBy('createdAt', 'desc'));
-
-    const unsubscribe = onSnapshot(plansQuery, (snapshot) => {
-      const plans = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as SavedDebtPlan[];
-
-      setSavedPlans(plans);
-    });
-
-    return () => unsubscribe();
-  }, [userId]);
-
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [showCetInfo, setShowCetInfo] = useState(false);
-  const [showSavedPlansList, setShowSavedPlansList] = useState(false); // Estado para a segunda camada
-  const [form, setForm] = useState<DebtItem>(EMPTY_FORM);
-  const [displaySaldo, setDisplaySaldo] = useState('');
-  const [displayParcela, setDisplayParcela] = useState('');
-
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
-    return (localStorage.getItem('debt_view_mode') as 'grid' | 'list') || 'grid';
-  });
-  const [showViewTooltip, setShowViewTooltip] = useState(false);
-
-  const toggleViewMode = (mode: 'grid' | 'list') => {
-    setViewMode(mode);
-    localStorage.setItem('debt_view_mode', mode);
-  };
-
-  // 2. Estados do Guia de Fôlego (Método Guiado)
-  const [setupStep, setSetupStep] = useState(0); 
-  const [tempIncome, setTempIncome] = useState<number>(0);
-  const [displayTempIncome, setDisplayTempIncome] = useState('');
-  const [tempReserveMonths, setTempReserveMonths] = useState<number>(6);
-  const [tempCurrentReserve, setTempCurrentReserve] = useState<number>(0);
-  const [displayTempCurrentReserve, setDisplayTempCurrentReserve] = useState('');
-
-  // 3. Efeito para controlar a exibiçío do guia
-    useEffect(() => {
-    // Só dispara o passo 1 automaticamente se for a primeira vez (step === 0)
-    // e se realmente nío existir o perfil.
-    // Se o userMeta carregou, mas o perfil nío existe, abre o guia
-    if (userMeta && !userMeta.financialProfile && setupStep === 0) {
-      setSetupStep(1);
-    }
-  }, [userMeta?.financialProfile]); // Agora ele só vigia o perfil, nío o step.
-  // 4. HP12c Auto-calc
-  useEffect(() => {
-    const { saldoDevedor, parcelasRestantes, valorParcela } = form;
-    if (saldoDevedor > 0 && parcelasRestantes > 0 && valorParcela > 0) {
-      const cet = calculateCET(saldoDevedor, parcelasRestantes, valorParcela);
-      if (Math.abs(cet - form.taxaMensal) > 0.01) {
-        setForm(prev => ({ ...prev, taxaMensal: Number(cet.toFixed(2)) }));
-      }
-    }
-  }, [form.saldoDevedor, form.parcelasRestantes, form.valorParcela, form.taxaMensal]);
-
-  // 5. Helper de Input com Máscara (Versío Polimórfica)
-  const handleCurrencyInput = (
-    raw: string,
-    setDisplay: (v: string) => void,
-    target: 'saldoDevedor' | 'valorParcela' | ((val: number) => void),
-  ) => {
-    const digits = raw.replace(/\D/g, '');
-    if (!digits) {
-      setDisplay('');
-      if (typeof target === 'function') {
-        target(0);
-      } else {
-        setForm((prev) => ({ ...prev, [target]: 0 }));
-      }
-      return;
-    }
-    const numeric = parseInt(digits, 10) / 100;
-    setDisplay(numeric.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-    
-    if (typeof target === 'function') {
-      target(numeric);
-    } else {
-      setForm((prev) => ({ ...prev, [target]: numeric }));
-    }
-  };  
-  const resetForm = () => {
-    setForm(EMPTY_FORM);
-    setDisplaySaldo('');
-    setDisplayParcela('');
-    setEditingId(null);
-  };
-
-  // ”€”€”€ CRUD ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€
-  const handleSave = async (e: React.FormEvent) => {
-      e.preventDefault();
-      if (
-        !userId ||
-        !form.nome.trim() ||
-        form.saldoDevedor <= 0 ||
-        form.taxaMensal <= 0 ||
-        form.parcelasRestantes <= 0 ||
-        !form.valorParcela ||          // <-- NOVA TRAVA: Parcela nío pode ser vazia
-        form.valorParcela <= 0         // <-- NOVA TRAVA: Parcela tem que ser maior que zero
-      ) {
-        alert('Preencha todos os campos corretamente. O valor da parcela é essencial para o Nexus montar seu plano.');
-        return;
-      }
-      setIsSubmitting(true);
-      try {
-        const data = {
-          nome: form.nome.trim(),
-          tipo: form.tipo,
-          saldoDevedor: form.saldoDevedor,
-          taxaMensal: form.taxaMensal,
-          parcelasRestantes: form.parcelasRestantes,
-          valorParcela: form.valorParcela,
-          dataVencimento: form.dataVencimento ?? null,
-        };
-
-      if (editingId) {
-        await updateDoc(doc(firestore, `users/${userId}/dividas`, editingId), data);
-
-        // Gatilho: dado incompleto após edição (sem data de vencimento)
-        if (!data.dataVencimento) {
-          PresenceEventService.create({
-            uid: userId,
-            eventType: 'debt.missing_data',
-            persona: 'debts',
-            urgency: 'low',
-            message: {
-              title: 'Cadastro incompleto',
-              body: `${data.nome} ainda não tem data de vencimento. Completa em 1 minuto.`,
-              ctaLabel: 'Completar cadastro',
-            },
-            deepLink: `/minhas-dividas/${editingId}/editar`,
-            cooldownHours: 168,
-            expiresInHours: 720,
-            resourceId: editingId,
-            payload: { debtName: data.nome },
-          }).catch(() => {});
-        }
-
-      } else {
-        const docRef = await addDoc(collection(firestore, `users/${userId}/dividas`), {
-          ...data,
-          createdAt: new Date(),
-        });
-
-        // Gatilho: nova dívida adicionada
-        PresenceEventService.create({
-          uid: userId,
-          eventType: 'debt.new_debt_added',
-          persona: 'debts',
-          urgency: 'low',
-          message: {
-            title: 'Dívida registrada',
-            body: 'Organize todas as suas dívidas para o Nexus ter contexto completo.',
-            ctaLabel: 'Ver Minhas Dívidas',
-          },
-          deepLink: '/minhas-dividas',
-          cooldownHours: 72,
-          expiresInHours: 72,
-          resourceId: docRef.id,
-          payload: { debtName: data.nome },
-        }).catch(() => {});
-
-        // Gatilho: dado incompleto na criação (sem data de vencimento)
-        if (!data.dataVencimento) {
-          PresenceEventService.create({
-            uid: userId,
-            eventType: 'debt.missing_data',
-            persona: 'debts',
-            urgency: 'low',
-            message: {
-              title: 'Cadastro incompleto',
-              body: `${data.nome} ainda não tem data de vencimento. Completa em 1 minuto.`,
-              ctaLabel: 'Completar cadastro',
-            },
-            deepLink: `/minhas-dividas/${docRef.id}/editar`,
-            cooldownHours: 168,
-            expiresInHours: 720,
-            resourceId: docRef.id,
-            payload: { debtName: data.nome },
-          }).catch(() => {});
-        }
-      }
-
-      resetForm();
-    } catch (err) {
-      console.error('Erro ao salvar dívida:', err);
-      alert('Houve um erro ao salvar a dívida.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleEdit = (debt: DebtItem) => {
-    setForm({ ...debt });
-    setDisplaySaldo(
-      debt.saldoDevedor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-    );
-    setDisplayParcela(
-      debt.valorParcela
-        ? debt.valorParcela.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-        : '',
-    );
-    if (debt.id) setEditingId(debt.id);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!userId) return;
-    if (!window.confirm('Tem certeza que deseja excluir esta dívida?')) return;
-    try {
-      await deleteDoc(doc(firestore, `users/${userId}/dividas`, id));
-      if (editingId === id) resetForm();
-    } catch (err) {
-      console.error('Erro ao excluir dívida:', err);
-    }
-  };
   const totalSaldo = debts.reduce((acc, d) => acc + d.saldoDevedor, 0);
+  const totalParcelas = debts.reduce((acc, d) => acc + d.valorParcela, 0);
 
-  const janelaAnaliseDias = 90;
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - janelaAnaliseDias);
+  if (showSimulator && userId) {
+    return (
+      <DebtPlanSimulator 
+        userId={userId} 
+        onBack={() => setShowSimulator(false)} 
+        userMeta={userMeta}
+        selicRate={selicRate}
+      />
+    );
+  }
 
-  const lancamentosRecentes = lancamentos.filter((t) => {
-    const data = new Date(t.date);
-    return !Number.isNaN(data.getTime()) && data >= cutoff;
-  });
-
-  const despesasRecentes = lancamentosRecentes.filter((t) => t.type === 'expense');
-  const totalDespesasRecentes = despesasRecentes.reduce((acc, t) => acc + (t.amount || 0), 0);
-
-  const despesasMensaisMedias = parseFloat(
-    ((totalDespesasRecentes / janelaAnaliseDias) * 30).toFixed(2)
-  );
-
-  const totalParcelasMensais = parseFloat(
-    debts.reduce((acc, d) => acc + (d.valorParcela || 0), 0).toFixed(2)
-  );
-
-  const rendaMensalEstimada = userMeta?.financialProfile?.monthlyIncome;
-
-  const sobraMensalReal =
-    typeof rendaMensalEstimada === 'number'
-      ? parseFloat((rendaMensalEstimada - despesasMensaisMedias - totalParcelasMensais).toFixed(2))
-      : undefined;
-
-  const handleToggleNoDebts = async () => {
-    if (!userId || debts.length > 0) return;
-    const isDeclared = !!userMeta?.financialProfile?.declaredNoDebts;
-    try {
-      await saveFinancialProfile({
-        ...userMeta.financialProfile,
-        declaredNoDebts: !isDeclared
-      });
-    } catch (err) {
-      console.error('Erro ao salvar declaração de dívidas:', err);
-    }
-  };
-
-  const isDeclaredNoDebts = !!userMeta?.financialProfile?.declaredNoDebts && debts.length === 0;
-
-
-  // ”€”€”€ Render ”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€”€
   return (
-    <div className="w-full max-w-6xl mx-auto p-4 md:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <button
-        type="button"
-        onClick={() => { onNavigate?.('home'); setTimeout(() => { const el = document.getElementById('secao-ferramentas'); if (el) { const top = el.getBoundingClientRect().top + window.scrollY - 90; window.scrollTo({ top, behavior: 'smooth' }); } }, 100); }}
-        className="mb-6 text-teal-600 hover:opacity-70 font-bold text-xs uppercase tracking-widest transition-colors flex items-center gap-1"
-      >
-        ← Voltar
-      </button>
-
-      {/* SEÇíO DE PERFIL FINANCEIRO (MÉTODO GUIADO) */}
-      {userMeta?.financialProfile && setupStep <= 0 ? (
-        // CARD DE RESUMO (Feedback visual após salvar)
-        <div className="mb-8 bg-white border border-teal-100 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row gap-6 items-center justify-between animate-in fade-in duration-500">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-teal-50 rounded-xl">
-              <TrendingUp size={24} className="text-teal-600" />
+    <div className="max-w-7xl mx-auto px-4 md:px-8 py-6 space-y-8 animate-in fade-in duration-500 pb-32">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-1">
+          {onNavigate && (
+            <button
+              onClick={() => onNavigate('home')}
+              className="mb-4 flex items-center gap-2 text-slate-500 hover:text-sky-700 transition-all font-black uppercase text-[10px] tracking-[0.2em]"
+            >
+              <ArrowLeft size={14} /> Voltar
+            </button>
+          )}
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-rose-50 text-rose-600 rounded-2xl border border-rose-100">
+              <CreditCard size={28} />
             </div>
-            <div>
-              <p className="text-[10px] text-slate-500 uppercase font-black tracking-wider mb-0.5">Renda Mensal</p>
-              <h3 className="text-xl font-black text-slate-900">{formatCurrency(userMeta.financialProfile.monthlyIncome)}</h3>
-            </div>
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight">Minhas Dívidas</h2>
           </div>
+          <p className="text-slate-500 font-medium">Mapeie seus débitos para que o Nexus crie sua estratégia de saída.</p>
+        </div>
 
-          {/* BLOCO: Estabilidade */}
-          <div className="flex flex-col items-center justify-center px-6 border-l border-slate-100">
-            <p className="text-[10px] text-slate-500 uppercase font-black tracking-wider mb-2">Estabilidade</p>
-            {(() => {
-              const target = userMeta.financialProfile.emergencyReserveTarget;
-              const isEstavel = target <= 4;
-              const isVolatil = target >= 12;
-              return (
-                <span className={`text-xs font-black uppercase tracking-wide px-3 py-1 rounded-full ${
-                  isEstavel ? 'bg-teal-50 text-teal-700 ring-1 ring-teal-200' :
-                  isVolatil ? 'bg-orange-50 text-orange-700 ring-1 ring-orange-200' :
-                             'bg-amber-50 text-amber-700 ring-1 ring-amber-200'
-                }`}>
-                  {isEstavel ? '🟢 Estável' : isVolatil ? '🔴 Volátil' : '🟡 Regular'}
-                </span>
-              );
-            })()}
-          </div>
-
-          <div className="flex items-center gap-4 hidden-placeholder">
-          </div>
-          <div className="flex-1 w-full border-l border-slate-100 pl-6 hidden md:block">
-            <p className="text-[10px] text-slate-500 uppercase font-black tracking-wider mb-1">Status da Reserva</p>
-            <div className="flex items-center gap-3">
-              <div className="flex-1 bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div 
-                  className="bg-teal-500 h-full transition-all duration-1000" 
-                  style={{ width: `${Math.min(100, (userMeta.financialProfile.emergencyReserveCurrent / (userMeta.financialProfile.monthlyIncome * userMeta.financialProfile.emergencyReserveTarget)) * 100)}%` }}
-                />
-              </div>
-              <span className="text-xs font-bold text-slate-600">
-                {Math.round((userMeta.financialProfile.emergencyReserveCurrent / (userMeta.financialProfile.monthlyIncome * userMeta.financialProfile.emergencyReserveTarget)) * 100)}%
-              </span>
-            </div>
-          </div>
-          <button onClick={() => setSetupStep(1)} className="p-2 text-slate-300 hover:text-teal-600 transition-colors">
-            <Pencil size={18} />
+        <div className="flex items-center gap-3">
+           <button
+            onClick={() => setShowHistory(!showHistory)}
+            className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-white border border-slate-200 text-slate-600 text-[11px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all"
+          >
+            <History size={16} /> {showHistory ? 'Ocultar Planos' : 'Ver Planos Salvos'}
+          </button>
+          <button
+            onClick={() => setShowSimulator(true)}
+            className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-slate-900 text-white text-[11px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20"
+          >
+            <Sparkles size={16} className="text-amber-400" /> Simular Estratégia
           </button>
         </div>
-      ) : setupStep > 0 ? (
-        // CARD DE SETUP (Aparece se for novo ou se clicar em Editar)
-        <div className="mb-8 bg-gradient-to-br from-teal-500 to-teal-600 rounded-2xl p-6 text-white shadow-lg animate-in zoom-in duration-300">
-          <div className="flex items-start gap-4">
-            <div className="bg-white/20 p-3 rounded-xl backdrop-blur-sm">
-              <Sparkles size={24} className="text-white" />
-            </div>
-            <div className="flex-1">
-              {setupStep === 1 && (
-                <div className="space-y-4">
-                  <h3 className="text-xl font-bold italic">Passo 1: Qual sua renda mensal lí­quida?</h3>
-                  <p className="text-teal-50 text-sm leading-relaxed">O Nexus usa esse dado para calcular o quanto você realmente pode usar para quitar dívidas sem passar sufoco.</p>
-                  <div className="relative max-w-xs">
-                    <span className="absolute left-4 top-[13px] text-teal-200 font-bold">R$</span>
-                    <input
-                      type="text"
-                      placeholder="0,00"
-                      className="w-full bg-white/10 border border-white/20 rounded-xl pl-10 pr-4 py-3 text-white placeholder:text-teal-200 focus:outline-none focus:bg-white/20 transition-all"
-                      value={displayTempIncome}
-                      onChange={(e) => handleCurrencyInput(e.target.value, setDisplayTempIncome, (val) => setTempIncome(val))}
-                    />
-                  </div>
-                  <button 
-                    disabled={tempIncome <= 0}
-                    onClick={() => setSetupStep(2)}
-                    className="bg-white text-teal-600 px-6 py-2 rounded-lg font-bold hover:bg-teal-50 transition-colors disabled:opacity-50"
-                  >
-                    Próximo
-                  </button>
-                </div>
-              )}
-
-              {setupStep === 2 && (
-                <div className="space-y-4">
-                  <h3 className="text-xl font-bold italic">O que é a Reserva de Emergência?</h3>
-                  <p className="text-teal-50 text-sm leading-relaxed">É o seu <strong>balío de oxigênio</strong>. Ter um valor guardado evita que você faça novas dívidas em imprevistos. É a base da sua paz.</p>
-                  <p className="font-semibold text-sm pt-2">Como í© a estabilidade da sua fonte de renda hoje?</p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <button onClick={() => { setTempReserveMonths(4); setSetupStep(3); }} className="bg-white/10 hover:bg-white/20 p-4 rounded-xl border border-white/10 text-left text-sm transition-all group">
-                      <ShieldCheck size={18} className="mb-2 text-teal-200 group-hover:text-white" />
-                      <div className="font-bold">Estável</div>
-                      <div className="text-[10px] text-teal-100">Ex: Concursado, Aposentado</div>
-                    </button>
-                    <button onClick={() => { setTempReserveMonths(6); setSetupStep(3); }} className="bg-white/10 hover:bg-white/20 p-4 rounded-xl border border-white/10 text-left text-sm transition-all group">
-                      <TrendingUp size={18} className="mb-2 text-teal-200 group-hover:text-white" />
-                      <div className="font-bold">Regular</div>
-                      <div className="text-[10px] text-teal-100">Ex: CLT / Empresa Privada</div>
-                    </button>
-                    <button onClick={() => { setTempReserveMonths(12); setSetupStep(3); }} className="bg-white/10 hover:bg-white/20 p-4 rounded-xl border border-white/10 text-left text-sm transition-all group">
-                      <Target size={18} className="mb-2 text-teal-200 group-hover:text-white" />
-                      <div className="font-bold">Volátil</div>
-                      <div className="text-[10px] text-teal-100">Ex: Autônomo, Empresário</div>
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {setupStep === 3 && (
-                <div className="space-y-4">
-                  <h3 className="text-xl font-bold italic">Definindo sua meta</h3>
-                  <p className="text-teal-50 text-sm leading-relaxed">Sugerimos <strong>{tempReserveMonths} meses</strong> de custo de vida. você decide o que te traz paz.</p>
-                  <div className="flex items-center gap-4 py-2">
-                    <input 
-                      type="range" min="1" max="24" step="1" 
-                      value={tempReserveMonths} 
-                      onChange={(e) => setTempReserveMonths(Number(e.target.value))}
-                      className="flex-1 accent-white h-2 bg-teal-400 rounded-lg appearance-none cursor-pointer"
-                    />
-                    <span className="text-2xl font-black min-w-[100px] text-center">{tempReserveMonths} meses</span>
-                  </div>
-                  <div className="pt-2 border-t border-white/10">
-                    <p className="text-xs text-teal-100 mb-2 italic">Já possui algum valor guardado hoje?</p>
-                    <div className="relative max-w-xs mb-4">
-                      <span className="absolute left-4 top-[11px] text-teal-200 font-bold">R$</span>
-                      <input
-                        type="text"
-                        placeholder="0,00"
-                        className="w-full bg-white/10 border border-white/20 rounded-xl pl-10 pr-4 py-2.5 text-white placeholder:text-teal-200 focus:outline-none focus:bg-white/20 transition-all text-sm font-medium"
-                        value={displayTempCurrentReserve}
-                        onChange={(e) => handleCurrencyInput(e.target.value, setDisplayTempCurrentReserve, (val) => setTempCurrentReserve(val))}
-                      />
-                    </div>
-                  </div>
-                  <div className="flex gap-4 pt-2">
-                    <button 
-                      onClick={async () => {
-                        await saveFinancialProfile({
-                          monthlyIncome: tempIncome,
-                          emergencyReserveTarget: tempReserveMonths,
-                          emergencyReserveCurrent: tempCurrentReserve
-                        });
-                        setSetupStep(-1);
-                      }}
-                      className="bg-white text-teal-600 px-8 py-2.5 rounded-xl font-bold hover:bg-teal-50 transition-colors shadow-md text-sm"
-                    >
-                      Salvar Perfil Financeiro
-                    </button>
-                    <button onClick={() => setSetupStep(2)} className="text-teal-100 text-xs underline px-2">Voltar</button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      ) : (
-        // CARD DE RESUMO (Feedback visual permanente)
-        userMeta?.financialProfile && (
-          <div className="mb-8 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row gap-6 items-center justify-between animate-in fade-in duration-500">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-teal-50 rounded-xl border border-teal-100">
-                <TrendingUp size={24} className="text-teal-600" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 mb-0.5">
-                  <p className="text-[10px] text-slate-500 uppercase font-black tracking-wider">Renda Mensal</p>
-                  {/* Mostra o badge baseado nos meses da meta */}
-                  <span className="text-[9px] bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded-md font-bold uppercase tracking-tighter">
-                    {userMeta.financialProfile.emergencyReserveTarget <= 4 ? 'Estável' : 
-                     userMeta.financialProfile.emergencyReserveTarget >= 12 ? 'Volátil' : 'Regular'}
-                  </span>
-                </div>
-                <h3 className="text-xl font-black text-slate-900">{formatCurrency(userMeta.financialProfile.monthlyIncome)}</h3>
-              </div>
-            </div>
-
-            <div className="h-px w-full md:h-12 md:w-px bg-slate-100" />
-
-            <div className="flex-1 w-full">
-              <div className="flex justify-between items-end mb-2">
-                <div>
-                  <p className="text-[10px] text-slate-500 uppercase font-black tracking-wider">Reserva de Emergência</p>
-                  <p className="text-[10px] text-slate-400">Meta sugerida: {userMeta.financialProfile.emergencyReserveTarget} meses</p>
-                </div>
-                <p className="text-xs font-black text-slate-700">
-                  {userMeta.financialProfile.monthlyIncome > 0 
-                    ? Math.round((userMeta.financialProfile.emergencyReserveCurrent / (userMeta.financialProfile.monthlyIncome * userMeta.financialProfile.emergencyReserveTarget)) * 100) 
-                    : 0}%
-                </p>
-              </div>
-              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div 
-                  className="bg-teal-500 h-full transition-all duration-1000" 
-                  style={{ width: `${Math.min(100, userMeta.financialProfile.monthlyIncome > 0 ? (userMeta.financialProfile.emergencyReserveCurrent / (userMeta.financialProfile.monthlyIncome * userMeta.financialProfile.emergencyReserveTarget)) * 100 : 0)}%` }}
-                />
-              </div>
-            </div>
-
-            <button 
-              onClick={() => {
-                const p = userMeta.financialProfile;
-                setTempIncome(p.monthlyIncome);
-                setDisplayTempIncome(p.monthlyIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
-                setTempReserveMonths(p.emergencyReserveTarget);
-                setTempCurrentReserve(p.emergencyReserveCurrent);
-                setDisplayTempCurrentReserve(p.emergencyReserveCurrent.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
-                setSetupStep(1);
-              }}
-              className="p-2 text-slate-300 hover:text-teal-600 transition-colors"
-              title="Editar Perfil Financeiro"
-            >
-              <Pencil size={18} />
-            </button>
-          </div>
-        )
-      )}
-      {/* Cabeçalho */}
-      
-      <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-3 bg-rose-50 rounded-xl border border-rose-100">
-              <CreditCard size={24} className="text-rose-500" />
-            </div>
-            <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
-              Minhas dívidas
-            </h2>
-          </div>
-          <p className="text-slate-500 text-sm md:text-base max-w-2xl">
-            Organize suas contas pendentes e deixe o Nexus desenhar a estratégia matemática para você recuperar sua paz.
-          </p>
-        </div>
-
-        {/* Card: Não tenho dívidas (MELHORADO - Frente 1) */}
-        <label 
-          onClick={handleToggleNoDebts}
-          className={`flex items-center gap-4 bg-white border px-6 py-4 rounded-[2rem] shadow-sm transition-all group shrink-0 ${
-          debts.length > 0 
-            ? 'opacity-20 grayscale border-slate-100 cursor-not-allowed' 
-            : 'opacity-100 border-slate-200 cursor-pointer hover:border-brand-primary/30 active:scale-95'
-        }`}>
-          <div className="relative flex items-center">
-            <input 
-              type="checkbox" 
-              checked={isDeclaredNoDebts}
-              onChange={() => {}} // Tratado no label para melhor UX mobile
-              className="peer appearance-none w-6 h-6 border-2 border-slate-200 rounded-lg checked:bg-brand-primary checked:border-brand-primary transition-all"
-            />
-            <Check size={14} className="absolute left-1.5 text-white opacity-0 peer-checked:opacity-100 transition-opacity" />
-          </div>
-          <span className={`text-xs font-black uppercase tracking-widest transition-colors ${
-            debts.length > 0 ? 'text-slate-400' : isDeclaredNoDebts ? 'text-brand-primary' : 'text-slate-600 group-hover:text-slate-900'
-          }`}>
-            Não tenho dívidas
-          </span>
-        </label>
       </header>
 
-      {/* Formulário */}
-      <div
-        className={`bg-white border ${
-          editingId ? 'border-amber-300 shadow-[0_0_0_4px_rgba(251,191,36,0.08)]' : 'border-slate-200'
-        } rounded-2xl p-6 mb-8 shadow-sm transition-all duration-300`}
-      >
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${editingId ? 'bg-amber-50' : 'bg-teal-50'}`}>
-              {editingId
-                ? <Pencil size={16} className="text-amber-500" />
-                : <Plus size={16} className="text-teal-600" />}
+      {showHistory && savedPlans.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-in slide-in-from-top-4 duration-300">
+          {savedPlans.map(plan => (
+            <div key={plan.id} className="bg-white border border-slate-200 rounded-[2rem] p-6 shadow-sm flex flex-col justify-between group hover:border-sky-300 transition-all">
+              <div>
+                <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center mb-4">
+                  <BookOpen size={20} />
+                </div>
+                <h4 className="text-sm font-black text-slate-900 mb-1">{fixMojibake(plan.title)}</h4>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                  Gerado em {plan.createdAt?.toDate ? plan.createdAt.toDate().toLocaleDateString('pt-BR') : 'Recente'}
+                </p>
+              </div>
+              <button 
+                onClick={() => {
+                   // Implementar visualização do plano salvo
+                   alert("Abrindo visualização do plano...");
+                }}
+                className="mt-6 w-full py-3 rounded-xl bg-slate-50 text-slate-600 text-[10px] font-black uppercase tracking-widest group-hover:bg-sky-600 group-hover:text-white transition-all flex items-center justify-center gap-2"
+              >
+                Abrir Plano <ChevronRight size={14} />
+              </button>
             </div>
-            <h3 className="text-base font-bold text-slate-800">
-              {editingId ? 'Editando dívida' : 'Adicionar dívida'}
+          ))}
+        </div>
+      )}
+
+      {/* Formulário de Dívida */}
+      <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-sm">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-slate-100 rounded-xl text-slate-600">
+              {editingId ? <Pencil size={20} /> : <Plus size={20} />}
+            </div>
+            <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">
+              {editingId ? 'Editar Dívida' : 'Cadastrar Nova Dívida'}
             </h3>
           </div>
           {editingId && (
-            <button
-              type="button"
-              onClick={resetForm}
-              className="text-xs font-bold text-slate-400 hover:text-slate-700 flex items-center gap-1 transition-colors"
-            >
-              <X size={14} /> Cancelar ediçío
+            <button onClick={() => { setForm(EMPTY_FORM); setEditingId(null); }} className="text-xs font-black text-slate-400 hover:text-rose-500 uppercase tracking-widest flex items-center gap-1 transition-colors">
+              <X size={14} /> Cancelar
             </button>
           )}
         </div>
 
-        <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
-
-          {/* Nome */}
-          <div className="md:col-span-8">
-            <div className="h-6 flex items-center mb-2">
-              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                Qual dívida mais te incomoda hoje? <span className="text-slate-400 font-normal lowercase">(Ex: Cartão Nubank)</span> <span className="text-rose-500">*</span>
-              </label>
-            </div>
-            <input
-              type="text"
-              required
-              placeholder="Ex: Cartão Nubank, Empréstimo Caixa"
-              value={form.nome}
-              onChange={(e) => setForm((prev) => ({ ...prev, nome: e.target.value }))}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-colors"
-            />
-          </div>
-
-          {/* Tipo */}
-          <div className="md:col-span-4">
-            <div className="h-6 flex items-center mb-2">
-              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                Tipo <span className="text-rose-500">*</span>
-              </label>
-            </div>
-            <select
-              value={form.tipo}
-              onChange={(e) => setForm((prev) => ({ ...prev, tipo: e.target.value }))}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-colors"
-            >
-              {DEBT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-
-          {/* Saldo devedor */}
-          <div className="md:col-span-4">
-            <div className="h-6 flex items-center mb-2">
-              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                Saldo devedor atual <span className="text-rose-500">*</span>
-              </label>
-            </div>
-            <div className="relative">
-              <span className="absolute left-4 top-[13px] text-slate-400 text-sm font-bold pointer-events-none">R$</span>
+        <form onSubmit={handleSave} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">O que é a dívida?</label>
               <input
                 type="text"
-                inputMode="numeric"
                 required
-                placeholder="0,00"
-                value={displaySaldo}
-                onChange={(e) => handleCurrencyInput(e.target.value, setDisplaySaldo, 'saldoDevedor')}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-colors"
+                placeholder="Ex: Cartão Nubank, Empréstimo Caixa"
+                value={form.nome}
+                onChange={e => setForm({ ...form, nome: e.target.value })}
+                className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 transition-all text-sm font-bold"
               />
             </div>
-          </div>
-
-          {/* Taxa / CET (Calculado Automaticamente via HP12c) */}
-          <div className="md:col-span-4">
-            <div className="h-6 flex items-center gap-1 mb-2">
-              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                Taxa / CET mensal <span className="text-teal-600 font-normal lowercase">(automático)</span>
-              </label>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tipo de Débito</label>
+              <select
+                value={form.tipo}
+                onChange={e => setForm({ ...form, tipo: e.target.value })}
+                className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-rose-500 transition-all text-sm font-bold outline-none"
+              >
+                {DEBT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Saldo Devedor Atual</label>
               <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowCetInfo((v) => !v)}
-                  className="text-slate-400 hover:text-teal-600 transition-colors ml-1"
-                  aria-label="O que é CET?"
-                >
-                  <HelpCircle size={13} />
-                </button>
-                {showCetInfo && (
-                  <div className="absolute left-0 top-6 z-20 w-72 bg-white border border-slate-200 rounded-xl shadow-lg p-4 text-xs text-slate-600 leading-relaxed animate-in fade-in zoom-in duration-200">
-                    <p className="font-bold text-slate-800 mb-1 text-sm">O que é CET?</p>
-                    <p className="mb-2">
-                      É o <strong>custo real da sua dívida</strong>. O app calcula isso automaticamente cruzando o saldo, o prazo e o valor da sua parcela.
-                    </p>
-                    <p className="mb-2 italic text-teal-600 font-medium">
-                      Nota: O Nexus usa esta taxa calculada para priorizar qual dívida você deve quitar primeiro.
-                    </p>
-                    <button
-                      onClick={() => setShowCetInfo(false)}
-                      className="mt-3 text-teal-600 font-bold text-[10px] uppercase tracking-wide"
-                    >
-                      Entendido ✓
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="relative">
-              <input
-                type="text"
-                readOnly
-                value={form.taxaMensal > 0 ? `${form.taxaMensal}% a.m.` : 'Aguardando dados...'}
-                className="w-full bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 text-slate-600 text-sm font-bold cursor-not-allowed transition-all"
-              />
-              <div className="absolute right-3 top-[12px] flex items-center gap-1 bg-white px-2 py-1 rounded-md border border-slate-200 shadow-sm pointer-events-none">
-                <span className="text-[9px] text-teal-600 font-black uppercase tracking-tighter">HP12c Mode</span>
+                <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm">R$</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  placeholder="0,00"
+                  value={form.saldoDevedor || ''}
+                  onChange={e => setForm({ ...form, saldoDevedor: Number(e.target.value) })}
+                  className="w-full pl-12 pr-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-rose-500 transition-all text-sm font-black"
+                />
               </div>
             </div>
           </div>
 
-          {/* Parcelas restantes */}
-          <div className="md:col-span-4">
-            <div className="h-6 flex items-center mb-2">
-              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                Parcelas restantes <span className="text-rose-500">*</span>
-              </label>
-            </div>
-            <input
-              type="number"
-              required
-              min="1"
-              placeholder="Ex: 24"
-              value={form.parcelasRestantes || ''}
-              onChange={(e) => setForm((prev) => ({ ...prev, parcelasRestantes: parseInt(e.target.value) || 0 }))}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-colors"
-            />
-          </div>
-
-          {/* Valor da parcela (obrigatório para o Nexus) */}
-          <div className="md:col-span-4">
-            <div className="h-6 flex items-center mb-2">
-              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                Valor da parcela <span className="text-red-500 font-normal lowercase">(obrigatório)</span>
-              </label>
-            </div>
-            <div className="relative">
-              <span className="absolute left-4 top-[13px] text-slate-400 text-sm font-bold pointer-events-none">R$</span>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Juros Mensal (%)</label>
               <input
-                type="text"
-                inputMode="numeric"
+                type="number"
+                step="0.01"
                 required
                 placeholder="0,00"
-                value={displayParcela}
-                onChange={(e) => handleCurrencyInput(e.target.value, setDisplayParcela, 'valorParcela')}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-colors"
+                value={form.taxaMensal || ''}
+                onChange={e => setForm({ ...form, taxaMensal: Number(e.target.value) })}
+                className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-rose-500 transition-all text-sm font-bold"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Valor da Parcela</label>
+              <div className="relative">
+                <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm">R$</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  placeholder="0,00"
+                  value={form.valorParcela || ''}
+                  onChange={e => setForm({ ...form, valorParcela: Number(e.target.value) })}
+                  className="w-full pl-12 pr-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-rose-500 transition-all text-sm font-bold"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Parcelas Restantes</label>
+              <input
+                type="number"
+                required
+                placeholder="Ex: 12"
+                value={form.parcelasRestantes || ''}
+                onChange={e => setForm({ ...form, parcelasRestantes: Number(e.target.value) })}
+                className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-rose-500 transition-all text-sm font-bold"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Vencimento (Dia)</label>
+              <input
+                type="number"
+                min="1"
+                max="31"
+                placeholder="Ex: 10"
+                value={form.dataVencimento || ''}
+                onChange={e => setForm({ ...form, dataVencimento: e.target.value })}
+                className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-rose-500 transition-all text-sm font-bold"
               />
             </div>
           </div>
 
-          {/* Data de vencimento */}
-          <div className="md:col-span-4">
-            <div className="h-6 flex items-center mb-2">
-              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                Próximo vencimento <span className="text-slate-400 font-normal lowercase">(recomendado)</span>
+          {/* CAMPO PROPÓSITO (NEXUS) */}
+          <div className="p-5 bg-rose-50/30 rounded-[2rem] border border-rose-100/50">
+            <div className="flex items-center justify-between mb-3">
+              <label className="flex items-center gap-2 text-[10px] font-black text-rose-700 uppercase tracking-[0.2em]">
+                Propósito desta Dívida
+                <div className="group relative">
+                  <HelpCircle size={14} className="text-rose-400 cursor-help" />
+                  <div className="absolute left-0 bottom-full mb-3 w-72 p-4 bg-slate-900 text-white text-[11px] font-medium leading-relaxed rounded-2xl opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-50 shadow-2xl border border-slate-800">
+                    <p className="font-black text-rose-400 mb-2 uppercase tracking-widest text-left">Por que o Finanças Pro Invest pede o Propósito?</p>
+                    <p className="text-left">Para o Nexus ser seu consultor de verdade, ele precisa saber o 'porquê' desta dívida. Se for um financiamento de 'Casa Própria', ele focará em amortização de longo prazo. Se for um 'Erro de Percurso', ele priorizará a quitação acelerada para recuperar sua paz.</p>
+                    <p className="mt-3 text-slate-400 italic text-left border-t border-slate-800 pt-2">Ex: "Financiamento do meu primeiro lar." ou "Imprevisto de saúde na família."</p>
+                  </div>
+                </div>
               </label>
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-white rounded-full border border-rose-100 shadow-sm">
+                 <Sparkles size={10} className="text-rose-500" />
+                 <span className="text-[9px] font-black text-rose-600 uppercase tracking-tighter">Inteligência Nexus</span>
+              </div>
             </div>
-            <input
-              type="date"
-              value={form.dataVencimento ?? ''}
-              onChange={(e) => setForm((prev) => ({ ...prev, dataVencimento: e.target.value || null }))}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-colors"
+            <textarea
+              value={form.proposito || ''}
+              onChange={e => setForm({ ...form, proposito: e.target.value })}
+              className="w-full px-6 py-4 rounded-2xl border border-rose-100/50 focus:ring-4 focus:ring-rose-500/5 focus:border-rose-400 transition-all text-sm font-medium bg-white/50 min-h-[100px] resize-none placeholder:text-slate-300"
+              placeholder="O que esta dívida representa para você hoje? Qual a história dela?"
             />
           </div>
 
-          {/* Submit */}
-          <div className="md:col-span-4">
-            <div className="h-6 mb-2 hidden md:block" /> {/* Espaçador para alinhar com os labels */}
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className={`w-full flex items-center justify-center gap-2 font-black uppercase tracking-widest px-6 py-4 rounded-xl text-[10px] transition-all shadow-sm disabled:opacity-50 ${
-                editingId
-                  ? 'bg-amber-500 hover:bg-amber-400 text-white'
-                  : 'bg-teal-600 hover:bg-teal-700 text-white shadow-brand-glow'
-              }`}
-            >
-              {editingId
-                ? <><Pencil size={14} /> Salvar alterações</>
-                : <><Plus size={14} /> Registrar e Avançar</>}
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full py-5 rounded-2xl bg-rose-600 text-white font-black uppercase tracking-widest text-xs hover:bg-rose-500 transition-all shadow-lg shadow-rose-200 active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-3"
+          >
+            {isSubmitting ? 'Salvando...' : editingId ? <><Pencil size={18} /> Atualizar Dívida</> : <><Plus size={18} /> Salvar Nova Dívida</>}
+          </button>
         </form>
       </div>
 
-      {/* Lista / Feedback */}
-      <div className="mb-8">
-        {debts.length > 0 && (
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6 animate-in fade-in slide-in-from-top-2">
-            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-              dívidas cadastradas
-              <span className="text-xs font-bold bg-slate-100 text-slate-500 px-3 py-1 rounded-full border border-slate-200">
-                {debts.length} {debts.length === 1 ? 'dívida' : 'dívidas'}
-              </span>
-            </h3>
-            <div className="flex flex-wrap items-center gap-4">
-              {/* VIEW SWITCHER */}
-              <div className="relative flex bg-slate-200/50 p-1 rounded-xl border border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => toggleViewMode('grid')}
-                  onMouseEnter={() => setShowViewTooltip(true)}
-                  onMouseLeave={() => setShowViewTooltip(false)}
-                  className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white text-teal-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                >
-                  <LayoutGrid size={16} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => toggleViewMode('list')}
-                  onMouseEnter={() => setShowViewTooltip(true)}
-                  onMouseLeave={() => setShowViewTooltip(false)}
-                  className={`p-1.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white text-teal-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                >
-                  <List size={16} />
-                </button>
-
-                {/* Tooltip Educativo */}
-                {showViewTooltip && (
-                  <div className="absolute bottom-full mb-2 right-0 z-50 w-48 p-3 bg-slate-800 text-white rounded-xl shadow-xl animate-in fade-in zoom-in duration-200 pointer-events-none">
-                    <p className="text-[10px] leading-tight font-medium">
-                      <span className="font-black text-teal-400 uppercase tracking-widest block mb-1">Dica de Visualização</span>
-                      {viewMode === 'grid' 
-                        ? 'Mude para lista para uma visão mais compacta e organizada em linhas.' 
-                        : 'Mude para blocos para uma visão mais visual de cada dívida.'}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {debts.length > 0 && (
-                <p className="text-sm font-black text-slate-800">
-                  Total em dívidas:{' '}
-                  <span className="text-rose-600">{formatCurrency(totalSaldo)}</span>
-                </p>
-              )}
+      {/* Resumo Rápido */}
+      {debts.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-sm flex items-center gap-6 group hover:border-rose-200 transition-all">
+            <div className="p-5 bg-rose-50 text-rose-600 rounded-[2rem] group-hover:bg-rose-600 group-hover:text-white transition-all">
+              <TrendingUp size={32} />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Saldo Devedor Total</p>
+              <h3 className="text-3xl font-black text-slate-900">{formatCurrency(totalSaldo)}</h3>
             </div>
           </div>
-        )}
-
-        {isLoading ? (
-          <div className="text-center py-12 text-slate-400 animate-pulse text-sm">
-            Carregando dívidas...
+          <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-sm flex items-center gap-6 group hover:border-orange-200 transition-all">
+            <div className="p-5 bg-orange-50 text-orange-600 rounded-[2rem] group-hover:bg-orange-600 group-hover:text-white transition-all">
+              <Wallet size={32} />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Comprometimento Mensal</p>
+              <h3 className="text-3xl font-black text-slate-900">{formatCurrency(totalParcelas)}</h3>
+            </div>
           </div>
-        ) : debts.length === 0 ? (
-          /* TRATAMENTO DE ESTADOS VAZIOS (Frente 1 e 2) */
-          isDeclaredNoDebts ? (
-            /* ESTADO C: LIBERDADE FINANCEIRA (PARABÉNS) */
-            <div className="py-16 px-8 bg-emerald-50 border border-emerald-100 rounded-[3rem] text-center shadow-sm animate-in zoom-in-95 duration-500">
-              <div className="relative w-20 h-20 mx-auto mb-6">
-                <div className="absolute inset-0 bg-emerald-200 rounded-full blur-2xl opacity-40 animate-pulse" />
-                <div className="relative w-full h-full bg-white rounded-[2rem] flex items-center justify-center shadow-emerald-100 shadow-xl border border-emerald-100">
-                  <Trophy size={36} className="text-emerald-500" />
-                </div>
-                <PartyPopper size={20} className="absolute -top-1 -right-1 text-emerald-400 animate-bounce" />
-              </div>
-              <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-tight leading-tight uppercase">Parabéns pela sua liberdade!</h3>
-              <p className="text-slate-600 text-base max-w-lg mx-auto leading-relaxed mb-8">
-                você está no controle total. Ter <strong>zero dívidas</strong> é o primeiro e mais importante grande passo para a construção da sua riqueza real.
-              </p>
-              <div className="flex flex-wrap justify-center gap-4">
-                <button
-                  onClick={() => onNavigate?.('investimentos')}
-                  className="px-8 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-widest rounded-2xl shadow-emerald-200 shadow-lg transition-all active:scale-95"
-                >
-                  Focar em Investimentos
-                </button>
-                <button
-                  onClick={handleToggleNoDebts}
-                  className="px-6 py-3.5 bg-white border border-emerald-100 text-emerald-600 hover:bg-emerald-50 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all"
-                >
-                  Alterar declaração
-                </button>
-              </div>
+        </div>
+      )}
+
+      {/* Lista de Dívidas */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between px-2">
+          <div className="flex items-center gap-3">
+             <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Sua Lista de Débitos</h3>
+             <span className="px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-[10px] font-black">{debts.length} {debts.length === 1 ? 'Dívida' : 'Dívidas'}</span>
+          </div>
+          <div className="flex bg-slate-100 p-1 rounded-xl">
+             <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}><LayoutGrid size={16} /></button>
+             <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}><List size={16} /></button>
+          </div>
+        </div>
+
+        {debts.length === 0 ? (
+          <div className="bg-slate-50 border border-dashed border-slate-200 rounded-[3rem] p-20 text-center space-y-4">
+            <div className="w-20 h-20 bg-white rounded-[2.5rem] shadow-sm flex items-center justify-center mx-auto mb-6">
+               <Trophy size={40} className="text-amber-400" />
             </div>
-          ) : (
-            /* ESTADO B: CADASTRO PENDENTE (INCENTIVO) */
-            <div className="py-14 px-6 bg-rose-50 border border-dashed border-rose-200 rounded-[2.5rem] text-center animate-in fade-in duration-700">
-              <div className="w-14 h-14 bg-rose-100 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-rose-200 shadow-sm">
-                <CreditCard size={24} className="text-rose-500" />
-              </div>
-              <p className="text-slate-800 font-black text-base mb-1">Nenhuma dívida cadastrada ainda</p>
-              <p className="text-slate-500 text-sm max-w-md mx-auto leading-relaxed mb-6">
-                Cadastre suas dívidas aqui em cima. Com esses dados, o Nexus consegue montar um plano real de quitação — priorizando matematicamente o que mais te custa caro.
-              </p>
-              <button
-                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                className="inline-flex items-center gap-2 bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-black uppercase tracking-widest px-8 py-3.5 rounded-2xl transition-all active:scale-95 shadow-lg shadow-rose-200"
-              >
-                <Plus size={14} /> Cadastrar primeira dívida
-              </button>
-            </div>
-          )
+            <h3 className="text-xl font-black text-slate-900">Zero Dívidas no Radar!</h3>
+            <p className="text-slate-500 max-w-sm mx-auto font-medium">Se você não tem dívidas, parabéns! Use o Controla para manter esse recorde e a Central para crescer seu patrimônio.</p>
+          </div>
         ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {debts.map((debt) => (
-              <div
-                key={debt.id}
-                className="bg-white border border-slate-200 rounded-xl p-5 hover:border-slate-300 hover:shadow-md transition-all group relative overflow-hidden flex flex-col"
-              >
-                <div className={`absolute top-0 left-0 w-full h-1 ${STRIPE_COLORS[debt.tipo] ?? 'bg-slate-400'}`} />
-
-                <div className="flex justify-between items-start mb-4 mt-2">
-                  <div className="flex-1 min-w-0 pr-2">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50 border border-slate-100 px-2 py-1 rounded-md mb-2 inline-block">
-                      {debt.tipo}
-                    </span>
-                    <h4 className="text-base font-bold text-slate-900 truncate">{debt.nome}</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {debts.map(debt => (
+              <div key={debt.id} className="bg-white border border-slate-200 rounded-[2.5rem] p-7 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group relative overflow-hidden flex flex-col h-full">
+                <div className={`absolute top-0 left-0 w-full h-2 ${STRIPE_COLORS[debt.tipo] || 'bg-slate-400'}`} />
+                
+                <div className="flex justify-between items-start mb-6 mt-2">
+                  <div>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">{debt.tipo}</span>
+                    <h4 className="text-lg font-black text-slate-900 leading-tight">{debt.nome}</h4>
                   </div>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                    <button
-                      onClick={() => handleEdit(debt)}
-                      className="text-slate-400 hover:text-amber-500 p-2 rounded-lg hover:bg-amber-50 transition-colors"
-                      title="Editar"
-                    >
-                      <Pencil size={15} />
-                    </button>
-                    <button
-                      onClick={() => debt.id && handleDelete(debt.id)}
-                      className="text-slate-400 hover:text-rose-500 p-2 rounded-lg hover:bg-rose-50 transition-colors"
-                      title="Excluir"
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                    <button onClick={() => handleEdit(debt)} className="p-2.5 rounded-xl bg-slate-50 text-slate-400 hover:bg-sky-50 hover:text-sky-600 transition-all border border-slate-100"><Pencil size={16} /></button>
+                    <button onClick={() => debt.id && handleDelete(debt.id)} className="p-2.5 rounded-xl bg-slate-50 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-all border border-slate-100"><Trash2 size={16} /></button>
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-2 flex-grow">
-                  <div className="flex justify-between items-center py-1 border-b border-slate-100">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Saldo devedor</span>
-                    <span className="text-base font-black text-rose-600">{formatCurrency(debt.saldoDevedor)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Taxa mensal</span>
-                    <span className="text-sm font-bold text-slate-700">{debt.taxaMensal}% a.m.</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Parcelas restantes</span>
-                    <span className="text-sm font-bold text-slate-700">{debt.parcelasRestantes}x</span>
-                  </div>
-                  {debt.valorParcela ? (
-                    <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Parcela</span>
-                      <span className="text-sm font-bold text-slate-700">{formatCurrency(debt.valorParcela)}</span>
+                <div className="flex-grow space-y-4 mb-6">
+                  {debt.proposito && (
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Propósito</p>
+                      <p className="text-xs text-slate-600 font-medium italic">"{debt.proposito}"</p>
                     </div>
-                  ) : null}
+                  )}
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-slate-50/50 p-3 rounded-2xl border border-slate-50">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-0.5">Taxa Mensal</p>
+                      <p className="text-sm font-black text-slate-900">{debt.taxaMensal}%</p>
+                    </div>
+                    <div className="bg-slate-50/50 p-3 rounded-2xl border border-slate-50">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-0.5">Vencimento</p>
+                      <p className="text-sm font-black text-slate-900">Dia {debt.dataVencimento || '—'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-auto pt-6 border-t border-slate-100">
+                  <div className="flex items-center justify-between mb-2">
+                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Saldo Devedor</p>
+                     <p className="text-[10px] font-black text-rose-500 uppercase">{debt.parcelasRestantes}x de {formatCurrency(debt.valorParcela)}</p>
+                  </div>
+                  <h3 className="text-2xl font-black text-slate-900">{formatCurrency(debt.saldoDevedor)}</h3>
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
+          <div className="bg-white border border-slate-200 rounded-[2.5rem] overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left">
                 <thead className="bg-slate-50 border-b border-slate-100">
                   <tr>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Dívida / Tipo</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Saldo Devedor</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Taxa</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Parcelas</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Vlr. Parcela</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Ações</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Dívida / Tipo</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Propósito</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Juros</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Parcelas</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Saldo Devedor</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {debts.map((debt) => (
-                    <tr key={debt.id} className="hover:bg-slate-50/50 transition-colors group">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-1.5 h-8 rounded-full ${STRIPE_COLORS[debt.tipo] ?? 'bg-slate-400'}`} />
-                          <div className="flex flex-col">
-                            <span className="text-sm font-bold text-slate-900">{debt.nome}</span>
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{debt.tipo}</span>
-                          </div>
-                        </div>
+                  {debts.map(debt => (
+                    <tr key={debt.id} className="hover:bg-slate-50/50 transition-all group">
+                      <td className="px-8 py-5">
+                         <div className="flex items-center gap-3">
+                            <div className={`w-1.5 h-8 rounded-full ${STRIPE_COLORS[debt.tipo] || 'bg-slate-400'}`} />
+                            <div>
+                               <p className="text-sm font-black text-slate-900">{debt.nome}</p>
+                               <p className="text-[9px] font-bold text-slate-400 uppercase">{debt.tipo}</p>
+                            </div>
+                         </div>
                       </td>
-                      <td className="px-6 py-4 text-right">
-                        <span className="text-sm font-black text-rose-600">{formatCurrency(debt.saldoDevedor)}</span>
+                      <td className="px-8 py-5 max-w-xs">
+                        <p className="text-xs text-slate-500 font-medium italic line-clamp-1">{debt.proposito || '—'}</p>
                       </td>
-                      <td className="px-6 py-4 text-center">
-                        <span className="text-xs font-bold text-slate-700">{debt.taxaMensal}%</span>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <span className="text-xs font-bold text-slate-700">{debt.parcelasRestantes}x</span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <span className="text-sm font-bold text-slate-700">{debt.valorParcela ? formatCurrency(debt.valorParcela) : '—'}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex justify-center gap-1">
-                          <button
-                            onClick={() => handleEdit(debt)}
-                            className="p-2 text-slate-400 hover:text-amber-500 transition-colors"
-                            title="Editar"
-                          >
-                            <Pencil size={14} />
-                          </button>
-                          <button
-                            onClick={() => debt.id && handleDelete(debt.id)}
-                            className="p-2 text-slate-400 hover:text-rose-500 transition-colors"
-                            title="Excluir"
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                      <td className="px-8 py-5 text-sm font-bold text-slate-600">{debt.taxaMensal}% <span className="text-[10px] text-slate-400">/mês</span></td>
+                      <td className="px-8 py-5 text-sm font-bold text-slate-900 text-right">{debt.parcelasRestantes}x <span className="text-[10px] text-slate-400">de {formatCurrency(debt.valorParcela)}</span></td>
+                      <td className="px-8 py-5 text-right font-black text-rose-600">{formatCurrency(debt.saldoDevedor)}</td>
+                      <td className="px-8 py-5">
+                        <div className="flex justify-center gap-2">
+                           <button onClick={() => handleEdit(debt)} className="p-2 text-slate-400 hover:text-sky-600 transition-all"><Pencil size={14} /></button>
+                           <button onClick={() => debt.id && handleDelete(debt.id)} className="p-2 text-slate-400 hover:text-rose-600 transition-all"><Trash2 size={14} /></button>
                         </div>
                       </td>
                     </tr>
@@ -1156,229 +586,72 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, lanc
         )}
       </div>
 
-      {/* RITUAL DE VALIDAÇÃO (MOVIDO PARA APÓS A LISTA) */}
-      <div className="mb-8 group relative overflow-hidden rounded-[2.5rem] bg-white border border-slate-200 p-8 shadow-soft">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-rose-500/5 rounded-full blur-3xl -mr-32 -mt-32" />
-        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-4">
-            <div className="p-4 bg-rose-500 text-white rounded-[2rem] shadow-rose-500/20 shadow-lg">
-              <ShieldCheck size={32} />
+      {/* RITUAL DE GOVERNANÇA (DÍVIDAS) */}
+      <div className="mt-12 group relative overflow-hidden rounded-[3rem] bg-white border border-slate-200 p-10 shadow-soft">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-rose-500/5 rounded-full blur-3xl -mr-40 -mt-40" />
+        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-10">
+          <div className="flex items-center gap-6">
+            <div className="p-5 bg-emerald-500 text-white rounded-[2.5rem] shadow-xl shadow-emerald-500/20">
+              <ShieldCheck size={40} />
             </div>
             <div>
-              <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight leading-tight">Ritual de Governança</h3>
-              <p className="text-sm text-slate-500 font-medium">Mantenha seus saldos devedores sempre reais.</p>
+              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight leading-tight">Ritual de Governança</h3>
+              <p className="text-slate-500 font-medium mt-1">Valide se seus saldos devedores refletem a realidade de hoje.</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          
+          <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
             <button
               onClick={handleAmortizeAll}
-              className="flex items-center gap-3 px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-95"
+              className="flex items-center justify-center gap-3 px-8 py-4 bg-slate-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all active:scale-95"
             >
-              Abater Parcelas do Mês
-              <History size={18} />
+              Abater Parcela do Mês
             </button>
             <button
               onClick={() => setShowConfirmModal(true)}
-              className="flex items-center gap-3 px-8 py-4 bg-brand-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-brand-primary/90 transition-all shadow-brand-glow active:scale-95"
+              className="flex items-center justify-center gap-3 px-10 py-4 bg-brand-primary text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-brand-primary/90 transition-all shadow-brand-glow active:scale-95"
             >
-              Validar Saldos Atuais
+              Validar Dívidas Atuais
               <ArrowRight size={18} />
             </button>
           </div>
         </div>
       </div>
 
-      {/* MODAL DE CONFIRMAÇÃO (MOVIDO PARA ACOMPANHAR O CARD) */}
+      {/* MODAL DE CONFIRMAÇÃO (DÍVIDAS) */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white rounded-[3rem] p-8 max-md w-full shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-300">
-            <div className="flex flex-col items-center text-center space-y-4">
-              <div className="p-5 bg-rose-50 text-rose-600 rounded-[2rem] mb-2">
-                <HelpCircle size={40} />
+          <div className="bg-white rounded-[3rem] p-10 max-w-md w-full shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-300">
+            <div className="flex flex-col items-center text-center space-y-6">
+              <div className="p-6 bg-rose-50 text-rose-600 rounded-[2.5rem]">
+                <HelpCircle size={48} />
               </div>
-              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Validar Dívidas?</h3>
-              <p className="text-slate-500 font-medium leading-relaxed">
-                Você confirma que os saldos devedores de todas as suas dívidas estão atualizados conforme a data de hoje?
-                <br/><br/>
-                <span className="text-brand-primary font-bold italic">Dica: Verifique o saldo atual no app do seu banco ou credor para maior precisão.</span>
-              </p>
+              <div className="space-y-2">
+                <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Validar Dívidas?</h3>
+                <p className="text-slate-500 font-medium leading-relaxed">
+                  Você confirma que os saldos devedores e parcelas cadastrados estão atualizados?
+                  <br/><br/>
+                  <span className="text-rose-600 font-bold italic">O Finanças Pro Invest usa essa confirmação para recalcular sua saúde financeira global.</span>
+                </p>
+              </div>
               
-              <div className="flex flex-col w-full gap-3 pt-4">
+              <div className="flex flex-col w-full gap-3">
                 <button
                   onClick={handleConfirmSaldos}
                   disabled={isSavingSnapshot}
-                  className="w-full py-4 bg-brand-primary text-white rounded-2xl font-black uppercase tracking-widest hover:bg-brand-primary/90 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-5 bg-brand-primary text-white rounded-2xl font-black uppercase tracking-widest hover:bg-brand-primary/90 transition-all flex items-center justify-center gap-2"
                 >
-                  {isSavingSnapshot ? 'Salvando...' : 'Sim, Confirmar Saldos'}
+                  {isSavingSnapshot ? 'Salvando...' : 'Confirmar integridade'}
                 </button>
                 <button
                   onClick={() => setShowConfirmModal(false)}
-                  className="w-full py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
+                  className="w-full py-5 bg-slate-50 text-slate-400 rounded-2xl font-black uppercase tracking-widest hover:bg-slate-100 transition-all"
                 >
-                  Cancelar
+                  Ainda não
                 </button>
               </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* ”€”€ SEÇÃO DE HISTÓRICO DE PLANOS (DUAS CAMADAS) ”€”€ */}
-      {debts.length > 0 && (
-        <div id="nexus-debt-plan-section" className="space-y-6 pt-4 border-t border-slate-100">
-          
-          {!showSavedPlansList ? (
-            /* PRIMEIRA CAMADA: CARD DE RESUMO */
-            <div className="bg-white border border-emerald-100 rounded-[2rem] p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 group hover:border-emerald-200 transition-all">
-              <div className="flex items-center gap-5">
-                <div className="p-4 bg-emerald-50 rounded-2xl text-emerald-600 group-hover:scale-110 transition-transform">
-                  <History size={28} />
-                </div>
-                <div>
-                  <h3 className="text-lg font-black text-slate-900 tracking-tight uppercase">Planos Gerados pelo Nexus</h3>
-                  <p className="text-sm text-slate-500 font-medium">
-                    {savedPlans.length === 0 
-                      ? 'Você ainda não possui planos de quitação salvos.' 
-                      : `Você possui ${savedPlans.length} ${savedPlans.length === 1 ? 'estratégia salva' : 'estratégias salvas'} no seu histórico.`}
-                  </p>
-                </div>
-              </div>
-
-              {savedPlans.length > 0 && (
-                <button
-                  onClick={() => {
-                    setShowSavedPlansList(true);
-                    // Scroll suave para o topo da seção de histórico
-                    setTimeout(() => {
-                      const el = document.getElementById('nexus-debt-plan-section');
-                      el?.scrollIntoView({ behavior: 'smooth' });
-                    }, 100);
-                  }}
-                  className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 shadow-brand-glow active:scale-95 transition-all"
-                >
-                  Acessar Histórico
-                  <ChevronRight size={16} />
-                </button>
-              )}
-            </div>
-          ) : (
-            /* SEGUNDA CAMADA: LISTA DETALHADA E SIMULADOR */
-            <div className="animate-in fade-in slide-in-from-right-4 duration-500 space-y-6">
-              {/* Cabeçalho do Histórico */}
-              <div className="flex items-center justify-between">
-                <button
-                  onClick={() => {
-                    setShowSavedPlansList(false);
-                    setSelectedSavedPlan(null);
-                  }}
-                  className="flex items-center gap-2 text-slate-400 hover:text-slate-600 font-black text-[10px] uppercase tracking-widest transition-colors"
-                >
-                  <ArrowLeft size={16} /> Voltar para Minhas Dívidas
-                </button>
-                <div className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-black uppercase border border-emerald-100">
-                  Modo Histórico
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* Lateral: Lista de Planos */}
-                <div className="lg:col-span-4 space-y-4">
-                  <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm">
-                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                      <List size={14} /> Selecione um Plano
-                    </h4>
-                    
-                    <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                      {savedPlans.map((plan) => (
-                        <button
-                          key={plan.id}
-                          onClick={() => setSelectedSavedPlan(plan)}
-                          className={`w-full text-left p-4 rounded-2xl border transition-all flex flex-col gap-1 group/item ${
-                            selectedSavedPlan?.id === plan.id 
-                              ? 'bg-emerald-50 border-emerald-200 ring-1 ring-emerald-200' 
-                              : 'bg-slate-50 border-slate-100 hover:border-emerald-200'
-                          }`}
-                        >
-                          <span className={`text-xs font-black uppercase tracking-tight ${selectedSavedPlan?.id === plan.id ? 'text-emerald-700' : 'text-slate-700'}`}>
-                            {(() => {
-                              const rawTitle = fixMojibake(plan.title);
-                              const match = rawTitle.match(/(\d{2}\/\d{2}\/\d{4},?\s\d{2}:\d{2})/);
-                              return match ? `Estratégia de ${match[1].replace(',', '')}` : rawTitle;
-                            })()}
-                          </span>
-                          <span className="text-[10px] text-slate-400 group-hover/item:text-emerald-500 transition-colors">Ver detalhes do plano →</span>
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="mt-6 p-4 bg-amber-50 border border-amber-100 rounded-2xl">
-                      <div className="flex items-start gap-3">
-                        <AlertCircle size={14} className="text-amber-600 shrink-0 mt-0.5" />
-                        <p className="text-[10px] leading-relaxed text-amber-800 font-medium">
-                          Estes planos foram gerados com dados do passado. Para uma análise atualizada, gere um novo plano no simulador abaixo.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Principal: O Plano Selecionado */}
-                <div className="lg:col-span-8">
-                  <DebtPlanSimulator
-                    userId={userId}
-                    initialPlanMarkdown={selectedSavedPlan?.planMarkdown}
-                    dividas={debts.map(d => ({
-                      id: d.id ?? d.nome,
-                      nome: d.nome,
-                      saldoAtual: d.saldoDevedor,
-                      taxaJurosMes: d.taxaMensal,
-                      ...(d.valorParcela ? { parcelaMensal: d.valorParcela } : {}),
-                    }))}
-                    simulacao={{
-                      totalDividas: debts.reduce((acc, d) => acc + d.saldoDevedor, 0),
-                      prazoEstimadoQuitacaoAtual: debts.length > 0
-                        ? Math.max(...debts.map(d => d.parcelasRestantes))
-                        : 0,
-                      ...(userMeta?.financialProfile?.monthlyIncome
-                        ? { rendaMensalEstimada: userMeta.financialProfile.monthlyIncome }
-                        : {}),
-                      ...(despesasMensaisMedias > 0
-                        ? { despesasMensaisMedias }
-                        : {}),
-                      ...(totalParcelasMensais > 0
-                        ? { totalParcelasMensais }
-                        : {}),
-                      ...(typeof sobraMensalReal === 'number'
-                        ? { sobraMensalReal }
-                        : {}),
-                      ...(janelaAnaliseDias > 0
-                        ? { janelaAnaliseDias }
-                        : {}),
-                    }}
-                    usuarioPerfil="endividado_iniciante"
-                    perfilContexto={userMeta?.financialProfile ? {
-                      estabilidade:
-                        userMeta.financialProfile.emergencyReserveTarget <= 4 ? 'estavel' :
-                        userMeta.financialProfile.emergencyReserveTarget >= 12 ? 'volatil' : 'regular',
-                      reservaAtual: userMeta.financialProfile.emergencyReserveCurrent ?? 0,
-                      metaReservaEmMeses: userMeta.financialProfile.emergencyReserveTarget ?? 6,
-                    } : undefined}
-                    
-                    patrimonioContexto={{
-                      valorTotalInvestimentosFinanceiros: totalAssets,
-                      valorPatrimonioLiquido: totalAssets + totalPassives - debts.reduce((sum, d) => sum + (d.saldoDevedor || 0), 0),
-                    }}
-                    
-                    custoOportunidadeContexto={selicAno ? {
-                      selicAno,
-                      cdiAno: selicAno - 0.1,
-                      retornoLiquidoEstimadoAno: parseFloat((selicAno * 0.85).toFixed(2)),
-                    } : undefined}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       )}
     </div>

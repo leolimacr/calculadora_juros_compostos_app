@@ -16,7 +16,14 @@ export const useWealthHistory = (userId?: string) => {
   const lastSnapshot = history.length > 0 ? history[history.length - 1] : null;
 
   const mutation = useMutation({
-    mutationFn: (data: { totalNetWorth: number; totalAssets: number; totalDebts: number; module?: 'investments' | 'property' | 'debts' }) => {
+    mutationFn: (data: { 
+      totalNetWorth: number; 
+      totalAssets: number; 
+      totalInvestments: number; 
+      totalProperty: number; 
+      totalDebts: number; 
+      module?: 'investments' | 'property' | 'debts' 
+    }) => {
       if (!userId) throw new Error('Usuário não autenticado');
       return saveWealthSnapshot(userId, data);
     },

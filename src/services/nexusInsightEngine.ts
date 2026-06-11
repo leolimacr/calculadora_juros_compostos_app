@@ -1,6 +1,6 @@
 import { extractUpcomingBill } from './nexusContextUtils';
 import { DebtItem } from './debt/debt.types';
-import { CreditCard, Transaction } from '../types';
+import { CreditCard, Transaction, ActiveAsset, PassiveAsset } from '../types';
 
 // Tipos
 export interface NexusInsightAction {
@@ -42,6 +42,10 @@ export interface UserContext {
   monthBalance: number; // positivo = azul, negativo = vermelho
   hasFirstInvestment: boolean;
   streak: number;
+  // [NEXUS MULTIMODULAR] Coleções completas para discernimento
+  assets?: ActiveAsset[];
+  passives?: PassiveAsset[];
+  debts?: DebtItem[];
   // Dados estratégicos para Central
   hasDebts?: boolean;
   hasRealEstate?: boolean;
@@ -89,15 +93,56 @@ const INSIGHT_CATALOG: Array<{
     insight: {
       id: 'boas_vindas_primeira_sessao',
       message: {
-        title: 'Bem-vindo ao FPI',
+        title: 'Bem-vindo ao Finanças Pro Invest',
         body: 'Que tal lançar sua primeira receita para começarmos a te entender melhor?',
-        ctaLabel: 'Saiba mais',
+        ctaLabel: 'Lançar Agora',
       },
       deepLink: 'transaction-form',
       priority: 'media',
       action: { label: 'Lançar agora', type: 'adjust' }
     },
   },
+
+  // [NEXUS DISCERNMENT] — Proteção de Lar
+  {
+    id: 'central-nexus-family-protection',
+    condition: (ctx) => {
+      const hasHighInterestDebt = ctx.debts?.some(d => (d.taxaMensal || 0) > 5);
+      const hasEssentialHome = ctx.passives?.some(p => checkPurpose(p, ['lar', 'moradia', 'família', 'casa']));
+      return !!hasHighInterestDebt && !!hasEssentialHome;
+    },
+    insight: {
+      id: 'central-nexus-family-protection',
+      message: {
+        title: 'Proteja seu Porto Seguro',
+        body: 'Leo, notei juros altos rodando em suas dívidas. Vamos traçar um plano para eliminá-los preservando 100% o seu lar?',
+        ctaLabel: 'Ver Estratégia',
+      },
+      deepLink: 'minhas-dividas',
+      priority: 'alta',
+    },
+  },
+
+  // [NEXUS DISCERNMENT] — Liquidez de Ativos Negociáveis
+  {
+    id: 'central-nexus-liquidity-opportunity',
+    condition: (ctx) => {
+      const isNegative = ctx.monthBalance < 0;
+      const hasNegotiableAsset = ctx.passives?.some(p => checkPurpose(p, ['venda', 'negociável', 'disponível', 'custo']));
+      return isNegative && !!hasNegotiableAsset;
+    },
+    insight: {
+      id: 'central-nexus-liquidity-opportunity',
+      message: {
+        title: 'Otimização de Patrimônio',
+        body: 'Seu saldo está apertado, mas você possui bens marcados como negociáveis. Quer simular como a venda de um deles aliviaria seu mês?',
+        ctaLabel: 'Simular Venda',
+      },
+      deepLink: 'central',
+      priority: 'media',
+    },
+  },
+
   // Home — Jornada de Expansão (Premium)
   {
     id: 'local-central-premium-upsell',
@@ -186,22 +231,6 @@ const INSIGHT_CATALOG: Array<{
       },
       deepLink: 'transaction-form',
       priority: 'media',
-    },
-  },
-  // Home — Boas-vindas inteligente (Onboarding)
-  {
-    id: 'boas_vindas_primeira_sessao',
-    condition: (ctx) => ctx.isFirstSession === true,
-    insight: {
-      id: 'boas_vindas_primeira_sessao',
-      message: {
-        title: 'Bem-vindo ao FPI',
-        body: 'Que tal lançar sua primeira receita para começarmos a te entender melhor?',
-        ctaLabel: 'Saiba mais',
-      },
-      deepLink: 'transaction-form',
-      priority: 'media',
-      action: { label: 'Lançar agora', type: 'adjust' }
     },
   },
   // Home — Reserva de Fatura (Ação Acionável)
@@ -333,8 +362,7 @@ const SEEN_INSIGHTS_KEY = 'nexus-seen-insights';
 const CENTRAL_SEEN_KEY = 'nexus-central-seen';
 const MAX_SEEN_HISTORY = 5;
 
-export function buildUserContext(params: Partial<UserContext> & { debts?: DebtItem[] }): UserContext {
-  const { debts, ...base } = params;
+export function buildUserContext(params: Partial<UserContext>): UserContext {
   const ctx: UserContext = {
     hasFinancialProfile: false,
     hasPaidAccess: false,
@@ -346,16 +374,26 @@ export function buildUserContext(params: Partial<UserContext> & { debts?: DebtIt
     monthBalance: 0,
     hasFirstInvestment: false,
     streak: 0,
-    ...base
+    ...params
   };
 
   // Enriquecimento automático
-  ctx.upcomingCreditCardBill = extractUpcomingBill(ctx, debts);
+  ctx.upcomingCreditCardBill = extractUpcomingBill(ctx, params.debts);
   
   const onboardingCompleted = typeof window !== 'undefined' && localStorage.getItem('fpi_onboarding_op_completed');
   ctx.isFirstSession = ctx.launchCount === 0 && !onboardingCompleted;
 
   return ctx;
+}
+
+/**
+ * [NEXUS DISCERNMENT]
+ * Analisa semanticamente o propósito de um item.
+ */
+function checkPurpose(item: { proposito?: string }, keywords: string[]): boolean {
+  if (!item.proposito) return false;
+  const lower = item.proposito.toLowerCase();
+  return keywords.some(k => lower.includes(k.toLowerCase()));
 }
 
 function getSeenInsights(key = SEEN_INSIGHTS_KEY): string[] {

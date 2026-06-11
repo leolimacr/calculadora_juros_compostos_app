@@ -4,26 +4,21 @@ import { firestore } from '../../../firebase'; // Mantido o seu caminho exato
 import { Building2, Plus, Trash2, Landmark, Pencil, X, Car, LayoutGrid, List, ShieldCheck, HelpCircle, ArrowRight } from 'lucide-react';
 import { useWealthData } from '../../../hooks/useWealthData';
 import { useWealthHistory } from '../../../hooks/useWealthHistory';
-
-export interface PassiveAsset {
-  id?: string;
-  description: string;
-  category: string;
-  currentValue: number;
-  observations?: string;
-}
+import { PassiveAsset } from '../../../types';
 
 interface PassiveWealthManagerProps {
   userId: string | undefined;
 }
 
+const PASSIVE_CATEGORIES = ['Imóveis', 'Veículos', 'Terrenos', 'Joias/Arte', 'Outros'];
+
 export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ userId }) => {
   const [assets, setAssets] = useState<PassiveAsset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Confirmaçío de Saldos
+  // Confirmação de Saldos
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const { patrimonioLiquido, totalAssets, totalDebts } = useWealthData();
+  const { patrimonioLiquido, totalAssets, totalDebts, totalInvestments, totalProperty } = useWealthData();
   const { saveSnapshot, isSaving } = useWealthHistory(userId);
 
   const handleConfirmSaldos = async () => {
@@ -31,6 +26,8 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
       await saveSnapshot({
         totalNetWorth: patrimonioLiquido,
         totalAssets: totalAssets,
+        totalInvestments: totalInvestments,
+        totalProperty: totalProperty,
         totalDebts: totalDebts,
         module: 'property'
       });
@@ -54,7 +51,8 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
     description: '', 
     category: 'Imóveis', 
     currentValue: 0, 
-    observations: '' 
+    observations: '',
+    proposito: ''
   });
   const [displayValue, setDisplayValue] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -116,15 +114,18 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
 
     setIsSubmitting(true);
     try {
+      const assetData = {
+        description: currentAsset.description,
+        category: currentAsset.category,
+        currentValue: currentAsset.currentValue,
+        observations: currentAsset.observations || '',
+        proposito: currentAsset.proposito || '',
+      };
+
       if (editingId) {
         // MODO EDIÇÃO
         const assetRef = doc(firestore, `users/${userId}/passivos`, editingId);
-        await updateDoc(assetRef, {
-          description: currentAsset.description,
-          category: currentAsset.category,
-          currentValue: currentAsset.currentValue,
-          observations: currentAsset.observations || '',
-        });
+        await updateDoc(assetRef, assetData);
 
         const oldAsset = assets.find(a => a.id === editingId);
         const diff = currentAsset.currentValue - (oldAsset ? oldAsset.currentValue : 0);
@@ -133,20 +134,19 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
 
         const userDocRef = doc(firestore, 'users', userId);
         await setDoc(userDocRef, { resumoFinanceiro: { patrimonioPassivo: newTotalPatrimonioPassivo } }, { merge: true });
+        
+        setAssets(prev => prev.map(a => a.id === editingId ? { id: editingId, ...assetData } : a));
       } else {
         // MODO CRIAÇÃO
         const assetsRef = collection(firestore, `users/${userId}/passivos`);
-        await addDoc(assetsRef, {
-          description: currentAsset.description,
-          category: currentAsset.category,
-          currentValue: currentAsset.currentValue,
-          observations: currentAsset.observations || '',
-        });
+        const docRef = await addDoc(assetsRef, assetData);
 
         const newTotalPatrimonioPassivo = assets.reduce((acc, curr) => acc + curr.currentValue, 0) + currentAsset.currentValue;
 
         const userDocRef = doc(firestore, 'users', userId);
         await setDoc(userDocRef, { resumoFinanceiro: { patrimonioPassivo: newTotalPatrimonioPassivo } }, { merge: true });
+        
+        setAssets(prev => [...prev, { id: docRef.id, ...assetData }]);
       }
 
       handleCancelEdit();
@@ -155,6 +155,8 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
       await saveSnapshot({
         totalNetWorth: patrimonioLiquido,
         totalAssets: totalAssets,
+        totalInvestments: totalInvestments,
+        totalProperty: totalProperty,
         totalDebts: totalDebts,
         module: 'property'
       });
@@ -172,7 +174,8 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
       description: asset.description, 
       category: asset.category, 
       currentValue: asset.currentValue,
-      observations: asset.observations || ''
+      observations: asset.observations || '',
+      proposito: asset.proposito || ''
     });
     setDisplayValue(asset.currentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
     if (asset.id) setEditingId(asset.id);
@@ -181,7 +184,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
 
   // Função Cancelar Edição (ou Resetar Form)
   const handleCancelEdit = () => {
-    setCurrentAsset({ description: '', category: 'Imóveis', currentValue: 0, observations: '' });
+    setCurrentAsset({ description: '', category: 'Imóveis', currentValue: 0, observations: '', proposito: '' });
     setDisplayValue('');
     setEditingId(null);
   };
@@ -210,6 +213,8 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
         "resumoFinanceiro.patrimonioPassivo": newTotalPatrimonioPassivo >= 0 ? newTotalPatrimonioPassivo : 0
       });
 
+      setAssets(prev => prev.filter(a => a.id !== assetId));
+
       if (editingId === assetId) {
         handleCancelEdit();
       }
@@ -218,6 +223,8 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
       await saveSnapshot({
         totalNetWorth: patrimonioLiquido,
         totalAssets: totalAssets,
+        totalInvestments: totalInvestments,
+        totalProperty: totalProperty,
         totalDebts: totalDebts,
         module: 'property'
       });
@@ -264,7 +271,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
           )}
         </div>
 
-        <form onSubmit={handleSaveAsset} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+        <form onSubmit={handleSaveAsset} className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
           
           <div className="md:col-span-4">
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
@@ -280,7 +287,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
             />
           </div>
 
-          <div className="md:col-span-3">
+          <div className="md:col-span-4">
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
               Categoria <span className="text-rose-500">*</span>
             </label>
@@ -289,55 +296,77 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
               onChange={(e) => setCurrentAsset({ ...currentAsset, category: e.target.value })}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors [&>option]:bg-white"
             >
-              <option value="Imóveis">Imóveis</option>
-              <option value="Veículos">Veículos</option>
-              <option value="Terrenos">Terrenos / Lotes</option>
-              <option value="Joias/Arte">Joias / Arte</option>
-              <option value="Outros">Outros</option>
+              {PASSIVE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
             </select>
           </div>
 
-          <div className="md:col-span-2">
+          <div className="md:col-span-4">
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-              Observações <span className="text-slate-500 font-normal lowercase">(opcional)</span>
-            </label>
-            <input
-              type="text"
-              placeholder="Ano, placa, endereço..."
-              value={currentAsset.observations}
-              onChange={(e) => setCurrentAsset({ ...currentAsset, observations: e.target.value })}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
-            />
-          </div>
-
-          <div className="md:col-span-3 flex flex-col gap-2">
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0">
               Valor de Mercado (R$) <span className="text-rose-500">*</span>
             </label>
-            <div className="flex gap-2">
-              <div className="relative w-full">
-                <span className="absolute left-4 top-[14px] text-slate-400 text-sm font-bold">R$</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  required
-                  placeholder="0,00"
-                  value={displayValue}
-                  onChange={handleCurrencyChange}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className={`text-slate-950 font-black p-3 rounded-xl transition-all shadow-lg flex items-center justify-center min-w-[48px] ${
-                  editingId ? 'bg-emerald-500 hover:bg-emerald-400' : 'bg-emerald-500 hover:bg-emerald-400'
-                } disabled:bg-slate-700`}
-                title={editingId ? 'Salvar Alterações' : 'Adicionar Bem'}
-              >
-                {editingId ? <Pencil size={20} /> : <Plus size={20} />}
-              </button>
+            <div className="relative w-full">
+              <span className="absolute left-4 top-[14px] text-slate-400 text-sm font-bold">R$</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                required
+                placeholder="0,00"
+                value={displayValue}
+                onChange={handleCurrencyChange}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
+              />
             </div>
+          </div>
+
+          {/* CAMPO PROPÓSITO (NEXUS) */}
+          <div className="md:col-span-8">
+            <div className="p-4 bg-emerald-50/30 rounded-2xl border border-emerald-100/50">
+              <div className="flex items-center justify-between mb-2">
+                <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-700">
+                  Propósito do Bem
+                  <div className="group relative">
+                    <HelpCircle size={14} className="text-emerald-400 cursor-help" />
+                    <div className="absolute left-0 bottom-full mb-2 w-64 p-3 bg-slate-900 text-white text-[10px] font-medium leading-relaxed rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                      <p className="font-black text-emerald-400 mb-1 uppercase tracking-widest text-left">Por que preencher o Propósito?</p>
+                      <p className="text-left leading-relaxed">Para o Finanças Pro Invest não ser apenas uma calculadora, o Nexus precisa entender sua vida. Se soubermos que sua casa é seu 'Lar Inegociável', nunca sugeriremos nada que a coloque em risco. Se soubermos que seu carro é 'Apenas para Trabalho', saberemos como otimizar seus custos.</p>
+                      <p className="mt-2 text-slate-400 italic text-left">Ex: "Este imóvel é para minha aposentadoria, quero viver do aluguel dele futuramente."</p>
+                    </div>
+                  </div>
+                </label>
+                <span className="text-[9px] font-black text-emerald-400 uppercase tracking-tighter">Inteligência Nexus</span>
+              </div>
+              <textarea
+                value={currentAsset.proposito || ''}
+                onChange={e => setCurrentAsset({ ...currentAsset, proposito: e.target.value })}
+                className="w-full px-4 py-3 rounded-xl border border-emerald-100 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all text-sm font-medium bg-white min-h-[80px] resize-none"
+                placeholder="O que este bem representa para você? Qual a finalidade dele na sua vida?"
+              />
+            </div>
+          </div>
+
+          <div className="md:col-span-4 space-y-4">
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                Observações <span className="text-slate-500 font-normal lowercase">(opcional)</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Ano, placa, endereço..."
+                value={currentAsset.observations}
+                onChange={(e) => setCurrentAsset({ ...currentAsset, observations: e.target.value })}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
+              />
+            </div>
+            
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className={`w-full text-slate-950 font-black py-3.5 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 ${
+                editingId ? 'bg-emerald-500 hover:bg-emerald-400' : 'bg-emerald-500 hover:bg-emerald-400'
+              } disabled:bg-slate-700`}
+            >
+              {editingId ? <><Pencil size={18} /> Salvar Alterações</> : <><Plus size={18} /> Adicionar Bem</>}
+            </button>
           </div>
         </form>
       </div>
@@ -436,16 +465,22 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
                   </div>
                 </div>
                 
-                {/* Observações */}
-                <div className="flex-grow">
+                {/* Propósito e Observações */}
+                <div className="flex-grow space-y-3">
+                  {asset.proposito && (
+                    <div className="bg-emerald-50/30 p-3 rounded-xl border border-emerald-100/50">
+                      <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1">Propósito</p>
+                      <p className="text-xs text-slate-700 font-medium italic">"{asset.proposito}"</p>
+                    </div>
+                  )}
                   {asset.observations && (
-                    <p className="text-xs text-slate-500 mb-4 line-clamp-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                    <p className="text-[10px] text-slate-500 line-clamp-2 px-1">
                       {asset.observations}
                     </p>
                   )}
                 </div>
 
-                <div className="mt-auto pt-2 border-t border-slate-700/50">
+                <div className="mt-auto pt-4 border-t border-slate-100">
                   <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Valor de Mercado</p>
                   <p className="text-2xl font-black text-slate-900">
                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(asset.currentValue)}
@@ -461,7 +496,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
                 <thead className="bg-slate-50 border-b border-slate-100">
                   <tr>
                     <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Bem / Categoria</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Observações</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Propósito</th>
                     <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Valor</th>
                     <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Ações</th>
                   </tr>
@@ -475,8 +510,8 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
                           <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-tighter">{asset.category}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="text-xs text-slate-500 italic">{asset.observations || '—'}</span>
+                      <td className="px-6 py-4 max-w-xs">
+                        <span className="text-xs text-slate-500 font-medium line-clamp-1">{asset.proposito || '—'}</span>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <span className="text-sm font-black text-slate-900">

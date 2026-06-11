@@ -1,24 +1,15 @@
 import { useWealthData } from '../../../hooks/useWealthData';
 import React from 'react';
-import AiAdvisor from './AiAdvisor';
+import NexusBriefingView from './NexusBriefingView';
 import { useAuth } from '../../../contexts/AuthContext';
-import { useFirebase } from '../../../hooks/useFirebase';
-import { Capacitor } from '@capacitor/core';
 import { useDebts } from '../../../hooks/useDebts';
 
 interface AiChatPageProps {
   onNavigate: (tool: string) => void;
-  simulations?: any[];
-  filteredTransactions: any[];
 }
 
-const AiChatPage: React.FC<AiChatPageProps> = ({
-  onNavigate,
-  simulations = [],
-  filteredTransactions = []
-}) => {
+const AiChatPage: React.FC<AiChatPageProps> = () => {
   const { user } = useAuth();
-  const { userMeta } = useFirebase(user?.uid);
   const {
     assets,
     passives,
@@ -26,18 +17,16 @@ const AiChatPage: React.FC<AiChatPageProps> = ({
   } = useWealthData();
   const { debts } = useDebts(user?.uid);
 
-  const isNative = Capacitor.isNativePlatform();
+  const transactions = []; // Pode ser alimentado pelo context se necessário
 
   return (
-    <div className="w-full h-full flex flex-col">
-      <AiAdvisor
-        transactions={filteredTransactions}
-        currentCalcResult={simulations}
+    <div className="w-full h-full flex flex-col bg-slate-50">
+      <NexusBriefingView
+        transactions={transactions}
         goals={wealthGoals}
         assets={assets}
         passives={passives}
         debts={debts}
-        currentTool="chat"
       />
     </div>
   );

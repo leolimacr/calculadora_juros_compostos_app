@@ -170,6 +170,8 @@ const CentralHub: React.FC<CentralHubProps> = ({
       totalAssetsValue: totalAssets,
       reserveGoalMet: false, // Placeholder até integração com goalService
       debtJustPaidOff,
+      assets,
+      passives,
       debts
     });
 
@@ -246,9 +248,9 @@ const CentralHub: React.FC<CentralHubProps> = ({
     return {
       eyebrow: 'Visão Estratégica',
       title: 'Otimize seu Patrimônio Líquido',
-      description: 'Todos os seus módulos estão ativos. Use o Nexus IA para analisar sua alocação de ativos e diversificação hoje.',
-      cta: 'Consultar Nexus IA',
-      action: () => onNavigate('chat'),
+      description: 'Todos os seus módulos estão ativos. O Nexus preparou uma análise profunda da sua alocação de ativos.',
+      cta: 'Abrir Briefing Estratégico',
+      action: () => onNavigate('chat', { initialPrompt: 'Dê um panorama 360º da minha vida financeira, focando em alocação de ativos e segurança.' }),
       tone: 'violet' as const,
     };
   })();
@@ -571,25 +573,6 @@ const CentralHub: React.FC<CentralHubProps> = ({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {/* Nexus IA em Destaque */}
-        <button
-            onClick={nexusModule.action}
-            className="xl:col-span-3 text-left rounded-[2rem] border border-violet-200 bg-white p-6 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all group flex items-center justify-between"
-          >
-            <div className="flex items-center gap-6">
-                <div className={`inline-flex p-4 rounded-2xl bg-gradient-to-br ${accentClassMap[nexusModule.accent]}`}>
-                    <nexusModule.icon size={28} />
-                </div>
-                <div>
-                    <h3 className="text-xl font-black text-slate-900 tracking-tight mb-1">{nexusModule.title}</h3>
-                    <p className="text-sm text-slate-600 leading-relaxed">{nexusModule.description}</p>
-                </div>
-            </div>
-            <span className="inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-slate-900 group-hover:text-violet-600 transition-colors mr-2">
-                {nexusModule.cta} <ChevronRight size={14} />
-            </span>
-        </button>
-
         {centralModules.map(({ title, description, action, icon: Icon, accent, cta, locked }: { 
           title: string, 
           description: string, 

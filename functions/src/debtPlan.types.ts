@@ -14,6 +14,7 @@ export interface DebtItem {
   atrasoEmDias?: number;        // opcional
   ehGarantida?: boolean;        // ex: financiamento com garantia
   observacoes?: string;         // algo relevante que o usuário informou
+  proposito?: string;           // [NEXUS] Contexto emocional/estratégico da dívida
 }
 
 export interface DebtSimulationSummary {
@@ -138,6 +139,7 @@ export const DebtItemSchema = z.object({
   atrasoEmDias: z.number().optional(),
   ehGarantida: z.boolean().optional(),
   observacoes: z.string().optional(),
+  proposito: z.string().optional(),
 });
 
 export const DebtSimulationSummarySchema = z.object({
@@ -251,3 +253,4 @@ export const DebtPlanResponseSchema = z.object({
 });
 
 export type DebtPlanResponseSafe = z.infer<typeof DebtPlanResponseSchema>;
+seSafe = z.infer<typeof DebtPlanResponseSchema>;

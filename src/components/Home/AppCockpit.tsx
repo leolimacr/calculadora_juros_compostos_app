@@ -35,7 +35,11 @@ import {
   PieChart,
   Pie,
   Cell,
-  LabelList
+  LabelList,
+  ScatterChart,
+  Scatter,
+  ComposedChart,
+  Customized
 } from 'recharts';
 import type { Transaction, UserMeta, RecurringBill, CreditCard as CreditCardType } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
@@ -113,6 +117,19 @@ const AppCockpit: React.FC<AppCockpitProps> = ({
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
   }, [passives]);
+
+  // Composição de Dívidas por Tipo
+  const debtComposition = useMemo(() => {
+    const categories: Record<string, number> = {};
+    debts.forEach(debt => {
+      const cat = debt.tipo || 'Outros';
+      categories[cat] = (categories[cat] || 0) + (debt.saldoDevedor || 0);
+    });
+
+    return Object.entries(categories)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [debts]);
 
   const { cards: userCards = [], isLoading: loadingCards } = useCards(user?.uid);
 
@@ -202,29 +219,119 @@ const AppCockpit: React.FC<AppCockpitProps> = ({
 
   // Dados Reais para Evoluçío (Frente 4)
   const evolutionData = useMemo(() => {
-    if (wealthHistory.length >= 2) {
-      return wealthHistory.map(h => ({
-        name: new Date(h.date).toLocaleDateString('pt-BR', { month: 'short' }),
+    // 1. Mapear histórico com lógica de "limpeza" de dados legados
+    let data = wealthHistory.map(h => {
+      // HEURÍSTICA DE RECONSTRUÇÃO:
+      // Se nío temos o total de investimentos puro no histórico (h.totalInvestments),
+      // nós pegamos o Total de Ativos da época e subtraímos o valor de Bens.
+      // Prioridade: 1. Valor salvo | 2. Ativos - Bens Salvos | 3. Ativos - Bens Atuais (Heurística de Conserto)
+      let pureInvestments = h.totalInvestments;
+      
+      if (pureInvestments === undefined) {
+        const propertyValueToSubtract = h.totalProperty !== undefined ? h.totalProperty : totalProperty;
+        pureInvestments = Math.max(0, h.totalAssets - propertyValueToSubtract);
+      }
+
+      return {
+        name: new Date(h.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+        fullDate: new Date(h.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }),
         value: h.totalNetWorth,
-        investments: h.totalAssets,
-        isReal: h.isReal
-      }));
+        investments: pureInvestments,
+        debts: h.totalDebts,
+        isReal: true
+      };
+    });
+
+    // 2. Definir o Ponto de "Agora" (Realidade dos Cards)
+    const todayLabel = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    const todayFull = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+    
+    const currentReality = {
+      name: todayLabel,
+      fullDate: todayFull,
+      value: patrimonioLiquido,
+      investments: totalInvestments,
+      debts: totalDebts,
+      isReal: true
+    };
+
+    // 3. Mesclar Realidade com Histórico (Live Edge)
+    if (data.length === 0) {
+      return [currentReality];
     }
 
-    const currentPL = patrimonioLiquido;
-    const currentInvest = totalInvestments;
-    // Fallback: Simulaçío baseada no valor atual (tracejada futuramente)
-    return [
-      { name: 'Jan', value: currentPL * 0.85, investments: currentInvest * 0.82, isReal: false },
-      { name: 'Fev', value: currentPL * 0.88, investments: currentInvest * 0.85, isReal: false },
-      { name: 'Mar', value: currentPL * 0.92, investments: currentInvest * 0.90, isReal: false },
-      { name: 'Abr', value: currentPL * 0.95, investments: currentInvest * 0.93, isReal: false },
-      { name: 'Mai', value: currentPL, investments: currentInvest, isReal: false }
-    ];
-  }, [patrimonioLiquido, totalInvestments, wealthHistory]);
+    const lastHistoryPoint = data[data.length - 1];
+    
+    // Se o último ponto do histórico já é de hoje, nós o "atualizamos" com a realidade viva do card
+    if (lastHistoryPoint.name === todayLabel) {
+      data[data.length - 1] = currentReality;
+    } else {
+      // Se o último ponto é de outro dia, adicionamos a realidade de hoje como o "bico" do gráfico
+      data.push(currentReality);
+    }
+
+    return data;
+  }, [patrimonioLiquido, totalInvestments, totalDebts, wealthHistory]);
 
   const formatCurrency = (val: number) => 
     val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+  const ConsolidatedLabel = (props: any) => {
+    const { x, y, payload, index, data } = props;
+    
+    if (!payload || !payload.fullDate) return null;
+    
+    const { value: pl, investments, debts, fullDate } = payload;
+    const totalPoints = data?.length || 0;
+
+    // Toque inteligente para as extremidades:
+    // Se for o primeiro ponto, move a etiqueta um pouco para a direita.
+    // Se for o último ponto, move a etiqueta um pouco para a esquerda.
+    let shiftX = 0;
+    if (index === 0) shiftX = 25;
+    if (index === totalPoints - 1 && totalPoints > 1) shiftX = -25;
+
+    return (
+      <g transform={`translate(${x + shiftX},${y})`}>
+        {/* Fundo para legibilidade */}
+        <rect 
+          x="-45" 
+          y="-75" 
+          width="90" 
+          height="65" 
+          fill="white" 
+          fillOpacity="0.95" 
+          rx="12"
+          stroke="#e2e8f0"
+          strokeWidth="1"
+          className="drop-shadow-lg"
+        />
+        
+        {/* Patrimônio Líquido */}
+        <text x="0" y="-58" textAnchor="middle" fontSize="10" fontWeight="900" fill="#10b981">
+          {formatCurrency(pl)}
+        </text>
+        
+        {/* Investimentos */}
+        <text x="0" y="-46" textAnchor="middle" fontSize="8" fontWeight="bold" fill="#f59e0b">
+          Inv: {formatCurrency(investments)}
+        </text>
+        
+        {/* Dívidas */}
+        <text x="0" y="-36" textAnchor="middle" fontSize="8" fontWeight="bold" fill="#f43f5e">
+          Dív: {formatCurrency(debts)}
+        </text>
+        
+        {/* Data */}
+        <text x="0" y="-22" textAnchor="middle" fontSize="8" fontWeight="black" fill="#94a3b8">
+          {fullDate}
+        </text>
+        
+        {/* Linha conectora vertical */}
+        <line x1={-shiftX} y1="-10" x2={-shiftX} y2="-4" stroke="#e2e8f0" strokeWidth="2" />
+      </g>
+    );
+  };
 
   const renderCardsCard = (item: { 
     id: string; 
@@ -470,20 +577,6 @@ const AppCockpit: React.FC<AppCockpitProps> = ({
               </>
             )}
           </div>
-
-          <button 
-            onClick={() => onNavigate('chat')}
-            className="flex items-center gap-3 px-6 py-4 bg-slate-50 border border-slate-200 rounded-3xl hover:bg-white transition-all group active:scale-95 shadow-sm"
-          >
-            <div className="p-2 bg-violet-500 rounded-xl text-white shadow-lg shadow-violet-500/20">
-              <Sparkles size={20} />
-            </div>
-            <div className="text-left">
-              <p className="text-[10px] font-black text-violet-500 uppercase tracking-widest">Nexus IA</p>
-              <p className="text-xs font-bold text-slate-900 uppercase tracking-tight">Análise Estratégica</p>
-            </div>
-            <ChevronRight size={16} className="text-slate-400 group-hover:translate-x-1 transition-transform" />
-          </button>
         </div>
       </div>
 
@@ -492,26 +585,53 @@ const AppCockpit: React.FC<AppCockpitProps> = ({
         onClick={() => onNavigate('manager')}
         className="w-full group relative overflow-hidden rounded-[2.5rem] bg-white border border-slate-200 p-1 md:p-2 transition-all hover:border-brand-primary/50 hover:shadow-xl hover:-translate-y-1 active:scale-[0.98] shadow-soft"
       >
-        <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6 p-6 md:p-8">
-          <div className="shrink-0 relative">
-            <div className="w-16 h-16 md:w-20 md:h-20 bg-transparent rounded-[2rem] flex items-center justify-center overflow-hidden group-hover:scale-110 transition-transform duration-500 shadow-soft">
-              <img src="/controla-icon.png" alt="Controla Icon" className="w-full h-full object-cover" />
+        <div className="flex flex-col gap-4 p-6 md:p-8">
+          {/* HEADER ROW: BRAND (LEFT) + SUBTITLE (CENTER TOP) */}
+          <div className="relative flex flex-col md:flex-row items-center justify-between w-full gap-4">
+            
+            {/* BRAND: ICON + NAME */}
+            <div className="flex items-center gap-4 md:gap-6 z-10">
+              <div className="shrink-0 relative">
+                <div className="w-16 h-16 md:w-20 md:h-20 bg-transparent rounded-[2rem] flex items-center justify-center overflow-hidden group-hover:scale-110 transition-transform duration-500 shadow-soft">
+                  <img src="/controla-icon.png" alt="Controla Icon" className="w-full h-full object-cover" />
+                </div>
+                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-brand-secondary rounded-full border-4 border-white flex items-center justify-center">
+                  <Zap size={10} className="text-white fill-white" />
+                </div>
+              </div>
+
+              <h3 className="text-4xl md:text-6xl font-black italic tracking-tighter leading-none uppercase bg-gradient-to-br from-emerald-400 to-teal-600 bg-clip-text text-transparent drop-shadow-[0_2px_4px_rgba(16,185,129,0.2)]">
+                Controla
+              </h3>
             </div>
-            <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-brand-secondary rounded-full border-4 border-white flex items-center justify-center">
-              <Zap size={10} className="text-white fill-white" />
+
+            {/* SUBTITLE: TOP CENTER ON DESKTOP */}
+            <div className="md:absolute md:left-1/2 md:-translate-x-1/2 md:top-0 text-center">
+              <span className="block text-xs md:text-sm font-black text-slate-900 uppercase tracking-[0.3em] leading-none mt-2 md:mt-0">
+                Fluxo de Caixa
+              </span>
+            </div>
+
+            {/* ACTION BUTTON: RIGHT */}
+            <div className="hidden md:flex items-center gap-3 px-8 py-4 bg-brand-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-brand-primary/90 transition-colors shadow-brand-glow">
+              Abrir Agora
+              <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
             </div>
           </div>
-          
-          <div className="flex-1 text-center md:text-left">
-            <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 mb-1">
-              <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-tight uppercase">Controla (Fluxo de Caixa)</h3>
+
+          {/* DATA SECTION: ALIGNED UNDER BRAND NAME ON DESKTOP */}
+          <div className="md:pl-[104px] flex flex-col items-center md:items-start gap-4">
+            <div className="flex flex-col md:flex-row md:items-center gap-4">
+              <p className="text-3xl md:text-4xl font-black text-slate-900 leading-none">
+                {isPrivacyMode ? '••••••' : formatCurrency(totals.controlaBalance)}
+              </p>
+
               <div className="flex items-center gap-2">
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-brand-primary/10 border border-brand-primary/20 rounded-lg">
                   <div className="w-1.5 h-1.5 bg-brand-primary rounded-full animate-pulse" />
-                  <span className="text-[10px] font-black text-brand-primary uppercase tracking-widest">Saldo do Mês</span>
+                  <span className="text-[10px] font-black text-brand-primary uppercase tracking-widest whitespace-nowrap">Saldo do Mês</span>
                 </div>
                 
-                {/* INDICADOR DE SAÚDE DOS DADOS (Frente 4) */}
                 <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 border rounded-lg transition-all ${
                   dataHealth === 'green' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' :
                   dataHealth === 'yellow' ? 'bg-amber-50 border-amber-100 text-amber-600' :
@@ -522,21 +642,21 @@ const AppCockpit: React.FC<AppCockpitProps> = ({
                     dataHealth === 'yellow' ? 'bg-amber-500' :
                                              'bg-rose-500 animate-pulse'
                   }`} />
-                  <span className="text-[10px] font-black uppercase tracking-widest">
+                  <span className="text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
                     {dataHealth === 'green' ? 'Dados Saudáveis' : dataHealth === 'yellow' ? 'Dados Antigos' : 'Atualizar Dados'}
                   </span>
                 </div>
               </div>
             </div>
-            <p className="text-2xl font-black text-slate-900 mb-2">
-              {isPrivacyMode ? '••••••' : formatCurrency(totals.controlaBalance)}
+            
+            <p className="text-sm md:text-base text-slate-500 font-medium leading-relaxed max-w-xl text-center md:text-left">
+              Gerencie seu orçamento diário, lançamentos e saldo disponível em tempo real.
             </p>
-            <p className="text-sm text-slate-500 font-medium leading-relaxed max-w-md">Gerencie seu orçamento diário, lançamentos e saldo disponível em tempo real.</p>
-          </div>
 
-          <div className="flex items-center gap-3 px-8 py-4 bg-brand-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-brand-primary/90 transition-colors shadow-brand-glow">
-            Abrir Agora
-            <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+            <div className="md:hidden w-full flex items-center justify-center gap-3 px-8 py-4 bg-brand-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest">
+              Abrir Agora
+              <ArrowRight size={18} />
+            </div>
           </div>
         </div>
       </button>
@@ -590,100 +710,138 @@ const AppCockpit: React.FC<AppCockpitProps> = ({
             </div>
           </div>
 
-          <div className={`h-80 w-full ${!isPremium ? 'blur-sm grayscale opacity-40 pointer-events-none' : ''}`}>
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={evolutionData} margin={{ top: 30, right: 30, left: 0, bottom: 0 }}>
+          <div className={`relative h-[500px] w-full bg-slate-50/50 rounded-3xl p-4 border border-slate-100 ${!isPremium ? 'blur-sm grayscale opacity-40 pointer-events-none' : ''}`}>
+            {evolutionData.length > 0 && (
+              <svg viewBox="0 0 1000 500" className="w-full h-full overflow-visible">
+                {/* Definições de Gradientes e Filtros */}
                 <defs>
-                  <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="colorInvest" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
-                  </linearGradient>
+                  <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.1" />
+                  </filter>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis 
-                  dataKey="name" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 10, fontWeight: 'bold', fill: '#94a3b8' }}
-                />
-                <YAxis hide domain={['auto', 'auto']} padding={{ top: 40, bottom: 20 }} />
-                <Tooltip 
-                  contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                  formatter={(val: number, name: string) => [
-                    formatCurrency(val), 
-                    name === 'value' ? 'Patrimônio Líquido' : 'Investimentos'
-                  ]}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="value" 
-                  name="value"
-                  stroke="#10b981" 
-                  strokeWidth={3} 
-                  strokeDasharray={evolutionData.some(d => !d.isReal) ? "5 5" : "0"}
-                  fillOpacity={1} 
-                  fill="url(#colorValue)" 
-                >
-                  <LabelList 
-                    dataKey="value" 
-                    position="top" 
-                    offset={10}
-                    content={(props: any) => {
-                      const { x, y, value, index } = props;
-                      if (index !== 0 && index !== evolutionData.length - 1) return null;
-                      return (
-                        <text 
-                          x={x} 
-                          y={y - 10} 
-                          fill="#10b981" 
-                          fontSize={10} 
-                          fontWeight="bold" 
-                          textAnchor={index === 0 ? "start" : "end"}
-                        >
-                          {formatCurrency(value)}
-                        </text>
-                      );
-                    }}
-                  />
-                </Area>
-                <Area 
-                  type="monotone" 
-                  dataKey="investments" 
-                  name="investments"
-                  stroke="#f59e0b" 
-                  strokeWidth={3} 
-                  strokeDasharray={evolutionData.some(d => !d.isReal) ? "5 5" : "0"}
-                  fillOpacity={0.6} 
-                  fill="url(#colorInvest)" 
-                >
-                  <LabelList 
-                    dataKey="investments" 
-                    position="bottom" 
-                    offset={10}
-                    content={(props: any) => {
-                      const { x, y, value, index } = props;
-                      if (index !== 0 && index !== evolutionData.length - 1) return null;
-                      return (
-                        <text 
-                          x={x} 
-                          y={y + 20} 
-                          fill="#f59e0b" 
-                          fontSize={10} 
-                          fontWeight="bold" 
-                          textAnchor={index === 0 ? "start" : "end"}
-                        >
-                          {formatCurrency(value)}
-                        </text>
-                      );
-                    }}
-                  />
-                </Area>
-              </AreaChart>
-            </ResponsiveContainer>
+
+                {/* Cálculos de Escala */}
+                {(() => {
+                  const padding = { top: 120, right: 80, bottom: 60, left: 80 };
+                  const width = 1000 - padding.left - padding.right;
+                  const height = 500 - padding.top - padding.bottom;
+                  
+                  // Encontrar Min/Max para escala Y
+                  const allValues = evolutionData.flatMap(d => [d.value, d.investments, d.debts]);
+                  const minVal = Math.min(...allValues, 0) * 0.9;
+                  const maxVal = Math.max(...allValues, 1000) * 1.2;
+                  const range = maxVal - minVal;
+
+                  const getY = (val: number) => padding.top + height - ((val - minVal) / range) * height;
+                  const getX = (index: number) => {
+                    if (evolutionData.length <= 1) return 1000 / 2;
+                    return padding.left + (index * (width / (evolutionData.length - 1)));
+                  };
+
+                  const points = evolutionData.map((d, i) => ({
+                    x: getX(i),
+                    plY: getY(d.value),
+                    invY: getY(d.investments),
+                    debY: getY(d.debts),
+                    data: d
+                  }));
+
+                  return (
+                    <g>
+                      {/* Linhas de Grade Horizontais */}
+                      {[0, 0.25, 0.5, 0.75, 1].map(p => (
+                        <line 
+                          key={p}
+                          x1={padding.left} 
+                          y1={padding.top + height * p} 
+                          x2={padding.left + width} 
+                          y2={padding.top + height * p} 
+                          stroke="#e2e8f0" 
+                          strokeDasharray="4 4" 
+                        />
+                      ))}
+
+                      {/* Áreas e Linhas */}
+                      {evolutionData.length > 1 && (
+                        <>
+                          {/* Área PL */}
+                          <path 
+                            d={`M ${points[0].x} ${padding.top + height} ${points.map(p => `L ${p.x} ${p.plY}`).join(' ')} L ${points[points.length-1].x} ${padding.top + height} Z`}
+                            fill="#10b981" fillOpacity="0.1"
+                          />
+                          <path 
+                            d={`M ${points.map(p => `${p.x} ${p.plY}`).join(' L ')}`}
+                            fill="none" stroke="#10b981" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"
+                          />
+
+                          {/* Área Investimentos */}
+                          <path 
+                            d={`M ${points[0].x} ${padding.top + height} ${points.map(p => `L ${p.x} ${p.invY}`).join(' ')} L ${points[points.length-1].x} ${padding.top + height} Z`}
+                            fill="#f59e0b" fillOpacity="0.05"
+                          />
+                          <path 
+                            d={`M ${points.map(p => `${p.x} ${p.invY}`).join(' L ')}`}
+                            fill="none" stroke="#f59e0b" strokeWidth="3" strokeLinecap="round" strokeDasharray="6 4"
+                          />
+
+                          {/* Área Dívidas */}
+                          <path 
+                            d={`M ${points[0].x} ${padding.top + height} ${points.map(p => `L ${p.x} ${p.debY}`).join(' ')} L ${points[points.length-1].x} ${padding.top + height} Z`}
+                            fill="#f43f5e" fillOpacity="0.05"
+                          />
+                          <path 
+                            d={`M ${points.map(p => `${p.x} ${p.debY}`).join(' L ')}`}
+                            fill="none" stroke="#f43f5e" strokeWidth="3" strokeLinecap="round" strokeDasharray="2 4"
+                          />
+                        </>
+                      )}
+
+                      {/* Pontos e Rótulos (Sempre Visíveis) */}
+                      {points.map((p, i) => (
+                        <g key={i}>
+                          {/* Pontos nos cruzamentos */}
+                          <circle cx={p.x} cy={p.plY} r="6" fill="#10b981" stroke="white" strokeWidth="3" />
+                          <circle cx={p.x} cy={p.invY} r="4" fill="#f59e0b" stroke="white" strokeWidth="2" />
+                          <circle cx={p.x} cy={p.debY} r="4" fill="#f43f5e" stroke="white" strokeWidth="2" />
+
+                          {/* Bloco de Informação Flutuante */}
+                          <g transform={`translate(${p.x},${Math.min(p.plY, p.invY, p.debY) - 20})`}>
+                            <rect x="-55" y="-85" width="110" height="75" fill="white" rx="12" filter="url(#shadow)" stroke="#f1f5f9" strokeWidth="1" />
+                            
+                            {/* Patrimônio Líquido */}
+                            <text x="0" y="-65" textAnchor="middle" fontSize="12" fontWeight="900" fill="#10b981">
+                              {formatCurrency(p.data.value)}
+                            </text>
+                            
+                            {/* Detalhes */}
+                            <text x="0" y="-50" textAnchor="middle" fontSize="9" fontWeight="bold" fill="#f59e0b">
+                              Invest: {formatCurrency(p.data.investments)}
+                            </text>
+                            <text x="0" y="-38" textAnchor="middle" fontSize="9" fontWeight="bold" fill="#f43f5e">
+                              Dívidas: {formatCurrency(p.data.debts)}
+                            </text>
+                            
+                            {/* Data */}
+                            <rect x="-30" y="-28" width="60" height="14" rx="4" fill="#f8fafc" />
+                            <text x="0" y="-18" textAnchor="middle" fontSize="9" fontWeight="900" fill="#64748b">
+                              {p.data.fullDate}
+                            </text>
+
+                            {/* Linha Conectora */}
+                            <line x1="0" y1="-5" x2="0" y2="15" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="2 2" />
+                          </g>
+
+                          {/* Data no Eixo X */}
+                          <text x={p.x} y={padding.top + height + 25} textAnchor="middle" fontSize="10" fontWeight="bold" fill="#94a3b8">
+                            {p.data.name}
+                          </text>
+                        </g>
+                      ))}
+                    </g>
+                  );
+                })()}
+              </svg>
+            )}
           </div>
 
           <div className="mt-4 flex items-center justify-center gap-6">
@@ -695,8 +853,11 @@ const AppCockpit: React.FC<AppCockpitProps> = ({
               <div className="w-3 h-3 rounded-full bg-[#f59e0b]" />
               <span className="text-[10px] font-black uppercase text-slate-500">Investimentos</span>
             </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-[#f43f5e]" />
+              <span className="text-[10px] font-black uppercase text-slate-500">Dívidas</span>
+            </div>
           </div>
-          
           {!isPremium && (
             <div className="mt-6 p-4 bg-slate-50 border border-slate-100 rounded-2xl text-center">
               <p className="text-xs text-slate-600 font-medium">A evolução histórica é exclusiva Pro.</p>
@@ -705,7 +866,7 @@ const AppCockpit: React.FC<AppCockpitProps> = ({
           )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* COMPOSIÇÃO DE INVESTIMENTOS */}
           <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-soft overflow-hidden group">
             <div className="flex items-center gap-3 mb-8">
@@ -857,6 +1018,90 @@ const AppCockpit: React.FC<AppCockpitProps> = ({
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                   <span className="text-[10px] font-black uppercase text-slate-900">Total Geral</span>
                   <span className="text-[11px] font-black text-brand-primary">{formatCurrency(totalProperty)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* COMPOSIÇÃO DE DÍVIDAS */}
+          <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-soft overflow-hidden group">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="p-3 bg-rose-50 text-rose-600 rounded-2xl">
+                <AlertCircle size={22} />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-slate-900 tracking-tight leading-tight uppercase">Minhas Dívidas</h3>
+                <p className="text-xs text-slate-500 font-medium">Distribuição por categoria.</p>
+              </div>
+            </div>
+
+            <div className="h-64 w-full">
+              {debtComposition.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={debtComposition}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {debtComposition.map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={[
+                          '#f43f5e', // rose-500
+                          '#f59e0b', // amber-500
+                          '#8b5cf6', // violet-500
+                          '#6366f1', // indigo-500
+                          '#0ea5e9', // sky-500
+                          '#10b981'  // emerald-500
+                        ][index % 6]} stroke="none" />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                      formatter={(val: number) => [formatCurrency(val), 'Total']}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-center space-y-4">
+                  <div className="p-4 bg-emerald-50 text-emerald-500 rounded-full animate-bounce">
+                    <PartyPopper size={32} />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-black uppercase tracking-widest text-emerald-600">Parabéns!</p>
+                    <p className="text-[10px] font-bold text-slate-400 leading-relaxed px-4">
+                      Você não possui dívidas cadastradas. <br/> 
+                      Sua saúde financeira agradece!
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {debtComposition.length > 0 && (
+              <div className="mt-4 space-y-2">
+                <div className="flex flex-col gap-2 mb-4">
+                  {debtComposition.map((item, index) => (
+                    <div key={item.name} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: [
+                          '#f43f5e', '#f59e0b', '#8b5cf6', '#6366f1', '#0ea5e9', '#10b981'
+                        ][index % 6] }} />
+                        <span className="text-[10px] font-black uppercase text-slate-500">{item.name}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-[10px] font-bold text-slate-900">{formatCurrency(item.value)}</span>
+                        <span className="text-[10px] font-bold text-slate-400">{((item.value / totalDebts) * 100).toFixed(1)}%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase text-slate-900">Total Geral</span>
+                  <span className="text-[11px] font-black text-status-danger">{formatCurrency(totalDebts)}</span>
                 </div>
               </div>
             )}

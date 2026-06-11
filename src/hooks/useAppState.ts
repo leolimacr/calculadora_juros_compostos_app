@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { firestore } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useFirebase } from './useFirebase';
 import { useSubscriptionAccess } from './useSubscriptionAccess';
@@ -23,6 +25,7 @@ export interface AppState {
   saveCategory: ReturnType<typeof useFirebase>['saveCategory'];
   deleteCategory: ReturnType<typeof useFirebase>['deleteCategory'];
   fetchHistory: ReturnType<typeof useFirebase>['fetchHistory'];
+  fetchMonth: ReturnType<typeof useFirebase>['fetchMonth'];
   userMeta: UserMeta | null | undefined;
   userMetaLoaded: boolean;
   usagePercentage: number;
@@ -37,6 +40,8 @@ export interface AppState {
   isLoading: boolean;
   isPrivacyMode: boolean;
   setIsPrivacyMode: React.Dispatch<React.SetStateAction<boolean>>;
+  isNotificationsOpen: boolean;
+  setIsNotificationsOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isSyncing: boolean;
   activeModal: string | null;
   setActiveModal: React.Dispatch<React.SetStateAction<string | null>>;
@@ -81,6 +86,22 @@ export function useAppState(): AppState {
     }
   }, [isAuthenticated, user?.uid]);
 
+  // PRÉ-CARGA CIRÚRGICA: Busca mês atual + 2 anteriores logo após autenticar.
+  // O Set interno do fetchMonth garante que cada mês é buscado no máximo 1x por sessão.
+  useEffect(() => {
+    if (!isAuthenticated || !user?.uid) return;
+    const today = new Date();
+    // Pequeno delay para garantir que o bridge realtime já iniciou
+    const timer = setTimeout(() => {
+      [0, 1, 2].forEach(offset => {
+        const d = new Date(today.getFullYear(), today.getMonth() - offset, 1);
+        fetchMonth(d.getFullYear(), d.getMonth() + 1);
+      });
+    }, 1500);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user?.uid]); // Intencional: roda apenas quando o usuário autentica
+
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const {
     lancamentos,
@@ -95,6 +116,7 @@ export function useAppState(): AppState {
     isLimitReached,
     isSyncing,
     fetchHistory,
+    fetchMonth,
   } = useFirebase(user?.uid);
   const { isPro, isPremium } = useSubscriptionAccess();
   const { isAppLocked, storedPin, handleUnlockSuccess } = useAppSecurity(user?.uid, isAuthenticated);
@@ -109,6 +131,7 @@ export function useAppState(): AppState {
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isPrivacyMode, setIsPrivacyMode] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Partial<Transaction> | null>(null);
 
   const isMobileBrowser =
@@ -198,28 +221,6 @@ export function useAppState(): AppState {
 
   const isLoading = authLoading;
 
-  useEffect(() => {
-    if (isAuthenticated && user?.uid) {
-      const updateHeartbeat = async () => {
-        try {
-          const STORAGE_KEY = `fpi_last_heartbeat_${user.uid}`;
-          const today = new Date().toISOString().split('T')[0];
-          if (localStorage.getItem(STORAGE_KEY) !== today) {
-            const userRef = doc(firestore, 'users', user.uid);
-            await setDoc(userRef, { 
-              lastActiveAt: serverTimestamp() 
-            }, { merge: true });
-            
-            localStorage.setItem(STORAGE_KEY, today);
-          }
-        } catch (error) {
-          console.warn('[FinOps] Heartbeat bypass:', error);
-        }
-      };
-      updateHeartbeat();
-    }
-  }, [isAuthenticated, user?.uid]);
-
   return {
     user,
     isAuthenticated,
@@ -229,6 +230,7 @@ export function useAppState(): AppState {
     saveLancamento,
     deleteLancamento,
     fetchHistory,
+    fetchMonth,
     saveCategory,
     deleteCategory,
     userMeta,
@@ -245,6 +247,8 @@ export function useAppState(): AppState {
     isLoading,
     isPrivacyMode,
     setIsPrivacyMode,
+    isNotificationsOpen,
+    setIsNotificationsOpen,
     isSyncing,
     activeModal,
     setActiveModal,

@@ -9,7 +9,7 @@ export const TOOL_ROUTES: Record<string, string> = {
   manager: '/app/controla',
   central: '/app/central',
   chat: '/app/ia',
-  'test-explorar': '/app/explorar',
+  explorar: '/app/explorar',
   settings: '/app/mais',
   pricing: '/app/mais/pricing',
   'minhas-dividas': '/app/minhas-dividas',

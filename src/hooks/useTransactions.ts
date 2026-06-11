@@ -1,14 +1,17 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ref, push, remove, update, set, query as rtdbQuery, orderByChild, limitToLast, get, endBefore } from 'firebase/database';
+import { ref, push, remove, update, set, query as rtdbQuery, orderByChild, limitToLast, get, endBefore, startAt, endAt } from 'firebase/database';
 import { db } from '../firebase';
 import { queryKeys } from '../core/query/queryKeys';
 import { Transaction } from '../types';
 import { useTransactionsContext } from '../contexts/TransactionsContext';
+import { useMemo, useCallback } from 'react';
 
 export const useTransactions = (userId?: string) => {
   const queryClient = useQueryClient();
   const { bridgeReady } = useTransactionsContext();
   const key = queryKeys.transactions.byUser(userId || 'anonymous');
+  const extraKey = ['transactions_extra', userId || 'anonymous'];
+  const registryKey = ['transactions_fetched_months', userId || 'anonymous'];
 
   const cachedRaw = typeof window !== 'undefined' 
     ? localStorage.getItem(`fpi_tx_${userId}`) 
@@ -17,7 +20,8 @@ export const useTransactions = (userId?: string) => {
     ? (() => { try { const p = JSON.parse(cachedRaw); return Date.now() - p.ts < 600_000 ? p.data : undefined; } catch { return undefined; } })()
     : undefined;
 
-  const { data, isLoading: loading, error, isFetching } = useQuery<Transaction[], Error>({
+  // 1. Lançamentos em Realtime (limitados aos últimos 100)
+  const { data: realtimeData, isLoading: loading, error, isFetching } = useQuery<Transaction[], Error>({
     queryKey: key,
     queryFn: () => {
       const currentData = queryClient.getQueryData<Transaction[]>(key);
@@ -27,6 +31,81 @@ export const useTransactions = (userId?: string) => {
     enabled: !!userId,
     staleTime: Infinity,
   });
+
+  // 2. Lançamentos Históricos (carregados sob demanda)
+  const { data: extraData } = useQuery<Transaction[]>({
+    queryKey: extraKey,
+    queryFn: () => queryClient.getQueryData<Transaction[]>(extraKey) ?? [],
+    initialData: [],
+    staleTime: Infinity,
+  });
+
+  // 3. Mesclagem Inteligente (Realtime + Histórico + Deduplicação)
+  const transactions = useMemo(() => {
+    const base = realtimeData || [];
+    const extra = extraData || [];
+    const merged = [...base, ...extra];
+    
+    // Deduplica por ID para evitar problemas se um item do realtime já existir no extra
+    const uniqueMap = new Map();
+    merged.forEach(t => {
+      if (t?.id) uniqueMap.set(t.id, t);
+    });
+    
+    return Array.from(uniqueMap.values()).sort((a, b) => {
+      const dateA = a.date || '';
+      const dateB = b.date || '';
+      return dateB.localeCompare(dateA);
+    });
+  }, [realtimeData, extraData]);
+
+  // NOVO: Busca mês específico sob demanda (Cirúrgico para custo baixo)
+  const fetchMonth = useCallback(async (year: number, month: number) => {
+    if (!userId) return;
+    const monthKey = `${year}-${String(month).padStart(2, '0')}`;
+    const monthPrefix = monthKey.replace('-', '');
+    
+    // Verifica se já buscamos este mês para evitar chamadas duplicadas (torneira aberta)
+    const fetchedSet = queryClient.getQueryData<Set<string>>(registryKey) || new Set<string>();
+    if (fetchedSet.has(monthKey)) return;
+
+    try {
+      const transactionsRef = ref(db, `transactions/${userId}`);
+      
+      const q = rtdbQuery(
+        transactionsRef, 
+        orderByChild('sortKey'), 
+        startAt(monthPrefix), 
+        endAt(`${monthPrefix}\uf8ff`)
+      );
+      
+      const snapshot = await get(q);
+      if (snapshot.exists()) {
+        const newTx: Transaction[] = [];
+        snapshot.forEach((child) => {
+          const val = child.val();
+          if (val?.date?.startsWith(monthKey)) {
+            newTx.push({ id: child.key, ...val } as Transaction);
+          }
+        });
+
+        // Atualiza o cache de extras
+        const currentExtra = queryClient.getQueryData<Transaction[]>(extraKey) || [];
+        const updatedExtra = [...currentExtra, ...newTx];
+        
+        // Mantém apenas IDs únicos no extra
+        const uniqueExtra = Array.from(new Map(updatedExtra.map(t => [t.id, t])).values());
+        queryClient.setQueryData(extraKey, uniqueExtra);
+      }
+
+      // Registra que o mês foi carregado com sucesso (criando novo Set para garantir imutabilidade)
+      const updatedSet = new Set(fetchedSet);
+      updatedSet.add(monthKey);
+      queryClient.setQueryData(registryKey, updatedSet);
+    } catch (err) {
+      console.error(`[FinOps] Erro ao carregar mês ${monthKey}:`, err);
+    }
+  }, [userId, queryClient, extraKey, registryKey]);
 
   // NOVO: Busca histórico antigo (paginação robusta via sortKey)
   const fetchHistory = async (lastSortKey: string | null, limitCount = 50): Promise<Transaction[]> => {
@@ -148,7 +227,7 @@ export const useTransactions = (userId?: string) => {
   const isSyncing = isFetching && !loading;
 
   return {
-    transactions: data ?? cachedData ?? [],
+    transactions,
     loading: loading && !cachedData && !bridgeReady,
     isSyncing,
     isFetching,
@@ -156,5 +235,6 @@ export const useTransactions = (userId?: string) => {
     saveLancamento,
     deleteLancamento,
     fetchHistory,
+    fetchMonth,
   };
 };

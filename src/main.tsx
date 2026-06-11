@@ -9,6 +9,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { TransactionsProvider } from './contexts/TransactionsContext';
 import { DebtProvider } from './contexts/DebtContext';
 import { FinanceProvider } from './contexts/FinanceContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import ErrorBoundary from './ErrorBoundary';
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
@@ -17,13 +18,15 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
       <BrowserRouter>
         <ErrorBoundary>
           <AuthProvider>
-            <TransactionsProvider>
-              <DebtProvider>
-                <FinanceProvider>
-                  <App />
-                </FinanceProvider>
-              </DebtProvider>
-            </TransactionsProvider>
+            <NotificationProvider>
+              <TransactionsProvider>
+                <DebtProvider>
+                  <FinanceProvider>
+                    <App />
+                  </FinanceProvider>
+                </DebtProvider>
+              </TransactionsProvider>
+            </NotificationProvider>
           </AuthProvider>
         </ErrorBoundary>
       </BrowserRouter>
