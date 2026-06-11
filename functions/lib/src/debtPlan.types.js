@@ -11,6 +11,7 @@ exports.DebtItemSchema = zod_1.z.object({
     atrasoEmDias: zod_1.z.number().optional(),
     ehGarantida: zod_1.z.boolean().optional(),
     observacoes: zod_1.z.string().optional(),
+    proposito: zod_1.z.string().optional(),
 });
 exports.DebtSimulationSummarySchema = zod_1.z.object({
     rendaMensalEstimada: zod_1.z.number().optional().nullable(),

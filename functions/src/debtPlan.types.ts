@@ -252,5 +252,4 @@ export const DebtPlanResponseSchema = z.object({
   tomGeral: z.enum(['calmo', 'direto', 'motivador']).optional(),
 });
 
-export type DebtPlanResponseSafe = z.infer<typeof DebtPlanResponseSchema>;
-seSafe = z.infer<typeof DebtPlanResponseSchema>;
+export type DebtPlanResponseSafe = z.output<typeof DebtPlanResponseSchema>;

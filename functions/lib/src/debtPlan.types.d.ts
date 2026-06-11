@@ -8,6 +8,7 @@ export interface DebtItem {
     atrasoEmDias?: number;
     ehGarantida?: boolean;
     observacoes?: string;
+    proposito?: string;
 }
 export interface DebtSimulationSummary {
     rendaMensalEstimada?: number;
@@ -114,6 +115,7 @@ export declare const DebtItemSchema: z.ZodObject<{
     atrasoEmDias: z.ZodOptional<z.ZodNumber>;
     ehGarantida: z.ZodOptional<z.ZodBoolean>;
     observacoes: z.ZodOptional<z.ZodString>;
+    proposito: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
 export declare const DebtSimulationSummarySchema: z.ZodObject<{
     rendaMensalEstimada: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
@@ -194,6 +196,7 @@ export declare const NexusDebtPlanRequestSchema: z.ZodObject<{
         atrasoEmDias: z.ZodOptional<z.ZodNumber>;
         ehGarantida: z.ZodOptional<z.ZodBoolean>;
         observacoes: z.ZodOptional<z.ZodString>;
+        proposito: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>>;
     simulacao: z.ZodObject<{
         rendaMensalEstimada: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
@@ -334,4 +337,4 @@ export declare const DebtPlanResponseSchema: z.ZodObject<{
         motivador: "motivador";
     }>>;
 }, z.core.$strip>;
-export type DebtPlanResponseSafe = z.infer<typeof DebtPlanResponseSchema>;
+export type DebtPlanResponseSafe = z.output<typeof DebtPlanResponseSchema>;
