@@ -1,4 +1,4 @@
-import { RealtimeSubscription } from './realtime.types';
+import type { RealtimeSubscription } from './realtime.types';
 
 class SubscriptionRegistry {
   private subscriptions: Map<string, { subscription: RealtimeSubscription, count: number }> = new Map();

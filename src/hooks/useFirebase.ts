@@ -7,7 +7,7 @@ import {
   db, firestore, auth
 } from '../firebase'; // Adicionado 'auth' aqui
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth'; // Novas importações
-import { FinancialProfile } from '../types';
+import type { FinancialProfile } from '../types';
 import { useUserMeta } from './useUserMeta';
 import { useCategories } from './useCategories';
 import { useTransactions } from './useTransactions';
@@ -16,7 +16,7 @@ export const useFirebase = (userId?: string) => {
   const [loading, setLoading] = useState(true);
 
   // Usa hooks dedicados migrados
-  const { data: userMeta, isLoading: metaLoading } = useUserMeta(userId);
+  const { userMeta, loading: metaLoading } = useUserMeta(userId);
   const userMetaLoaded = !metaLoading;
   const { categories, loading: categoriesLoading, saveCategory, deleteCategory } = useCategories(userId);
   const { 
@@ -58,8 +58,8 @@ export const useFirebase = (userId?: string) => {
     }
   };
 
-  const isLimitReached = !userMeta?.subscription?.active && lancamentos.length >= 30;
-  const usagePercentage = userMeta?.subscription?.active ? 0 : Math.min((lancamentos.length / 30) * 100, 100);
+  const isLimitReached = false;
+  const usagePercentage = 0;
 
   const login = (email: string, password: string) => signInWithEmailAndPassword(auth, email, password);
   const register = (email: string, password: string) => createUserWithEmailAndPassword(auth, email, password);

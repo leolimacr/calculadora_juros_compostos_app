@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Loader2, Check } from 'lucide-react';
-import { NexusInsight } from '../../services/nexusInsightEngine';
+import type { NexusInsight } from '../../services/nexusInsightEngine';
 import { useNexusActions } from '../../hooks/useNexusActions';
 import PaywallModal from '../PaywallModal';
 

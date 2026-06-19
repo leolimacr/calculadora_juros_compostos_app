@@ -1,27 +1,51 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, getDocs, addDoc, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { firestore } from '../../../firebase'; // Mantido o seu caminho exato
-import { Building2, Plus, Trash2, Landmark, Pencil, X, Car, LayoutGrid, List, ShieldCheck, HelpCircle, ArrowRight } from 'lucide-react';
+import { Building2, Plus, Trash2, Landmark, Pencil, X, Car, LayoutGrid, List, ShieldCheck, HelpCircle, ArrowRight, Banknote, Sparkles } from 'lucide-react';
 import { useWealthData } from '../../../hooks/useWealthData';
 import { useWealthHistory } from '../../../hooks/useWealthHistory';
-import { PassiveAsset } from '../../../types';
+import type { PassiveAsset } from '../../../types';
+import { useNavigate } from 'react-router-dom';
 
 interface PassiveWealthManagerProps {
   userId: string | undefined;
+  onNavigate?: (route: string, state?: any) => void;
 }
 
 const PASSIVE_CATEGORIES = ['Imóveis', 'Veículos', 'Terrenos', 'Joias/Arte', 'Outros'];
 
-export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ userId }) => {
+export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ userId, onNavigate }) => {
+  const navigate = useNavigate();
   const [assets, setAssets] = useState<PassiveAsset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Função para processar venda estratégica (CFP)
+  const handleSellAsset = (asset: PassiveAsset) => {
+    const value = window.prompt(`Por quanto você vendeu "${asset.description}"?`, asset.currentValue.toString());
+    if (value === null) return;
+
+    const finalValue = parseFloat(value.replace(',', '.'));
+    if (isNaN(finalValue)) return alert("Valor inválido");
+
+    // Navega para o Nexus Chat com o contexto da venda
+    if (onNavigate) {
+      onNavigate('chat', { 
+        initialPrompt: `Acabei de vender meu bem "${asset.description}" por R$ ${finalValue.toLocaleString('pt-BR')}. Como meu CFP, me ajude a direcionar esse recurso para minhas dívidas, meu Colchão Inicial e meus investimentos. Analise meu cenário atual e sugira a melhor divisão.`,
+        pendingSale: {
+          assetId: asset.id,
+          description: asset.description,
+          value: finalValue
+        }
+      });
+    }
+  };
   
-  // Confirmação de Saldos
+  // Validação do Patrimônio
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const { patrimonioLiquido, totalAssets, totalDebts, totalInvestments, totalProperty } = useWealthData();
   const { saveSnapshot, isSaving } = useWealthHistory(userId);
 
-  const handleConfirmSaldos = async () => {
+  const handleConfirmPatrimonio = async () => {
     try {
       await saveSnapshot({
         totalNetWorth: patrimonioLiquido,
@@ -52,7 +76,8 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
     category: 'Imóveis', 
     currentValue: 0, 
     observations: '',
-    proposito: ''
+    proposito: '',
+    flexibility: 'intocavel'
   });
   const [displayValue, setDisplayValue] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -120,6 +145,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
         currentValue: currentAsset.currentValue,
         observations: currentAsset.observations || '',
         proposito: currentAsset.proposito || '',
+        flexibility: currentAsset.flexibility || 'intocavel',
       };
 
       if (editingId) {
@@ -175,7 +201,8 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
       category: asset.category, 
       currentValue: asset.currentValue,
       observations: asset.observations || '',
-      proposito: asset.proposito || ''
+      proposito: asset.proposito || '',
+      flexibility: asset.flexibility || 'intocavel'
     });
     setDisplayValue(asset.currentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
     if (asset.id) setEditingId(asset.id);
@@ -184,7 +211,14 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
 
   // Função Cancelar Edição (ou Resetar Form)
   const handleCancelEdit = () => {
-    setCurrentAsset({ description: '', category: 'Imóveis', currentValue: 0, observations: '', proposito: '' });
+    setCurrentAsset({ 
+      description: '', 
+      category: 'Imóveis', 
+      currentValue: 0, 
+      observations: '', 
+      proposito: '',
+      flexibility: 'intocavel'
+    });
     setDisplayValue('');
     setEditingId(null);
   };
@@ -318,18 +352,18 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
             </div>
           </div>
 
-          {/* CAMPO PROPÓSITO (NEXUS) */}
-          <div className="md:col-span-8">
+          {/* CAMPO PROPÓSITO E FLEXIBILIDADE (NEXUS) */}
+          <div className="md:col-span-8 grid grid-cols-1 gap-6">
             <div className="p-4 bg-emerald-50/30 rounded-2xl border border-emerald-100/50">
               <div className="flex items-center justify-between mb-2">
                 <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-700">
                   Propósito do Bem
                   <div className="group relative">
                     <HelpCircle size={14} className="text-emerald-400 cursor-help" />
-                    <div className="absolute left-0 bottom-full mb-2 w-64 p-3 bg-slate-900 text-white text-[10px] font-medium leading-relaxed rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                    <div className="absolute left-0 bottom-full mb-2 w-64 p-3 bg-slate-900 text-white text-[10px] font-medium leading-relaxed rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl border border-slate-800">
                       <p className="font-black text-emerald-400 mb-1 uppercase tracking-widest text-left">Por que preencher o Propósito?</p>
                       <p className="text-left leading-relaxed">Para o Finanças Pro Invest não ser apenas uma calculadora, o Nexus precisa entender sua vida. Se soubermos que sua casa é seu 'Lar Inegociável', nunca sugeriremos nada que a coloque em risco. Se soubermos que seu carro é 'Apenas para Trabalho', saberemos como otimizar seus custos.</p>
-                      <p className="mt-2 text-slate-400 italic text-left">Ex: "Este imóvel é para minha aposentadoria, quero viver do aluguel dele futuramente."</p>
+                      <p className="mt-2 text-slate-400 italic text-left border-t border-slate-800 pt-2">Ex: "Este imóvel é para minha aposentadoria, quero viver do aluguel dele futuramente."</p>
                     </div>
                   </div>
                 </label>
@@ -338,9 +372,39 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
               <textarea
                 value={currentAsset.proposito || ''}
                 onChange={e => setCurrentAsset({ ...currentAsset, proposito: e.target.value })}
-                className="w-full px-4 py-3 rounded-xl border border-emerald-100 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all text-sm font-medium bg-white min-h-[80px] resize-none"
+                className="w-full px-4 py-3 rounded-xl border border-emerald-100 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all text-sm font-medium bg-white min-h-[80px] resize-none placeholder:text-slate-300"
                 placeholder="O que este bem representa para você? Qual a finalidade dele na sua vida?"
               />
+            </div>
+
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+              <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3 ml-1">
+                Flexibilidade deste Bem (Negociação)
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {[
+                  { id: 'intocavel', label: 'Intocável', desc: 'Meu Lar / Essencial', icon: '🔴' },
+                  { id: 'negociavel', label: 'Negociável', desc: 'Topo vender se estratégico', icon: '🟡' },
+                  { id: 'liquidez', label: 'Patrimônio', desc: 'Foco em liquidez futura', icon: '🟢' }
+                ].map(opt => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setCurrentAsset({ ...currentAsset, flexibility: opt.id as any })}
+                    className={`flex flex-col items-start p-3 rounded-xl border-2 transition-all text-left ${
+                      currentAsset.flexibility === opt.id 
+                        ? 'border-emerald-500 bg-white shadow-sm shadow-emerald-100' 
+                        : 'border-transparent bg-slate-100/50 hover:bg-slate-100 text-slate-400'
+                    }`}
+                  >
+                    <span className="text-xs font-black uppercase tracking-tight flex items-center gap-1.5 mb-1">
+                      <span className="text-xs opacity-80">{opt.icon}</span>
+                      <span className={currentAsset.flexibility === opt.id ? 'text-emerald-700' : ''}>{opt.label}</span>
+                    </span>
+                    <span className="text-[9px] leading-tight font-medium opacity-70">{opt.desc}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -449,6 +513,14 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
                   {/* Botões de Ação */}
                   <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button 
+                      onClick={() => handleSellAsset(asset)} 
+                      className="text-emerald-600 hover:text-white p-2 rounded-lg bg-emerald-50 border border-emerald-200 hover:bg-emerald-600 transition-all flex items-center gap-1.5 shadow-sm"
+                      title="Vender Bem"
+                    >
+                      <Banknote size={16} />
+                      <span className="text-[10px] font-black uppercase tracking-tighter">Vender</span>
+                    </button>
+                    <button 
                       onClick={() => handleEditClick(asset)} 
                       className="text-slate-500 hover:text-emerald-600 p-2 rounded-lg bg-slate-50 border border-slate-200 hover:bg-emerald-50 hover:border-emerald-200 transition-colors"
                       title="Editar Bem"
@@ -511,7 +583,14 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
                         </div>
                       </td>
                       <td className="px-6 py-4 max-w-xs">
-                        <span className="text-xs text-slate-500 font-medium line-clamp-1">{asset.proposito || '—'}</span>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-xs text-slate-500 font-medium line-clamp-1">{asset.proposito || '—'}</span>
+                          {asset.flexibility && (
+                            <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
+                              {asset.flexibility === 'intocavel' ? '🔴 Intocável' : asset.flexibility === 'negociavel' ? '🟡 Negociável' : '🟢 Patrimônio'}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <span className="text-sm font-black text-slate-900">
@@ -585,7 +664,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
               
               <div className="flex flex-col w-full gap-3 pt-4">
                 <button
-                  onClick={handleConfirmSaldos}
+                   onClick={handleConfirmPatrimonio}
                   disabled={isSaving}
                   className="w-full py-4 bg-brand-primary text-white rounded-2xl font-black uppercase tracking-widest hover:bg-brand-primary/90 transition-all flex items-center justify-center gap-2"
                 >

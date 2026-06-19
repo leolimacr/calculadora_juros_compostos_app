@@ -7,15 +7,17 @@ import NotificationHub from '../components/NotificationHub';
 import ContentModal from '../components/ContentModal';
 import TransactionForm from '../components/tools/finance/TransactionForm';
 import ToastContainer from '../components/Toast';
-import { useAppState } from '../hooks/useAppState';
+import type { useAppState } from '../hooks/useAppState';
 import { useNavigation } from '../hooks/useNavigation';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useOnboarding } from '../hooks/useOnboarding';
 import OnboardingOverlay from '../components/Onboarding/OnboardingOverlay';
 import PageShell from './PageShell';
-import { NexusAdvisoryContext } from '../services/nexusInsightEngine';
+import type { NexusAdvisoryContext } from '../services/nexusInsightEngine';
+import { useSovereignSnapshot } from '../hooks/useSovereignSnapshot';
 
 import AppOnlyBlock from '../components/AppOnlyBlock';
+import AppDesktopNav from '../components/AppDesktopNav';
 
 interface AppLayoutProps {
   state: ReturnType<typeof useAppState>;
@@ -51,37 +53,34 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state }) => {
     isMobileBrowser,
   } = state;
 
+  const sovereign = useSovereignSnapshot(lancamentos, userMeta);
+
   const nexusAdvisoryContext = React.useMemo((): NexusAdvisoryContext | undefined => {
     if (!lancamentos) return undefined;
+
     const now = new Date();
-    const currentMonth = now.getMonth() + 1;
-    const currentYear = now.getFullYear();
 
-    const monthTransactions = lancamentos.filter(t => {
-      const [y, m] = t.date.split('-').map(Number);
-      return y === currentYear && m === currentMonth;
-    });
-
-    const currentMonthBalance = monthTransactions.reduce(
-      (acc, t) => acc + (t.type === 'income' ? t.amount : -t.amount),
-      0
-    );
-
-    const categorySpending = monthTransactions
-      .filter(t => t.type === 'expense')
+    const categorySpending = lancamentos
+      .filter((t) => {
+        const [y, m] = t.date.split('-').map(Number);
+        return y === now.getFullYear() && m === now.getMonth() + 1 && t.type === 'expense';
+      })
       .reduce((acc, t) => {
         acc[t.category] = (acc[t.category] || 0) + t.amount;
         return acc;
       }, {} as Record<string, number>);
 
     return {
-      currentMonthBalance,
+      snapshot: sovereign,
+      commandMode: sovereign.commandMode,
       categorySpending,
       isPremium: !!userMeta?.isPremium,
     };
-  }, [lancamentos, userMeta]);
+  }, [lancamentos, userMeta, sovereign]);
 
   const { step, nextStep, skip, finish } = useOnboarding(lancamentos.length);
+
+  const showDesktopNav = isAuthenticated && !isAppLocked;
 
   const handleOnboardingLaunch = () => {
     handleNavigate('controla');
@@ -98,7 +97,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state }) => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
+    <div className="min-h-screen bg-surface-secondary text-text-primary flex flex-col font-sans">
       <AppHeader
         isAuthenticated={isAuthenticated}
         userMeta={userMeta}
@@ -111,13 +110,21 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state }) => {
         isPremium={state.isPremium}
         isNotificationsOpen={isNotificationsOpen}
         onOpenNotifications={setIsNotificationsOpen}
+        showDesktopNav={showDesktopNav}
       />
 
-      <main className="flex-1 overflow-y-auto">
-        <PageShell currentTool={currentTool}>
-          <Outlet />
-        </PageShell>
-      </main>
+      <div className="flex flex-1 min-h-0 pt-16">
+        {showDesktopNav && <AppDesktopNav />}
+
+        <main className="flex-1 min-w-0 overflow-y-auto">
+          <PageShell
+            currentTool={currentTool}
+            withMobileNav={isAuthenticated && !isAppLocked && isMobile}
+          >
+            <Outlet />
+          </PageShell>
+        </main>
+      </div>
 
       <AppMobileDrawer
         isOpen={mobileMenuOpen}
@@ -129,7 +136,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state }) => {
         onOpenCourse={() => routerNavigate('/curso/dividas')}
       />
 
-      {isNative && isAuthenticated && !isAppLocked && isMobile && (
+      {isAuthenticated && !isAppLocked && isMobile && (
         <MobileBottomNav
           onOpenMore={() => handleNavigate('settings')}
           onAdd={openTransactionForm}
@@ -137,7 +144,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state }) => {
         />
       )}
 
-      <AppOnlyBlock isMobileBrowser={isMobileBrowser} />
+      <AppOnlyBlock isMobileBrowser={isMobileBrowser} hasBottomNav={isAuthenticated && !isAppLocked && isMobile} />
 
       <NotificationHub
         isOpen={isNotificationsOpen}
@@ -152,12 +159,13 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state }) => {
       >
         <TransactionForm
           initialData={editingTransaction}
-          onSave={async (t: { id?: string; amount: number; [key: string]: unknown }) => {
+          onSave={async (t: { id?: string; amount: number; linkedDebtId?: string; [key: string]: any }) => {
             const { id, ...rest } = t;
-            const cleanData = { ...rest, amount: Number(t.amount) } as Parameters<
-              typeof saveLancamento
-            >[0];
+            const amount = Number(t.amount);
+            const cleanData = { ...rest, amount } as Parameters<typeof saveLancamento>[0];
             if (id) cleanData.id = id;
+
+            // Salva o lançamento (A lógica reativa agora vive no useTransactions)
             await saveLancamento(cleanData);
             handleCloseModal();
           }}

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { fetchMarketQuotes } from '../services/marketService';
-import { MarketQuote } from '../types';
+import type { MarketQuote } from '../types';
 
 interface MarketTickerProps {
   onAssetClick?: (asset: MarketQuote) => void;

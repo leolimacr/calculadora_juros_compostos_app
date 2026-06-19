@@ -1,4 +1,5 @@
-import { useMutation, UseMutationOptions, useQueryClient } from '@tanstack/react-query';
+import type { UseMutationOptions} from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { normalizeError } from '../errors/normalizeError';
 
 export const createMutationHook = <TData, TError, TVariables, TContext>(

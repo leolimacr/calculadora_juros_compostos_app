@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Plus, CreditCard as CardIcon, Trash2, EyeOff, Eye, RefreshCw, Calendar, Settings2, Check, ChevronLeft, ChevronDown, ChevronUp, Edit2 } from 'lucide-react';
 import { addCard, getCards, updateCard, deleteCard } from '../../../services/cardService';
-import { CreditCard, Transaction } from '../../../types';
+import type { CreditCard, Transaction } from '../../../types';
 import { getCurrentInvoice, getInvoiceBillingMonth } from '../../../utils/invoiceUtils';
 
 interface CardManagerProps {
@@ -68,6 +68,8 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
       date: selectedPaymentDate,
       paymentMethod: 'money',
       userId: userId,
+      isBillPayment: true,
+      linkedCardId: pendingInvoice.cardId,
       createdAt: new Date().toISOString(),
       isLocked: true,
       lockMessage: "Este lançamento é gerado automaticamente pelas suas compras no cartão. Para alterar o valor, edite as compras na Gestão de Cartões."
@@ -289,7 +291,7 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
             </div>
             <div>
               <h2 className="text-2xl font-black text-text-primary uppercase tracking-tight">Gestão de Cartões</h2>
-              <p className="text-xxs font-bold text-text-muted uppercase tracking-widest mt-1">Configure limites, faturas e compras em aberto</p>
+              <p className="text-xxs font-bold text-text-muted uppercase tracking-widest mt-1">Configure limites, faturas e o impacto na folga do mês</p>
             </div>
           </div>
         </div>

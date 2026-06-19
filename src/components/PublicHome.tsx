@@ -11,7 +11,6 @@ import { ContentModal, AssetModal } from './Public/HomeModals';
 import { InfiniteTicker } from './Public/MarketComponents';
 import { getLatestNews } from '../services/newsService';
 import { HomeHero } from './Home/HomeHero';
-import { HomeResumoFinanceiro } from './Home/HomeResumoFinanceiro';
 import { HomeJornada } from './Home/HomeJornada';
 import { HomeEcossistema } from './Home/HomeEcossistema';
 import { HomeSecoesSuporte } from './Home/HomeSecoesSuporte';
@@ -19,12 +18,9 @@ import { HomeCursos } from './Home/HomeCursos';
 import { HomeConteudo } from './Home/HomeConteudo';
 import { HomeTerminalMercado } from './Home/HomeTerminalMercado';
 import { HomeFooter } from './Home/HomeFooter';
-import { PresenceAlertsBanner } from './Home/PresenceAlertsBanner';
 import PreAuthModal from './Auth/PreAuthModal';
 import { useAuthInterceptor } from '../hooks/useAuthInterceptor';
-import {
-  LogOut
-} from 'lucide-react';
+import { LogOut } from 'lucide-react';
 
 const FIREBASE_FUNCTIONS_BASE_URL = import.meta.env.VITE_FIREBASE_FUNCTIONS_BASE_URL;
 const BCB_API_BASE_URL = import.meta.env.VITE_BCB_API_BASE_URL;
@@ -37,7 +33,6 @@ const RADAR_NEWS = [
 ];
 
 export const PublicHome: React.FC<any> = ({ onNavigate, isAuthenticated, userMeta, isPrivacyMode }) => {
-
   const {
     showPreAuth,
     handleProtectedAction,
@@ -46,23 +41,17 @@ export const PublicHome: React.FC<any> = ({ onNavigate, isAuthenticated, userMet
     goToRegister
   } = useAuthInterceptor(isAuthenticated, onNavigate);
 
-  // --- ESTADO: Notícias ---
   const [radarNews, setRadarNews] = useState<any[]>(RADAR_NEWS);
-
-  // --- ESTADO: Patrimônio ---
   const [patrimonioAtivo] = useState<number>(userMeta?.resumoFinanceiro?.patrimonioAtivo || 0);
   const [patrimonioPassivo] = useState<number>(userMeta?.resumoFinanceiro?.patrimonioPassivo || 0);
   const patrimonioTotal = patrimonioAtivo + patrimonioPassivo;
 
-  // --- ESTADO: Dívidas ---
   const { debts, loading: debtsLoading } = useDebts(userMeta?.uid);
   usePresenceTriggers({ userId: userMeta?.uid, debts, debtsLoading });
 
-  // --- ESTADO: Metas ---
   const { goals: metas, loading: goalsLoading } = useGoals(userMeta?.uid);
-
-  // --- PRESENÇA: Persona patrimônio ---
   const { assets, loading: assetsLoading } = useAssets(userMeta?.uid);
+  
   useWealthPresenceTriggers({
     userId: userMeta?.uid,
     goals: metas,
@@ -73,28 +62,13 @@ export const PublicHome: React.FC<any> = ({ onNavigate, isAuthenticated, userMet
       ? new Date(userMeta.lastWealthReviewAt)
       : null,
   });
-  const metasAtivas = metas.filter((m: any) => m.ativa);
-  const proximaMeta = metasAtivas.length > 0 ? metasAtivas[0] : null;
-  let diasRestantes: number | null = null;
-  let valorProximoAporte = 1200;
-  if (userMeta && proximaMeta) {
-    const proximoAporteData = calcularProximoAporte({
-      dataInicio: proximaMeta.dataInicio,
-      frequencia: proximaMeta.frequencia,
-      diasPersonalizado: proximaMeta.diasPersonalizado,
-    });
-    diasRestantes = diasAteProximoAporte(proximoAporteData);
-    valorProximoAporte = proximaMeta.valor;
-  }
 
-  // --- ESTADO: Mercado ---
   const [marketData, setMarketData] = useState<any>({ indices: [], stocks: [], currencies: [], cryptos: [], indicators: [] });
   const indicesComIndicadores = useMemo(() => [
     ...(marketData.indices || []),
     ...(marketData.indicators || []),
   ], [marketData.indices, marketData.indicators]);
 
-  // --- ESTADO: UI ---
   const [heroPersona, setHeroPersona] = useState<'dividas' | 'patrimonio'>('dividas');
 
   useEffect(() => {
@@ -102,6 +76,7 @@ export const PublicHome: React.FC<any> = ({ onNavigate, isAuthenticated, userMet
     if (userMeta.onboardingPersona === 'patrimonio') setHeroPersona('patrimonio');
     else setHeroPersona('dividas');
   }, [userMeta?.onboardingPersona]);
+
   const [selectedAsset, setSelectedAsset] = useState<{ symbol: string; category: string } | null>(null);
   const [activeInfoModal, setActiveInfoModal] = useState<string | null>(null);
   const [selectedArticle, setSelectedArticle] = useState<any | null>(null);
@@ -109,14 +84,13 @@ export const PublicHome: React.FC<any> = ({ onNavigate, isAuthenticated, userMet
   const [_showNewsAdmin, setShowNewsAdmin] = useState(false);
   const [newsForm, setNewsForm] = useState({ id: '', title: '', summary: '', content: '', coverImage: '' });
 
-  // --- EFEITO: Buscar notícias ---
   const fetchNews = async () => {
     const fetchedNews = await getLatestNews(9);
     if (fetchedNews && fetchedNews.length > 0) setRadarNews(fetchedNews);
   };
+  
   useEffect(() => { fetchNews(); }, []);
 
-  // --- EFEITO: Buscar dados de mercado ---
   useEffect(() => {
     const fetchMarket = async () => {
       try {
@@ -176,38 +150,14 @@ export const PublicHome: React.FC<any> = ({ onNavigate, isAuthenticated, userMet
   };
 
   return (
-    <div className="bg-slate-50 flex flex-col overflow-x-hidden">
+    <div className="bg-[#0B0F17] flex flex-col overflow-x-hidden font-sans">
       <HomeHero
-        heroPersona={heroPersona}
-        setHeroPersona={setHeroPersona}
         isAuthenticated={isAuthenticated}
         onNavigate={handleProtectedAction}
         onStartNow={() => handleProtectedAction('register')}
         isPrivacyMode={isPrivacyMode}
         userMeta={userMeta}
-        patrimonioAtivo={patrimonioAtivo}
-        patrimonioPassivo={patrimonioPassivo}
-        patrimonioTotal={patrimonioTotal}
-        metas={metas ?? []}
       />
-
-      {/* BARRA DE CONFIANÇA (PROVA SOCIAL) */}
-      <div className="bg-white border-y border-slate-100 py-6">
-        <div className="max-w-[1400px] mx-auto px-6 flex flex-wrap items-center justify-center gap-y-4 gap-x-8 md:gap-x-16 text-center">
-          <div className="flex items-center gap-2 text-slate-500 font-bold text-[10px] md:text-xs uppercase tracking-widest">
-            <span className="text-emerald-500 text-lg">🔒</span>
-            Criptografia de ponta — Seus dados estão seguros
-          </div>
-          <div className="flex items-center gap-2 text-slate-500 font-bold text-[10px] md:text-xs uppercase tracking-widest">
-            <span className="text-sky-500 text-lg">☁️</span>
-            Hospedado no Google Cloud — Estabilidade e segurança
-          </div>
-          <div className="flex items-center gap-2 text-slate-500 font-bold text-[10px] md:text-xs uppercase tracking-widest">
-            <span className="text-rose-500 text-lg">❤️</span>
-            Feito para te ajudar a dormir melhor — Sem julgamentos
-          </div>
-        </div>
-      </div>
 
       <InfiniteTicker
         data={{
@@ -217,25 +167,6 @@ export const PublicHome: React.FC<any> = ({ onNavigate, isAuthenticated, userMet
           cryptos: marketData.cryptos ?? [],
           stocks: marketData.stocks ?? [],
         }}
-      />
-
-      <HomeResumoFinanceiro
-        heroPersona={heroPersona}
-        onNavigate={handleProtectedAction}
-        onStartNow={() => handleProtectedAction('register')}
-        isAuthenticated={isAuthenticated}
-        isPrivacyMode={isPrivacyMode}
-        userMeta={userMeta}
-        patrimonioAtivo={patrimonioAtivo}
-        patrimonioPassivo={patrimonioPassivo}
-        patrimonioTotal={patrimonioTotal}
-        metasAtivas={metasAtivas}
-        diasRestantes={diasRestantes}
-        valorProximoAporte={valorProximoAporte}
-      />
-
-      <PresenceAlertsBanner
-        userId={userMeta?.uid ?? null}
       />
 
       <HomeJornada heroPersona={heroPersona} />
@@ -309,9 +240,9 @@ export const PublicHome: React.FC<any> = ({ onNavigate, isAuthenticated, userMet
       )}
       {selectedArticle && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 md:p-8">
-          <div className="bg-white rounded-3xl max-w-4xl w-full p-8 relative mt-8 mb-8">
-            <button onClick={() => setSelectedArticle(null)} className="absolute top-6 right-6 p-2 hover:bg-slate-100 rounded-xl transition-colors">
-              <LogOut size={20} className="text-slate-500" />
+          <div className="bg-[#111622] rounded-3xl max-w-4xl w-full p-8 relative mt-8 mb-8 border border-white/[0.06] text-[#E5E7EB]">
+            <button onClick={() => setSelectedArticle(null)} className="absolute top-6 right-6 p-2 hover:bg-white/10 rounded-xl transition-colors">
+              <LogOut size={20} className="text-[#A0A4AB]" />
             </button>
             <selectedArticle.component />
           </div>
@@ -319,9 +250,9 @@ export const PublicHome: React.FC<any> = ({ onNavigate, isAuthenticated, userMet
       )}
       {selectedCourse && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 md:p-8">
-          <div className="bg-white rounded-3xl max-w-4xl w-full p-8 relative mt-8 mb-8">
-            <button onClick={() => setSelectedCourse(null)} className="absolute top-6 right-6 p-2 hover:bg-slate-100 rounded-xl transition-colors">
-              <LogOut size={20} className="text-slate-500" />
+          <div className="bg-[#111622] rounded-3xl max-w-4xl w-full p-8 relative mt-8 mb-8 border border-white/[0.06] text-[#E5E7EB]">
+            <button onClick={() => setSelectedCourse(null)} className="absolute top-6 right-6 p-2 hover:bg-white/10 rounded-xl transition-colors">
+              <LogOut size={20} className="text-[#A0A4AB]" />
             </button>
             <selectedCourse.component />
           </div>

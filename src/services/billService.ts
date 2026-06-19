@@ -1,3 +1,6 @@
+import type {
+  DocumentData,
+  CollectionReference} from 'firebase/firestore';
 import {
   collection,
   addDoc,
@@ -6,12 +9,10 @@ import {
   deleteDoc,
   doc,
   query,
-  where,
-  DocumentData,
-  CollectionReference,
+  where
 } from 'firebase/firestore';
 import { firestore } from '../firebase';
-import { RecurringBill } from '../types';
+import type { RecurringBill } from '../types';
 
 const getBillsCollection = (userId: string): CollectionReference<DocumentData> => {
   return collection(firestore, `users/${userId}/contas_fixas`);

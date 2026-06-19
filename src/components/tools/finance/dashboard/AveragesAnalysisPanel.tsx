@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { RefreshCw, ChevronUp } from 'lucide-react';
+import { FPI_COPY } from '../../../../theme/fpiVoiceGuide';
 
 interface AveragesAnalysisPanelProps {
   userUid: string | undefined;
   isReady: boolean;
   safeTransactions: any[];
   isPrivacyMode: boolean;
-  isPremium: boolean;
+  hasHistoryAccess: boolean;
+  onHistoryBlocked: () => void;
 }
 
 const AveragesAnalysisPanel: React.FC<AveragesAnalysisPanelProps> = ({
@@ -14,7 +16,8 @@ const AveragesAnalysisPanel: React.FC<AveragesAnalysisPanelProps> = ({
   isReady,
   safeTransactions,
   isPrivacyMode,
-  isPremium,
+  hasHistoryAccess,
+  onHistoryBlocked,
 }) => {
   const [showAverages, setShowAverages] = useState(false);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
@@ -29,7 +32,7 @@ const AveragesAnalysisPanel: React.FC<AveragesAnalysisPanelProps> = ({
 
   // CARGA HISTÓRICA SOB DEMANDA PARA MÉDIAS (CUSTO OTIMIZADO)
   useEffect(() => {
-    if (showAverages && yearlyHistory.length === 0 && userUid && isReady) {
+    if (showAverages && yearlyHistory.length === 0 && userUid && isReady && hasHistoryAccess) {
       const loadYearlyData = async () => {
         setIsHistoryLoading(true);
         try {
@@ -60,7 +63,7 @@ const AveragesAnalysisPanel: React.FC<AveragesAnalysisPanelProps> = ({
       };
       loadYearlyData();
     }
-  }, [showAverages, userUid, isReady, yearlyHistory.length]);
+  }, [showAverages, userUid, isReady, yearlyHistory.length, hasHistoryAccess]);
 
   const averagesData = useMemo(() => {
     if (!showAverages || !isReady) return [];
@@ -212,19 +215,25 @@ const AveragesAnalysisPanel: React.FC<AveragesAnalysisPanelProps> = ({
         <div>
           <h3 className="text-text-primary font-black text-xxs uppercase tracking-ultra-wide flex items-center gap-2">
             Análise de Médias
-            {!isPremium && (
+            {!hasHistoryAccess && (
               <span className="text-[8px] px-1.5 py-0.5 bg-brand-secondary/10 text-brand-secondary rounded-full font-bold tracking-normal normal-case">
-                No Pro, sua visão de rotina ganha mais fluidez
+                Histórico multi-mês no Pro
               </span>
             )}
           </h3>
           <p className="text-text-muted text-xxs font-bold uppercase tracking-ultra-wide mt-1">
-            Média mensal por categoria · apenas despesas
+            {FPI_COPY.averagesExpenseOnly}
           </p>
         </div>
         <button
           type="button"
-          onClick={() => setShowAverages(prev => !prev)}
+          onClick={() => {
+            if (!hasHistoryAccess) {
+              onHistoryBlocked();
+              return;
+            }
+            setShowAverages((prev) => !prev);
+          }}
           className={`px-4 py-2.5 rounded-2xl text-xxs font-black uppercase border transition-all ${
             showAverages
               ? 'bg-surface-elevated border-surface-elevated text-text-secondary hover:bg-surface-secondary'
@@ -407,8 +416,8 @@ const AveragesAnalysisPanel: React.FC<AveragesAnalysisPanelProps> = ({
                   <p className="text-text-muted text-xxs font-black uppercase tracking-ultra-wide">Nenhuma média calculada para este período</p>
                   <p className="text-xxs text-text-muted mt-1 leading-relaxed">
                     {averagesWindow === 'year' 
-                      ? 'Para calcular médias, é necessário ter despesas em meses anteriores ou ativar "Incluir mês atual".' 
-                      : 'Tente mudar o período acima ou verifique se há lançamentos de saída cadastrados.'}
+                      ? FPI_COPY.averagesNeedData
+                      : 'Tente mudar o período acima ou verifique se há compromissos cadastrados.'}
                   </p>
                 </div>
               )}

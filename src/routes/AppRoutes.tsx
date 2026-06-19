@@ -1,7 +1,6 @@
 import React from 'react';
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import OnboardingWizard from '../components/OnboardingWizard';
-import NexusBriefingView from '../components/tools/nexus/NexusBriefingView';
 import {
   FireCalculatorTool,
   CompoundInterestTool,
@@ -30,14 +29,18 @@ import AppCockpit from '../components/Home/AppCockpit';
 import { ExplorarHub } from '../components/ExplorarHub';
 import AppLayout from '../layouts/AppLayout';
 import PublicLayout from '../layouts/PublicLayout';
-import { useAppState } from '../hooks/useAppState';
+import FeatureGate from '../components/FeatureGate';
+import PremiumUpgradePrompt from '../components/PremiumUpgradePrompt';
+import { useSubscriptionAccess } from '../hooks/useSubscriptionAccess';
 import { useNavigation } from '../hooks/useNavigation';
 import { courseRoutes, CourseRoutesShell } from './courseRoutes';
 import { useTransactionsContext } from '../contexts/TransactionsContext';
 import { useDebtContext } from '../contexts/DebtContext';
 import { useFinanceContext } from '../contexts/FinanceContext';
+import { useWealthData } from '../hooks/useWealthData';
 import { ControlaPage } from '../components/tools/finance/ControlaPage';
 import AppLoadingScreen from '../components/AppLoadingScreen';
+import AiAdvisor from '../components/tools/nexus/AiAdvisor';
 
 interface AppRoutesProps {
   state: ReturnType<typeof useAppState>;
@@ -60,6 +63,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
   const { bridgeReady, hasConnectedAtLeastOnce: txConnected } = useTransactionsContext();
   const { debtBridgeReady, hasConnectedAtLeastOnce: debtConnected } = useDebtContext();
   const { financeBridgeReady, hasConnectedAtLeastOnce: financeConnected } = useFinanceContext();
+  const wealthData = useWealthData();
 
   const [loadingTime, setLoadingTime] = React.useState(0);
 
@@ -81,10 +85,13 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
     (!anyConnected && loadingTime < 7000)
   );
 
-  const { 
-    handleNavigate, 
-    handleAuthSuccess, 
-    homeKey 
+  const { isPro, isPremium, currentPlan } = useSubscriptionAccess();
+
+  const {
+    handleNavigate,
+    handleAuthSuccess,
+    homeKey,
+    currentTool
   } = useNavigation();
 
   if (state.isAuthenticated && showFullLoading) {
@@ -101,10 +108,6 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
     deleteCategory,
     userMeta,
     userMetaLoaded,
-    usagePercentage,
-    isLimitReached,
-    isPro,
-    isPremium,
     isAppLocked,
     storedPin,
     handleUnlockSuccess,
@@ -116,6 +119,8 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
     handleEditTransaction,
     getAiContextTransactions,
   } = state;
+
+  // Hook moved above to maintain consistent order
 
   if (isAppLocked && isAuthenticated && storedPin) {
     return (
@@ -134,7 +139,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
           path="/" 
           element={
             isAuthenticated ? (
-              <Navigate to={state.isMobileBrowser ? "/app/explorar" : "/app/home"} replace />
+              <Navigate to="/app/home" replace />
             ) : (
               <PublicHome
                 key={homeKey}
@@ -203,24 +208,20 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
         <Route 
           path="home" 
           element={
-            state.isMobileBrowser ? (
-              <Navigate to="/app/explorar" replace />
+            isAuthenticated && userMetaLoaded && userMeta?.onboardingCompleted === false ? (
+              <div className="min-h-screen bg-[#020617] flex items-center justify-center px-4">
+                <OnboardingWizard userId={user!.uid} onComplete={() => setOnboardingDismissed(true)} />
+              </div>
             ) : (
-              isAuthenticated && userMetaLoaded && userMeta?.onboardingCompleted === false ? (
-                <div className="min-h-screen bg-[#020617] flex items-center justify-center px-4">
-                  <OnboardingWizard userId={user!.uid} onComplete={() => setOnboardingDismissed(true)} />
-                </div>
-              ) : (
-                  <AppCockpit
-                    transactions={state.lancamentos}
-                    isPrivacyMode={state.isPrivacyMode}
-                    onNavigate={(tool, state) => handleNavigate(tool, state)}
-                    userMeta={userMeta}
-                    isPremium={isPremium}
-                    isPro={isPro}
-                    isSyncing={state.isSyncing}
-                  />
-              )
+                <AppCockpit
+                  transactions={state.lancamentos}
+                  isPrivacyMode={state.isPrivacyMode}
+                  onNavigate={(tool, state) => handleNavigate(tool, state)}
+                  userMeta={userMeta}
+                  isPremium={isPremium}
+                  isPro={isPro}
+                  isSyncing={state.isSyncing}
+                />
             )
           } 
         />
@@ -240,10 +241,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
               onSaveCategory={saveCategory}
               onDeleteCategory={deleteCategory}
               userMeta={userMeta}
-              usagePercentage={usagePercentage}
               isPremium={isPro || isPremium}
-              isLimitReached={isLimitReached}
-              onShowPaywall={() => setActiveModal('paywall')}
               isPrivacyMode={isPrivacyMode}
               onTogglePrivacy={() => setIsPrivacyMode((prev) => !prev)}
               onEditTransaction={handleEditTransaction}
@@ -270,12 +268,14 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
         <Route 
           path="ia" 
           element={
-            <NexusBriefingView
-              transactions={lancamentos}
-              goals={[]}
-              assets={state.assets}
-              passives={state.passives}
-              debts={state.debts}
+            <AiAdvisor
+              transactions={state.getAiContextTransactions()}
+              currentCalcResult={[]}
+              goals={wealthData.goals}
+              assets={wealthData.assets}
+              passives={wealthData.passives}
+              debts={wealthData.debts}
+              currentTool={currentTool}
             />
           } 
         />
@@ -298,23 +298,61 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
         <Route 
           path="investimentos" 
           element={
-            <ActiveWealthManager 
-              userId={user?.uid}
-              onNavigate={handleNavigate} 
-            />
+            <FeatureGate
+              requiredPlan="premium"
+              fallback={
+                <PremiumUpgradePrompt
+                  title="Investimentos"
+                  description="Acompanhe sua carteira, alocação e evolução patrimonial com o módulo de investimentos do Premium."
+                  onNavigate={handleNavigate}
+                />
+              }
+            >
+              <ActiveWealthManager 
+                userId={user?.uid}
+                onNavigate={handleNavigate} 
+              />
+            </FeatureGate>
           } 
         />
-        <Route path="passivos" element={<PassiveWealthManager userId={user?.uid} />} />
+        <Route
+          path="passivos"
+          element={
+            <FeatureGate
+              requiredPlan="premium"
+              fallback={
+                <PremiumUpgradePrompt
+                  title="Patrimônio e Passivos"
+                  description="Organize bens, passivos e visão patrimonial completa — recurso exclusivo do Premium."
+                  onNavigate={handleNavigate}
+                />
+              }
+            >
+              <PassiveWealthManager userId={user?.uid} />
+            </FeatureGate>
+          }
+        />
         <Route 
           path="minhas-dividas" 
           element={
-            <DebtManager
-              userId={user?.uid}
-              userMeta={userMeta}
-              lancamentos={lancamentos}
-              onNavigate={handleNavigate}
-              isSyncing={state.isSyncing}
-            />
+            <FeatureGate
+              requiredPlan="premium"
+              fallback={
+                <PremiumUpgradePrompt
+                  title="Minhas Dívidas"
+                  description="Estratégia de quitação, projeções e acompanhamento inteligente das suas dívidas — disponível no Premium."
+                  onNavigate={handleNavigate}
+                />
+              }
+            >
+              <DebtManager
+                userId={user?.uid}
+                userMeta={userMeta}
+                lancamentos={lancamentos}
+                onNavigate={handleNavigate}
+                isSyncing={state.isSyncing}
+              />
+            </FeatureGate>
           } 
         />
         <Route path="metas" element={<GoalManager userId={user?.uid} userMeta={userMeta} />} />

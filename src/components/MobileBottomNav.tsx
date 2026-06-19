@@ -1,7 +1,7 @@
 import React from 'react';
 import { House, Plus, Sparkles, Menu, Bell } from 'lucide-react';
 import { useNavigation } from '../hooks/useNavigation';
-import { Transaction } from '../types';
+import type { Transaction } from '../types';
 import { useNotifications } from '../contexts/NotificationContext';
 
 interface MobileBottomNavProps {
@@ -59,7 +59,7 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               <div className="w-14 h-14 bg-gradient-to-tr from-emerald-500 to-teal-400 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/25 border-[4px] border-white ring-1 ring-slate-200 relative overflow-hidden">
                 <Plus size={28} strokeWidth={3} className="relative z-10" />
                 <img 
-                  src="/controla-icon.png" 
+                  src="/assets/images/brand/controla-icon.png" 
                   alt="" 
                   className="absolute inset-0 w-full h-full object-cover opacity-30 group-hover/launch:scale-110 transition-transform duration-500" 
                 />

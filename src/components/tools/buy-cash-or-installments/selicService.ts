@@ -1,4 +1,4 @@
-import { SelicApiResponseItem } from './types';
+import type { SelicApiResponseItem } from './types';
 
 const SELIC_SERIES_CODE = 432;
 

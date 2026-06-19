@@ -1,6 +1,7 @@
-import { collection, query, QuerySnapshot, DocumentSnapshot, DocumentData, limit } from 'firebase/firestore';
+import type { QuerySnapshot, DocumentSnapshot, DocumentData} from 'firebase/firestore';
+import { collection, query, limit } from 'firebase/firestore';
 import { firestore } from '../firebase';
-import { RecurringBill } from '../types';
+import type { RecurringBill } from '../types';
 import { createRealtimeBridge } from '../core/realtime/realtimeBridge';
 import { queryKeys } from '../core/query/queryKeys';
 

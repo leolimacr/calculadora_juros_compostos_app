@@ -1,5 +1,5 @@
-import { UserContext } from './nexusInsightEngine';
-import { DebtItem } from './debt/debt.types';
+import type { UserContext } from './nexusInsightEngine';
+import type { DebtItem } from './debt/debt.types';
 import { getCurrentInvoice } from '../utils/invoiceUtils';
 
 export function extractUpcomingBill(ctx: UserContext, debts?: DebtItem[]): UserContext['upcomingCreditCardBill'] {

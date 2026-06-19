@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Goal, createGoal, updateGoal, deleteGoal } from '../services/goalService';
+import type { Goal} from '../services/goalService';
+import { createGoal, updateGoal, deleteGoal } from '../services/goalService';
 import { createGoalRealtimeBridge } from '../services/goal.realtime';
 import { queryKeys } from '../core/query/queryKeys';
 

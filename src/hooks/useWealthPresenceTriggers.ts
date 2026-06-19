@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { Goal } from '../services/goalService';
-import { ActiveAsset } from '../components/tools/wealth/ActiveWealthManager';
+import type { Goal } from '../services/goalService';
+import type { ActiveAsset } from '../components/tools/wealth/ActiveWealthManager';
 import { PresenceEventService } from '../services/PresenceEventService';
 
 interface UseWealthPresenceTriggersParams {

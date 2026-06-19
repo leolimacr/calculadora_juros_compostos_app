@@ -1,4 +1,4 @@
-import { CalculationInputs, CalculationResult, NormalizedInputs } from './types';
+import type { CalculationInputs, CalculationResult, NormalizedInputs } from './types';
 
 const CLOSE_CALL_THRESHOLD = 0.01;
 const MODERATE_THRESHOLD = 0.03;

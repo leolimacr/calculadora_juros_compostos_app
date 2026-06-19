@@ -1,3 +1,6 @@
+import type {
+  DocumentData,
+  CollectionReference} from 'firebase/firestore';
 import {
   collection,
   query,
@@ -7,12 +10,10 @@ import {
   doc,
   updateDoc,
   deleteDoc,
-  QuerySnapshot,
-  DocumentData,
-  CollectionReference,
+  QuerySnapshot
 } from 'firebase/firestore';
 import { firestore } from '../../firebase';
-import { DebtItem } from './debt.types';
+import type { DebtItem } from './debt.types';
 import { mapDebtFromFirestore, mapDebtToFirestore } from './debt.mapper';
 
 const getDebtsCollection = (userId: string): CollectionReference<DocumentData> => {

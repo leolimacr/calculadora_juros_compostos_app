@@ -28,13 +28,13 @@ const PendingObligations: React.FC<PendingObligationsProps> = ({
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-text-muted text-[10px] font-black uppercase tracking-widest truncate">
-                  Fatura Atual • {inv.cardName}
+                  Fatura do ciclo • {inv.cardName}
                 </p>
                 <h3 className="text-lg font-black text-text-primary mt-0.5">
                   {isPrivacyMode ? '••••' : `R$ ${inv.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                 </h3>
                 <p className="text-xxs font-bold text-text-muted uppercase tracking-tighter mt-1">
-                  Vence em {new Date(inv.dueDate?.replace(/-/g, '/') || '').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                  Sai da folga do mês em {new Date(inv.dueDate?.replace(/-/g, '/') || '').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                 </p>
               </div>
             </div>

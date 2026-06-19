@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Calendar, CreditCard, RefreshCw, Check, Clock } from 'lucide-react';
 import { addRecurringBill, getRecurringBills, updateRecurringBill, deleteRecurringBill } from '../../../services/billService';
-import { RecurringBill, Category } from '../../../types';
+import type { RecurringBill, Category } from '../../../types';
 
 interface RecurringBillManagerProps {
   isOpen: boolean;
@@ -101,7 +101,7 @@ const RecurringBillManager: React.FC<RecurringBillManagerProps> = ({ isOpen, onC
             </div>
             <p className="text-xxs font-medium text-text-secondary leading-relaxed">
               <span className="font-black text-brand-secondary uppercase tracking-widest block mb-1">Dica para contas variáveis</span>
-              Para Luz, Água ou Gás, informe um <strong>valor médio</strong>. Isso permite ao Controla provisionar seu saldo. No dia do pagamento, você poderá ajustar para o valor real.
+              Para Luz, Água ou Gás, informe um <strong>valor médio</strong>. Isso permite ao Controla provisionar sua folga do mês. No dia do pagamento, você poderá ajustar para o valor real.
             </p>
           </div>
 

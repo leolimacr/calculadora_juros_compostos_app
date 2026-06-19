@@ -3,9 +3,10 @@ import {
   User, ShieldCheck, CreditCard, FileText,
   Pencil, Check, ChevronRight, ExternalLink, ArrowLeft, Lock, X,
   Trash2, Smartphone, AlertTriangle, Loader2, Bell,
-  House, LayoutGrid, Crown
+  House, LayoutGrid, Crown, Zap, Brain
 } from 'lucide-react';
 import { firestore } from '../firebase';
+import { FPI_COPY } from '../theme/fpiVoiceGuide';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { ref, update, onValue } from 'firebase/database';
@@ -17,10 +18,13 @@ import { Capacitor } from '@capacitor/core';
 import { useAuth } from '../contexts/AuthContext';
 import { useFirebase } from '../hooks/useFirebase'; 
 import { useSubscriptionAccess } from '../hooks/useSubscriptionAccess';
+import type { FinancialProfile } from '../types';
+import CommandCalibration from './tools/nexus/CommandCalibration';
+import { seedPersonaFromIntent } from '../services/personaService';
 
 const SettingsPage: React.FC<any> = ({ onBack }) => {
   const { user, logout } = useAuth();
-  const { wipeUserData } = useFirebase(user?.uid); 
+  const { userMeta, saveFinancialProfile, wipeUserData } = useFirebase(user?.uid); 
   const { isPro, isPremium } = useSubscriptionAccess();
   const isNative = Capacitor.isNativePlatform();
 
@@ -28,6 +32,35 @@ const SettingsPage: React.FC<any> = ({ onBack }) => {
   const [nickname, setNickname] = useState('');
   const [isEditingNickname, setIsEditingNickname] = useState(false);
   const [tempNickname, setTempNickname] = useState('');
+
+  // Perfil Financeiro (CFP)
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [profileForm, setProfileProfileForm] = useState<FinancialProfile>({
+    monthlyIncome: 0,
+    emergencyReserveTarget: 6,
+    emergencyReserveCurrent: 0,
+    marcoZero: 0
+  });
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  useEffect(() => {
+    if (userMeta?.financialProfile) {
+      setProfileProfileForm(userMeta.financialProfile);
+    }
+  }, [userMeta]);
+
+  const handleSaveProfile = async () => {
+    setIsSavingProfile(true);
+    try {
+      await saveFinancialProfile(profileForm);
+      setIsEditingProfile(false);
+      alert("Estratégia CFP atualizada!");
+    } catch (e) {
+      alert("Erro ao salvar perfil.");
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
   const [hasPin, setHasPin] = useState(false);
   const [alwaysAsk, setAlwaysAsk] = useState(false);
   const [useBiometrics, setUseBiometrics] = useState(false);
@@ -36,6 +69,7 @@ const SettingsPage: React.FC<any> = ({ onBack }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [startupHome, setStartupHome] = useState<'home' | 'central'>('home');
   const [savingStartupHome, setSavingStartupHome] = useState(false);
+  const [showCalibration, setShowCalibration] = useState(false);
 
   // --- PRESENÇA ---
   const [presencePrefs, setPresencePrefs] = useState({
@@ -242,98 +276,129 @@ const SettingsPage: React.FC<any> = ({ onBack }) => {
           <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">
             {isNative ? 'Preferências Mobile' : 'Preferências Web'}
           </p>
+          </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        
-        {/* PERFIL (Minha Jornada) */}
-        <div className="bg-slate-50 border border-slate-200 rounded-[2.5rem] p-8 shadow-md relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-6 opacity-5">
-            <User size={140} />
-          </div>
-          <div className="flex items-center gap-6 mb-8 relative z-10">
-            <div className="w-20 h-20 bg-gradient-to-tr from-sky-600 to-emerald-500 rounded-3xl flex items-center justify-center text-white text-3xl font-black shadow-md">
-              {nickname ? nickname[0].toUpperCase() : user?.email?.[0].toUpperCase()}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* PERFIL (Minha Jornada) */}
+          <div className="bg-slate-50 border border-slate-200 rounded-[2.5rem] p-8 shadow-md relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-6 opacity-5">
+              <User size={140} />
             </div>
-            <div className="flex-1 overflow-hidden">
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">
-                Seu Perfil
-              </p>
-              {isEditingNickname ? (
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={tempNickname}
-                    onChange={(e) => setTempNickname(e.target.value)}
-                    className="bg-slate-50 border border-emerald-500/50 rounded-xl px-4 py-2 text-slate-900 text-sm w-full outline-none focus:border-emerald-500"
-                    autoFocus
-                  />
-                  <button
-                    onClick={handleSaveNickname}
-                    className="bg-emerald-600 p-2 rounded-xl text-white shadow-lg"
+            <div className="flex items-center gap-6 mb-8 relative z-10">
+              <div className="w-20 h-20 bg-gradient-to-tr from-sky-600 to-emerald-500 rounded-3xl flex items-center justify-center text-white text-3xl font-black shadow-md">
+                {nickname ? nickname[0].toUpperCase() : user?.email?.[0].toUpperCase()}
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">
+                  Seu Perfil
+                </p>
+                {isEditingNickname ? (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={tempNickname}
+                      onChange={(e) => setTempNickname(e.target.value)}
+                      className="bg-slate-50 border border-emerald-500/50 rounded-xl px-4 py-2 text-slate-900 text-sm w-full outline-none focus:border-emerald-500"
+                      autoFocus
+                    />
+                    <button
+                      onClick={handleSaveNickname}
+                      className="bg-emerald-600 p-2 rounded-xl text-white shadow-lg"
+                    >
+                      <Check size={20} />
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    className="flex items-center gap-2 group cursor-pointer"
+                    onClick={() => {
+                      setTempNickname(nickname);
+                      setIsEditingNickname(true);
+                    }}
                   >
-                    <Check size={20} />
-                  </button>
-                </div>
-              ) : (
-                <div
-                  className="flex items-center gap-2 group cursor-pointer"
-                  onClick={() => {
-                    setTempNickname(nickname);
-                    setIsEditingNickname(true);
-                  }}
-                >
-                  <h3 className="text-2xl font-bold text-slate-900 truncate">
-                    {nickname || 'Definir...'}
-                  </h3>
-                  <Pencil
-                    size={16}
-                    className="text-slate-400 group-hover:text-emerald-500 transition-colors shrink-0"
-                  />
-                </div>
-              )}
-              <p className="text-xs text-slate-500 mt-1 truncate font-medium">{user?.email}</p>
-            </div>
-          </div>
-          <div className="bg-slate-100 border border-slate-200 rounded-2xl p-5 flex items-center justify-between relative z-10">
-            <div className="flex items-center gap-3">
-              <CreditCard className="text-emerald-500" size={24} />
-              <div>
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
-                  Plano Ativo
-                </p>
-                <p className="text-sm font-black text-slate-900 uppercase">
-                  {isPremium ? 'Premium 👑' : isPro ? 'Pro ⭐' : 'Gratuito'}
-                </p>
+                    <h3 className="text-2xl font-bold text-slate-900 truncate">
+                      {nickname || 'Definir...'}
+                    </h3>
+                    <Pencil
+                      size={16}
+                      className="text-slate-400 group-hover:text-emerald-500 transition-colors shrink-0"
+                    />
+                  </div>
+                )}
+                <p className="text-xs text-slate-500 mt-1 truncate font-medium">{user?.email}</p>
               </div>
             </div>
-            <button
-              onClick={() => handleOpenExternal('/pricing')}
-              className="text-[10px] font-black text-sky-600 bg-sky-50 px-4 py-2 rounded-xl uppercase tracking-widest flex items-center gap-2 border border-sky-200 hover:bg-sky-100 transition-all"
-            >
-              Ver planos <ExternalLink size={12} />
-            </button>
+            <div className="bg-slate-100 border border-slate-200 rounded-2xl p-5 flex items-center justify-between relative z-10">
+              <div className="flex items-center gap-3">
+                <CreditCard className="text-emerald-500" size={24} />
+                <div>
+                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
+                    Plano Ativo
+                  </p>
+                  <p className="text-sm font-black text-slate-900 uppercase">
+                    {isPremium ? 'Premium 👑' : isPro ? 'Pro ⭐' : 'Gratuito'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => handleOpenExternal('/pricing')}
+                className="text-[10px] font-black text-sky-600 bg-sky-50 px-4 py-2 rounded-xl uppercase tracking-widest flex items-center gap-2 border border-sky-200 hover:bg-sky-100 transition-all"
+              >
+                Ver planos <ExternalLink size={12} />
+              </button>
+            </div>
+
+            <div className="mt-4 bg-white border border-slate-200 rounded-2xl p-5 relative z-10">
+              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">
+                Sua evolução
+              </p>
+              <p className="text-sm font-black text-slate-900 leading-snug">
+                {isPremium
+                  ? 'Você já está na camada mais completa do produto.'
+                  : isPro
+                    ? 'Seu controle diário já está destravado. O próximo salto é a Central completa.'
+                    : 'Seu foco agora é criar hábito no Controla antes de subir de plano.'}
+              </p>
+            </div>
           </div>
 
-          <div className="mt-4 bg-white border border-slate-200 rounded-2xl p-5 relative z-10">
-            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">
-              Sua evolução
-            </p>
-            <p className="text-sm font-black text-slate-900 leading-snug">
-              {isPremium
-                ? 'Você já está na camada mais completa do produto.'
-                : isPro
-                  ? 'Seu controle diário já está destravado. O próximo salto é a Central completa.'
-                  : 'Seu foco agora é criar hábito no Controla antes de subir de plano.'}
-            </p>
-            <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-              {isPremium
-                ? 'A melhor decisão agora é usar a Central e ajustar a tela inicial conforme sua rotina.'
-                : isPro
-                  ? 'O upgrade que passa a fazer sentido para você agora é o Premium, porque a visão mais ampla começa a gerar mais valor.'
-                  : 'Quando o limite do Free começar a te frear, o Pro é o upgrade natural. O Premium entra quando você quiser visão financeira mais integrada.'}
-            </p>
+          {/* CALIBRAÇÃO DE COMANDO (PDE) */}
+          <div className="bg-slate-900 border border-slate-700 rounded-[2.5rem] p-8 shadow-xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-6 opacity-10 text-sky-500">
+              <Zap size={140} />
+            </div>
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-sky-500/10 text-sky-400 rounded-2xl border border-sky-500/20">
+                  <Brain size={24} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-white uppercase tracking-tight">Sintonização de Comando</h3>
+                  <p className="text-xs text-slate-400 font-medium">Ajuste como o Nexus deve se comunicar com você</p>
+                </div>
+              </div>
+              
+              <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-5 mb-6">
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  A calibração define seu arquétipo (Resiliente, Guardião ou Comandante). Isso altera o tom de voz do Nexus e as métricas prioritárias do seu cockpit.
+                </p>
+                {userMeta?.persona && (
+                  <div className="mt-4 flex items-center gap-2">
+                    <span className="px-3 py-1 rounded-full bg-sky-500 text-slate-900 text-[10px] font-black uppercase tracking-widest">
+                      Perfil Atual: {userMeta.persona.archetype}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={() => setShowCalibration(true)}
+                className="w-full py-4 bg-sky-600 hover:bg-sky-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-sky-900/20"
+              >
+                Recalibrar Inteligência
+              </button>
+            </div>
           </div>
         </div>
 
@@ -461,7 +526,7 @@ const SettingsPage: React.FC<any> = ({ onBack }) => {
                     [
                       { key: 'debts', label: 'Dívidas', desc: 'Vencimentos e plano' },
                       { key: 'wealth', label: 'Patrimônio', desc: 'Metas e aportes' },
-                      { key: 'routine', label: 'Rotina', desc: 'Gastos e Controla' },
+                      { key: 'routine', label: 'Rotina', desc: FPI_COPY.settingsRoutine },
                       { key: 'nexus', label: 'Nexus', desc: 'Insights e análises' },
                     ] as const
                   ).map(({ key, label, desc }) => (
@@ -676,10 +741,18 @@ const SettingsPage: React.FC<any> = ({ onBack }) => {
                   'Excluir Minha Conta'
                 )}
               </button>
-            </div>
           </div>
         </div>
       </div>
+
+      {showCalibration && user?.uid && (
+        <CommandCalibration
+          userId={user.uid}
+          initialAnswers={seedPersonaFromIntent(userMeta?.onboardingPersona || 'geral')}
+          onComplete={() => setShowCalibration(false)}
+          onClose={() => setShowCalibration(false)}
+        />
+      )}
 
       {/* MODAL PIN */}
       {activeModal === 'pin' && isNative && (

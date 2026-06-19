@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../core/query/queryKeys';
 import { saveDebt, updateDebt, deleteDebt } from './debtService';
-import { DebtItem } from './debt.types';
+import type { DebtItem } from './debt.types';
 import { createMutationHook } from '../../core/query/patterns/createMutationHook';
 import { invalidateDomain } from '../../core/query/patterns/invalidateDomain';
 import { useDebtContext } from '../../contexts/DebtContext';

@@ -8,9 +8,12 @@ import {
   ChevronRight,
   CreditCard,
   Compass,
+  Crown,
 } from 'lucide-react';
-import { UserMeta } from '../types';
+import type { UserMeta } from '../types';
 import { useNavigation } from '../hooks/useNavigation';
+import { useSubscriptionAccess } from '../hooks/useSubscriptionAccess';
+import { hasPlanAccess } from '../utils/plan';
 
 interface AppMobileDrawerProps {
   isOpen: boolean;
@@ -32,16 +35,28 @@ const AppMobileDrawer: React.FC<AppMobileDrawerProps> = ({
   onOpenCourse,
 }) => {
   const { handleNavigate } = useNavigation();
+  const { currentPlan } = useSubscriptionAccess();
+  const hasPremium = hasPlanAccess(currentPlan, 'premium');
+
   if (!isOpen) return null;
 
   const displayName = isAuthenticated
     ? userMeta?.nickname || userDisplayName || 'Investidor'
     : 'Visitante';
 
+  const PREMIUM_TOOLS = new Set(['minhas-dividas', 'investimentos', 'passivos']);
+
   const go = (tool: string) => {
     onClose();
-    if (isAuthenticated) handleNavigate(tool);
-    else handleNavigate('login');
+    if (!isAuthenticated) {
+      handleNavigate('login');
+      return;
+    }
+    if (PREMIUM_TOOLS.has(tool) && !hasPremium) {
+      handleNavigate('pricing');
+      return;
+    }
+    handleNavigate(tool);
   };
 
   return (
@@ -100,6 +115,11 @@ const AppMobileDrawer: React.FC<AppMobileDrawerProps> = ({
                 <span className="block text-[13px] font-bold text-white uppercase tracking-tight">
                   Minhas Dívidas
                 </span>
+                {!hasPremium && (
+                  <span className="inline-flex items-center gap-1 mt-1 text-[8px] font-black uppercase tracking-widest text-amber-400">
+                    <Crown size={10} /> Premium
+                  </span>
+                )}
               </div>
               <ChevronRight size={16} className="text-slate-600 group-hover:text-rose-400" />
             </div>
@@ -143,7 +163,7 @@ const AppMobileDrawer: React.FC<AppMobileDrawerProps> = ({
           </button>
 
           <button
-            onClick={() => go('test-explorar')}
+            onClick={() => go('explorar')}
             className="w-full flex items-center gap-3 p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all active:scale-95 text-left group"
           >
             <div className="p-2 bg-slate-800 rounded-lg text-slate-400 group-hover:text-emerald-400 transition-colors">

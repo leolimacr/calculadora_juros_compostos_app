@@ -6,6 +6,7 @@ export declare const askAiAdvisor: import("firebase-functions/v2/https").Callabl
         model: string;
         hasTransactions?: undefined;
         hasGoals?: undefined;
+        actions?: undefined;
     };
     error?: undefined;
 } | {
@@ -16,6 +17,7 @@ export declare const askAiAdvisor: import("firebase-functions/v2/https").Callabl
         intent: string;
         hasTransactions: boolean;
         hasGoals: boolean;
+        actions: import("./nexus-core/action-registry").ContextualAction[] | undefined;
     };
     error?: undefined;
 } | {

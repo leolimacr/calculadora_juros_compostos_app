@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { getCurrentInvoice } from '../invoiceUtils';
-import { CreditCard, Transaction } from '../../types';
+import type { CreditCard, Transaction } from '../../types';
 
 describe('invoiceUtils - getCurrentInvoice', () => {
   const mockCard: CreditCard = {

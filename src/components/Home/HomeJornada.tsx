@@ -1,87 +1,61 @@
 import React from 'react';
 
 interface Props {
-  heroPersona: 'dividas' | 'patrimonio';
+  heroPersona?: 'dividas' | 'patrimonio';
 }
 
-const STEPS = {
-  dividas: [
-    {
-      n: 1,
-      iconBg: 'bg-rose-100',
-      iconText: 'text-rose-700',
-      title: '1. Respire e puxe tudo para a mesa',
-      body: 'Cartão de crédito, empréstimo pessoal, crediário... Cadastre do seu jeito, sem planilha. A gente organiza.',
-    },
-    {
-      n: 2,
-      iconBg: 'bg-sky-100',
-      iconText: 'text-sky-700',
-      title: '2. Veja o caminho mais curto',
-      body: 'O Nexus calcula a ordem certa para quitar. Qual dívida atacar primeiro? Quanto guardar no mês? Você vê no app.',
-    },
-    {
-      n: 3,
-      iconBg: 'bg-emerald-100',
-      iconText: 'text-emerald-700',
-      title: '3. Siga no seu ritmo. A gente te lembra.',
-      body: 'Sem pressão. Se imprevistos acontecerem, o plano se ajusta. Você não está mais sozinho nessa.',
-    },
-  ],
-  patrimonio: [
-    {
-      n: 1,
-      iconBg: 'bg-emerald-100',
-      iconText: 'text-emerald-700',
-      title: '1. Consolide seu império',
-      body: 'Ativos, investimentos e metas de aporte reunidos. Você para de adivinhar o tamanho do seu patrimônio e começa a enxergar o número real.',
-    },
-    {
-      n: 2,
-      iconBg: 'bg-sky-100',
-      iconText: 'text-sky-700',
-      title: '2. Acompanhe a evolução real',
-      body: 'O sistema registra cada mudança. Quando chegar a hora de revisar alocação ou aumentar aportes, você tem histórico — não memória.',
-    },
-    {
-      n: 3,
-      iconBg: 'bg-indigo-100',
-      iconText: 'text-indigo-700',
-      title: '3. Receba alertas estratégicos',
-      body: 'Concentração excessiva num ativo, meta de aporte atrasada, reserva abaixo do ideal — o Nexus sinaliza antes de virar problema.',
-    },
-  ],
-};
+const STEPS = [
+  {
+    n: '01',
+    title: 'Registre sua rotina',
+    body: 'Anote entradas e saídas no Controla, sem limite. O hábito diário é o centro do método — e continua gratuito.',
+  },
+  {
+    n: '02',
+    title: 'Veja o que sobra',
+    body: 'Entenda sua folga do mês, acompanhe o presente e planeje meses futuros com clareza sobre o que entra, sai e sobra.',
+  },
+  {
+    n: '03',
+    title: 'Aprofunde quando fizer sentido',
+    body: 'No Pro, você acessa o histórico completo e compara sua evolução. No Premium, conecta rotina, dívidas, investimentos e patrimônio.',
+  },
+];
 
-export const HomeJornada: React.FC<Props> = ({ heroPersona }) => {
-  const steps = STEPS[heroPersona];
+export const HomeJornada: React.FC<Props> = () => {
   return (
-    <section id="como-funciona" className="px-4 lg:px-12 pb-10 max-w-[1600px] mx-auto w-full">
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 md:p-8 shadow-sm">
-        <div className="mb-8 text-center md:text-left">
-          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-widest mb-4">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            Como funciona na prática
-          </span>
-          <h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight mb-3">
-            {heroPersona === 'dividas'
-              ? 'Três passos para parar de dever no escuro.'
-              : 'Três passos para construir patrimônio com clareza.'}
+    <section id="como-funciona" className="px-6 lg:px-16 py-28 w-full bg-[#0B0F17] text-[#E5E7EB] font-sans border-t border-white/[0.04] relative">
+      <div className="max-w-[1200px] mx-auto space-y-20 relative z-10">
+        
+        <div className="text-center space-y-6 max-w-3xl mx-auto">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-950/40 border border-blue-900/50 text-blue-400 text-xs font-bold uppercase tracking-wider">
+            <span className="w-2 h-2 rounded-full bg-blue-500" />
+            Como funciona
+          </div>
+          
+          <h3 className="text-3xl md:text-5xl font-black text-white tracking-tight leading-tight">
+            Três passos para clareza financeira
           </h3>
-          <p className="text-slate-500 text-sm md:text-base max-w-2xl">
-            {heroPersona === 'dividas'
-              ? 'Você não precisa resolver tudo de uma vez. Começa organizando — o resto fica mais fácil quando você enxerga o que está enfrentando.'
-              : 'Patrimônio não se constrói no improviso. Começa com visibilidade — depois vem consistência.'}
+          
+          <p className="text-base md:text-lg text-[#A0A4AB] leading-relaxed">
+            Comece registrando sua rotina. Evolua quando quiser ver o passado ou pensar de forma mais estratégica.
           </p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {steps.map(({ n, iconBg, iconText, title, body }) => (
-            <div key={n} className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-              <div className={`w-10 h-10 rounded-xl ${iconBg} ${iconText} flex items-center justify-center font-black text-sm mb-4`}>
-                {n}
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {STEPS.map((step, idx) => (
+            <div 
+              key={idx} 
+              className="relative rounded-2xl border border-white/[0.06] bg-[#111622] p-8 shadow-[0_10px_30px_rgba(0,0,0,0.3)] transition-all hover:border-blue-500/30 flex flex-col space-y-6"
+            >
+              <div className="w-12 h-12 rounded-xl bg-[#0B0F17] border border-white/[0.08] text-blue-400 flex items-center justify-center font-mono text-lg font-bold">
+                {step.n}
               </div>
-              <h4 className="text-slate-900 font-black text-base mb-2">{title}</h4>
-              <p className="text-slate-600 text-sm leading-relaxed">{body}</p>
+              
+              <div className="space-y-3">
+                <h4 className="text-lg font-bold text-white tracking-tight">{step.title}</h4>
+                <p className="text-sm text-[#A0A4AB] leading-relaxed font-normal">{step.body}</p>
+              </div>
             </div>
           ))}
         </div>
@@ -89,10 +63,3 @@ export const HomeJornada: React.FC<Props> = ({ heroPersona }) => {
     </section>
   );
 };
-
-
-
-
-
-
-

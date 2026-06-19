@@ -246,11 +246,17 @@ class DiscretionEngine {
             'investir', 'aplicar', 'onde colocar', 'melhor investimento',
             'onde investir', 'recomende investimento'
         ];
+        const debtKeywords = [
+            'plano', 'quitar', 'sair das dívidas', 'sair das dividas',
+            'estratégia de quitação', 'estrategia de quitacao', 'prioridade de dívida', 'prioridade de divida'
+        ];
         const identityKeywords = ['quem é você', 'seu nome', 'você é', 'voce é', 'o que é nexus', 'o que e nexus'];
         const dateKeywords = ['que dia é hoje', 'que dia e hoje', 'qual a data', 'que horas são', 'que horas sao', 'dia atual', 'hora atual'];
         const explanationKeywords = ['o que é', 'o que e', 'como funciona', 'diferença entre', 'diferenca entre', 'significa', 'qual a diferença', 'qual a diferenca'];
         const followUpKeywords = ['e', 'também', 'tambem', 'além disso', 'alem disso', 'outra coisa', 'certo', 'então', 'entao'];
         const genericUserDataKeywords = ['meus dados', 'minha situação', 'minha situacao', 'como estão meus', 'como estao meus'];
+        if (debtKeywords.some(k => messageLower.includes(k)))
+            return 'debt_plan_query';
         if (cashflowKeywords.some(k => messageLower.includes(k)))
             return 'cashflow_query';
         if (patrimonyKeywords.some(k => messageLower.includes(k)))

@@ -1,4 +1,4 @@
-import { DebtItem } from './debt.types';
+import type { DebtItem } from './debt.types';
 
 export const validateDebt = (debt: DebtItem): { isValid: boolean; error?: string } => {
   if (!debt.nome || debt.nome.trim() === '') return { isValid: false, error: 'Nome é obrigatório' };

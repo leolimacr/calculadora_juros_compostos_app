@@ -4,7 +4,7 @@ import { firestore } from '../../../firebase'; // Ajuste o caminho se necessári
 import { TrendingUp, Plus, Trash2, Wallet, PieChart, Pencil, X, ShieldCheck, HelpCircle, ArrowRight, LayoutGrid, List } from 'lucide-react';
 import { useWealthData } from '../../../hooks/useWealthData';
 import { useWealthHistory } from '../../../hooks/useWealthHistory';
-import { ActiveAsset } from '../../../types';
+import type { ActiveAsset } from '../../../types';
 
 interface ActiveWealthManagerProps {
   userId: string | undefined;
@@ -28,19 +28,25 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
   };
 
   // Estados do Formulário
-  const [currentAsset, setCurrentAsset] = useState<ActiveAsset>({ name: '', category: 'Renda Fixa', currentValue: 0, proposito: '' });
+  const [currentAsset, setCurrentAsset] = useState<ActiveAsset>({ 
+    name: '', 
+    category: 'Renda Fixa', 
+    currentValue: 0, 
+    proposito: '',
+    flexibility: 'liquidez' 
+  });
   const [displayValue, setDisplayValue] = useState<string>(''); // Novo: Guarda a string formatada (ex: "1.500,00")
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   
-  // Confirmação de Saldos
+  // Validação do Patrimônio
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const { patrimonioLiquido, totalAssets, totalDebts, totalInvestments, totalProperty } = useWealthData();
   const { saveSnapshot, isSaving } = useWealthHistory(userId);
 
   const totalValue = useMemo(() => assets.reduce((sum, a) => sum + a.currentValue, 0), [assets]);
 
-  const handleConfirmSaldos = async () => {
+  const handleConfirmPatrimonio = async () => {
     try {
       await saveSnapshot({
         totalNetWorth: patrimonioLiquido,
@@ -133,6 +139,7 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
         category: currentAsset.category,
         currentValue: currentAsset.currentValue,
         proposito: currentAsset.proposito || '',
+        flexibility: currentAsset.flexibility || 'liquidez',
       };
 
       if (editingId) {
@@ -185,7 +192,13 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
 
   // Função Iniciar Edição
   const handleEditClick = (asset: ActiveAsset) => {
-    setCurrentAsset({ name: asset.name, category: asset.category, currentValue: asset.currentValue, proposito: asset.proposito || '' });
+    setCurrentAsset({ 
+      name: asset.name, 
+      category: asset.category, 
+      currentValue: asset.currentValue, 
+      proposito: asset.proposito || '',
+      flexibility: asset.flexibility || 'liquidez'
+    });
     // Ao clicar em editar, já formata o valor para a máscara da tela
     setDisplayValue(asset.currentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
     if (asset.id) setEditingId(asset.id);
@@ -194,7 +207,13 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
 
   // Função Cancelar Edição (ou Resetar Form)
   const handleCancelEdit = () => {
-    setCurrentAsset({ name: '', category: 'Renda Fixa', currentValue: 0, proposito: '' });
+    setCurrentAsset({ 
+      name: '', 
+      category: 'Renda Fixa', 
+      currentValue: 0, 
+      proposito: '',
+      flexibility: 'liquidez' 
+    });
     setDisplayValue(''); // Limpa o campo visual também
     setEditingId(null);
   };
@@ -238,30 +257,55 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto p-4 md:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="max-w-7xl mx-auto px-4 pt-6 pb-28 animate-in fade-in duration-500 font-sans">
       
-      {/* Cabeçalho */}
-      <header className="mb-8">
-        {onNavigate && (
-          <button
-            onClick={() => { onNavigate('home'); setTimeout(() => { document.getElementById('secao-ferramentas')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 100); }}
-            className="mb-4 flex items-center gap-2 text-slate-500 hover:text-sky-700 transition-all font-black uppercase text-[10px] tracking-[0.2em]"
-          >
-            ← Voltar
-          </button>
-        )}
-        <div className="flex items-center gap-3 mb-2">
-          <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200">
-            <TrendingUp size={24} className="text-emerald-600" />
+      {/* Header com Imagem Lifestyle Integrada */}
+      <div className="relative overflow-hidden rounded-[2.5rem] bg-white border border-slate-200/60 p-8 md:p-12 shadow-floating mb-8 group">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.05),transparent_50%)]" />
+        
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-10">
+          <div className="space-y-4 flex-1">
+            <div className="flex flex-col gap-4">
+              {onNavigate && (
+                <button
+                  onClick={() => { onNavigate('home'); setTimeout(() => { document.getElementById('secao-ferramentas')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 100); }}
+                  className="w-fit flex items-center gap-2 text-slate-500 hover:text-emerald-700 transition-all font-black uppercase text-[10px] tracking-[0.2em]"
+                >
+                  ← Voltar
+                </button>
+              )}
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-600 text-[10px] font-black uppercase tracking-[0.2em] shadow-sm w-fit">
+                <ShieldCheck size={14} />
+                Gestão Ativa de Patrimônio
+              </div>
+            </div>
+            
+            <h1 className="text-4xl md:text-5xl font-black text-slate-950 tracking-tight leading-[1.1]">
+              Seu legado em <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-sky-500">plena construção.</span>
+            </h1>
+            
+            <p className="text-lg text-slate-500 max-w-xl leading-relaxed font-medium">
+              Acompanhe a evolução real dos seus ativos. A base para sua liberdade financeira começa com dados organizados e clareza de propósito.
+            </p>
           </div>
-          <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
-            Investimentos
-          </h2>
+
+          <div className="hidden lg:block w-80 h-56 shrink-0 relative animate-in fade-in slide-in-from-right-4 duration-700">
+            <div className="w-full h-full rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-card relative group-hover:scale-[1.02] transition-transform duration-500">
+              <img 
+                src="/assets/images/lifestyle/wealth-construction.webp" 
+                alt="Construção de Patrimônio" 
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
+            <div className="absolute -bottom-3 -left-3 bg-white px-5 py-2.5 rounded-2xl shadow-floating border border-slate-100 flex items-center gap-2">
+               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+               <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 tracking-tighter">Patrimônio Ativo</span>
+            </div>
+          </div>
         </div>
-        <p className="text-slate-600 text-sm md:text-base max-w-2xl">
-          Registre aqui seus ativos financeiros. Essa é a camada que mostra o capital que já está trabalhando por você.
-        </p>
-      </header>
+      </div>
 
       {/* Formulário */}
       <div
@@ -339,18 +383,18 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
             </div>
           </div>
 
-          {/* CAMPO PROPÓSITO (NEXUS) */}
-          <div className="md:col-span-3">
+          {/* CAMPO PROPÓSITO E FLEXIBILIDADE (NEXUS) */}
+          <div className="md:col-span-3 grid grid-cols-1 gap-6">
             <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100/50">
               <div className="flex items-center justify-between mb-2">
                 <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-700">
                   Propósito do Investimento
                   <div className="group relative">
                     <HelpCircle size={14} className="text-emerald-400 cursor-help" />
-                    <div className="absolute left-0 bottom-full mb-2 w-64 p-3 bg-slate-900 text-white text-[10px] font-medium leading-relaxed rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                    <div className="absolute left-0 bottom-full mb-2 w-64 p-3 bg-slate-900 text-white text-[10px] font-medium leading-relaxed rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl border border-slate-800">
                       <p className="font-black text-emerald-400 mb-1 uppercase tracking-widest text-left">Por que preencher o Propósito?</p>
                       <p className="text-left leading-relaxed">Para o Finanças Pro Invest não ser apenas uma calculadora, o Nexus precisa entender sua vida. Se soubermos qual a meta deste investimento (ex: aposentadoria vs reserva), nossas análises de rentabilidade e risco serão muito mais precisas e humanas.</p>
-                      <p className="mt-2 text-slate-400 italic text-left">Ex: "Reserva de emergência para segurança da família." ou "Meta: Casa própria em 5 anos."</p>
+                      <p className="mt-2 text-slate-400 italic text-left border-t border-slate-800 pt-2">Ex: "Reserva de emergência para segurança da família." ou "Meta: Casa própria em 5 anos."</p>
                     </div>
                   </div>
                 </label>
@@ -359,9 +403,39 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
               <textarea
                 value={currentAsset.proposito || ''}
                 onChange={e => setCurrentAsset({ ...currentAsset, proposito: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-xl border border-emerald-100/50 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all text-sm font-medium bg-white min-h-[60px] resize-none"
+                className="w-full px-4 py-2.5 rounded-xl border border-emerald-100/50 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all text-sm font-medium bg-white min-h-[60px] resize-none placeholder:text-slate-300"
                 placeholder="Qual o objetivo deste investimento? O que você planeja conquistar com ele?"
               />
+            </div>
+
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+              <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3 ml-1">
+                Disponibilidade deste Ativo
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {[
+                  { id: 'intocavel', label: 'Intocável', desc: 'Aposentadoria / Longo Prazo', icon: '🔴' },
+                  { id: 'negociavel', label: 'Estratégico', desc: 'Posso mover se precisar', icon: '🟡' },
+                  { id: 'liquidez', label: 'Liquidez', desc: 'Reserva / Uso Rápido', icon: '🟢' }
+                ].map(opt => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setCurrentAsset({ ...currentAsset, flexibility: opt.id as any })}
+                    className={`flex flex-col items-start p-3 rounded-xl border-2 transition-all text-left ${
+                      currentAsset.flexibility === opt.id 
+                        ? 'border-emerald-500 bg-white shadow-sm shadow-emerald-100' 
+                        : 'border-transparent bg-slate-100/50 hover:bg-slate-100 text-slate-400'
+                    }`}
+                  >
+                    <span className="text-xs font-black uppercase tracking-tight flex items-center gap-1.5 mb-1">
+                      <span className="text-xs opacity-80">{opt.icon}</span>
+                      <span className={currentAsset.flexibility === opt.id ? 'text-emerald-700' : ''}>{opt.label}</span>
+                    </span>
+                    <span className="text-[9px] leading-tight font-medium opacity-70">{opt.desc}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -536,7 +610,14 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
                         </div>
                       </td>
                       <td className="px-6 py-4 max-w-xs">
-                        <span className="text-xs text-slate-500 font-medium line-clamp-1">{asset.proposito || '—'}</span>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-xs text-slate-500 font-medium line-clamp-1">{asset.proposito || '—'}</span>
+                          {asset.flexibility && (
+                            <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
+                              {asset.flexibility === 'intocavel' ? '🔴 Intocável' : asset.flexibility === 'negociavel' ? '🟡 Estratégico' : '🟢 Liquidez'}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <span className="text-sm font-black text-slate-900">
@@ -610,7 +691,7 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
               
               <div className="flex flex-col w-full gap-3 pt-4">
                 <button
-                  onClick={handleConfirmSaldos}
+                   onClick={handleConfirmPatrimonio}
                   disabled={isSaving}
                   className="w-full py-4 bg-brand-primary text-white rounded-2xl font-black uppercase tracking-widest hover:bg-brand-primary/90 transition-all flex items-center justify-center gap-2"
                 >

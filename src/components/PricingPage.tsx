@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, CheckCircle, Zap, Shield, Brain, BarChart3, Target, ArrowRight } from 'lucide-react';
+import { Check, CheckCircle, Zap, Shield, BarChart3, Target, ArrowRight, FileText, History } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 
@@ -43,17 +43,20 @@ const PricingPage: React.FC<PricingProps> = ({ onNavigate, currentPlan, onBack, 
   };
 
   const proFeatures = [
-    { icon: Zap, text: 'Lance quantas transações quiser, sem parar no meio da rotina' },
-    { icon: BarChart3, text: 'Veja seu mês com mais clareza usando filtros e médias avançadas' },
-    { icon: Brain, text: 'Receba insights mais úteis com uma leitura mais completa da sua rotina' },
-    { icon: Shield, text: 'Tenha uma experiência mais fluida para cuidar do dinheiro no dia a dia' },
+    { icon: History, text: 'Histórico completo — todos os meses e anos' },
+    { icon: BarChart3, text: 'Compare períodos e veja suas médias ao longo do tempo' },
+    { icon: FileText, text: 'Relatórios PDF e exportação de períodos anteriores' },
+    { icon: Zap, text: 'Trajetória da sua margem nos últimos 6 meses' },
+    { icon: Check, text: 'Nexus com contexto do seu histórico financeiro' },
   ];
 
   const premiumFeatures = [
-    { icon: CheckCircle, text: 'Tudo do Pro incluído, sem trocar o que já funciona' },
-    { icon: Target, text: 'Central Financeira como camada principal para conectar rotina, dívidas, investimentos e patrimônio' },
-    { icon: Brain, text: 'Mais contexto para o Nexus orientar prioridades com visão mais ampla' },
-    { icon: Shield, text: 'Acesso à camada mais completa do ecossistema Finanças Pro Invest' },
+    { icon: CheckCircle, text: 'Tudo do Pro incluído' },
+    { icon: Target, text: 'Gestão de Dívidas com projeções e estratégia' },
+    { icon: Shield, text: 'Acompanhamento de investimentos e carteira' },
+    { icon: Zap, text: 'Patrimônio líquido consolidado' },
+    { icon: BarChart3, text: 'Central completa com módulos estratégicos' },
+    { icon: Check, text: 'Nexus com visão de ecossistema' },
   ];
 
   return (
@@ -67,18 +70,16 @@ const PricingPage: React.FC<PricingProps> = ({ onNavigate, currentPlan, onBack, 
         </button>
 
         <p className="text-[11px] font-black uppercase tracking-[0.2em] text-emerald-600 mb-3">
-          Free, Pro e Premium
+          Sua base. Seu passado. Sua soberania.
         </p>
         <h1 className="text-4xl md:text-5xl font-black text-slate-900 leading-tight mb-4">
-          Comece no Controla.<br />
+          Três camadas,<br />
           <span className="text-emerald-600">
-            Evolua para o ecossistema completo.
+            uma evolução.
           </span>
         </h1>
         <p className="text-slate-500 text-base max-w-2xl mx-auto leading-relaxed">
-          O Free coloca você em movimento. O Pro remove a fricção do controle diário.
-          O Premium deixa de ser só controle e passa a ser acompanhamento financeiro mais completo,
-          com a Central como camada principal de organização.
+          No Free, você constrói o hábito e vê sua proteção. No Pro, seu passado revela sua verdadeira segurança. No Premium, rotina, dívidas e patrimônio se conectam num só comando.
         </p>
       </div>
 
@@ -86,9 +87,9 @@ const PricingPage: React.FC<PricingProps> = ({ onNavigate, currentPlan, onBack, 
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 flex flex-col">
           <div className="mb-5">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Free</p>
-            <h3 className="text-xl font-black text-slate-900">Entrada</h3>
+            <h3 className="text-xl font-black text-slate-900">Sua base</h3>
             <p className="text-slate-500 text-xs mt-1 leading-relaxed">
-              Para testar o método, começar no Controla e sentir valor antes de subir de nível.
+              O essencial para construir o hábito financeiro sem limite.
             </p>
           </div>
 
@@ -100,15 +101,23 @@ const PricingPage: React.FC<PricingProps> = ({ onNavigate, currentPlan, onBack, 
           <ul className="space-y-3 mb-8 flex-grow">
             <li className="flex items-start gap-2 text-sm text-slate-600">
               <Check size={15} className="text-slate-400 mt-0.5 shrink-0" />
-              Até 30 lançamentos no Controla
+              Lançamentos ilimitados no Controla
             </li>
             <li className="flex items-start gap-2 text-sm text-slate-600">
               <Check size={15} className="text-slate-400 mt-0.5 shrink-0" />
-              Visão básica da sua rotina financeira
+              Mês atual e meses futuros
             </li>
             <li className="flex items-start gap-2 text-sm text-slate-600">
               <Check size={15} className="text-slate-400 mt-0.5 shrink-0" />
-              Visão inicial da Central para entender a evolução do produto
+              Base de Proteção — veja sua camada de segurança
+            </li>
+            <li className="flex items-start gap-2 text-sm text-slate-600">
+              <Check size={15} className="text-slate-400 mt-0.5 shrink-0" />
+              Central — visão da sua evolução financeira
+            </li>
+            <li className="flex items-start gap-2 text-sm text-slate-600">
+              <Check size={15} className="text-slate-400 mt-0.5 shrink-0" />
+              Ferramentas de simulação financeira
             </li>
           </ul>
 
@@ -127,9 +136,9 @@ const PricingPage: React.FC<PricingProps> = ({ onNavigate, currentPlan, onBack, 
         }`}>
           <div className="mb-5">
             <p className="text-[10px] font-black uppercase tracking-widest text-sky-500 mb-1">Pro</p>
-            <h3 className="text-xl font-black text-slate-900">Controla completo</h3>
+            <h3 className="text-xl font-black text-slate-900">Seu passado</h3>
             <p className="text-slate-500 text-xs mt-1 leading-relaxed">
-              Para quem quer transformar o Controla em rotina séria, sem pagar ainda pela camada completa do ecossistema.
+              Seus meses anteriores revelam sua verdadeira proteção.
             </p>
           </div>
 
@@ -137,7 +146,7 @@ const PricingPage: React.FC<PricingProps> = ({ onNavigate, currentPlan, onBack, 
             <span className="text-3xl font-black text-slate-900">R$ 9,90</span>
             <span className="text-slate-400 text-sm"> /mês</span>
             <p className="text-[11px] text-sky-600 font-bold mt-1">
-              O plano do Controla para rotina sem travas
+              Acesse todo o seu histórico
             </p>
           </div>
 
@@ -177,9 +186,9 @@ const PricingPage: React.FC<PricingProps> = ({ onNavigate, currentPlan, onBack, 
 
           <div className="mb-5 mt-2">
             <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-1">Premium</p>
-            <h3 className="text-xl font-black text-slate-900">Finanças Pro Invest completo</h3>
+            <h3 className="text-xl font-black text-slate-900">Sua soberania</h3>
             <p className="text-slate-500 text-xs mt-1 leading-relaxed">
-              Para quem quer parar de olhar peças soltas e passar a acompanhar a vida financeira como um sistema.
+              Rotina, dívidas, investimentos e patrimônio conectados num só comando.
             </p>
           </div>
 
@@ -243,9 +252,9 @@ const PricingPage: React.FC<PricingProps> = ({ onNavigate, currentPlan, onBack, 
 
       <div className="max-w-2xl mx-auto px-4 pb-16 text-center space-y-4">
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-6">
-          <p className="text-sm font-black text-slate-800 mb-1">O plano certo depende do estágio, não do ego.</p>
+          <p className="text-sm font-black text-slate-800 mb-1">Comece grátis. Evolua no seu ritmo.</p>
           <p className="text-xs text-slate-500 leading-relaxed max-w-md mx-auto">
-            Free para começar. Pro para rotina séria. Premium para visão completa. Assim a escada de valor fica clara e natural.
+            O Free já inclui sua Base de Proteção e o essencial para o dia a dia. Suba de plano quando quiser mergulhar no passado ou assumir o comando completo.
           </p>
         </div>
         <p className="text-xs text-slate-400">

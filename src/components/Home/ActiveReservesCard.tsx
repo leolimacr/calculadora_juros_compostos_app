@@ -1,6 +1,6 @@
 import React from 'react';
 import { ShieldCheck, Calendar, Wallet } from 'lucide-react';
-import { Goal } from '../../services/goalService';
+import type { Goal } from '../../services/goalService';
 
 interface ActiveReservesCardProps {
   goals: Goal[];

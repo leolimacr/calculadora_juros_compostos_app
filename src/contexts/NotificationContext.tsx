@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { firestore } from '../firebase';
-import { collection, query, doc, updateDoc, orderBy, limit, onSnapshot, getDocs, startAfter, QueryDocumentSnapshot } from 'firebase/firestore';
+import type { QueryDocumentSnapshot } from 'firebase/firestore';
+import { collection, query, doc, updateDoc, orderBy, limit, onSnapshot, getDocs, startAfter } from 'firebase/firestore';
 import { useAuth } from './AuthContext';
 
 export interface NexusEvent {

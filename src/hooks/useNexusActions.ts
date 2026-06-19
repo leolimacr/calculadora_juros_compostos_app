@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ref, push } from 'firebase/database';
 import { db } from '../firebase';
 import { createNexusReserve } from '../services/goalService';
-import { NexusInsightAction } from '../services/nexusInsightEngine';
+import type { NexusInsightAction } from '../services/nexusInsightEngine';
 import { NotificationService } from '../services/NotificationService';
 import { queryKeys } from '../core/query/queryKeys';
 

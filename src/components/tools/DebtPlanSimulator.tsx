@@ -3,12 +3,13 @@ import { Sparkles } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 // src/components/tools/finance/DebtPlanSimulator.tsx
 import React, { useState, useEffect } from "react";
-import {
-  callGenerateDebtPlan,
+import type {
   NexusDebtPlanRequest,
   DebtPlanResponse,
   DebtItem,
-  DebtSimulationSummary,
+  DebtSimulationSummary} from "../../services/nexusDebtPlanClient";
+import {
+  callGenerateDebtPlan
 } from "../../services/nexusDebtPlanClient";
 import { PresenceEventService } from "../../services/PresenceEventService";
 

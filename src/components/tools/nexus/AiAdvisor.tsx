@@ -17,7 +17,10 @@ import {
   TrendingUp,
   Target,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  Brain,
+  Zap,
+  CheckCircle2
 } from 'lucide-react';
 import {
   saveChatHistory,
@@ -27,6 +30,7 @@ import {
   type ChatHistoryItem
 } from '../../../services/chatHistoryService';
 import { Preferences } from '@capacitor/preferences';
+import { NEXUS_COPY } from '../../../theme/fpiVoiceGuide';
 
 interface AiAdvisorProps {
   transactions: any[];
@@ -45,6 +49,12 @@ interface Message {
   isIntro?: boolean;
   isSpecialIntro?: boolean;
   isGuided?: boolean;
+  actions?: Array<{
+    id: string;
+    label: string;
+    route: string;
+    icon?: string;
+  }>;
 }
 
 const formatMarkdown = (text: string) => {
@@ -70,52 +80,33 @@ const formatMarkdown = (text: string) => {
 
 const HUB_ACTIONS = [
   {
-    group: 'Dívidas',
+    group: NEXUS_COPY.hubActions[0].group,
     color: 'border-rose-200 bg-rose-50',
     headerColor: 'text-rose-700 bg-rose-100 border-rose-200',
     icon: <AlertTriangle size={14} className="text-rose-600" />,
-    actions: [
-      'Qual dívida devo atacar primeiro?',
-      'Gere meu plano detalhado para sair das dívidas',
-      'O que devo fazer nos próximos 7 dias para sair do sufoco?',
-      'Quanto estou pagando de juros sem perceber?'
-    ]
+    actions: [...NEXUS_COPY.hubActions[0].actions],
   },
   {
-    group: 'Organização do mês',
+    group: NEXUS_COPY.hubActions[1].group,
     color: 'border-sky-200 bg-sky-50',
     headerColor: 'text-sky-700 bg-sky-100 border-sky-200',
     icon: <LayoutDashboard size={14} className="text-sky-600" />,
-    actions: [
-      'Onde estou gastando mais do que deveria?',
-      'Monte um orçamento realista para mim',
-      'Como aumentar minha sobra mensal?',
-      'Quais gastos devo cortar primeiro?'
-    ]
+    actions: [...NEXUS_COPY.hubActions[1].actions],
   },
   {
-    group: 'Patrimônio e investimentos',
+    group: NEXUS_COPY.hubActions[2].group,
     color: 'border-emerald-200 bg-emerald-50',
     headerColor: 'text-emerald-700 bg-emerald-100 border-emerald-200',
     icon: <TrendingUp size={14} className="text-emerald-600" />,
-    actions: [
-      'Analise meus investimentos e diga o que ajustar',
-      'Meu patrimônio está produtivo ou parado?',
-      'Como reequilibrar minha carteira?',
-      'Estou exagerando no risco?'
-    ]
+    actions: [...NEXUS_COPY.hubActions[2].actions],
   },
   {
-    group: 'Liberdade financeira',
+    group: NEXUS_COPY.hubActions[3].group,
     color: 'border-amber-200 bg-amber-50',
     headerColor: 'text-amber-700 bg-amber-100 border-amber-200',
     icon: <Target size={14} className="text-amber-600" />,
-    actions: [
-      'O que mais atrasa minha liberdade financeira hoje?',
-      'O que devo priorizar agora: quitar dívidas, reserva ou investir?',
-      'Quanto precisaria investir por mês para acelerar meu patrimônio?'
-    ]
-  }
+    actions: [...NEXUS_COPY.hubActions[3].actions],
+  },
 ];
 
 const SECTION_COLORS: Record<string, string> = {
@@ -126,12 +117,12 @@ const SECTION_COLORS: Record<string, string> = {
   'alertas':         'bg-rose-50 border-rose-200 text-rose-800',
 };
 
-const SECTION_ICONS: Record<string, string> = {
-  'diagnóstico':     '🔍',
-  'interpretação':   '💡',
-  'plano de ação':   '📋',
-  'próximos passos': '✅',
-  'alertas':         '⚠️',
+const SECTION_ICONS: Record<string, React.ReactNode> = {
+  'diagnóstico':     <Brain size={14} />,
+  'interpretação':   <Sparkles size={14} />,
+  'plano de ação':   <Zap size={14} />,
+  'próximos passos': <CheckCircle2 size={14} />,
+  'alertas':         <AlertTriangle size={14} />,
 };
 
 const formatGuidedResponse = (text: string) => {
@@ -276,7 +267,13 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
     if (response) {
       const updatedWithAi: Message[] = [
         ...newMessages,
-        { role: 'ai', text: response.answer, timestamp: new Date(), isGuided: isFromHubRef.current }
+        { 
+          role: 'ai', 
+          text: response.answer, 
+          timestamp: new Date(), 
+          isGuided: isFromHubRef.current,
+          actions: response.actions
+        }
       ];
       isFromHubRef.current = false;
 
@@ -453,7 +450,7 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
 
           <div>
             <h3 className="text-xs font-black text-slate-900 uppercase tracking-tighter">
-              Nexus — Consultor Financeiro
+              {NEXUS_COPY.advisorTitle}
             </h3>
             <div className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -596,6 +593,21 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
                   <div className="markdown-container">
                     {msg.isGuided ? formatGuidedResponse(msg.text) : formatMarkdown(msg.text)}
                   </div>
+
+                  {msg.role === 'ai' && msg.actions && msg.actions.length > 0 && (
+                    <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap gap-2">
+                      {msg.actions.map((action) => (
+                        <button
+                          key={action.id}
+                          onClick={() => navigate(action.route)}
+                          className="flex items-center gap-2 px-3 py-2 bg-sky-50 text-sky-700 rounded-xl border border-sky-200 hover:bg-sky-100 active:scale-95 transition-all text-xs font-bold"
+                        >
+                          <ChevronRight size={14} className="text-sky-500" />
+                          {action.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -657,7 +669,7 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
             placeholder={
               !isPro && !isPremium && dailyCount >= FREE_DAILY_LIMIT
                 ? 'Você atingiu o limite diário. Faça upgrade para continuar.'
-                : 'Pergunte ao Nexus sobre sua situação financeira...'
+                : NEXUS_COPY.advisorPlaceholder
             }
             disabled={!isPro && !isPremium && dailyCount >= FREE_DAILY_LIMIT}
             className="w-full bg-white border border-slate-300 text-slate-900 p-4 pr-14 rounded-2xl outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-all text-sm placeholder:text-slate-500 disabled:opacity-50 shadow-sm"

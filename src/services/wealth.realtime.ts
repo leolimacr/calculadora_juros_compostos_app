@@ -1,7 +1,8 @@
-import { collection, query, QuerySnapshot, DocumentSnapshot, DocumentData, orderBy, limit } from 'firebase/firestore';
+import type { QuerySnapshot, DocumentSnapshot, DocumentData} from 'firebase/firestore';
+import { collection, query, orderBy, limit } from 'firebase/firestore';
 import { firestore } from '../firebase';
-import { ActiveAsset } from '../components/tools/wealth/ActiveWealthManager';
-import { PassiveAsset } from '../components/tools/wealth/PassiveWealthManager';
+import type { ActiveAsset } from '../components/tools/wealth/ActiveWealthManager';
+import type { PassiveAsset } from '../components/tools/wealth/PassiveWealthManager';
 import { createRealtimeBridge } from '../core/realtime/realtimeBridge';
 import { queryKeys } from '../core/query/queryKeys';
 

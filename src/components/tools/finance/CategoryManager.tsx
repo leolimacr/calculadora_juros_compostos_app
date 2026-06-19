@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Plus, Trash2, FolderOpen, Tag, Pencil, Check, RotateCcw } from 'lucide-react';
-import { Category } from '../../../types';
+import type { Category } from '../../../types';
+import { getFlowLabels } from '../../../theme/fpiVoiceGuide';
 
 interface CategoryManagerProps {
   isOpen: boolean;
@@ -8,6 +9,7 @@ interface CategoryManagerProps {
   categories: Category[];
   onSave: (cat: Category) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  commandMode?: boolean;
 }
 
 const CategoryManager: React.FC<CategoryManagerProps> = ({ 
@@ -15,8 +17,10 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({
   onClose, 
   categories, 
   onSave, 
-  onDelete 
+  onDelete,
+  commandMode,
 }) => {
+  const voice = getFlowLabels(commandMode);
   const [name, setName] = useState('');
   const [type, setType] = useState<'income' | 'expense'>('expense');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -104,14 +108,14 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({
                   onClick={() => setType('expense')}
                   className={`flex-1 py-2.5 rounded-2xl text-xxs font-black uppercase border transition-all ${type === 'expense' ? 'bg-status-danger/10 border-status-danger/30 text-status-danger' : 'bg-surface-primary border-surface-elevated text-text-muted'}`}
                 >
-                  Despesa
+                  {voice.expenseSingular}
                 </button>
                 <button 
                   type="button"
                   onClick={() => setType('income')}
                   className={`flex-1 py-2.5 rounded-2xl text-xxs font-black uppercase border transition-all ${type === 'income' ? 'bg-status-success/10 border-brand-primary/30 text-brand-primary' : 'bg-surface-primary border-surface-elevated text-text-muted'}`}
                 >
-                  Receita
+                  {voice.incomeSingular}
                 </button>
             </div>
 

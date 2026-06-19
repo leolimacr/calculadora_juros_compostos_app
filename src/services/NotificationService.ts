@@ -1,6 +1,6 @@
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
-import { NexusInsight } from './nexusInsightEngine';
+import type { NexusInsight } from './nexusInsightEngine';
 
 // IDs reservados por categoria para evitar duplicatas
 const NOTIFICATION_IDS = {

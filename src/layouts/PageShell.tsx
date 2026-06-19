@@ -20,12 +20,23 @@ export function usesLightBackground(currentTool: string): boolean {
 interface PageShellProps {
   currentTool: string;
   isAuthRoute?: boolean;
+  withMobileNav?: boolean;
   children: React.ReactNode;
 }
 
-const PageShell: React.FC<PageShellProps> = ({ currentTool, isAuthRoute = false, children }) => (
+const PageShell: React.FC<PageShellProps> = ({
+  isAuthRoute = false,
+  withMobileNav = false,
+  children,
+}) => (
   <div
-    className={`${isAuthRoute ? 'pt-0 pb-0' : 'pt-16 pb-24'} min-h-screen h-full bg-slate-50`}
+    className={`${
+      isAuthRoute
+        ? 'pt-0 pb-0'
+        : withMobileNav
+          ? 'pb-28'
+          : 'pb-24'
+    } min-h-full h-full bg-slate-50`}
   >
     {children}
   </div>

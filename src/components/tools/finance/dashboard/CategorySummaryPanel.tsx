@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
+import { getFlowLabels } from '../../../../theme/fpiVoiceGuide';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 
 interface CategorySummaryPanelProps {
   categorySummary: any[];
   categoryTransactionsMap: Map<string, any[]>;
   isPrivacyMode: boolean;
+  commandMode?: boolean;
 }
 
 const CategorySummaryPanel: React.FC<CategorySummaryPanelProps> = ({
   categorySummary,
   categoryTransactionsMap,
   isPrivacyMode,
+  commandMode,
 }) => {
+  const voice = getFlowLabels(commandMode);
   const [showCategorySummary, setShowCategorySummary] = useState(false);
   const [openCategory, setOpenCategory] = useState<string | null>(null);
 
@@ -81,21 +85,21 @@ const CategorySummaryPanel: React.FC<CategorySummaryPanelProps> = ({
 
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
                         <div className="text-left sm:text-center">
-                          <p className="text-xxs font-black text-text-muted uppercase mb-1">Entradas</p>
+                          <p className="text-xxs font-black text-text-muted uppercase mb-1">{voice.income}</p>
                           <p className="text-sm font-black text-brand-primary">
                             {isPrivacyMode ? '••••' : `R$ ${cat.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                           </p>
                         </div>
 
                         <div className="text-left sm:text-center">
-                          <p className="text-xxs font-black text-text-muted uppercase mb-1">Saídas</p>
+                          <p className="text-xxs font-black text-text-muted uppercase mb-1">{voice.expense}</p>
                           <p className="text-sm font-black text-status-danger">
                             {isPrivacyMode ? '••••' : `R$ ${cat.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                           </p>
                         </div>
 
                         <div className="text-left sm:text-center sm:border-l sm:border-surface-elevated sm:pl-6">
-                          <p className="text-xxs font-black text-text-muted uppercase mb-1">Saldo</p>
+                          <p className="text-xxs font-black text-text-muted uppercase mb-1">Dinheiro que sobra</p>
                           <p className={`text-sm font-black ${cat.total >= 0 ? 'text-brand-primary' : 'text-status-danger'}`}>
                             {isPrivacyMode ? '••••' : `R$ ${cat.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                           </p>

@@ -1,6 +1,7 @@
 ﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ToolLayout, Input } from './ToolComponents';
 import { Lock, ArrowRight, CalendarClock, Receipt, TrendingDown, Info, CheckCircle2, AlertTriangle, } from 'lucide-react';
+import { buildSacSchedule, buildPriceSchedule, buildRotativeSchedule } from '../../services/debt/debt.math';
 
 type DebtSystem = 'sac' | 'price' | 'rotativo';
 
@@ -40,178 +41,6 @@ const formatCurrency = (value: number) =>
     style: 'currency',
     currency: 'BRL',
   }).format(value);
-
-const buildSacSchedule = (
-  principal: number,
-  monthlyRatePercent: number,
-  months: number,
-  extraMonthly: number = 0
-): StructuredResult => {
-  if (principal <= 0 || monthlyRatePercent < 0 || months <= 0) {
-    return { valid: false, firstPayment: 0, lastPayment: 0, totalPaid: 0, totalInterest: 0, rows: [] };
-  }
-
-  const rate = monthlyRatePercent / 100;
-  const baseAmortization = principal / months;
-  const extra = Math.max(extraMonthly, 0);
-
-  let balance = principal;
-  let totalPaid = 0;
-  let totalInterest = 0;
-  const rows: ScheduleRow[] = [];
-
-  for (let i = 1; i <= months && balance > 0.01; i += 1) {
-    const interest = balance * rate;
-    const regularAmortization = Math.min(baseAmortization, balance);
-
-    let payment = regularAmortization + interest;
-    let amortization = regularAmortization;
-    let newBalance = balance - regularAmortization;
-
-    const extraApplied = Math.min(extra, newBalance);
-    amortization += extraApplied;
-    payment += extraApplied;
-    newBalance -= extraApplied;
-
-    totalPaid += payment;
-    totalInterest += interest;
-
-    rows.push({
-      month: i,
-      payment,
-      interest,
-      amortization,
-      balance: Math.max(newBalance, 0),
-    });
-
-    balance = Math.max(newBalance, 0);
-  }
-
-  return {
-    valid: rows.length > 0,
-    firstPayment: rows[0]?.payment || 0,
-    lastPayment: rows[rows.length - 1]?.payment || 0,
-    totalPaid,
-    totalInterest,
-    rows,
-  };
-};
-
-const buildPriceSchedule = (
-  principal: number,
-  monthlyRatePercent: number,
-  months: number,
-  extraMonthly: number = 0
-): StructuredResult => {
-  if (principal <= 0 || monthlyRatePercent < 0 || months <= 0) {
-    return { valid: false, firstPayment: 0, lastPayment: 0, totalPaid: 0, totalInterest: 0, rows: [] };
-  }
-
-  const rate = monthlyRatePercent / 100;
-  const extra = Math.max(extraMonthly, 0);
-
-  const fixedPayment =
-    rate === 0
-      ? principal / months
-      : principal * ((rate * Math.pow(1 + rate, months)) / (Math.pow(1 + rate, months) - 1));
-
-  let balance = principal;
-  let totalPaid = 0;
-  let totalInterest = 0;
-  const rows: ScheduleRow[] = [];
-
-  for (let i = 1; i <= months && balance > 0.01; i += 1) {
-    const interest = balance * rate;
-    let regularAmortization = fixedPayment - interest;
-    regularAmortization = Math.min(regularAmortization, balance);
-
-    let payment = regularAmortization + interest;
-    let amortization = regularAmortization;
-    let newBalance = balance - regularAmortization;
-
-    const extraApplied = Math.min(extra, newBalance);
-    amortization += extraApplied;
-    payment += extraApplied;
-    newBalance -= extraApplied;
-
-    totalPaid += payment;
-    totalInterest += interest;
-
-    rows.push({
-      month: i,
-      payment,
-      interest,
-      amortization,
-      balance: Math.max(newBalance, 0),
-    });
-
-    balance = Math.max(newBalance, 0);
-  }
-
-  return {
-    valid: rows.length > 0,
-    firstPayment: rows[0]?.payment || 0,
-    lastPayment: rows[rows.length - 1]?.payment || 0,
-    totalPaid,
-    totalInterest,
-    rows,
-  };
-};
-
-const buildRotativeSchedule = (
-  principal: number,
-  monthlyRatePercent: number,
-  monthlyPayment: number
-): RotativeResult => {
-  if (principal <= 0 || monthlyRatePercent < 0 || monthlyPayment <= 0) {
-    return { valid: false, months: null, totalPaid: null, totalInterest: null, rows: [] };
-  }
-
-  const rate = monthlyRatePercent / 100;
-
-  if (rate > 0 && monthlyPayment <= principal * rate) {
-    return { valid: false, months: null, totalPaid: null, totalInterest: null, rows: [] };
-  }
-
-  let balance = principal;
-  let totalPaid = 0;
-  let totalInterest = 0;
-  let months = 0;
-  const rows: ScheduleRow[] = [];
-
-  while (balance > 0.01 && months < 600) {
-    const interest = balance * rate;
-    balance += interest;
-
-    const payment = Math.min(monthlyPayment, balance);
-    const amortization = payment - interest;
-    balance = Math.max(balance - payment, 0);
-
-    months += 1;
-    totalPaid += payment;
-    totalInterest += interest;
-
-    rows.push({
-      month: months,
-      payment,
-      interest,
-      amortization: Math.max(amortization, 0),
-      balance,
-    });
-  }
-
-  if (balance > 0.01) {
-    return { valid: false, months: null, totalPaid: null, totalInterest: null, rows: [] };
-  }
-
-  return {
-    valid: true,
-    months,
-    totalPaid,
-    totalInterest,
-    rows,
-  };
-};
 
 const calculatePricePayment = (
   principal: number,
@@ -492,7 +321,7 @@ export const DebtOptimizerTool = ({ onNavigate, isAuthenticated }: any) => {
     switch (inputMode) {
       case 'payment':
         return {
-          title: 'Você sabe o saldo da dívida e o pagamento mensal',
+          title: 'Você sabe o saldo devedor e o pagamento mensal',
           description:
             'Esse modo é útil para cartão, cheque especial e outras dívidas em que você sabe quanto ainda deve, quanto costuma pagar por mês e consegue informar a taxa ou pelo menos uma estimativa.',
         };
@@ -513,7 +342,7 @@ export const DebtOptimizerTool = ({ onNavigate, isAuthenticated }: any) => {
 
       case 'guided':
         return {
-          title: 'Você vai escolher pelo comportamento da dívida, não pelo nome técnico',
+          title: 'Você vai escolher pelo comportamento do débito, não pelo nome técnico',
           description:
             'Primeiro identifique se a parcela cai, fica parecida ao longo do tempo ou se nem existe um cronograma fixo. Depois informe os dados básicos para receber uma leitura inicial mais coerente.',
         };
@@ -671,9 +500,9 @@ export const DebtOptimizerTool = ({ onNavigate, isAuthenticated }: any) => {
       return {
         title: 'Rotativo selecionado',
         primary: 'Parcela insuficiente',
-        secondary: 'A dívida não reduz',
+        secondary: 'O débito não reduz',
         tertiary: 'Ajuste o valor pago',
-        insight: 'Se o pagamento mensal não cobre os juros do período, a dívida tende a continuar pesada.',
+        insight: 'Se o pagamento mensal não cobre os juros do período, o débito tende a continuar pesado.',
         risk: 'Parcela insuficiente para reverter a bola de neve.',
       };
     }
@@ -805,7 +634,7 @@ export const DebtOptimizerTool = ({ onNavigate, isAuthenticated }: any) => {
       tone: 'slate',
       badge: 'Leitura inicial',
       title: 'A ferramenta ainda está preparando seu diagnóstico',
-      description: 'Assim que os dados ficarem completos, o plano aparece de forma mais clara.',
+      description: 'Assim que os dados ficarem completos, sua estratégia de quitação aparece de forma mais clara.',
     };
   }, [
     hasCalculated,
@@ -842,12 +671,12 @@ export const DebtOptimizerTool = ({ onNavigate, isAuthenticated }: any) => {
           <SectionTitle>Quais dados você tem hoje?</SectionTitle>
 
           <div className="mb-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-slate-900 font-black text-sm mb-2">
-              Esta área é uma ferramenta de simulação
-            </p>
-            <p className="text-slate-600 text-sm leading-relaxed">
-              Use esta calculadora para entender melhor o comportamento da dívida. Para registrar suas dívidas de verdade e acompanhar sua evolução no app, a área principal continua sendo <span className="font-black">Minhas Dívidas</span>.
-            </p>
+              <p className="text-slate-900 font-black text-sm mb-2">
+               Esta área é uma ferramenta de simulação estratégica
+              </p>
+              <p className="text-slate-600 text-sm leading-relaxed">
+               Use esta calculadora para entender melhor o comportamento da dívida. Para registrar suas dívidas de verdade e acompanhar sua evolução no app, a área principal continua sendo <span className="font-black">Minhas Dívidas</span>.
+              </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -987,7 +816,7 @@ export const DebtOptimizerTool = ({ onNavigate, isAuthenticated }: any) => {
               </p>
               <p className="text-emerald-700 text-sm leading-relaxed">
                 Neste modo, a ferramenta usa <span className="font-black">rotativo</span> como referência principal,
-                porque esse é o caso mais comum quando a pessoa sabe o saldo da dívida e quanto consegue pagar por mês.
+                porque esse é o caso mais comum quando a pessoa sabe o saldo devedor e quanto consegue pagar por mês.
               </p>
               <p className="text-emerald-700/80 text-xs mt-3 leading-relaxed">
                 Para a simulação ficar consistente, informe também a taxa mensal ou uma estimativa próxima.
@@ -1372,7 +1201,7 @@ export const DebtOptimizerTool = ({ onNavigate, isAuthenticated }: any) => {
                   </div>
 
                   <h3 className="text-slate-900 text-xl font-black tracking-tight mb-3">
-                    Desbloqueie seu plano completo
+                    Desbloqueie sua estratégia completa
                   </h3>
 
                   <p className="text-slate-600 text-sm leading-relaxed mb-6">

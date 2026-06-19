@@ -137,7 +137,7 @@ export const FireCalculatorTool = ({ onNavigate, onCalcUpdate, isAuthenticated }
   return (
     <ToolLayout
       title="Calculadora Fire"
-      icon="🔥"
+      icon={<Flame size={36} className="text-orange-500" />}
       onBack={onNavigate}
       description="O número exato que compra a sua liberdade."
       badge="Independência Financeira"
@@ -146,7 +146,7 @@ export const FireCalculatorTool = ({ onNavigate, onCalcUpdate, isAuthenticated }
         <div className="w-full lg:w-1/2 flex flex-col">
           <div className="bg-slate-50 border border-slate-200 rounded-[2rem] p-6 md:p-8 space-y-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
             <PremiumInput
-              label="Gasto Mensal Desejado na Aposentadoria"
+              label="Compromisso Mensal Desejado na Aposentadoria"
               icon={Target}
               value={expense}
               onChange={setExpense}

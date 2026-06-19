@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { FolderPlus } from 'lucide-react';
 import CategoryManager from './CategoryManager';
 import CardManager from './CardManager';
-import { Transaction, Category, CreditCard } from '../../../types';
-import { NexusAdvisoryContext } from '../../../services/nexusInsightEngine';
+import type { Transaction, Category, CreditCard } from '../../../types';
+import { useDebts } from '../../../hooks/useDebts';
+import { getFlowLabels, FPI_COPY } from '../../../theme/fpiVoiceGuide';
 import NexusInlineAdvisor from './NexusInlineAdvisor';
 import { getCards } from '../../../services/cardService';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -49,6 +50,18 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
+
+  // NOVO: Integração Reativa com Dívidas (Assisted Amortization)
+  const { debts: activeDebts } = useDebts(user?.uid);
+  const [linkedDebtId, setLinkedDebtId] = useState<string>( (initialData as any)?.linkedDebtId || '' );
+  
+  // Detecta se a categoria é relacionada a dívidas
+  const isDebtCategory = (cat: string) => {
+    const search = cat.toLowerCase();
+    return search.includes('divida') || search.includes('empréstimo') || search.includes('emprestimo') || search.includes('financiamento');
+  };
+
+  const showDebtSelector = type === 'expense' && isDebtCategory(category) && activeDebts.length > 0;
 
   // Load user cards
   useEffect(() => {
@@ -147,9 +160,12 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       date,
       paymentMethod,
       cardId: paymentMethod === 'credit' ? (cardId || null) : null,
-      installments: paymentMethod === 'credit' ? installments : 1
+      installments: paymentMethod === 'credit' ? installments : 1,
+      linkedDebtId: showDebtSelector ? linkedDebtId : null
     });
   };
+
+  const voice = getFlowLabels(nexusAdvisoryContext?.commandMode);
 
   return (
     <>
@@ -158,7 +174,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         onClose={() => setIsCategoryModalOpen(false)} 
         categories={categories} 
         onSave={onSaveCategory} 
-        onDelete={onDeleteCategory} 
+        onDelete={onDeleteCategory}
+        commandMode={nexusAdvisoryContext?.commandMode}
       />
       <CardManager
         isOpen={isCardModalOpen}
@@ -185,16 +202,45 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             onClick={() => setType('expense')} 
             className={`flex-1 py-2 rounded-xl font-black uppercase text-xxs transition-all ${type === 'expense' ? 'bg-status-danger text-text-onBrand shadow-soft' : 'text-text-muted'} ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
-            Despesa
+            {voice.expenseSingular}
           </button>
           <button 
             disabled={isLocked}
             onClick={() => setType('income')} 
             className={`flex-1 py-2 rounded-xl font-black uppercase text-xxs transition-all ${type === 'income' ? 'bg-brand-primary text-text-onBrand shadow-soft' : 'text-text-muted'} ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
-            Receita
+            {voice.incomeSingular}
           </button>
         </div>
+        
+        {/* SELETOR DE DÍVIDA (REATIVO) */}
+        {showDebtSelector && (
+          <div className="bg-sky-50 border border-brand-secondary/30 p-4 rounded-2xl space-y-3 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between">
+              <label className="text-xxs font-black text-brand-secondary uppercase tracking-widest">
+                Vincular a uma dívida?
+              </label>
+              <span className="text-[9px] font-bold text-sky-600 px-2 py-0.5 bg-sky-100 rounded-lg">
+                Nexus Intelligence
+              </span>
+            </div>
+            <select 
+              value={linkedDebtId} 
+              onChange={e => setLinkedDebtId(e.target.value)} 
+              className="w-full bg-white p-3 rounded-xl text-text-primary outline-none border border-brand-secondary/20 focus:border-brand-secondary appearance-none text-sm font-medium shadow-sm"
+            >
+              <option value="">Não vincular (Lançamento avulso)</option>
+              {activeDebts.filter(d => d.saldoDevedor > 0).map(debt => (
+                <option key={debt.id} value={debt.id}>
+                  {debt.nome} (Saldo: R$ {debt.saldoDevedor.toLocaleString('pt-BR')})
+                </option>
+              ))}
+            </select>
+            <p className="text-[9px] text-sky-700 leading-relaxed">
+              Ao vincular, o saldo da dívida será abatido automaticamente após salvar.
+            </p>
+          </div>
+        )}
         
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
@@ -321,9 +367,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 </div>
                 <div className="flex items-center">
                   <p className="text-[9px] font-bold text-text-muted uppercase tracking-wider ml-1 mt-1">
-                    {installments > 1 
+                      {installments > 1 
                       ? `Serão gerados ${installments} lançamentos de ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(amount) / installments)}.`
-                      : 'Gasto no crédito não altera o saldo agora.'}
+                      : FPI_COPY.creditImpact}
                   </p>
                 </div>
               </div>
@@ -341,7 +387,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         </button>
 
         <NexusInlineAdvisor 
-          draft={{ amount: Number(amount), category, type }}
+          draft={{ amount: Number(amount), category, type, paymentMethod }}
           context={nexusAdvisoryContext}
         />
 

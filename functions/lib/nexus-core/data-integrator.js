@@ -206,6 +206,52 @@ class DataIntegrator {
             return 'Nenhuma meta financeira registrada.';
         return `**METAS ATIVAS (${goals.length}):**\n${goals.map(g => `• ${g.name}: R$ ${g.currentAmount}/${g.targetAmount}`).join('\n')}`;
     }
+    static formatAssetsSummary(assets) {
+        if (!assets || assets.length === 0)
+            return '\n🏦 Ativos patrimoniais / produtivos: Nenhum ativo registrado.';
+        return `\n🏦 ATIVOS PATRIMONIAIS / PRODUTIVOS (${assets.length} itens):\n` +
+            assets.map((a) => {
+                const nome = a.name || a.description || 'Item sem nome';
+                const categoria = a.category || 'Outros';
+                const valor = Number(a.currentValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                return `  • ${nome} (${categoria}): R$ ${valor}`;
+            }).join('\n');
+    }
+    static formatPassivesSummary(passives) {
+        if (!passives || passives.length === 0)
+            return '\n🏠 Passivos patrimoniais / imobilizados: Nenhum passivo registrado.';
+        return `\n🏠 PASSIVOS PATRIMONIAIS / IMOBILIZADOS (${passives.length} itens):\n` +
+            passives.map((p) => {
+                const nome = p.description || p.name || 'Item sem nome';
+                const categoria = p.category || 'Outros';
+                const valor = Number(p.currentValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                return `  • ${nome} (${categoria}): R$ ${valor}`;
+            }).join('\n');
+    }
+    static formatDebtsSummary(debts) {
+        if (!debts || debts.length === 0)
+            return '\n💳 Dívidas: Nenhuma dívida cadastrada no app.';
+        return `\n💳 DÍVIDAS CADASTRADAS (${debts.length} itens):\n` +
+            debts.map((d) => {
+                const nome = d.nome || 'Dívida sem nome';
+                const tipo = d.tipo || 'Outros';
+                const saldo = Number(d.saldoDevedor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                const taxa = Number(d.taxaMensal || 0).toFixed(2);
+                const parcelas = d.parcelasRestantes ?? 'N/A';
+                const parcela = d.valorParcela ? `R$ ${Number(d.valorParcela).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/mês` : 'N/A';
+                return `  • ${nome} (${tipo}): Saldo R$ ${saldo} | Taxa ${taxa}%/mês | ${parcelas} parcelas restantes | Parcela: ${parcela}`;
+            }).join('\n');
+    }
+    static formatPatrimonioVisaoGerencial(assets, passives) {
+        const totalAssets = assets.reduce((sum, a) => sum + (a.currentValue || 0), 0);
+        const totalPassives = passives.reduce((sum, p) => sum + (p.currentValue || 0), 0);
+        const patrimonioTotalMonitorado = totalAssets + totalPassives;
+        return `📊 VISÃO PATRIMONIAL DO APP:\n` +
+            `• Total em ativos patrimoniais / produtivos: R$ ${totalAssets.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n` +
+            `• Total em passivos patrimoniais / imobilizados: R$ ${totalPassives.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n` +
+            `• Patrimônio total monitorado no app: R$ ${patrimonioTotalMonitorado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n` +
+            `ℹ️ No Finanças Pro Invest, "passivos" são bens patrimoniais que exigem manutenção/aportes e não devem ser tratados automaticamente como dívidas.`;
+    }
     static formatSimulationsForPrompt(simulations, _context) {
         if (!simulations || simulations.length === 0)
             return 'Nenhuma simulação recente.';

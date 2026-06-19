@@ -3,7 +3,8 @@ import {
   collection, addDoc, doc, getDoc, setDoc, updateDoc,
   query, where, getDocs, Timestamp, increment,
 } from 'firebase/firestore';
-import { NotificationService, PresenceNotificationPayload, NotificationCategory } from './NotificationService';
+import type { PresenceNotificationPayload, NotificationCategory } from './NotificationService';
+import { NotificationService } from './NotificationService';
 
 // Mapeamento de urgência para score numérico (usado no orderBy do Firestore)
 export const URGENCY_SCORE: Record<'high' | 'medium' | 'low', number> = {

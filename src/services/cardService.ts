@@ -1,15 +1,16 @@
+import type {
+    DocumentData,
+    CollectionReference} from 'firebase/firestore';
 import {
     collection,
     addDoc,
     getDocs,
     updateDoc,
     deleteDoc,
-    doc,
-    DocumentData,
-    CollectionReference,
+    doc
   } from 'firebase/firestore';
   import { firestore } from '../firebase';
-  import { CreditCard } from '../types';
+  import type { CreditCard } from '../types';
   
   const getCardsCollection = (userId: string): CollectionReference<DocumentData> => {
     return collection(firestore, `users/${userId}/cartoes`);

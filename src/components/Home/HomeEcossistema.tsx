@@ -10,66 +10,94 @@ interface Props {
 
 export const HomeEcossistema: React.FC<Props> = ({ heroPersona, onNavigate, onStartNow, isAuthenticated }) => {
   const bentoCards = [
-    { title: 'Quanto meu dinheiro rende no futuro?', subtitle: 'Simule quanto você acumula investindo um pouco por mês.', icon: <TrendingUp size={16} />, bg: 'bg-emerald-50', border: 'border-emerald-200', onClick: () => onNavigate('tool-juros') },
-    { title: 'Alugar ou comprar um imóvel?', subtitle: 'Compare os custos e veja o que vale mais a pena para você.', icon: <Home size={16} />, bg: 'bg-sky-50', border: 'border-sky-200', onClick: () => onNavigate('tool-alugar') },
-    { title: heroPersona === 'dividas' ? 'Calculadora de Dívidas' : 'Meus Investimentos', subtitle: heroPersona === 'dividas' ? 'Simule cenários de quitação sem cadastrar dados' : 'Cadastre, acompanhe e revise', icon: heroPersona === 'dividas' ? <AlertTriangle size={16} /> : <Target size={16} />, bg: heroPersona === 'dividas' ? 'bg-amber-50' : 'bg-emerald-50', border: heroPersona === 'dividas' ? 'border-amber-200' : 'border-emerald-200', highlight: heroPersona !== 'dividas', onClick: () => onNavigate(heroPersona === 'dividas' ? 'tool-dividas' : 'investimentos') },
-    { title: heroPersona === 'dividas' ? 'Vale a pena parcelar?' : 'Controla', subtitle: heroPersona === 'dividas' ? 'Descubra se é melhor pagar à vista ou em prestações.' : 'Registre sua rotina financeira', icon: heroPersona === 'dividas' ? <CreditCard size={16} /> : <LayoutGrid size={16} />, bg: 'bg-sky-50', border: 'border-sky-200', onClick: () => onNavigate(heroPersona === 'dividas' ? 'tool-buy-cash-or-installments' : 'manager') },
+    { 
+      title: 'Simulador de Juros Compostos', 
+      subtitle: 'Projete o poder da multiplicação mensal.', 
+      icon: <TrendingUp size={18} />, 
+      onClick: () => onNavigate('tool-juros') 
+    },
+    { 
+      title: 'Alugar ou Comprar Imóvel', 
+      subtitle: 'Decisões imobiliárias na ponta do lápis.', 
+      icon: <Home size={18} />, 
+      onClick: () => onNavigate('tool-alugar') 
+    },
+    { 
+      title: heroPersona === 'dividas' ? 'Simulador de Dívidas' : 'Organizador de Carteira', 
+      subtitle: heroPersona === 'dividas' ? 'Simule estratégias de quitação' : 'Consolide seus ativos e provisões', 
+      icon: heroPersona === 'dividas' ? <AlertTriangle size={18} /> : <Target size={18} />, 
+      onClick: () => onNavigate(heroPersona === 'dividas' ? 'tool-dividas' : 'investimentos') 
+    },
+    { 
+      title: 'Comprar à Vista ou Parcelar?', 
+      subtitle: 'Compare o desconto contra o rendimento real.', 
+      icon: <CreditCard size={18} />, 
+      onClick: () => onNavigate('tool-buy-cash-or-installments') 
+    },
   ];
 
   return (
-    <section className="px-4 lg:px-12 pb-20 max-w-[1600px] mx-auto w-full relative">
-      <div id="secao-ferramentas" style={{ scrollMarginTop: '90px' }} />
-      <div className="absolute inset-x-0 -top-10 -bottom-10 bg-gradient-to-b from-slate-50/50 via-white to-slate-50/50 pointer-events-none -z-10" />
-      <div className="flex flex-col lg:flex-row gap-10 items-start">
-        <div className="w-full lg:w-1/2 space-y-6">
-          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-widest shadow-sm"><LayoutGrid size={14} />Seu ecossistema financeiro</span>
-          <h2 className="text-2xl md:text-3xl lg:text-4xl font-black text-slate-900 tracking-tight leading-tight">{heroPersona === 'dividas' ? 'Tudo que você precisa para sair das dívidas — num só lugar.' : 'Tudo que você precisa para fazer seu patrimônio crescer — num só lugar.'}</h2>
-          <p className="text-slate-500 text-sm md:text-base max-w-xl leading-relaxed">{heroPersona === 'dividas' ? 'Cada ferramenta resolve um problema real. Comece pelo que é mais urgente hoje e deixe o Finanças Pro Invest cuidar do resto.' : 'Cada ferramenta cobre uma frente do seu patrimônio. Use separado ou junto — o Nexus conecta tudo para você.'}</p>
+    <section className="px-6 lg:px-16 py-28 w-full bg-[#0B0F17] text-[#E5E7EB] font-sans border-t border-white/[0.04]">
+      <div className="max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-16 items-center">
+        
+        {/* Coluna de Texto e Destaque Principal */}
+        <div className="w-full lg:w-1/2 space-y-8 text-center lg:text-left">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-950/40 border border-blue-900/50 text-blue-400 text-xs font-bold uppercase tracking-wider mx-auto lg:mx-0">
+            <LayoutGrid size={14} />
+            Módulos Práticos
+          </div>
+          
+          <h2 className="text-3xl md:text-5xl font-black text-white tracking-tight leading-tight">
+            Ferramentas Auxiliares de Navegação
+          </h2>
+          
+          <p className="text-base md:text-lg text-[#A0A4AB] leading-relaxed max-w-xl">
+            Aproveite utilitários avançados de cálculo para simular e estruturar cenários específicos antes de assumir decisões críticas.
+          </p>
 
-          <div className="grid grid-cols-1 gap-4">
-            <button onClick={() => onNavigate(heroPersona === 'dividas' ? 'minhas-dividas' : 'investimentos')} className="group border-2 border-emerald-500 rounded-3xl bg-white hover:bg-emerald-50 transition-all p-6 flex items-center justify-between gap-4 shadow-xl shadow-emerald-500/10 relative overflow-hidden">
-              <div className="absolute top-0 right-0 bg-emerald-500 text-white text-[9px] font-black uppercase px-4 py-1.5 rounded-bl-xl tracking-widest shadow-sm">
-                Passo 1: Recomendado
-              </div>
-              <div className="flex flex-col text-left">
-                <span className="text-[11px] font-black uppercase tracking-widest text-emerald-600 mb-2">{heroPersona === 'dividas' ? 'Ponto de Partida' : 'Base do patrimônio'}</span>
-                <span className="text-xl font-black text-slate-900 mb-1">{heroPersona === 'dividas' ? 'Minhas Dívidas' : 'Meus Investimentos'}</span>
-                <span className="text-sm text-slate-600 font-medium leading-relaxed max-w-md">{heroPersona === 'dividas' ? 'Cadastre o que você deve e visualize o custo real de cada juros para priorizar o pagamento.' : 'Registre sua carteira e acompanhe o crescimento real do seu patrimônio com inteligência.'}</span>
-              </div>
-              <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform shadow-lg shadow-emerald-500/20">
-                <ChevronRight className="w-6 h-6" />
-              </div>
-            </button>
+          {/* Destaque Principal do Controla */}
+          <div className="mt-8 p-6 rounded-2xl border border-white/[0.06] bg-[#111622] text-left relative overflow-hidden group">
+            <div className="absolute top-0 right-0 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold uppercase px-4 py-1.5 rounded-bl-xl tracking-wider">
+              Célula de Comando
+            </div>
+            
+            <span className="text-[11px] font-black uppercase tracking-wider text-emerald-400 block mb-2">Painel de Controle Integrado</span>
+            <h4 className="text-xl font-bold text-white mb-2">O Controla e a Inteligência do Nexus</h4>
+            <p className="text-sm text-[#A0A4AB] leading-relaxed mb-6">
+              A verdadeira mágica acontece quando seus dados estão conectados. O Controla gerencia seus fluxos diários enquanto o Nexus prevê tensões patrimoniais de forma totalmente automatizada.
+            </p>
 
-            <button onClick={() => isAuthenticated ? onNavigate('manager') : onStartNow()} className="group border border-slate-200 rounded-2xl bg-slate-50/50 hover:bg-white transition-all p-5 flex items-center justify-between gap-4 shadow-sm">
-              <div className="flex flex-col text-left">
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Rotina diária</span>
-                <span className="text-lg font-bold text-slate-800">Controla</span>
-                <span className="text-xs text-slate-500 font-medium">{heroPersona === 'dividas' ? 'Registre seus gastos e receitas para o Nexus calibrar seus conselhos.' : 'Registre suas entradas e saídas para o Nexus calibrar seus conselhos.'}</span>
-              </div>
-              <ChevronRight className="w-5 h-5 text-slate-400 group-hover:translate-x-1 transition-transform" />
+            <button 
+              onClick={() => onNavigate(heroPersona === 'dividas' ? 'minhas-dividas' : 'investimentos')}
+              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-xl transition-all text-xs"
+            >
+              <span>{heroPersona === 'dividas' ? 'Acessar Gestão de Débitos' : 'Acessar Gestão Patrimonial'}</span>
+              <ChevronRight size={16} />
             </button>
           </div>
         </div>
 
-        <div className="w-full lg:w-1/2 pt-2 lg:pt-14">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-6 flex items-center gap-3">
-            <span className="h-px bg-slate-200 flex-grow"></span>
-            Simuladores & Ferramentas de apoio
-            <span className="h-px bg-slate-200 flex-grow"></span>
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Grade de Ferramentas Auxiliares */}
+        <div className="w-full lg:w-1/2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             {bentoCards.map((card, index) => (
-              <button key={index} onClick={card.onClick} className={`group relative rounded-2xl border ${card.border} bg-white p-5 text-left shadow-sm hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between min-h-[140px]`}>
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-600 border border-slate-100 group-hover:bg-white transition-colors">{card.icon}</div>
-                  <div>
-                    <p className="text-[13px] font-black text-slate-900 leading-tight mb-0.5">{card.title}</p>
-                    <p className="text-[9px] uppercase tracking-[0.12em] text-slate-400 font-bold">{card.subtitle}</p>
+              <button 
+                key={index} 
+                onClick={card.onClick} 
+                className="group relative rounded-2xl border border-white/[0.06] bg-[#111622] p-6 text-left shadow-[0_10px_30px_rgba(0,0,0,0.3)] hover:border-blue-500/30 transition-all flex flex-col justify-between min-h-[220px]"
+              >
+                <div className="space-y-6">
+                  <div className="w-12 h-12 rounded-xl bg-[#0B0F17] border border-white/[0.08] flex items-center justify-center text-[#A0A4AB] group-hover:text-blue-400 transition-colors">
+                    {card.icon}
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-base font-bold text-white leading-tight">{card.title}</p>
+                    <p className="text-xs text-[#A0A4AB]">{card.subtitle}</p>
                   </div>
                 </div>
-                <span className="mt-auto inline-flex items-center gap-1.5 text-[10px] font-black text-slate-400 group-hover:text-emerald-600 transition-colors uppercase tracking-wider">
-                  {heroPersona === 'dividas' ? 'Abrir calculadora' : 'Abrir módulo'}
+                
+                <span className="mt-8 inline-flex items-center gap-1.5 text-xs font-semibold text-blue-400 hover:text-blue-300">
+                  Calcular agora
                   <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
                 </span>
               </button>

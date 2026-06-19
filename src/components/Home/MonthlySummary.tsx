@@ -28,7 +28,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
             <Wallet size={14} className="text-emerald-600" />
-            Saldo do mês
+            Dinheiro do mês
           </div>
           <button
             type="button"

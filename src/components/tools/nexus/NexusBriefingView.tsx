@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   AlertCircle
 } from 'lucide-react';
+import { NEXUS_COPY } from '../../../theme/fpiVoiceGuide';
 
 interface Message {
   role: 'ai';
@@ -87,7 +88,8 @@ const NexusBriefingView: React.FC<{
       const response = await sendToNexus(
         `[PROTOCOL: STRATEGIC_BRIEFING] ${initialPrompt}. 
         IMPORTANTE: Sua resposta deve ser estruturada em blocos: Diagnóstico, Interpretação, Plano de Ação, Próximos Passos. 
-        Ao final da resposta, sugira EXATAMENTE 3 opções de próximos passos curtas entre colchetes, ex: [Ver Dívidas], [Simular Reserva], [Ajustar Gastos].`,
+        ${NEXUS_COPY.briefingVoiceHint}
+        Ao final da resposta, sugira EXATAMENTE 3 opções de próximos passos curtas entre colchetes, ex: ${NEXUS_COPY.briefingCtaExamples}.`,
         { transactions, goals, assets, passives, debts },
         userName,
         [],
@@ -186,7 +188,7 @@ const NexusBriefingView: React.FC<{
             <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight mb-2 italic">
                 Olá, {userName}.
             </h2>
-            <p className="text-slate-500 font-medium">O Consultor do Finanças Pro Invest analisou seu contexto.</p>
+            <p className="text-slate-500 font-medium">{NEXUS_COPY.briefingSubtitle}</p>
         </div>
 
         {isLoading && !briefing ? (

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Bell, X, Sparkles, ChevronRight, CheckCheck, Inbox, History, RefreshCcw } from 'lucide-react';
-import { useNotifications, NexusEvent } from '../contexts/NotificationContext';
+import type { NexusEvent } from '../contexts/NotificationContext';
+import { useNotifications } from '../contexts/NotificationContext';
 
 interface NotificationHubProps {
   isOpen: boolean;

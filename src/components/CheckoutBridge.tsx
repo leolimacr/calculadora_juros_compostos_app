@@ -22,7 +22,7 @@ const CheckoutBridge: React.FC<CheckoutBridgeProps> = ({ stripeUrl }) => {
         <div className="flex items-center justify-center gap-6">
           <div className="flex flex-col items-center gap-2">
             <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center justify-center shadow-emerald-500/10 shadow-2xl">
-              <span className="text-2xl font-black tracking-tighter text-emerald-500">FPI</span>
+              <span className="text-2xl font-black tracking-tighter text-emerald-500">Finanças Pro Invest</span>
             </div>
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Ecossistema</span>
           </div>

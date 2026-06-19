@@ -40,8 +40,8 @@ export const TermsPage = () => {
 
         <h2>5. Planos e Assinaturas</h2>
         <p>
-          <strong>Plano Gratuito:</strong> Oferece funcionalidades básicas com limitações de uso (ex.: 30 lançamentos mensais).<br />
-          <strong>Plano Pro:</strong> Mediante assinatura mensal, remove limites básicos e adiciona funcionalidades avançadas.<br />
+          <strong>Plano Gratuito:</strong> Oferece o Controla com lançamentos ilimitados e visão básica da rotina financeira.<br />
+          <strong>Plano Pro:</strong> Mediante assinatura mensal, adiciona inteligência do Nexus, histórico estendido e funcionalidades avançadas do Controla.<br />
           <strong>Plano Premium:</strong> Assinatura mensal ou anual que inclui todos os recursos do Pro, acesso estendido ao histórico para a IA Nexus e prioridade em suporte.
         </p>
         <p>Os preços e a descrição detalhada de cada plano estão disponíveis na página de planos da Plataforma.</p>
@@ -62,7 +62,7 @@ export const TermsPage = () => {
         <h2>9. Propriedade Intelectual</h2>
         <p>Todos os direitos sobre a Plataforma, incluindo software, marcas, logotipos, textos e layouts, são de propriedade exclusiva do Finanças Pro Invest. É vedada a reprodução, modificação ou distribuição sem autorização prévia por escrito.</p>
 
-        <h2>10. IA Nexus – Consultor Financeiro</h2>
+        <h2>10. IA Nexus – Consciência Patrimonial</h2>
         <p>A IA Nexus utiliza modelos de linguagem fornecidos por terceiros (Gemini, Mistral, OpenRouter) e dados do mercado para gerar respostas e simulações. Esses fornecedores atuam como operadores, processando os dados estritamente conforme nossas instruções e em conformidade com a LGPD. O Usuário reconhece que:</p>
         <ul>
           <li>As respostas são geradas automaticamente e podem conter imprecisões ou não refletir a realidade do mercado.</li>

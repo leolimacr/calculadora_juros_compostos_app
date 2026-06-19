@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { signInWithEmailAndPassword, sendPasswordResetEmail, signOut, sendEmailVerification, User } from 'firebase/auth';
+import type { User } from 'firebase/auth';
+import { signInWithEmailAndPassword, sendPasswordResetEmail, signOut, sendEmailVerification } from 'firebase/auth';
 import { auth } from '../../firebase';
 import { Lock, Mail, ArrowRight, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
 
@@ -110,7 +111,7 @@ const AuthLogin: React.FC<AuthLoginProps> = ({ onSuccess, onSwitchToRegister }) 
               {/* HEADER com logo e título */}
               <div className="text-center mb-8">
                 <div className="w-20 h-20 bg-gradient-to-br from-indigo-50 to-slate-50 border border-slate-200 rounded-2xl flex items-center justify-center mx-auto shadow-sm mb-4">
-                  <img src="/icon.png" alt="Logo" className="w-12 h-12" />
+                  <img src="/assets/images/brand/icon.png" alt="Logo" className="w-12 h-12" />
                 </div>
                 
                 <h1 className="text-3xl font-black text-slate-900 tracking-tight">

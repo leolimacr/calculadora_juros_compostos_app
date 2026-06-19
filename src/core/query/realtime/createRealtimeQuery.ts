@@ -1,6 +1,6 @@
 import { realtimeRegistry } from './realtime.registry';
 import { bindSnapshotToQuery } from './bindSnapshotToQuery';
-import { RealtimeQueryConfig } from './realtime.types';
+import type { RealtimeQueryConfig } from './realtime.types';
 import { queryClient } from '../queryClient';
 
 export const createRealtimeQuery = <T>(config: RealtimeQueryConfig<T>) => {

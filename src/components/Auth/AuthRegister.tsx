@@ -24,7 +24,6 @@ const AuthRegister: React.FC<{ onSuccess: () => void, onSwitchToLogin: () => voi
 
       await setDoc(doc(firestore, 'users', user.uid), {
         plan: 'free',
-        launchLimit: 30,
         launchCount: 0,
         onboardingCompleted: false,
         createdAt: Date.now(),
@@ -56,12 +55,11 @@ const AuthRegister: React.FC<{ onSuccess: () => void, onSwitchToLogin: () => voi
               </div>
               <h2 className="text-2xl font-black text-slate-900 mb-2">Verifique seu E-mail</h2>
               <p className="text-slate-600 text-sm mb-4">
-                Enviamos um link de confirmação para <br />
-                <span className="text-indigo-600 font-bold">{email}</span>.
+                Confirme seu e-mail e comece a registrar sua rotina no Controla.
               </p>
               <div className="bg-sky-100/50 p-4 rounded-xl border border-sky-200 mb-6">
                 <p className="text-xs text-slate-600">
-                  Clique no link enviado para ativar sua conta e acessar o sistema.
+                  Enviamos um link para <span className="text-indigo-600 font-bold">{email}</span>. Clique para ativar sua conta.
                 </p>
               </div>
               <button 
@@ -98,7 +96,7 @@ const AuthRegister: React.FC<{ onSuccess: () => void, onSwitchToLogin: () => voi
             {/* HEADER com logo e título */}
             <div className="text-center mb-8">
               <div className="w-20 h-20 bg-gradient-to-br from-indigo-50 to-slate-50 border border-slate-200 rounded-2xl flex items-center justify-center mx-auto shadow-sm mb-4">
-                <img src="/icon.png" alt="Logo" className="w-12 h-12" />
+                <img src="/assets/images/brand/icon.png" alt="Logo" className="w-12 h-12" />
               </div>
               
               <h1 className="text-3xl font-black text-slate-900 tracking-tight">
@@ -106,7 +104,10 @@ const AuthRegister: React.FC<{ onSuccess: () => void, onSwitchToLogin: () => voi
               </h1>
               
               <p className="text-slate-500 text-sm mt-2 font-medium">
-                Crie sua conta gratuita e comece sua jornada
+                Grátis no Controla: registre à vontade e organize o mês.
+              </p>
+              <p className="text-slate-600 text-xs mt-3 leading-relaxed bg-slate-50 border border-slate-100 rounded-lg px-3 py-2.5 text-left">
+                Meses passados e comparações avançadas ficam no plano Pro — quando você quiser aprofundar.
               </p>
             </div>
 
@@ -170,7 +171,7 @@ const AuthRegister: React.FC<{ onSuccess: () => void, onSwitchToLogin: () => voi
                 disabled={loading}
                 className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black py-4 rounded-xl transition-all active:scale-[0.98] shadow-md shadow-emerald-500/30 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm uppercase tracking-wider"
               >
-                {loading ? 'CRIANDO CONTA...' : 'CRIAR CONTA'} <ArrowRight size={18} />
+                {loading ? 'ABRINDO SUA CONTA...' : 'Começar grátis no Controla'} <ArrowRight size={18} />
               </button>
             </form>
 

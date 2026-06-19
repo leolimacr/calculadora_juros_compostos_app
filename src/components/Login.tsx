@@ -41,13 +41,13 @@ const Login: React.FC = () => {
               Controla
             </p>
             <p className="text-slate-400 text-[11px] font-medium leading-relaxed max-w-[260px] mx-auto">
-              O seu gerenciador financeiro do Finanças Pro Invest.
+              O seu sistema de comando patrimonial no Finanças Pro Invest.
             </p>
           </div>
           
           <div className="flex items-center justify-center gap-4">
             <img
-              src="/logo.png"
+              src="/assets/images/brand/logo.png"
               alt="Controla, do Finanças Pro Invest"
               // rounded-2xl: Quinas Arredondadas
               // shadow-green-900/50: Sombra verde suave

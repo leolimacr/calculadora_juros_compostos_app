@@ -1,7 +1,9 @@
-import { QueryKey } from '@tanstack/react-query';
+import type { QueryKey } from '@tanstack/react-query';
 import { queryClient } from '../query/queryClient';
-import { onSnapshot, Query, DocumentSnapshot, QuerySnapshot, DocumentReference } from 'firebase/firestore';
-import { onValue, DataSnapshot, Query as RTDBQuery } from 'firebase/database';
+import type { Query, DocumentSnapshot, QuerySnapshot, DocumentReference } from 'firebase/firestore';
+import { onSnapshot } from 'firebase/firestore';
+import type { DataSnapshot, Query as RTDBQuery } from 'firebase/database';
+import { onValue } from 'firebase/database';
 
 interface FirestoreBridgeOptions<T> {
   queryKey: QueryKey;

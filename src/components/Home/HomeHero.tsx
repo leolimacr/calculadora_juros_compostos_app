@@ -1,196 +1,184 @@
-import React from 'react';
-import { ArrowRight } from 'lucide-react';
-import { calcularProximoAporte, diasAteProximoAporte } from '../../utils/dateHelpers';
+import React, { useState } from 'react';
+import { ArrowRight, Shield, TrendingUp, AlertTriangle } from 'lucide-react';
 
 interface HomeHeroProps {
-  heroPersona: 'dividas' | 'patrimonio';
-  setHeroPersona: (p: 'dividas' | 'patrimonio') => void;
   isAuthenticated: boolean;
   onNavigate: (route: string) => void;
   onStartNow: () => void;
   isPrivacyMode: boolean;
   userMeta: any;
-  patrimonioAtivo: number;
-  patrimonioPassivo: number;
-  patrimonioTotal: number;
-  metas: any[];
 }
 
 export const HomeHero: React.FC<HomeHeroProps> = ({
-  heroPersona, setHeroPersona, isAuthenticated, onNavigate, onStartNow,
-  isPrivacyMode, userMeta, patrimonioAtivo, patrimonioPassivo, patrimonioTotal, metas,
+  isAuthenticated,
+  onNavigate,
+  onStartNow,
+  isPrivacyMode,
+  userMeta,
 }) => {
-  const formatValue = (value: number) => {
-    if (isPrivacyMode) return 'R$ •••••••';
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-  };
+  // Mini simulador interativo na dobra para engajar o usuário imediatamente
+  const [renda, setRenda] = useState<string>('5000');
+  const [gastos, setGastos] = useState<string>('3500');
+  const [dividas, setDividas] = useState<string>('1000');
 
-  const metasAtivas = metas.filter(m => m.ativa);
-  const proximaMeta = metasAtivas.length > 0 ? metasAtivas[0] : null;
-  let diasRestantes: number | null = null;
-  let valorProximoAporte: number = 1200;
+  const numRenda = parseFloat(renda) || 0;
+  const numGastos = parseFloat(gastos) || 0;
+  const numDividas = parseFloat(dividas) || 0;
 
-  if (userMeta && proximaMeta) {
-    const proximoAporteData = calcularProximoAporte({
-      dataInicio: proximaMeta.dataInicio,
-      frequencia: proximaMeta.frequencia,
-      diasPersonalizado: proximaMeta.diasPersonalizado,
-    });
-    diasRestantes = diasAteProximoAporte(proximoAporteData);
-    valorProximoAporte = proximaMeta.valor;
-  }
+  // Filosofia do FPI: Saldo Livre Real = Renda - Gastos Essenciais - Provisão de Dívidas
+  const saldoLivreReal = numRenda - numGastos - numDividas;
+  const isDeficit = saldoLivreReal < 0;
 
   return (
-    <section className="relative px-6 pt-20 pb-12 lg:pt-28 lg:pb-20 max-w-[1600px] mx-auto w-full z-10">
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-[420px] bg-emerald-100/10 rounded-full blur-[110px] pointer-events-none" />
-      <div className="grid grid-cols-1 lg:grid-cols-[1.08fr_0.92fr] gap-10 xl:gap-12 items-start">
+    <section className="relative px-6 pt-24 pb-16 lg:pt-32 lg:pb-24 w-full z-10 font-sans bg-[#0B0F17] text-[#E5E7EB] overflow-hidden">
+      {/* Background visual estilo Cockpit de Alta Performance */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[600px] bg-blue-500/5 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute top-12 right-12 w-96 h-96 bg-emerald-500/5 rounded-full blur-[120px] pointer-events-none" />
 
-        {/* Coluna Esquerda */}
+      <div className="max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-12 lg:gap-16 items-center relative z-10">
+        
+        {/* Coluna Esquerda: A Promessa Soberana */}
         <div className="flex flex-col items-center lg:items-start text-center lg:text-left max-w-2xl">
-          <div className="mb-6 inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white border border-slate-200 text-slate-600 text-[10px] sm:text-xs font-bold uppercase tracking-widest shadow-sm animate-in fade-in slide-in-from-bottom-6 duration-1000 text-center leading-relaxed max-w-xs sm:max-w-sm lg:max-w-md whitespace-normal">
-            {heroPersona === 'dividas'
-              ? 'Você não precisa mais enfrentar suas dívidas sozinho.'
-              : 'Você não precisa mais adivinhar o caminho do seu patrimônio.'}
+          <div className="mb-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-950/40 border border-blue-900/50 text-blue-400 text-xs font-bold uppercase tracking-wider">
+            <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+            Organize seu dinheiro do mês
           </div>
 
-          <div className="flex bg-transparent p-1 rounded-2xl mb-8 w-fit mx-auto lg:mx-0 border border-slate-200 animate-in fade-in slide-in-from-bottom-6 duration-1000 delay-100">
-            <button onClick={() => setHeroPersona('dividas')} className={`px-5 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all ${heroPersona === 'dividas' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}>
-              Dívidas
-            </button>
-            <button onClick={() => setHeroPersona('patrimonio')} className={`px-5 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all ${heroPersona === 'patrimonio' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}>
-              Patrimônio
-            </button>
-          </div>
-
-          <h1 className="text-5xl md:text-6xl lg:text-[5.2rem] font-black text-slate-950 leading-[0.98] tracking-[-0.04em] mb-5 animate-in fade-in slide-in-from-bottom-6 duration-1000 delay-150">
-            {heroPersona === 'dividas' ? (
-              <>Dívidas não definem você.<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-700 via-emerald-500 to-sky-600 text-4xl md:text-5xl lg:text-6xl block mt-4">Com clareza e um plano realista, o Finanças Pro Invest ajuda você a sair delas.</span></>
-            ) : (
-              <>Seu dinheiro trabalhando por você.<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-emerald-400 to-sky-500">Organize seus ativos e veja seu patrimônio crescer com clareza.</span></>
-            )}
+          <h1 className="text-4xl md:text-5xl lg:text-[4.5rem] font-extrabold text-white leading-[1.05] tracking-tight mb-6">
+            Saiba quanto <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">sobra de verdade</span> no seu mês
           </h1>
 
-          <p className="text-lg md:text-xl text-slate-600 max-w-lg mb-8 leading-relaxed font-medium animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200">
-            {heroPersona === 'dividas'
-              ? 'Um plano realista e humano para você recuperar o controle e sua tranquilidade financeira.'
-              : 'Tome decisões baseadas em dados e acompanhe sua evolução em um só lugar.'}
+          <p className="text-base md:text-lg text-[#A0A4AB] mb-8 leading-relaxed max-w-lg">
+            O saldo da conta não é o dinheiro livre. O Finanças Pro Invest mostra o que sobra depois das contas do mês — e você começa <strong>grátis</strong>, registrando sua rotina sem limite.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center gap-6 w-full sm:w-auto animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-300">
-            <button onClick={() => onNavigate(heroPersona === 'dividas' ? 'minhas-dividas' : 'investimentos')} className="bg-emerald-500 hover:bg-emerald-600 text-white font-black px-8 py-4 rounded-2xl transition-all shadow-[0_16px_35px_-18px_rgba(16,185,129,0.65)] flex items-center justify-center gap-2 w-full sm:w-auto">
-              <span>{heroPersona === 'dividas' ? 'Começar meu plano gratuito' : 'Organizar meu patrimônio'}</span>
-              <ArrowRight size={20} />
+          <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+            <button 
+              onClick={onStartNow}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-4 rounded-xl transition-all shadow-[0_4px_20px_rgba(37,99,235,0.3)] flex items-center justify-center gap-2 w-full sm:w-auto"
+            >
+              <span>Começar grátis no Controla</span>
+              <ArrowRight size={18} />
             </button>
-            <button onClick={() => { const el = document.getElementById('como-funciona'); if (el) { const y = el.getBoundingClientRect().top + window.scrollY - 90; window.scrollTo({ top: y, behavior: 'smooth' }); } }} className="text-slate-600 hover:text-slate-900 font-bold text-sm transition-all flex items-center gap-2 py-2">
-              <span>Como funciona</span>
-              <ArrowRight size={16} />
+            <button 
+              onClick={() => { 
+                const el = document.getElementById('como-funciona'); 
+                if (el) { 
+                  el.scrollIntoView({ behavior: 'smooth' }); 
+                } 
+              }} 
+              className="text-[#A0A4AB] hover:text-white font-medium text-sm transition-all flex items-center gap-2 py-2"
+            >
+              <span>Ver como funciona</span>
             </button>
           </div>
 
-          {heroPersona === 'dividas' && (
-            <div className="mt-4 text-sm text-slate-500 animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-500">
-              Com suas dívidas cadastradas,{' '}
-              <button onClick={() => onNavigate('chat')} className="font-bold text-emerald-700 hover:text-emerald-800 transition-colors">o Nexus já consegue orientar seus próximos passos</button>
-            </div>
-          )}
-
-          <div className="flex flex-wrap justify-center lg:justify-start gap-2 mt-8 w-full sm:w-auto animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-500">
-            {heroPersona === 'dividas' ? (
-              <>
-                <span className="inline-flex items-center rounded-full border border-slate-100 bg-white px-3 py-1 text-[10px] font-bold text-slate-500">✓ Avisa antes do vencimento</span>
-                <span className="inline-flex items-center rounded-full border border-slate-100 bg-white px-3 py-1 text-[10px] font-bold text-slate-500">✓ Calcula seu fôlego real</span>
-                <span className="inline-flex items-center rounded-full border border-slate-100 bg-white px-3 py-1 text-[10px] font-bold text-slate-500">✓ Mostra qual dívida atacar primeiro</span>
-              </>
-            ) : (
-              <>
-                <span className="inline-flex items-center rounded-full border border-slate-100 bg-white px-3 py-1 text-[10px] font-bold text-slate-500">✓ Consolida ativos e passivos</span>
-                <span className="inline-flex items-center rounded-full border border-slate-100 bg-white px-3 py-1 text-[10px] font-bold text-slate-500">✓ Avisa quando algo precisa de revisão</span>
-                <span className="inline-flex items-center rounded-full border border-slate-100 bg-white px-3 py-1 text-[10px] font-bold text-slate-500">✓ Acompanha metas e aportes</span>
-              </>
-            )}
+          <div className="flex flex-wrap justify-center lg:justify-start gap-3 mt-10 w-full">
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-1.5 text-xs font-medium text-[#A0A4AB]">
+              ✓ Grátis para começar
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-1.5 text-xs font-medium text-[#A0A4AB]">
+              ✓ Lançamentos ilimitados
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-1.5 text-xs font-medium text-[#A0A4AB]">
+              ✓ Planeje meses futuros
+            </span>
           </div>
         </div>
 
-        {/* Coluna Direita */}
-        <div className="hidden lg:block relative max-w-[620px] w-full ml-auto animate-in fade-in slide-in-from-right-8 duration-1000 delay-300 lg:mt-32">
-          <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/10 to-sky-500/10 blur-3xl rounded-[3rem] opacity-30" />
-          <div className="relative bg-white/95 backdrop-blur-xl border border-slate-200 rounded-[2rem] p-5 xl:p-6 shadow-[0_25px_60px_-30px_rgba(15,23,42,0.15)] overflow-hidden">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
-              <div className="flex items-center justify-between w-full">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Visualização do App</span>
-                <div className="flex gap-1.5">
-                  <span className="h-2 w-2 bg-slate-200 rounded-full" />
-                  <span className="h-2 w-2 bg-slate-200 rounded-full" />
-                  <span className="h-2 w-2 bg-slate-200 rounded-full" />
-                </div>
-              </div>
-            </div>
-            <div className="grid gap-4 mb-4">
-              <div className="bg-gradient-to-br from-emerald-50 via-white to-slate-50 backdrop-blur-md rounded-2xl p-5 md:p-6 border border-emerald-100 relative overflow-hidden">
-                <div className="absolute -right-10 -top-10 w-40 h-40 bg-emerald-300/10 rounded-full blur-3xl" />
-                <div className="flex items-center gap-2 mb-3 relative z-10">
-                  <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span>
-                  <p className="text-[10px] text-emerald-800 font-black uppercase tracking-widest">{heroPersona === 'dividas' ? 'Status do Plano' : 'Base patrimonial'}</p>
-                </div>
-                {heroPersona === 'dividas' ? (
-                  <div className="relative z-10 space-y-3">
-                    <div className="flex flex-col gap-2">
-                      {[{ step: '1', label: 'Dívidas cadastradas', done: true }, { step: '2', label: 'Prioridades calculadas', done: true }, { step: '3', label: 'Monitoramento Nexus', done: false }].map(({ step, label, done }) => (
-                        <div key={step} className={`flex items-center gap-3 p-2 rounded-xl border ${done ? 'bg-white border-emerald-100' : 'bg-slate-50/50 border-slate-100 border-dashed'}`}>
-                          <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black flex-shrink-0 ${done ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400'}`}>{done ? '✓' : step}</div>
-                          <p className={`text-[11px] font-semibold ${done ? 'text-slate-700' : 'text-slate-400'}`}>{label}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <p className="text-3xl md:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight my-2 relative z-10">R$ 142.500,00</p>
-                    <p className="text-xs text-emerald-800 font-medium relative z-10">Patrimônio consolidado e organizado.</p>
-                  </>
-                )}
-              </div>
-
-              <div className={`grid gap-4 ${heroPersona === 'dividas' ? 'grid-cols-1' : 'grid-cols-2'}`}>
-                <div className="h-full bg-white backdrop-blur-md rounded-xl p-4 md:p-5 border border-slate-100 shadow-sm flex flex-col justify-center">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase mb-2 tracking-wider">{heroPersona === 'dividas' ? 'Próxima ação' : 'Revisão de Metas'}</p>
-                  <p className="text-xl md:text-2xl font-black text-slate-800 truncate mb-1">{heroPersona === 'dividas' ? 'Atacar dívida com maior juros' : 'R$ 1.200,00'}</p>
-                  <div className="mt-auto pt-2">
-                    <span className="inline-block bg-slate-50 border border-slate-100 text-slate-500 text-[9px] font-bold px-2 py-0.5 rounded">
-                      {heroPersona === 'dividas' ? 'Orientado pelo Nexus' : 'Faltam 5 dias'}
-                    </span>
-                  </div>
-                </div>
-
-                {heroPersona === 'patrimonio' && (
-                  <div className="flex flex-col gap-3">
-                    <div className="flex-1 bg-white backdrop-blur-md rounded-xl p-3 md:p-4 border border-slate-100 flex flex-col justify-center shadow-sm">
-                      <p className="text-[10px] text-slate-400 font-bold uppercase mb-1 tracking-wider">Passivo</p>
-                      <p className="text-base md:text-lg font-bold text-slate-500 truncate">R$ 350.000,00</p>
-                    </div>
-                    <div className="flex-1 bg-slate-50/50 backdrop-blur-md rounded-xl p-3 md:p-4 border border-slate-200 border-dashed flex flex-col justify-center">
-                      <p className="text-[9px] text-slate-500 font-bold uppercase mb-1 tracking-wider">Total</p>
-                      <p className="text-sm font-bold text-slate-600 truncate">R$ 492.500,00</p>
-                    </div>
-                  </div>
-                )}
+        {/* Coluna Direita: O Cockpit Interativo */}
+        <div className="w-full max-w-[540px] mx-auto lg:ml-auto">
+          <div className="relative bg-[#111622] border border-white/[0.06] rounded-2xl p-6 shadow-[0_20px_50px_rgba(0,0,0,0.4)] overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
+            
+            <div className="flex items-center justify-between border-b border-white/[0.06] pb-4 mb-6">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[#A0A4AB]">Simule seu mês</span>
+              <div className="flex gap-1.5">
+                <span className="h-1.5 w-1.5 bg-white/25 rounded-full" />
+                <span className="h-1.5 w-1.5 bg-white/25 rounded-full" />
+                <span className="h-1.5 w-1.5 bg-white/25 rounded-full" />
               </div>
             </div>
 
-            {heroPersona === 'patrimonio' && (
-              <div className="bg-white rounded-xl p-4 border border-slate-100 mt-4 shadow-sm">
-                <div className="flex justify-between items-center mb-4">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Evolução</p>
-                </div>
-                <div className="flex items-end justify-between h-16 gap-1.5">
-                  {[40, 55, 45, 70, 60, 85, 100].map((height, index) => (
-                    <div key={index} className="w-full bg-slate-100 rounded-t-sm" style={{ height: `${height}%` }}></div>
-                  ))}
+            <div className="space-y-4">
+              {/* Input 1: Renda */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-[#A0A4AB] font-semibold">Quanto entra por mês (Receitas)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-xs text-[#A0A4AB] font-bold">R$</span>
+                  <input
+                    type="number"
+                    value={renda}
+                    onChange={(e) => setRenda(e.target.value)}
+                    className="w-full bg-[#0B0F17] border border-white/[0.08] focus:border-blue-500/50 rounded-xl py-2.5 pl-9 pr-4 text-sm font-semibold text-white outline-none transition-colors"
+                    placeholder="0,00"
+                  />
                 </div>
               </div>
-            )}
+
+              {/* Input 2: Custos Fixos */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-[#A0A4AB] font-semibold">Gastos do mês (contas e despesas)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-xs text-[#A0A4AB] font-bold">R$</span>
+                  <input
+                    type="number"
+                    value={gastos}
+                    onChange={(e) => setGastos(e.target.value)}
+                    className="w-full bg-[#0B0F17] border border-white/[0.08] focus:border-blue-500/50 rounded-xl py-2.5 pl-9 pr-4 text-sm font-semibold text-white outline-none transition-colors"
+                    placeholder="0,00"
+                  />
+                </div>
+              </div>
+
+              {/* Input 3: Dívidas */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-[#A0A4AB] font-semibold">Compromissos extras do mês</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-xs text-[#A0A4AB] font-bold">R$</span>
+                  <input
+                    type="number"
+                    value={dividas}
+                    onChange={(e) => setDividas(e.target.value)}
+                    className="w-full bg-[#0B0F17] border border-white/[0.08] focus:border-blue-500/50 rounded-xl py-2.5 pl-9 pr-4 text-sm font-semibold text-white outline-none transition-colors"
+                    placeholder="0,00"
+                  />
+                </div>
+              </div>
+
+              {/* Resultado: Saldo Livre Real */}
+              <div className={`mt-6 p-5 rounded-xl border transition-all ${
+                isDeficit 
+                  ? 'bg-amber-950/20 border-amber-900/30' 
+                  : 'bg-emerald-950/20 border-emerald-900/30'
+              }`}>
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#A0A4AB]">
+                    Estimativa do que sobra
+                  </span>
+                  <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${
+                    isDeficit ? 'bg-amber-900/40 text-amber-400' : 'bg-emerald-900/40 text-emerald-400'
+                  }`}>
+                    {isDeficit ? 'Déficit' : 'Estável'}
+                  </span>
+                </div>
+                
+                <p className={`text-2xl md:text-3xl font-black font-mono tracking-tight my-1 ${
+                  isDeficit ? 'text-amber-500' : 'text-emerald-400'
+                }`}>
+                  R$ {saldoLivreReal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
+
+                <p className="text-xs text-[#A0A4AB] mt-2 leading-relaxed">
+                  {isDeficit 
+                    ? "Neste exemplo, as contas do mês consomem mais do que entra. Registrar sua rotina no Controla ajuda a enxergar isso cedo."
+                    : "Neste exemplo, sobra dinheiro após as contas. No app, você acompanha isso mês a mês — grátis."}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
+
       </div>
     </section>
   );

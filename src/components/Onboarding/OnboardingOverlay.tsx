@@ -1,4 +1,5 @@
 import React from 'react';
+import { FPI_COPY } from '../../theme/fpiVoiceGuide';
 import { X, ArrowRight, CheckCircle, Wallet, LayoutGrid } from 'lucide-react';
 
 interface OnboardingOverlayProps {
@@ -21,22 +22,22 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({
   const content = [
     {
       icon: <Wallet className="text-emerald-500" size={32} />,
-      title: 'Seu ponto de partida ❤️',
-      body: 'Aqui é sua base. O resumo do seu dia aparece aqui. Que tal começar lançando sua primeira receita?',
+      title: 'Seu ponto de partida',
+      body: FPI_COPY.onboardingHome,
       cta: 'Lançar agora',
       action: onLaunch,
     },
     {
       icon: <CheckCircle className="text-sky-500" size={32} />,
-      title: 'Seu parceiro diário 📋',
-      body: 'Pronto! Seu primeiro lançamento foi registrado. O Controla vai te mostrar para onde seu dinheiro está indo. Lance mais alguns para eu te conhecer melhor.',
+      title: 'Primeiro movimento registrado',
+      body: 'O Controla mostra para onde sua estrutura está indo. Lance mais alguns para o Nexus calibrar seu perfil.',
       cta: 'Entendi',
       action: onNext,
     },
     {
       icon: <LayoutGrid className="text-indigo-500" size={32} />,
-      title: 'Sua evolução 🚀',
-      body: 'Aqui é a Central. Conforme você usa o app, ela mostra sua evolução e te ajuda a tomar decisões maiores. Volte aqui em alguns dias para ver seu progresso.',
+      title: 'Sua evolução na Central',
+      body: 'Conforme você usa o app, a Central resume sua folga e próximos passos. Volte em alguns dias para ver o progresso.',
       cta: 'Concluir',
       action: onFinish,
     },

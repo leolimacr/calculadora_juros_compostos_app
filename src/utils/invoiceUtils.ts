@@ -1,4 +1,4 @@
-import { CreditCard, Transaction, RecurringBill } from '../types';
+import type { CreditCard, Transaction, RecurringBill } from '../types';
 
 /**
  * Verifica se uma conta recorrente foi paga no mês atual.

@@ -45,6 +45,10 @@ export declare class DataIntegrator {
     private static fetchUserGoalsWithTimeout;
     static formatTransactionsForPrompt(transactions: UserTransaction[], _context: any): string;
     static formatGoalsForPrompt(goals: UserGoal[], _context: any): string;
+    static formatAssetsSummary(assets: any[]): string;
+    static formatPassivesSummary(passives: any[]): string;
+    static formatDebtsSummary(debts: any[]): string;
+    static formatPatrimonioVisaoGerencial(assets: any[], passives: any[]): string;
     static formatSimulationsForPrompt(simulations: UserSimulation[], _context: any): string;
     private static filterRelevantTransactions;
     private static generateTransactionSummary;

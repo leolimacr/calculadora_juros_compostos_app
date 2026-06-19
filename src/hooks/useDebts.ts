@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../core/query/queryKeys';
-import { DebtItem } from '../services/debt/debt.types';
+import type { DebtItem } from '../services/debt/debt.types';
 
 export const useDebts = (userId: string | undefined) => {
   const queryClient = useQueryClient();

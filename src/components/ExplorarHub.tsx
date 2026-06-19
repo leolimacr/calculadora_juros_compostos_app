@@ -6,8 +6,8 @@ import { InfiniteTicker } from './Public/MarketComponents';
 import { AssetModal } from './Public/HomeModals';
 import { getLatestNews } from '../services/newsService';
 import { fetchMarketQuotes } from '../services/marketService';
-import { MarketQuote } from '../types';
-import { TrendingUp, Calculator, Target, BookOpen } from 'lucide-react';
+import type { MarketQuote } from '../types';
+import { TrendingUp, Calculator, Target, BookOpen, ChevronRight, Sparkles } from 'lucide-react';
 import { courses } from './Public/Courses';
 
 interface MarketData {
@@ -29,7 +29,7 @@ export const ExplorarHub: React.FC<ExplorarHubProps> = ({ onNavigate, routerNavi
   const [marketData, setMarketData] = useState<MarketData>({ indices: [], stocks: [], currencies: [], cryptos: [], indicators: [] });
   const [selectedAsset, setSelectedAsset] = useState<{ symbol: string; category: string } | null>(null);
 
-  // Estado para controlar a transparência do título no scroll
+  // Estado para controlar a transparência do título no scroll (Ajustado para manter visibilidade)
   const [isScrolled, setIsScrolled] = React.useState(false);
 
   React.useEffect(() => {
@@ -55,73 +55,148 @@ export const ExplorarHub: React.FC<ExplorarHubProps> = ({ onNavigate, routerNavi
   }, []);
 
   const ferramentas = [
-    { id: 'tool-juros', label: 'Juros Compostos', icon: <TrendingUp size={20} /> },
-    { id: 'tool-dividas', label: 'Calculadora de Dívidas', icon: <Calculator size={20} /> },
-    { id: 'tool-alugar', label: 'Alugar vs Comprar', icon: <Target size={20} /> }
+    { 
+      id: 'tool-juros', 
+      label: 'Juros Compostos', 
+      desc: 'Simule o crescimento do seu dinheiro no tempo.',
+      icon: <TrendingUp size={24} />,
+      color: 'text-emerald-600',
+      bg: 'bg-emerald-50'
+    },
+    { 
+      id: 'tool-dividas', 
+      label: 'Calculadora de Dívidas', 
+      desc: 'Descubra o melhor caminho para quitar seus débitos.',
+      icon: <Calculator size={24} />,
+      color: 'text-rose-600',
+      bg: 'bg-rose-50'
+    },
+    { 
+      id: 'tool-alugar', 
+      label: 'Alugar vs Comprar', 
+      desc: 'Compare o custo real entre morar de aluguel ou financiar.',
+      icon: <Target size={24} />,
+      color: 'text-sky-600',
+      bg: 'bg-sky-50'
+    }
   ];
 
   return (
     <>
-      {/* Barra Fixa Invisível para Título EXPLORAR (Mobile Only) */}
-      <div className={`fixed top-28 left-0 z-[100] md:hidden h-14 w-full px-4 flex items-center bg-transparent pointer-events-none transition-all duration-300 ${isScrolled ? 'opacity-5' : 'opacity-100'}`}>
-        <h1 className="text-4xl font-black uppercase tracking-tighter bg-gradient-to-r from-slate-700 via-blue-800 to-slate-900 bg-clip-text text-transparent drop-shadow-[0_2px_4px_rgba(0,0,0,0.2)] pointer-events-auto">
+      {/* Barra Fixa para Título EXPLORAR (Mobile Only) - Visibilidade Refinada */}
+      <div className={`fixed top-16 left-0 z-[100] md:hidden h-14 w-full px-4 flex items-center bg-white/80 backdrop-blur-md border-b border-slate-100 transition-all duration-300 ${isScrolled ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}>
+        <h1 className="text-xl font-black uppercase tracking-tighter text-slate-950">
           Explorar
         </h1>
       </div>
 
-      <div className="min-h-screen bg-slate-50 text-slate-900 pb-12 pt-28 md:pt-0">
-        <div className="max-w-7xl mx-auto p-6 md:p-12 space-y-12">
-          <h1 className="hidden md:block text-3xl font-black uppercase tracking-tighter">Explorar</h1>
-
-          <section>
-            <h2 className="text-lg font-bold mb-4">Ferramentas</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {ferramentas.map(f => (
-              <button key={f.id} onClick={() => onNavigate(f.id)} className="p-6 bg-white border border-slate-200 rounded-2xl text-left hover:border-sky-500 transition-all flex items-center gap-4">
-                <div className="text-sky-600">{f.icon}</div>
-                <span className="font-bold">{f.label}</span>
-              </button>
-            ))}
+      <div className="min-h-screen bg-slate-50 text-slate-900 pb-20 pt-20 md:pt-12">
+        <div className="max-w-7xl mx-auto p-6 md:p-12 space-y-10 md:space-y-16">
+          
+          {/* 1. CONVITE (HERO) */}
+          <div className="space-y-3">
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-slate-200/50 text-slate-600 rounded-lg">
+              <Sparkles size={12} className="fill-slate-400" />
+              <span className="text-[9px] font-black uppercase tracking-widest">Central de Descoberta</span>
+            </div>
+            <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter text-slate-950 leading-none">
+              Simulação e <br />
+              <span className="text-brand-primary">Inteligência</span>
+            </h1>
+            <p className="text-slate-500 text-sm md:text-base max-w-xl font-medium leading-relaxed">
+              Explore cenários, aprofunde seus conhecimentos e acompanhe o mercado com ferramentas desenhadas para sua soberania.
+            </p>
           </div>
-        </section>
 
-        <section>
-          <InfiniteTicker data={marketData} />
-          <div className="mt-8">
-            <HomeTerminalMercado 
-                marketData={marketData} 
-                indicesComIndicadores={[...marketData.indices, ...marketData.indicators]}
-                onSetSelectedAsset={setSelectedAsset}
-            />
-          </div>
-        </section>
+          {/* 2. EXPERIMENTE (FERRAMENTAS) */}
+          <section className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Ferramentas de Apoio</h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+              {ferramentas.map(f => (
+                <button 
+                  key={f.id} 
+                  onClick={() => onNavigate(f.id)} 
+                  className="group p-6 md:p-8 bg-white border border-slate-200 rounded-[2rem] text-left hover:border-brand-primary/40 hover:shadow-lg hover:-translate-y-0.5 transition-all flex flex-col gap-5 md:gap-6"
+                >
+                  <div className={`w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl ${f.bg} ${f.color} flex items-center justify-center transition-transform group-hover:scale-105 shadow-sm`}>
+                    {f.icon}
+                  </div>
+                  <div className="space-y-1.5 md:space-y-2">
+                    <span className="block font-black text-lg md:text-xl tracking-tight text-slate-900">{f.label}</span>
+                    <p className="text-xs md:text-sm text-slate-500 font-medium leading-snug">{f.desc}</p>
+                  </div>
+                  <div className="pt-2 md:pt-4 mt-auto flex items-center gap-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-brand-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                    Acessar <ChevronRight size={12} />
+                  </div>
+                </button>
+              ))}
+            </div>
+          </section>
 
-        <section>
-          <h2 className="text-lg font-bold mb-4">Trilhas de Aprendizado</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {courses.slice(0, 4).map((curso: typeof courses[number]) => (
-              <button 
-                key={curso.slug} 
-                onClick={() => routerNavigate(`/curso/${curso.slug}`)} 
-                className="p-6 bg-white border border-slate-200 rounded-2xl text-left hover:border-emerald-500 transition-all flex items-center gap-4"
-              >
-                <div className="text-emerald-600"><BookOpen size={20} /></div>
-                <span className="font-bold">{curso.title}</span>
-              </button>
-            ))}
-          </div>
-        </section>
+          {/* 3. APRENDA (TRILHAS) */}
+          <section className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Educação e Estratégia</h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+              {courses.slice(0, 4).map((curso: typeof courses[number]) => (
+                <button 
+                  key={curso.slug} 
+                  onClick={() => routerNavigate(`/curso/${curso.slug}`)} 
+                  className="group relative overflow-hidden p-6 md:p-8 bg-slate-800/90 rounded-[2rem] text-left hover:shadow-xl hover:scale-[1.01] transition-all flex items-center gap-4 md:gap-6"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent opacity-40" />
+                  <div className="relative z-10 w-10 h-10 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-white/5 text-emerald-400 flex items-center justify-center shrink-0">
+                    <BookOpen size={20} className="md:w-6 md:h-6" />
+                  </div>
+                  <div className="relative z-10 flex-1 min-w-0">
+                    <span className="block font-black text-base md:text-lg tracking-tight text-white group-hover:text-emerald-400 transition-colors uppercase truncate">{curso.title}</span>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-1 block">Curso / Módulo</span>
+                  </div>
+                  <ChevronRight size={18} className="relative z-10 text-slate-600 group-hover:text-white transition-colors" />
+                </button>
+              ))}
+            </div>
+          </section>
 
-        <HomeConteudo 
-          heroPersona="patrimonio" 
-          radarNews={radarNews} 
-          isAuthenticated={true} 
-          userMeta={{}} 
-          setSelectedArticle={setSelectedArticle}
-          setShowNewsAdmin={() => {}} 
-          setNewsForm={() => {}} 
-          handleDeleteNews={() => {}} 
-        />
+          {/* 4. CONTEXTO (MERCADO & LEITURAS) */}
+          <section className="space-y-10 pt-8 border-t border-slate-200">
+            <div className="space-y-2">
+              <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Inteligência de Mercado</h2>
+              <p className="text-slate-500 text-xs md:text-sm font-medium">Fatos e movimentos que impactam suas decisões.</p>
+            </div>
+
+            <div className="space-y-10">
+              <div className="bg-white rounded-[1.5rem] md:rounded-[2rem] border border-slate-200 overflow-hidden shadow-sm">
+                <InfiniteTicker data={marketData} />
+                <div className="p-4 md:p-8">
+                  <HomeTerminalMercado 
+                      marketData={marketData} 
+                      indicesComIndicadores={[...marketData.indices, ...marketData.indicators]}
+                      onSetSelectedAsset={setSelectedAsset}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-4">Radar e Artigos</h3>
+                <div className="bg-white/40 rounded-[2rem] p-2 md:p-4 border border-slate-100">
+                  <HomeConteudo 
+                    heroPersona="patrimonio" 
+                    radarNews={radarNews} 
+                    isAuthenticated={true} 
+                    userMeta={{}} 
+                    setSelectedArticle={setSelectedArticle}
+                    setShowNewsAdmin={() => {}} 
+                    setNewsForm={() => {}} 
+                    handleDeleteNews={() => {}} 
+                  />
+                </div>
+              </div>
+            </div>
+          </section>
 
         {selectedArticle && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 md:p-8">

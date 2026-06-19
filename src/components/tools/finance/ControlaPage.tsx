@@ -1,6 +1,6 @@
 import React from 'react';
 import Dashboard from './Dashboard';
-import { Transaction, Category, UserMeta } from '../../../types';
+import type { Transaction, Category, UserMeta } from '../../../types';
 
 interface ControlaPageProps {
   transactions: Transaction[];
@@ -14,10 +14,7 @@ interface ControlaPageProps {
   onSaveCategory: (category: any) => void;
   onDeleteCategory: (id: string, usageCount: number) => Promise<void>;
   userMeta: UserMeta | null | undefined;
-  usagePercentage: number;
   isPremium: boolean;
-  isLimitReached: boolean;
-  onShowPaywall: () => void;
   isPrivacyMode: boolean;
   onTogglePrivacy: () => void;
   onEditTransaction: (t: Transaction) => void;
@@ -38,10 +35,7 @@ export const ControlaPage: React.FC<ControlaPageProps> = (props) => {
       onSaveCategory={props.onSaveCategory}
       onDeleteCategory={props.onDeleteCategory}
       userMeta={props.userMeta}
-      usagePercentage={props.usagePercentage}
       isPremium={props.isPremium}
-      isLimitReached={props.isLimitReached}
-      onShowPaywall={props.onShowPaywall}
       isPrivacyMode={props.isPrivacyMode}
       onTogglePrivacy={props.onTogglePrivacy}
       onEditTransaction={props.onEditTransaction}

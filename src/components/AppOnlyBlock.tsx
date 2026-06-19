@@ -5,9 +5,10 @@ const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.financ
 
 interface AppOnlyBlockProps {
   isMobileBrowser: boolean;
+  hasBottomNav?: boolean;
 }
 
-const AppOnlyBlock: React.FC<AppOnlyBlockProps> = ({ isMobileBrowser }) => {
+const AppOnlyBlock: React.FC<AppOnlyBlockProps> = ({ isMobileBrowser, hasBottomNav = false }) => {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
@@ -27,7 +28,7 @@ const AppOnlyBlock: React.FC<AppOnlyBlockProps> = ({ isMobileBrowser }) => {
   if (!isVisible || !isMobileBrowser) return null;
 
   return (
-    <div className="fixed bottom-20 md:bottom-6 left-4 right-4 z-[60] animate-in slide-in-from-bottom-full duration-500 lg:hidden">
+    <div className={`fixed ${hasBottomNav ? 'bottom-[5.5rem]' : 'bottom-20'} md:bottom-6 left-4 right-4 z-[60] animate-in slide-in-from-bottom-full duration-500 lg:hidden`}>
       <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-2xl p-4 shadow-2xl flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-400 border border-emerald-500/20 shrink-0">

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { firestore } from '../firebase';
-import { X, ArrowRight, ArrowLeft, CheckCircle, Target, BookOpen, Sparkles, AlertCircle } from 'lucide-react';
+import { X, ArrowRight, ArrowLeft, CheckCircle, Sparkles, AlertCircle, Shield, Target } from 'lucide-react';
 
 interface OnboardingWizardProps {
   userId: string;
@@ -11,45 +11,39 @@ interface OnboardingWizardProps {
 type OnboardingPersona = 'dividas' | 'patrimonio' | 'geral';
 
 const PERSONA_OPTIONS: { value: OnboardingPersona; label: string; sublabel: string }[] = [
-  { value: 'dividas',    label: 'Tenho dívidas que me preocupam',       sublabel: 'Cartão, crédito, parcelamentos ou contas em atraso' },
-  { value: 'patrimonio', label: 'Quero organizar meu patrimônio',        sublabel: 'Investimentos, bens, metas de longo prazo' },
-  { value: 'geral',      label: 'Quero ter mais controle no geral',      sublabel: 'Rotina financeira, gastos e planejamento do mês' },
+  { value: 'dividas', label: 'Tenho dívidas que me preocupam', sublabel: 'Quero me organizar para sair do vermelho' },
+  { value: 'patrimonio', label: 'Quero investir e crescer', sublabel: 'Acompanhar bens, investimentos e evolução' },
+  { value: 'geral', label: 'Quero controlar o dia a dia', sublabel: 'Registrar contas, gastos e ver o que sobra' },
 ];
 
+/** Onboarding conceitual: introdução ao Saldo Livre Real, Colchão Inicial e perfil inicial. */
 const STEPS = [
   {
     id: 'welcome',
     icon: Sparkles,
-    title: 'Vamos deixar sua vida financeira mais clara',
-    description: 'Em poucos passos eu entendo seu momento e te mostro por onde começar. Leva menos de 2 minutos.',
+    title: 'O dinheiro que sobra de verdade',
+    description: 'Aqui você não olha só o saldo da conta. O app calcula o que sobra depois das despesas do mês — para você saber quanto pode usar com tranquilidade.',
     color: 'emerald',
   },
   {
-    id: 'diagnose',
-    icon: AlertCircle,
-    title: 'O que mais te incomoda hoje?',
-    description: 'Escolha uma opção. Isso ajuda o sistema a mostrar as ferramentas mais úteis para o seu momento.',
-    color: 'sky',
-  },
-  {
-    id: 'organize',
+    id: 'marco_zero',
     icon: Target,
-    title: 'Primeiro: enxergar o quadro geral',
-    description: 'Aqui você junta dívidas, rotina e patrimônio num só lugar, para parar de decidir no escuro e ver a sua realidade como um todo.',
+    title: 'Colchão Inicial: sua primeira proteção',
+    description: 'É o dinheiro que funciona como amortecedor entre o dia a dia e a reserva de emergência. Uma camada de segurança para meses de aperto.',
     color: 'sky',
   },
   {
-    id: 'nexus',
-    icon: BookOpen,
-    title: 'Depois: ter um próximo passo sempre claro',
-    description: 'Com seus dados vivos, o Nexus acompanha sua vida financeira, avisa quando algo merece atenção e sugere o que fazer a seguir.',
-    color: 'indigo',
+    id: 'diagnose',
+    icon: Shield,
+    title: 'O que você quer resolver hoje?',
+    description: 'Escolha seu objetivo abaixo. Isso ajuda o app a personalizar dicas e sugestões para o seu momento.',
+    color: 'sky',
   },
   {
     id: 'ready',
     icon: CheckCircle,
-    title: 'Agora é com você (e comigo aqui do lado)',
-    description: 'Sua conta está ativa. Comece pelas dívidas ou pelo patrimônio — o que dói mais hoje. O Finanças Pro Invest te acompanha a partir daí.',
+    title: 'Tudo pronto para começar',
+    description: 'Registre seu dia a dia sem limite no Free. Quando quiser comparar meses anteriores e ver sua evolução, o Pro libera o histórico completo.',
     color: 'emerald',
   },
 ];
@@ -66,12 +60,6 @@ const colorMap: Record<string, { bg: string; icon: string; button: string; ring:
     icon: 'bg-sky-100 text-sky-600 border-sky-200',
     button: 'bg-sky-500 hover:bg-sky-400 shadow-sky-500/30',
     ring: 'bg-sky-500',
-  },
-  indigo: {
-    bg: 'bg-indigo-50 border-indigo-200',
-    icon: 'bg-indigo-100 text-indigo-600 border-indigo-200',
-    button: 'bg-indigo-500 hover:bg-indigo-400 shadow-indigo-500/30',
-    ring: 'bg-indigo-500',
   },
 };
 
@@ -91,7 +79,7 @@ const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ userId, onComplete 
     try {
       await updateDoc(doc(firestore, 'users', userId), {
         onboardingCompleted: true,
-        ...(persona ? { onboardingPersona: persona } : {}),
+        onboardingPersona: persona ?? 'geral',
       });
     } catch (e) {
       console.error('Erro ao gravar onboardingCompleted:', e);
@@ -101,16 +89,11 @@ const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ userId, onComplete 
   };
 
   const handleNext = () => {
-    if (isLast) {
-      markComplete();
-    } else {
-      setCurrentStep((prev) => prev + 1);
-    }
+    if (isLast) markComplete();
+    else setCurrentStep((prev) => prev + 1);
   };
 
   const handleSkip = async () => {
-    // Grava persona 'geral' se pulou sem escolher, para não perder o dado
-    if (!persona) setPersona('geral');
     setCompleting(true);
     try {
       await updateDoc(doc(firestore, 'users', userId), {
@@ -127,8 +110,6 @@ const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ userId, onComplete 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-300">
-
-        {/* Barra de progresso */}
         <div className="flex gap-1 p-4 pb-0">
           {STEPS.map((_, i) => (
             <div
@@ -145,12 +126,8 @@ const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ userId, onComplete 
             <Icon size={28} />
           </div>
 
-          <h2 className="text-xl font-black text-slate-900 mb-2 leading-tight">
-            {step.title}
-          </h2>
-          <p className="text-slate-600 text-sm leading-relaxed">
-            {step.description}
-          </p>
+          <h2 className="text-xl font-black text-slate-900 mb-2 leading-tight">{step.title}</h2>
+          <p className="text-slate-600 text-sm leading-relaxed">{step.description}</p>
 
           {isDiagnose && (
             <div className="mt-4 flex flex-col gap-2">
@@ -175,10 +152,10 @@ const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ userId, onComplete 
           )}
         </div>
 
-        {/* Ações */}
         <div className="px-4 pb-5 flex items-center gap-3">
           {currentStep > 0 && (
             <button
+              type="button"
               onClick={() => setCurrentStep((prev) => prev - 1)}
               className="p-3 rounded-xl border border-slate-200 text-slate-500 hover:text-slate-900 hover:border-slate-300 transition-all"
               aria-label="Voltar"
@@ -188,19 +165,21 @@ const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ userId, onComplete 
           )}
 
           <button
+            type="button"
             onClick={handleNext}
             disabled={completing || (isDiagnose && !persona)}
             className={`flex-1 ${colors.button} text-white font-black py-3.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-sm uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed`}
           >
-            {completing ? 'Salvando...' : isLast ? 'Começar agora' : 'Próximo'}
+            {completing ? 'Salvando...' : isLast ? 'Ir para o Controla' : 'Próximo'}
             {!completing && <ArrowRight size={16} />}
           </button>
 
           {!isLast && (
             <button
+              type="button"
               onClick={handleSkip}
               className="p-3 rounded-xl border border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300 transition-all"
-              aria-label="Pular tutorial"
+              aria-label="Pular"
             >
               <X size={18} />
             </button>

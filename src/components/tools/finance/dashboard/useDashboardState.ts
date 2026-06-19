@@ -7,8 +7,28 @@ import { useBills } from '../../../../hooks/useBills';
 import { useIsMobile } from '../../../../hooks/useIsMobile';
 import { getCurrentInvoice, isBillPaid } from '../../../../utils/invoiceUtils';
 import { getConsecutiveDays } from '../../../../utils/streakUtils';
-import { buildUserContext, getOperationalInsight, NexusInsight } from '../../../../services/nexusInsightEngine';
+import type { NexusInsight } from '../../../../services/nexusInsightEngine';
+import { buildUserContext, getOperationalInsight } from '../../../../services/nexusInsightEngine';
 import { generateFinancialReport } from '../../../../utils/reportGenerator';
+import { aggregateAllTimeFlow, buildSovereignSnapshot } from '../../../../utils/calculations';
+import {
+  isCommandMode,
+  shouldOfferCalibration,
+  getCalibrationInviteCopy,
+  deferCalibration,
+  dismissCalibrationInvite,
+} from '../../../../services/personaCalibrationService';
+import {
+  canUseViewMode,
+  getCurrentMonthAnchor,
+  getCurrentMonthStartIso,
+  hasHistoryAccess as planHasHistoryAccess,
+  isDateBeforeCurrentMonth,
+  isMonthBeforeCurrent,
+  isPeriodRangeAllowed,
+  isTransactionVisible,
+  type HistoryViewMode,
+} from '../../../../utils/historyTimeGate';
 
 
 export const useDashboardState = (props: any) => {
@@ -21,10 +41,7 @@ export const useDashboardState = (props: any) => {
     onSaveCategory, 
     onDeleteCategory, 
     userMeta, 
-    usagePercentage, 
     isPremium, 
-    isLimitReached, 
-    onShowPaywall, 
     isPrivacyMode,
     onTogglePrivacy,
     onEditTransaction,
@@ -49,6 +66,12 @@ export const useDashboardState = (props: any) => {
   const [showIntro, setShowIntro] = useState(false);
   const [dontShowFor15Days, setDontShowFor15Days] = useState(false);
 
+  const [showCalibrationModal, setShowCalibrationModal] = useState(false);
+  const [calibrationInviteVisible, setCalibrationInviteVisible] = useState(
+    () => !isCommandMode(userMeta)
+  );
+  const [localCommandMode, setLocalCommandMode] = useState(() => isCommandMode(userMeta));
+
   const [inlineInsight, setInlineInsight] = useState<NexusInsight | null>(null);
   const [showInsight, setShowInsight] = useState(false);
 
@@ -63,8 +86,24 @@ export const useDashboardState = (props: any) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [visibleCount, setVisibleCount] = useState(10);
   const [isCalculating, setIsCalculating] = useState(true);
+  const [showHistoryPaywall, setShowHistoryPaywall] = useState(false);
+
+  /** AppRoutes passa isPro||isPremium como isPremium — equivale a acesso ao histórico. */
+  const hasHistoryAccess = !!isPremium;
+  const historyLocked = !hasHistoryAccess;
+  const historyPlan = hasHistoryAccess ? 'pro' : 'free';
+
+  const openHistoryPaywall = () => setShowHistoryPaywall(true);
 
   const safeTransactions = useMemo(() => Array.isArray(transactions) ? transactions : [], [transactions]);
+
+  const historyVisibleTransactions = useMemo(
+    () =>
+      safeTransactions.filter((t: { date?: string }) =>
+        isTransactionVisible(t.date, historyPlan)
+      ),
+    [safeTransactions, historyPlan]
+  );
   const isReady = !isLoading || safeTransactions.length > 0;
   const showSkeleton = !isReady || isCalculating;
   const isFirstAccess = safeTransactions.length === 0;
@@ -93,58 +132,44 @@ export const useDashboardState = (props: any) => {
     return () => clearTimeout(timer);
   }, [transactions.length]);
 
+  // Garante que Free não permaneça em mês passado após reload
+  useEffect(() => {
+    if (hasHistoryAccess) return;
+    setCurrentDate((prev) => (isDateBeforeCurrentMonth(prev) ? new Date() : prev));
+  }, [hasHistoryAccess]);
+
   // NOVO: Busca segmentada automática ao navegar (Segurança de Custo + Dados Completos)
   useEffect(() => {
     if (!user?.uid || !fetchMonth) return;
     
-    if (viewMode === 'month') {
+    if (viewMode === 'month' || viewMode === 'day') {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth() + 1;
-      fetchMonth(year, month);
-    } else if (viewMode === 'year') {
+      if (planHasHistoryAccess(historyPlan) || !isMonthBeforeCurrent(year, month)) {
+        fetchMonth(year, month);
+      }
+    } else if (viewMode === 'year' && hasHistoryAccess) {
       const year = currentDate.getFullYear();
-      // Carrega todos os 12 meses do ano visualizado para alimentar os gráficos/resumos anuais
       for (let m = 1; m <= 12; m++) {
         fetchMonth(year, m);
       }
     }
-  }, [currentDate, viewMode, user?.uid, fetchMonth]);
+  }, [currentDate, viewMode, user?.uid, fetchMonth, hasHistoryAccess, historyPlan]);
 
-  // PRÉ-CARGA CIRÚRGICA: Busca o mês atual + 2 anteriores ao montar o Dashboard.
-  // Máximo de 3 leituras por sessão — o Set interno do fetchMonth garante
-  // que cada mês só é buscado uma vez, mesmo que o efeito seja re-executado.
+  // PRÉ-CARGA: histórico retroativo só no Pro+; Free carrega mês atual (+ futuro sob demanda)
   useEffect(() => {
     if (!user?.uid || !fetchMonth) return;
     const today = new Date();
-    [0, 1, 2].forEach(offset => {
-      const d = new Date(today.getFullYear(), today.getMonth() - offset, 1);
-      fetchMonth(d.getFullYear(), d.getMonth() + 1);
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.uid]); // Intencional: roda apenas uma vez quando o usuário está autenticado
-
-  // Efeito para monitorar novos lançamentos e disparar insight
-  useEffect(() => {
-    if (lastActionTimestamp && transactions.length > 0) {
-      const ctx = buildUserContext({
-        launchCount: transactions.length,
-        transactionsToday: transactions.filter((t: any) => t.date === new Date().toISOString().split('T')[0]).length,
-        monthBalance: stats.balance,
-        isPremium,
-        isFirstSession: userMeta?.isFirstSession,
-        cards: userCards,
-        transactions: transactions
-      });
-
-      const insight = getOperationalInsight(ctx);
-      if (insight) {
-        setInlineInsight(insight);
-        setShowInsight(true);
-        const timer = setTimeout(() => setShowInsight(false), 5000);
-        return () => clearTimeout(timer);
+    if (hasHistoryAccess) {
+      const depth = isCommandMode(userMeta) || localCommandMode ? 6 : 3;
+      for (let offset = 0; offset < depth; offset++) {
+        const d = new Date(today.getFullYear(), today.getMonth() - offset, 1);
+        fetchMonth(d.getFullYear(), d.getMonth() + 1);
       }
+    } else {
+      fetchMonth(today.getFullYear(), today.getMonth() + 1);
     }
-  }, [lastActionTimestamp, transactions.length, isPremium, userMeta?.isFirstSession]);
+  }, [user?.uid, fetchMonth, userMeta?.persona?.calibratedAt, localCommandMode, hasHistoryAccess]);
 
   const checkIntroSuppression = () => {
     const skipUntil = localStorage.getItem('recurring_intro_skip_until');
@@ -230,6 +255,8 @@ export const useDashboardState = (props: any) => {
       const typeMatch = typeFilter === 'all' || t?.type === typeFilter;
       if (!categoryMatch || !typeMatch || !t.date) return false;
 
+      if (!isTransactionVisible(t.date, historyPlan)) return false;
+
       if (query) {
         return normalize(t.description || '').includes(query) ||
                normalize(t.category || '').includes(query);
@@ -259,10 +286,26 @@ export const useDashboardState = (props: any) => {
       if (sortMode === 'date-desc') return dateB.localeCompare(dateA);
       return 0;
     });
-  }, [safeTransactions, activeInvoices, selectedCategories, typeFilter, currentDate, viewMode, startDate, endDate, sortMode, searchQuery, isLoading]);
+  }, [safeTransactions, activeInvoices, selectedCategories, typeFilter, currentDate, viewMode, startDate, endDate, sortMode, searchQuery, isLoading, historyPlan]);
 
   const stats = useMemo(() => {
-    if (!isReady) return { income: 0, expenses: 0, balance: 0, projectedBalance: 0 };
+    if (!isReady) {
+      return {
+        income: 0,
+        expenses: 0,
+        balance: 0,
+        projectedBalance: 0,
+        freeBalance: 0,
+        sovereignFreeBalance: 0,
+        freedomDeficit: 0,
+        protectionBuffer: 0,
+        leewayDays: 0,
+        freedomVelocity: 0,
+        colchaoShortfall: 0,
+        reserveShortfall: 0,
+        sovereignSnapshot: null,
+      };
+    }
 
     let income = 0; 
     let expenses = 0;
@@ -286,17 +329,133 @@ export const useDashboardState = (props: any) => {
       }
     });
     
-    return { 
-      income, 
-      expenses, 
-      balance: realBalance,
-      projectedBalance: realBalance - virtualImpact - totalPendingBills
-    };
-  }, [filtered, isLoading, totalPendingBills]);
+    const allTimeFlow = aggregateAllTimeFlow(safeTransactions);
+    const commandModeActive = isCommandMode(userMeta) || localCommandMode;
+    const sovereign = buildSovereignSnapshot({
+      monthBalance: realBalance,
+      accumulatedBalance: allTimeFlow.realBalance,
+      accumulatedIncome: allTimeFlow.income,
+      accumulatedExpenses: allTimeFlow.expenses,
+      virtualImpact,
+      pendingBills: totalPendingBills,
+      financialProfile: userMeta?.financialProfile,
+      commandMode: commandModeActive,
+      income,
+      expenses,
+      monthlyAport: Math.max(0, income - expenses),
+    });
 
-  const projectedBalance = useMemo(() => {
-    return stats.balance - totalPendingBills;
-  }, [stats.balance, totalPendingBills]);
+    return {
+      income,
+      expenses,
+      balance: realBalance,
+      projectedBalance: sovereign.projectedBalance,
+      freeBalance: sovereign.heroValue,
+      sovereignFreeBalance: sovereign.sovereignFreeBalance,
+      freedomDeficit: sovereign.freedomDeficit,
+      protectionBuffer: sovereign.protectionBuffer,
+      leewayDays: sovereign.leewayDays,
+      freedomVelocity: sovereign.freedomVelocity,
+      colchaoShortfall: sovereign.colchaoShortfall,
+      reserveShortfall: sovereign.reserveShortfall,
+      sovereignSnapshot: sovereign,
+    };
+  }, [filtered, safeTransactions, isLoading, totalPendingBills, userMeta, localCommandMode]);
+
+  const commandMode = isCommandMode(userMeta) || localCommandMode;
+
+  useEffect(() => {
+    if (isCommandMode(userMeta)) {
+      setLocalCommandMode(true);
+      setCalibrationInviteVisible(false);
+    }
+  }, [userMeta?.persona?.calibratedAt]);
+
+  const showCalibrationOffer = useMemo(
+    () =>
+      calibrationInviteVisible &&
+      shouldOfferCalibration({
+        userMeta,
+        launchCount: safeTransactions.length,
+        hasRecurringOrCards: recurringBills.length > 0 || userCards.length > 0,
+        userId: user?.uid,
+      }),
+    [calibrationInviteVisible, userMeta, safeTransactions.length, recurringBills.length, userCards.length, user?.uid]
+  );
+
+  const calibrationInviteCopy = useMemo(
+    () => getCalibrationInviteCopy(safeTransactions.length),
+    [safeTransactions.length]
+  );
+
+  const handleDeferCalibration = () => {
+    if (user?.uid) deferCalibration(user.uid);
+    setCalibrationInviteVisible(false);
+  };
+
+  const handleDismissCalibrationInvite = () => {
+    if (user?.uid) dismissCalibrationInvite(user.uid);
+    setCalibrationInviteVisible(false);
+  };
+
+  const handleStartCalibration = () => {
+    setShowCalibrationModal(true);
+    setCalibrationInviteVisible(false);
+  };
+
+  const handleCalibrationComplete = () => {
+    setLocalCommandMode(true);
+    setShowCalibrationModal(false);
+    setCalibrationInviteVisible(false);
+  };
+
+  // Efeito para monitorar novos lançamentos e disparar insight
+  useEffect(() => {
+    if (lastActionTimestamp && transactions.length > 0) {
+      const ctx = buildUserContext({
+        launchCount: transactions.length,
+        transactionsToday: transactions.filter((t: any) => t.date === new Date().toISOString().split('T')[0]).length,
+        monthBalance: stats.balance,
+        monthIncome: stats.income,
+        monthExpenses: stats.expenses,
+        isPremium,
+        isFirstSession: userMeta?.isFirstSession,
+        financialProfile: userMeta?.financialProfile,
+        marcoZero: userMeta?.financialProfile?.marcoZero,
+        reserveCurrent: userMeta?.financialProfile?.emergencyReserveCurrent,
+        reserveTarget: userMeta?.financialProfile?.emergencyReserveTarget,
+        freeBalance: stats.sovereignFreeBalance,
+        sovereignFreeBalance: stats.sovereignFreeBalance,
+        freedomDeficit: stats.freedomDeficit,
+        obligationsDeduction: stats.sovereignSnapshot?.obligationsDeduction,
+        commandMode,
+        persona: userMeta?.persona,
+        cards: userCards,
+        transactions: transactions,
+      });
+
+      const insight = getOperationalInsight(ctx);
+      if (insight) {
+        setInlineInsight(insight);
+        setShowInsight(true);
+        const timer = setTimeout(() => setShowInsight(false), 5000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [
+    lastActionTimestamp,
+    transactions.length,
+    isPremium,
+    userMeta?.isFirstSession,
+    userMeta?.persona,
+    stats.balance,
+    stats.sovereignFreeBalance,
+    stats.freedomDeficit,
+    commandMode,
+    userMeta?.financialProfile,
+    userCards,
+    transactions,
+  ]);
 
   const categoryStats = useMemo(() => {
     if (!isReady) return { data: [], gradient: '' };
@@ -382,32 +541,74 @@ export const useDashboardState = (props: any) => {
   }, [categories, safeTransactions]);
 
 
-  const changeDate = (offset: number) => {
+  const isNavigationTargetPast = (target: Date, mode: HistoryViewMode = viewMode) => {
+    if (mode === 'month' || mode === 'year') {
+      return isMonthBeforeCurrent(target.getFullYear(), target.getMonth() + 1);
+    }
+    const monthStart = getCurrentMonthAnchor();
+    return target < monthStart;
+  };
+
+  const guardedChangeDate = (offset: number) => {
     const newDate = new Date(currentDate);
     if (viewMode === 'day') newDate.setDate(newDate.getDate() + offset);
     else if (viewMode === 'month') newDate.setMonth(newDate.getMonth() + offset);
     else if (viewMode === 'year') newDate.setFullYear(newDate.getFullYear() + offset);
+
+    if (historyLocked && isNavigationTargetPast(newDate)) {
+      openHistoryPaywall();
+      return;
+    }
     setCurrentDate(newDate);
   };
 
-  const handleDateSelect = (dateString: string) => {
+  const guardedSetViewMode = (mode: HistoryViewMode) => {
+    if (!canUseViewMode(mode, historyPlan)) {
+      openHistoryPaywall();
+      return;
+    }
+    setViewMode(mode);
+  };
+
+  const guardedDateSelect = (dateString: string) => {
     if (!dateString) return;
     const [year, month, day] = dateString.split('-').map(Number);
-    setCurrentDate(new Date(year, month - 1, day));
+    const selected = new Date(year, month - 1, day);
+    if (historyLocked && isNavigationTargetPast(selected, 'day')) {
+      openHistoryPaywall();
+      return;
+    }
+    setCurrentDate(selected);
+  };
+
+  const guardedSetStartDate = (date: string) => {
+    if (historyLocked && !isPeriodRangeAllowed(date, endDate, historyPlan)) {
+      openHistoryPaywall();
+      return;
+    }
+    setStartDate(date);
+  };
+
+  const guardedSetEndDate = (date: string) => {
+    if (historyLocked && !isPeriodRangeAllowed(startDate, date, historyPlan)) {
+      openHistoryPaywall();
+      return;
+    }
+    setEndDate(date);
   };
 
   const handleExportPDF = () => {
     const catLabel = selectedCategories.length === 0 ? 'Todas Categorias' : selectedCategories.join(', ');
-    generateFinancialReport(filtered, `${catLabel} - ${periodLabel}`, userMeta?.email || 'Investidor');
+    generateFinancialReport(filtered, `${catLabel} - ${periodLabel}`, userMeta?.email || 'Investidor', commandMode);
   };
 
   // Funções de compatibilidade com modais para evitar falhas de runtime com referências indefinidas
-  const setRecurringBills = (newBills: any) => {
+  const setRecurringBills = (_newBills: any) => {
     // O react-query gerencia as atualizações de estado nos hooks de consulta.
     // Esta função é mantida vazia apenas para evitar erros de referência no onClose do modal.
   };
 
-  const setUserCards = (newCards: any) => {
+  const setUserCards = (_newCards: any) => {
     // O react-query gerencia as atualizações de estado nos hooks de consulta.
     // Esta função é mantida vazia apenas para evitar erros de referência no onClose do modal.
   };
@@ -435,12 +636,12 @@ export const useDashboardState = (props: any) => {
     typeFilter,
     setTypeFilter,
     viewMode,
-    setViewMode,
+    setViewMode: guardedSetViewMode,
     currentDate,
     startDate,
-    setStartDate,
+    setStartDate: guardedSetStartDate,
     endDate,
-    setEndDate,
+    setEndDate: guardedSetEndDate,
     sortMode,
     setSortMode,
     showTransactions,
@@ -460,7 +661,16 @@ export const useDashboardState = (props: any) => {
     periodLabel,
     filtered,
     stats,
-    projectedBalance,
+    projectedBalance: stats.projectedBalance,
+    commandMode,
+    showCalibrationOffer,
+    calibrationInviteCopy,
+    showCalibrationModal,
+    setShowCalibrationModal,
+    handleDeferCalibration,
+    handleDismissCalibrationInvite,
+    handleStartCalibration,
+    handleCalibrationComplete,
     categoryStats,
     categorySummary,
     categoryTransactionsMap,
@@ -473,9 +683,15 @@ export const useDashboardState = (props: any) => {
     // Handlers
     handleRecurringButtonClick,
     handleConfirmIntro,
-    changeDate,
-    handleDateSelect,
+    changeDate: guardedChangeDate,
+    handleDateSelect: guardedDateSelect,
     handleExportPDF,
+    historyLocked,
+    showHistoryPaywall,
+    setShowHistoryPaywall,
+    hasHistoryAccess,
+    historyVisibleTransactions,
+    currentMonthStartIso: getCurrentMonthStartIso(),
     setRecurringBills,
     setUserCards,
 
@@ -488,16 +704,14 @@ export const useDashboardState = (props: any) => {
     onSaveCategory,
     onDeleteCategory,
     userMeta,
-    usagePercentage,
     isPremium,
-    isLimitReached,
-    onShowPaywall,
     isPrivacyMode,
     onTogglePrivacy,
     onEditTransaction,
     onNavigate,
     isSyncing,
     isStale,
+    isMobile,
   };
 };
 export type UseDashboardStateReturn = ReturnType<typeof useDashboardState>;

@@ -1,8 +1,9 @@
 import React from 'react';
-import { render, RenderOptions } from '@testing-library/react';
+import type { RenderOptions } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
-import { User } from 'firebase/auth';
+import type { User } from 'firebase/auth';
 
 interface WrapperProps {
   children: React.ReactNode;

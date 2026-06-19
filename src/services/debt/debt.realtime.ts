@@ -1,6 +1,7 @@
-import { collection, query, QuerySnapshot, DocumentSnapshot, DocumentData, limit } from 'firebase/firestore';
+import type { QuerySnapshot, DocumentSnapshot, DocumentData} from 'firebase/firestore';
+import { collection, query, limit } from 'firebase/firestore';
 import { firestore } from '../../firebase';
-import { DebtItem } from './debt.types';
+import type { DebtItem } from './debt.types';
 import { mapDebtFromFirestore } from './debt.mapper';
 import { createRealtimeBridge } from '../../core/realtime/realtimeBridge';
 import { queryKeys } from '../../core/query/queryKeys';

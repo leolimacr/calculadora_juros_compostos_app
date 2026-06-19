@@ -3,6 +3,7 @@ import autoTable from 'jspdf-autotable';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { FileOpener } from '@capacitor-community/file-opener';
+import { getFlowLabels } from '../theme/fpiVoiceGuide';
 
 const formatCurrency = (value: number) => {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -16,7 +17,14 @@ const formatDate = (dateString: string) => {
   return adjustedDate.toLocaleDateString('pt-BR');
 };
 
-export const generateFinancialReport = async (transactions: any[], categoryFilter: string, userName: string = 'Investidor') => {
+export const generateFinancialReport = async (
+  transactions: any[],
+  categoryFilter: string,
+  userName: string = 'Investidor',
+  commandMode?: boolean,
+) => {
+  const voice = getFlowLabels(commandMode);
+  const balanceLabel = voice.monthHero.toUpperCase();
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.width;
   const today = new Date().toLocaleDateString('pt-BR');
@@ -49,17 +57,17 @@ export const generateFinancialReport = async (transactions: any[], categoryFilte
 
   doc.setFillColor(240, 253, 244); doc.setDrawColor(22, 163, 74);
   doc.roundedRect(14, startY, cardWidth, 25, 3, 3, 'FD');
-  doc.setFontSize(8); doc.setTextColor(22, 163, 74); doc.text('TOTAL ENTRADAS', 18, startY + 8);
+  doc.setFontSize(8); doc.setTextColor(22, 163, 74); doc.text(`TOTAL ${voice.income.toUpperCase()}`, 18, startY + 8);
   doc.setFontSize(12); doc.text(formatCurrency(totalIncome), 18, startY + 18);
 
   doc.setFillColor(254, 242, 242); doc.setDrawColor(220, 38, 38);
   doc.roundedRect(14 + cardWidth + 5, startY, cardWidth, 25, 3, 3, 'FD');
-  doc.setFontSize(8); doc.setTextColor(220, 38, 38); doc.text('TOTAL SAIDAS', 18 + cardWidth + 5, startY + 8);
+  doc.setFontSize(8); doc.setTextColor(220, 38, 38); doc.text(`TOTAL ${voice.expense.toUpperCase()}`, 18 + cardWidth + 5, startY + 8);
   doc.setFontSize(12); doc.text(formatCurrency(totalExpense), 18 + cardWidth + 5, startY + 18);
 
   doc.setFillColor(248, 250, 252); doc.setDrawColor(71, 85, 105);
   doc.roundedRect(14 + (cardWidth * 2) + 10, startY, cardWidth, 25, 3, 3, 'FD');
-  doc.setFontSize(8); doc.setTextColor(71, 85, 105); doc.text('SALDO', 18 + (cardWidth * 2) + 10, startY + 8);
+  doc.setFontSize(8); doc.setTextColor(71, 85, 105); doc.text(balanceLabel, 18 + (cardWidth * 2) + 10, startY + 8);
   doc.setFontSize(12); doc.setTextColor(balance >= 0 ? 22 : 220, balance >= 0 ? 163 : 38, balance >= 0 ? 74 : 38);
   doc.text(formatCurrency(balance), 18 + (cardWidth * 2) + 10, startY + 18);
 
@@ -67,7 +75,7 @@ export const generateFinancialReport = async (transactions: any[], categoryFilte
     formatDate(t.date),
     t.description,
     t.category,
-    t.type === 'income' ? 'Entrada' : 'Saida',
+    t.type === 'income' ? voice.incomeSingular : voice.expenseSingular,
     formatCurrency(Number(t.amount))
   ]);
 
@@ -96,7 +104,7 @@ export const generateFinancialReport = async (transactions: any[], categoryFilte
     },
     didParseCell: (data) => {
       if (data.section === 'body' && data.column.index === 4) {
-        data.cell.styles.textColor = data.row.raw[3] === 'Saida'
+        data.cell.styles.textColor = data.row.raw[3] === voice.expenseSingular
           ? [220, 38, 38]
           : [22, 163, 74];
       }
@@ -107,23 +115,7 @@ export const generateFinancialReport = async (transactions: any[], categoryFilte
   for (let p = totalPages; p > lastPageDrawn; p--) {
     doc.deletePage(p);
   }
-  
-  const allPages = (doc.internal as any).pages as Record<number, any[]>;
-  const totalPagesDebug = (doc.internal as any).getNumberOfPages();
 
-  console.log('=== DEBUG PDF ===');
-  console.log('Total de paginas:', totalPagesDebug);
-  console.log('finalY:', (doc as any).lastAutoTable?.finalY);
-  console.log('pageHeight:', doc.internal.pageSize.getHeight());
-
-  for (let i = 1; i <= totalPagesDebug; i++) {
-    const content = allPages[i];
-    const raw = Array.isArray(content) ? content.join('') : '';
-    const len = raw.replace(/\s/g, '').length;
-    console.log(`Pagina ${i} - tamanho raw: ${len}`);
-    console.log(`Pagina ${i} - amostra raw:`, raw.slice(0, 300));
-  }
-  
   const fileName = `relatorio_controla_${new Date().getTime()}.pdf`;
 
   if (Capacitor.isNativePlatform()) {

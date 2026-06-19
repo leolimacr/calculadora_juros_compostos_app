@@ -1,5 +1,5 @@
 
-import { MarketQuote, HistoricalDataPoint } from '../types';
+import type { MarketQuote, HistoricalDataPoint } from '../types';
 
 // ============================================================================
 // CONFIGURAÇÃO

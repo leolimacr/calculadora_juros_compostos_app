@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../core/query/queryKeys';
-import { CreditCard } from '../types';
+import type { CreditCard } from '../types';
 import { useFinanceContext } from '../contexts/FinanceContext';
 
 export const useCards = (userId?: string) => {

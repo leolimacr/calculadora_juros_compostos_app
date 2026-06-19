@@ -19,19 +19,19 @@ describe('OnboardingOverlay', () => {
 
   it('renderiza passo 1 com título e botão Lançar agora', () => {
     render(<OnboardingOverlay {...defaultProps} step={1} />);
-    expect(screen.getByText('Seu ponto de partida ❤️')).toBeDefined();
+    expect(screen.getByText('Seu ponto de partida')).toBeDefined();
     expect(screen.getByText('Lançar agora')).toBeDefined();
   });
 
   it('renderiza passo 2 com título e botão Entendi', () => {
     render(<OnboardingOverlay {...defaultProps} step={2} />);
-    expect(screen.getByText('Seu parceiro diário 📋')).toBeDefined();
+    expect(screen.getByText('Primeiro movimento registrado')).toBeDefined();
     expect(screen.getByText('Entendi')).toBeDefined();
   });
 
   it('renderiza passo 3 com título e botão Concluir', () => {
     render(<OnboardingOverlay {...defaultProps} step={3} />);
-    expect(screen.getByText('Sua evolução 🚀')).toBeDefined();
+    expect(screen.getByText('Sua evolução na Central')).toBeDefined();
     expect(screen.getByText('Concluir')).toBeDefined();
   });
 

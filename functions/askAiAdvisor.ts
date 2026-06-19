@@ -3,8 +3,11 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import { NexusIdentity } from "./nexus-core/identity";
 import { DiscretionEngine } from "./nexus-core/discretion-engine";
-import { DataIntegrator, UserDataResult } from "./nexus-core/data-integrator";
+import type { UserDataResult } from "./nexus-core/data-integrator";
+import { DataIntegrator } from "./nexus-core/data-integrator";
 import { MultiModelRouter } from "./nexus-core/MultiModelRouter";
+import { PromptBuilder } from "./nexus-core/prompt-builder";
+import { ActionManager } from "./nexus-core/action-registry";
 
 interface CryptoPriceData { price: number; lastUpdated: string; }
 interface CryptoPriceDataDual { priceUSD: number; priceBRL: number; lastUpdated: string; }
@@ -345,49 +348,10 @@ export const askAiAdvisor = onCall(
       if (userData?.goals?.length > 0) console.log("🔍 Primeira goal:", JSON.stringify(userData.goals[0]));
       console.log("🔍 userData.hasData:", userData?.hasData);
 
-      const totalAssets = assets.reduce((sum: number, a: any) => sum + (a.currentValue || 0), 0);
-      const totalPassives = passives.reduce((sum: number, p: any) => sum + (p.currentValue || 0), 0);
-      const patrimonioTotalMonitorado = totalAssets + totalPassives;
-
-      const assetsSummary = assets && assets.length > 0
-        ? `\n🏦 ATIVOS PATRIMONIAIS / PRODUTIVOS (${assets.length} itens):\n` +
-          assets.map((a: any) => {
-            const nome = a.name || a.description || 'Item sem nome';
-            const categoria = a.category || 'Outros';
-            const valor = Number(a.currentValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            return `  • ${nome} (${categoria}): R$ ${valor}`;
-          }).join('\n')
-        : '\n🏦 Ativos patrimoniais / produtivos: Nenhum ativo registrado.';
-
-      const passivesSummary = passives && passives.length > 0
-        ? `\n🏠 PASSIVOS PATRIMONIAIS / IMOBILIZADOS (${passives.length} itens):\n` +
-          passives.map((p: any) => {
-            const nome = p.description || p.name || 'Item sem nome';
-            const categoria = p.category || 'Outros';
-            const valor = Number(p.currentValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            return `  • ${nome} (${categoria}): R$ ${valor}`;
-          }).join('\n')
-        : '\n🏠 Passivos patrimoniais / imobilizados: Nenhum passivo registrado.';
-
-      const debtsSummary = serverDebts && serverDebts.length > 0
-        ? `\n💳 DÍVIDAS CADASTRADAS (${serverDebts.length} itens):\n` +
-          serverDebts.map((d: any) => {
-            const nome = d.nome || 'Dívida sem nome';
-            const tipo = d.tipo || 'Outros';
-            const saldo = Number(d.saldoDevedor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            const taxa = Number(d.taxaMensal || 0).toFixed(2);
-            const parcelas = d.parcelasRestantes ?? 'N/A';
-            const parcela = d.valorParcela ? `R$ ${Number(d.valorParcela).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/mês` : 'N/A';
-            return `  • ${nome} (${tipo}): Saldo R$ ${saldo} | Taxa ${taxa}%/mês | ${parcelas} parcelas restantes | Parcela: ${parcela}`;
-          }).join('\n')
-        : '\n💳 Dívidas: Nenhuma dívida cadastrada no app.';
-
-      const patrimonioVisaoGerencialStr =
-        `📊 VISÃO PATRIMONIAL DO APP:\n` +
-        `• Total em ativos patrimoniais / produtivos: R$ ${totalAssets.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n` +
-        `• Total em passivos patrimoniais / imobilizados: R$ ${totalPassives.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n` +
-        `• Patrimônio total monitorado no app: R$ ${patrimonioTotalMonitorado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n` +
-        `ℹ️ No Finanças Pro Invest, "passivos" são bens patrimoniais que exigem manutenção/aportes e não devem ser tratados automaticamente como dívidas.`;
+      const assetsSummary = DataIntegrator.formatAssetsSummary(assets);
+      const passivesSummary = DataIntegrator.formatPassivesSummary(passives);
+      const debtsSummary = DataIntegrator.formatDebtsSummary(serverDebts);
+      const patrimonioVisaoGerencialStr = DataIntegrator.formatPatrimonioVisaoGerencial(assets, passives);
 
       console.log("🔍 assets recebidos:", JSON.stringify(assets));
       console.log("🔍 passives recebidos:", JSON.stringify(passives));
@@ -418,14 +382,12 @@ export const askAiAdvisor = onCall(
         hasSimulations: userData.simulations.length > 0
       });
 
-      const promptLower = String(prompt || '').toLowerCase();
-      const isCashflowRequest = /(lançamento|lançamentos|transaç|receita|receitas|despesa|despesas|gasto|gastos|entrada|entradas|saída|saídas|saldo|orçamento|fluxo de caixa|movimentação|movimentacoes|movimentações)/i.test(promptLower);
-      const isPatrimonyRequest = /(ativo|ativos|passivo|passivos|patrimônio|patrimonio|bens|imóveis|imoveis|veículos|veiculos|terrenos|carteira patrimonial)/i.test(promptLower);
-      const isDebtPlanRequest = /(plano|quitar|sair das dívidas|estratégia de quitação|prioridade de dívida)/i.test(promptLower);
-
       let transactionsForPrompt = "Nenhuma transação registrada.";
       if (userData.recentTransactions && userData.recentTransactions.length > 0) {
-        transactionsForPrompt = DataIntegrator.formatTransactionsForPrompt(userData.recentTransactions, { ...context, requestedFocus: isCashflowRequest ? 'cashflow' : isPatrimonyRequest ? 'patrimony' : 'general' });
+        transactionsForPrompt = DataIntegrator.formatTransactionsForPrompt(userData.recentTransactions, { 
+          ...context, 
+          requestedFocus: context.intent === 'cashflow_query' ? 'cashflow' : context.intent === 'patrimony_query' ? 'patrimony' : 'general' 
+        });
       }
       console.log("🔍 transactionsForPrompt:", transactionsForPrompt);
 
@@ -448,36 +410,6 @@ export const askAiAdvisor = onCall(
       }
       console.log("🔍 goalsForPrompt:", goalsForPrompt);
 
-      const focusInstructions =
-        isCashflowRequest && !isPatrimonyRequest
-          ? `\n# FOCO OBRIGATÓRIO DESTA RESPOSTA\nO usuário está pedindo análise de lançamentos, receitas, despesas, saldo, orçamento ou fluxo de caixa.\nPriorize TRANSAÇÕES e METAS.\nNÃO troque esta análise por análise patrimonial.\nSó mencione ativos ou passivos se o usuário pedir explicitamente ou se isso for indispensável para esclarecer algo.`
-          : isPatrimonyRequest && !isCashflowRequest
-          ? `\n# FOCO OBRIGATÓRIO DESTA RESPOSTA\nO usuário está pedindo análise patrimonial.\nPriorize ATIVOS e PASSIVOS patrimoniais do app.\nNÃO trate passivos patrimoniais como dívidas, salvo se o usuário mencionar explicitamente dívida, saldo devedor, financiamento, parcelas, juros ou obrigação em aberto.`
-          : '';
-
-      console.log("🔍 Chamando getSystemPrompt com assetsSummary:", assetsSummary);
-      console.log("🔍 passivesSummary:", passivesSummary);
-      console.log("🔍 patrimonioVisaoGerencialStr:", patrimonioVisaoGerencialStr);
-
-      const systemPrompt = `${NexusIdentity.getSystemPrompt(safeUserName, context, marketData, transactionsForPrompt, goalsForPrompt, "", assetsSummary, passivesSummary, patrimonioVisaoGerencialStr, isFirst, userData, historyDescription)}${debtsSummary}${focusInstructions}
-      
-      ${isDebtPlanRequest ? `
-      # PROTOCOLO OBRIGATÓRIO: PLANO DE QUITAÇÃO
-      1. USE A RENDA DECLARADA: O usuário informou que ganha R$ ${userData.financialProfile?.monthlyIncome || 'não informado'}. Use este valor como base de fôlego, ignorando médias históricas.
-      2. USE AS PARCELAS: O valor de cada parcela já está no resumo de dívidas acima. NUNCA peça esse dado.
-      3. RESERVA DE EMERGÊNCIA: A meta do usuário é de ${userData.financialProfile?.emergencyReserveTarget || 6} meses. Considere o saldo atual de R$ ${userData.financialProfile?.emergencyReserveCurrent || 0}.
-      4. FORMATO DE SAÍDA: Use obrigatoriamente blocos visuais (Cards) com ícones para: Diagnóstico, Plano de Ação, Próximos Passos.
-      5. NÃO FAÇA PERGUNTAS INICIAIS: Se você já tem a renda, as parcelas e a reserva, gere o plano imediatamente.
-      ` : ''}`;
-
-      const messages = [
-        ...validHistory.slice(-6).map((h: any) => ({
-          role: h.role === 'ai' || h.role === 'assistant' ? 'assistant' : 'user',
-          content: h.text
-        })),
-        { role: "user", content: prompt }
-      ];
-
       let avoidRepetition = "";
       if (validHistory.length >= 2) {
         const lastTwoUserMessages = validHistory.filter((h: any) => h.role === 'user').slice(-2);
@@ -490,42 +422,33 @@ export const askAiAdvisor = onCall(
         }
       }
 
+      // CONSTRUÇÃO DO PROMPT VIA PROMPTBUILDER
+      const enhancedSystemPrompt = PromptBuilder.buildSystemPrompt({
+        userName: safeUserName,
+        context,
+        marketData,
+        userData,
+        assetsSummary,
+        passivesSummary,
+        patrimonioVisaoGerencialStr,
+        debtsSummary,
+        isFirst,
+        historyDescription,
+        avoidRepetition,
+        isUserCorrection,
+        transactionsForPrompt,
+        goalsForPrompt
+      });
+
+      const messages = [
+        ...validHistory.slice(-6).map((h: any) => ({
+          role: h.role === 'ai' || h.role === 'assistant' ? 'assistant' : 'user',
+          content: h.text
+        })),
+        { role: "user", content: prompt }
+      ];
+
       logger.info('[Router] Primeira chamada para análise...');
-
-      const enhancedSystemPrompt = `${systemPrompt}${avoidRepetition}
-
-# 🔎 IMPORTANTE: BUSCA NA WEB
-
-Se você NÃO SOUBER a resposta ou precisar de dados atualizados externos, RESPONDA EXATAMENTE assim:
-
-[BUSCAR_WEB: sua query de busca aqui]
-
-## SEMPRE use [BUSCAR_WEB] para:
-- Taxa Selic, IPCA, CDI, inflação (atual/recente)
-- Notícias econômicas ou do mercado financeiro
-- **Máxima histórica** de qualquer ativo (BTC, ETH, ações, etc)
-- **Recorde, all-time high, ATH** de qualquer ativo
-- Comparações históricas ("BTC em 2020", "preço do BTC em X data")
-- Decisões do Copom, Banco Central
-- PIB, desemprego, indicadores econômicos
-- Eventos econômicos recentes
-- **SEMPRE que o usuário CORRIGIR algum dado seu**
-
-## NUNCA use [BUSCAR_WEB] para:
-- Cotações BTC/ETH/ações B3 (você já tem esses dados)
-- Conceitos gerais ("O que é CDB?", "Como funciona ação?")
-- Análise dos dados do usuário
-
-${isUserCorrection ? "\n**ATENÇÃO:** O usuário está CORRIGINDO uma informação que você deu. Você DEVE buscar na web para validar e admitir o erro se estiver errado." : ""}
-
-      ${isDebtPlanRequest ? `
-      # 🏆 REGRA DE OURO (PROTOCOLO DE QUITAÇÃO) - PRIORIDADE MÁXIMA
-      1. RENDA: Use R$ ${userData.financialProfile?.monthlyIncome || 'não informado'} como a renda mensal do usuário.
-      2. PARCELAS: O valor de cada parcela está no sumário de dívidas acima. Use-os para o cálculo de fluxo de caixa.
-      3. RESERVA: Meta de ${userData.financialProfile?.emergencyReserveTarget || 6} meses. Saldo atual: R$ ${userData.financialProfile?.emergencyReserveCurrent || 0}.
-      4. NÃO PERGUNTE: Se os dados acima existem, NÃO peça renda ou parcelas. Gere o plano agora.
-      5. FORMATO: Responda obrigatoriamente usando os Cards Visuais do sistema (Diagnóstico, Plano de Ação, Próximos Passos).
-      ` : ''}`;
 
       const firstResponse = await router.routeRequest(messages, enhancedSystemPrompt, {
         temperature: 0.6,
@@ -547,11 +470,9 @@ ${isUserCorrection ? "\n**ATENÇÃO:** O usuário está CORRIGINDO uma informaç
           { role: "assistant" as const, content: `[Realizei uma busca e encontrei: ${searchResult}]` },
           { role: "user" as const, content: `Com base nos resultados da busca, responda a pergunta original: "${prompt}"` }
         ];
-        let finalSystemPrompt = systemPrompt;
-        if (isUserCorrection) {
-          finalSystemPrompt += `\n\n**CORREÇÃO DO USUÁRIO:** O usuário corrigiu uma informação sua. Com base nos resultados da busca, reconheça o erro educadamente e forneça a informação correta. Exemplo: "Você está correto, ${safeUserName}. Cometi um erro ao citar dados desatualizados. A informação correta é..."`;
-        }
-        const secondResponse = await router.routeRequest(messagesWithSearch, finalSystemPrompt, {
+
+        // Para a segunda chamada, também usamos o PromptBuilder (ele já lida com isUserCorrection internamente)
+        const secondResponse = await router.routeRequest(messagesWithSearch, enhancedSystemPrompt, {
           temperature: 0.6,
           maxTokens: 1200,
           fallbackContext: { primaryIntent: context.intent, userName: safeUserName }
@@ -569,14 +490,17 @@ ${isUserCorrection ? "\n**ATENÇÃO:** O usuário está CORRIGINDO uma informaç
         .replace(/\[.*?"function".*?\]/g, '')
         .trim();
 
+      const { cleanText, actions } = ActionManager.extractActions(finalAnswer);
+
       return {
         success: true,
-        answer: finalAnswer,
+        answer: cleanText,
         context: {
           model: firstResponse.provider,
           intent: context.intent,
           hasTransactions: userData.recentTransactions.length > 0,
-          hasGoals: userData.goals.length > 0
+          hasGoals: userData.goals.length > 0,
+          actions: actions.length > 0 ? actions : undefined
         }
       };
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Zap, X } from 'lucide-react';
-import { NexusInsight } from '../../../../services/nexusInsightEngine';
+import type { NexusInsight } from '../../../../services/nexusInsightEngine';
 
 interface NexusInsightToastProps {
   isOpen: boolean;

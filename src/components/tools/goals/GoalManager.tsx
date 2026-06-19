@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useGoals } from '../../../hooks/useGoals';
-import { Goal } from '../../../services/goalService';
+import type { Goal } from '../../../services/goalService';
 import { Timestamp } from 'firebase/firestore';
 import { 
   TrendingUp, 

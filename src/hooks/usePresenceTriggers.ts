@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
-import { DebtItem } from './useDebts';
+import type { DebtItem } from './useDebts';
 import { PresenceEventService } from '../services/PresenceEventService';
+import { FPI_COPY } from '../theme/fpiVoiceGuide';
 
 const DAYS_MS = 24 * 60 * 60 * 1000;
 
@@ -150,8 +151,8 @@ export const usePresenceTriggers = ({
                 urgency: 'low',
                 message: {
                   title: 'Contexto desatualizado',
-                  body: `Você não registra gastos há ${Math.floor(daysSinceTx)} dias. O Nexus trabalha melhor com dados frescos.`,
-                  ctaLabel: 'Registrar gasto',
+                  body: FPI_COPY.presenceInactiveDays(Math.floor(daysSinceTx)),
+                  ctaLabel: FPI_COPY.presenceInactiveCta,
                 },
                 deepLink: 'manager',
                 cooldownHours: 72,

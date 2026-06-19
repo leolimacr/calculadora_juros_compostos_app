@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import ActiveReservesCard from '../ActiveReservesCard';
-import { Goal } from '../../../services/goalService';
+import type { Goal } from '../../../services/goalService';
 
 describe('ActiveReservesCard', () => {
   it('não deve renderizar nada se não houver metas de reserva', () => {

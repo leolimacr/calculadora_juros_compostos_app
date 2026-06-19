@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { calculateDecision, formatCurrencyBRL, formatPercent, maskCurrencyInput, maskPercentInput, parsePtBrNumber, validateCalculation } from './finance';
 import { fetchCurrentSelicRate } from './selicService';
-import { CalculationInputs, CalculationResult, TaxMode } from './types';
+import type { CalculationInputs, CalculationResult, TaxMode } from './types';
 import './buyCashOrInstallInvest.css';
 
 const defaultState = {

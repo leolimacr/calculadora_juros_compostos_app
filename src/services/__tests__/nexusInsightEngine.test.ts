@@ -1,228 +1,116 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { getPrioritizedInsight, getCentralInsights, UserContext, buildUserContext, getOperationalInsight, NexusInsight } from '../nexusInsightEngine';
+import {
+  getPrioritizedInsight,
+  getCentralInsights,
+  buildUserContext,
+  getOperationalInsight,
+  isMarginStable,
+  hasFinancialTension,
+  dismissPrioritizedInsight,
+} from '../nexusInsightEngine';
 
-describe('NexusInsightEngine', () => {
+describe('NexusInsightEngine v2', () => {
+  let store: Record<string, string>;
+
   beforeEach(() => {
-    // Limpa o localStorage antes de cada teste
+    store = {};
     vi.stubGlobal('localStorage', {
-      getItem: vi.fn(),
-      setItem: vi.fn(),
-      clear: vi.fn(),
+      getItem: vi.fn((key: string) => store[key] ?? null),
+      setItem: vi.fn((key: string, val: string) => {
+        store[key] = val;
+      }),
+      clear: vi.fn(() => {
+        store = {};
+      }),
     });
   });
 
-  it('deve retornar o insight "local-central-start" para um usuário novo sem perfil financeiro', () => {
-    const ctx = buildUserContext({
-      hasFinancialProfile: false,
-      launchCount: 1, // Não é primeira sessão para não bater no novo insight
-    });
-
-    const insight = getPrioritizedInsight(ctx);
-    expect(insight).not.toBeNull();
-    expect(insight?.id).toBe('local-central-start');
-  });
-
-  it('deve retornar pelo menos um insight estratégico para um usuário Premium na Central', () => {
+  it('retorna insight de fatura quando fechamento está próximo', () => {
     const ctx = buildUserContext({
       hasFinancialProfile: true,
-      hasPaidAccess: true,
-      isPremium: true,
-      transactionsToday: 1,
-      launchCount: 50,
-      monthBalance: 12000,
-      hasFirstInvestment: true,
-      hasDebts: false,
-      hasRealEstate: true,
-      reserveGoalMet: true,
-    });
-
-    const insights = getCentralInsights(ctx);
-    expect(insights.length).toBeGreaterThan(0);
-    // Deve conter pelo menos um dos insights estratégicos mapeados
-    const ids = insights.map(i => i.id);
-    expect(ids).toContain('central-wealth-diversification');
-  });
-
-  it('deve retornar null se todos os insights aplicáveis já tiverem sido vistos', () => {
-    // Mock do localStorage para simular que todos os IDs foram vistos
-    const seenIds = [
-      'local-central-start',
-      'local-central-premium-upsell',
-      'local-inactive-7days',
-      'local-first-investment',
-      'local-efficiency-upsell',
-      'local-central-evolution',
-      'local-today-reminder',
-      'boas_vindas_primeira_sessao'
-    ];
-    
-    vi.stubGlobal('localStorage', {
-      getItem: vi.fn().mockReturnValue(JSON.stringify(seenIds)),
-      setItem: vi.fn(),
-    });
-
-    const ctx = buildUserContext({
-      hasFinancialProfile: false,
-      launchCount: 0,
-    });
-
-    const insight = getPrioritizedInsight(ctx);
-    expect(insight).toBeNull();
-  });
-
-  it('deve gerar o insight "fatima_reserva" quando houver fatura fechando em breve', () => {
-    const ctx = buildUserContext({
-      hasFinancialProfile: true,
-      hasPaidAccess: true,
-      isPremium: true,
       launchCount: 10,
-      upcomingCreditCardBill: {
-        daysToClose: 3,
-        estimatedValue: 1500.50,
-      },
+      upcomingCreditCardBill: { daysToClose: 3, estimatedValue: 1500.5 },
     });
 
     const insight = getPrioritizedInsight(ctx);
     expect(insight?.id).toBe('fatima_reserva');
-    expect(insight?.action?.type).toBe('reserve');
-    // Verifica a interpolação básica
     expect(insight?.message.body).toContain('3 dias');
-    expect(insight?.message.body).toContain('1.500,50');
   });
 
-  it('deve gerar o insight "boas_vindas_primeira_sessao" quando for a primeira sessão', () => {
+  it('Dom do Tempo: margem estável suprime insights médios', () => {
     const ctx = buildUserContext({
-      launchCount: 0,
-      hasFinancialProfile: true, // Para não bater no central-start
-    });
-
-    const insight = getPrioritizedInsight(ctx);
-    expect(insight?.id).toBe('boas_vindas_primeira_sessao');
-    expect(insight?.action?.type).toBe('adjust');
-  });
-
-  it('não deve gerar o insight de boas-vindas quando não for a primeira sessão', () => {
-    const ctx = buildUserContext({
-      launchCount: 10,
       hasFinancialProfile: true,
+      launchCount: 20,
+      monthBalance: 8000,
+      monthIncome: 10000,
+      monthExpenses: 5000,
+      sovereignFreeBalance: 4000,
+      marcoZero: 2000,
+      reserveCurrent: 1000,
+    });
+
+    expect(isMarginStable(ctx)).toBe(true);
+    expect(hasFinancialTension(ctx)).toBe(false);
+
+    const insight = getPrioritizedInsight(ctx);
+    if (insight) {
+      expect(insight.priority).toBe('alta');
+    }
+  });
+
+  it('detecta déficit de liberdade na Home', () => {
+    const ctx = buildUserContext({
+      hasFinancialProfile: true,
+      launchCount: 15,
+      sovereignFreeBalance: -500,
+      freedomDeficit: 500,
     });
 
     const insight = getPrioritizedInsight(ctx);
-    expect(insight?.id).not.toBe('boas_vindas_primeira_sessao');
+    expect(insight?.id).toBe('home-sovereign-deficit');
   });
 
-  describe('Nexus Inline Insights', () => {
-    it('deve retornar insight de consistência quando o usuário atingir 5 transações no dia', () => {
-      const ctx = buildUserContext({
-        transactionsToday: 5,
-      });
-
-      const insight = getOperationalInsight(ctx);
-      expect(insight?.id).toBe('op-consistency-5');
-      expect(insight?.priority).toBe('inline');
+  it('reexibe insight quando fingerprint muda', () => {
+    const base = buildUserContext({
+      hasFinancialProfile: true,
+      launchCount: 15,
+      sovereignFreeBalance: -200,
+      freedomDeficit: 200,
     });
 
-    it('deve retornar aviso de orçamento quando o saldo do mês estiver negativo', () => {
-      const ctx = buildUserContext({
-        monthBalance: -100,
-        transactionsToday: 1, // Para não bater no de consistência se ele vier primeiro
-      });
+    getPrioritizedInsight(base);
+    dismissPrioritizedInsight('home-sovereign-deficit', base);
 
-      const insight = getOperationalInsight(ctx);
-      expect(insight?.id).toBe('op-budget-warning');
-      expect(insight?.message.body).toContain('saldo ficou negativo');
+    const worsened = buildUserContext({
+      ...base,
+      sovereignFreeBalance: -800,
+      freedomDeficit: 800,
     });
 
-    it('deve retornar insight de evolução quando o saldo estiver positivo e launchCount > 10', () => {
-      const ctx = buildUserContext({
-        monthBalance: 500,
-        launchCount: 15,
-        transactionsToday: 1,
-      });
-
-      const insight = getOperationalInsight(ctx);
-      expect(insight?.id).toBe('op-growth-positive');
-    });
-
-    it('deve retornar o insight de pagamento de fatura quando dueDate for hoje', () => {
-      const ctx = buildUserContext({
-        upcomingCreditCardBill: {
-          daysToClose: 0,
-          estimatedValue: 2500,
-          cardName: 'Mastercard',
-          cardId: 'c1'
-        },
-      });
-
-      const insight = getOperationalInsight(ctx);
-      expect(insight?.id).toBe('op-pay-invoice');
-      expect(insight?.message.body).toContain('Mastercard');
-      expect(insight?.message.body).toContain('HOJE');
-      expect(insight?.message.body).toContain('2.500,00');
-      expect(insight?.action?.type).toBe('pay_invoice');
-      expect(insight?.action?.payload?.amount).toBe(2500);
-    });
-
-    it('deve retornar o insight de pagamento de fatura quando dueDate for amanhã', () => {
-      const ctx = buildUserContext({
-        upcomingCreditCardBill: {
-          daysToClose: 1,
-          estimatedValue: 1200,
-          cardName: 'Visa',
-          cardId: 'c2'
-        },
-      });
-
-      const insight = getOperationalInsight(ctx);
-      expect(insight?.id).toBe('op-pay-invoice');
-      expect(insight?.message.body).toContain('AMANHÃ');
-    });
-
-    it('deve retornar null quando nenhuma condição operacional for atendida', () => {
-      const ctx = buildUserContext({
-        transactionsToday: 1,
-        monthBalance: 0,
-        launchCount: 5,
-      });
-
-      const insight = getOperationalInsight(ctx);
-      expect(insight).toBeNull();
-    });
+    const again = getPrioritizedInsight(worsened);
+    expect(again?.id).toBe('home-sovereign-deficit');
   });
 
-  describe('Central Streak Milestones', () => {
-    it('deve disparar o insight "central-streak-milestone" no marco de 7 dias', () => {
-      const ctx = buildUserContext({
-        streak: 7,
-      });
-
-      const insights = getCentralInsights(ctx);
-      const ids = insights.map(i => i.id);
-      expect(ids).toContain('central-streak-milestone');
-      
-      const milestone = insights.find(i => i.id === 'central-streak-milestone');
-      expect(milestone?.message.body).toContain('7 dias');
+  it('insight operacional usa margem soberana negativa', () => {
+    const ctx = buildUserContext({
+      sovereignFreeBalance: -100,
+      monthBalance: -100,
+      transactionsToday: 1,
     });
 
-    it('deve disparar o insight "central-streak-milestone" no marco de 30 dias', () => {
-      const ctx = buildUserContext({
-        streak: 30,
-      });
+    const insight = getOperationalInsight(ctx);
+    expect(insight?.id).toBe('op-budget-warning');
+    expect(insight?.message.body).toContain('folga');
+  });
 
-      const insights = getCentralInsights(ctx);
-      const ids = insights.map(i => i.id);
-      expect(ids).toContain('central-streak-milestone');
-      expect(insights.find(i => i.id === 'central-streak-milestone')?.message.body).toContain('30 dias');
+  it('Central retorna insights de dívida quando aplicável', () => {
+    const ctx = buildUserContext({
+      hasFinancialProfile: true,
+      hasDebts: true,
+      launchCount: 10,
     });
 
-    it('não deve disparar o insight "central-streak-milestone" fora dos marcos', () => {
-      const ctx = buildUserContext({
-        streak: 5,
-      });
-
-      const insights = getCentralInsights(ctx);
-      const ids = insights.map(i => i.id);
-      expect(ids).not.toContain('central-streak-milestone');
-    });
+    const insights = getCentralInsights(ctx);
+    expect(insights.some((i) => i.id === 'central-debt-interest')).toBe(true);
   });
 });

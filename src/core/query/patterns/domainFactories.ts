@@ -1,4 +1,5 @@
-import { QueryKey, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { QueryKey} from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { normalizeError } from '../errors/normalizeError';
 import { createRealtimeQuery } from '../realtime/createRealtimeQuery';
 import { useEffect } from 'react';

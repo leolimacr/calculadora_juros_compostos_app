@@ -1,15 +1,15 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { useGoals } from './useGoals';
 import { useDebts } from '../services/debt/debt.hooks';
 import { createAssetsRealtimeBridge, createPassivesRealtimeBridge } from '../services/wealth.realtime';
 import { queryKeys } from '../core/query/queryKeys';
-import { ActiveAsset } from '../components/tools/wealth/ActiveWealthManager';
-import { PassiveAsset } from '../components/tools/wealth/PassiveWealthManager';
+import type { ActiveAsset } from '../components/tools/wealth/ActiveWealthManager';
+import type { PassiveAsset } from '../components/tools/wealth/PassiveWealthManager';
 
 export const useWealthData = () => {
-  const { user } = useAuth();
+  const { user, userMeta } = useAuth();
   const uid = user?.uid;
 
   const keyAssets = queryKeys.wealth.assetsByUser(uid || 'anonymous');
@@ -44,16 +44,29 @@ export const useWealthData = () => {
   const totalAssets = totalInvestments + totalProperty;
   const patrimonioLiquido = totalAssets - totalDebts;
 
+  // LÓGICA DE BALDES CFP (Novo)
+  const financialProfile = userMeta?.financialProfile;
+  const marcoZero = financialProfile?.marcoZero || 0;
+  const reserveTarget = financialProfile?.emergencyReserveTarget || 0;
+  const reserveCurrent = financialProfile?.emergencyReserveCurrent || 0;
+  const colchaoInicialTarget = financialProfile?.colchaoInicialTarget || 0;
+
   return {
     assets,
     passives,
     goals,
     debts,
-    totalAssets,           // Soma de Investimentos + Bens
-    totalInvestments,      // Apenas Financeiro
-    totalProperty,         // Apenas Bens (ex-passives)
-    totalDebts,            // Dívidas Reais
+    totalAssets,           
+    totalInvestments,      
+    totalProperty,         
+    totalDebts,            
     patrimonioLiquido,
+    // Novos campos de Baldes
+    marcoZero,
+    reserveTarget,
+    reserveCurrent,
+    colchaoInicialTarget,
+    financialProfile,
     loading,
     isSyncing,
   };

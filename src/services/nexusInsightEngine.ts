@@ -1,23 +1,23 @@
 import { extractUpcomingBill } from './nexusContextUtils';
-import { DebtItem } from './debt/debt.types';
-import { CreditCard, Transaction, ActiveAsset, PassiveAsset } from '../types';
+import type { DebtItem } from './debt/debt.types';
+import type {
+  CreditCard,
+  Transaction,
+  ActiveAsset,
+  PassiveAsset,
+  FinancialProfile,
+  PersonaContext,
+} from '../types';
+import { getPersonaVoice } from './personaService';
+import { getFlowLabels } from '../theme/fpiVoiceGuide';
+import { calculateSovereignBalance } from '../utils/calculations';
 
-// Tipos
-export interface NexusInsightAction {
-  label: string;
-  type: 'reserve' | 'adjust' | 'remind' | 'simulate' | 'review' | 'pay_invoice';
-  requiresPlan?: 'pro' | 'premium';
-  payload?: {
-    value?: number;
-    title?: string;
-    targetDate?: string;
-    cardId?: string;
-    amount?: number;
-    cardName?: string;
-  };
+export interface NexusAdvisoryContext {
+  snapshot: import('../utils/calculations').SovereignSnapshot;
+  commandMode: boolean;
+  categorySpending: Record<string, number>;
+  isPremium: boolean;
 }
-
-export type InsightPriority = 'alta' | 'media' | 'baixa' | 'inline';
 
 export interface NexusInsight {
   id: string;
@@ -27,26 +27,46 @@ export interface NexusInsight {
     ctaLabel: string;
   };
   deepLink: string;
-  priority: InsightPriority;
-  action?: NexusInsightAction;
+  priority: 'alta' | 'media' | 'baixa' | 'inline';
+  action?: {
+    label: string;
+    type: string;
+    requiresPlan?: string;
+    payload?: any;
+  };
+  style?: {
+    brandColor?: string;
+  };
 }
 
 export interface UserContext {
   hasFinancialProfile: boolean;
+  financialProfile?: FinancialProfile;
   hasPaidAccess: boolean;
   isPremium: boolean;
+  persona?: PersonaContext;
   transactionsToday: number;
   daysSinceLastTransaction: number;
   launchCount: number;
   launchLimit: number;
-  monthBalance: number; // positivo = azul, negativo = vermelho
+  monthBalance: number;
+  monthIncome?: number;
+  monthExpenses?: number;
+  accumulatedBalance?: number;
+  marcoZero?: number;
+  reserveTarget?: number;
+  reserveCurrent?: number;
+  freeBalance?: number;
+  sovereignFreeBalance?: number;
+  freedomDeficit?: number;
+  obligationsDeduction?: number;
+  commandMode?: boolean;
+  recentLargeIncome?: number;
   hasFirstInvestment: boolean;
   streak: number;
-  // [NEXUS MULTIMODULAR] Coleções completas para discernimento
   assets?: ActiveAsset[];
   passives?: PassiveAsset[];
   debts?: DebtItem[];
-  // Dados estratégicos para Central
   hasDebts?: boolean;
   hasRealEstate?: boolean;
   hasVehicles?: boolean;
@@ -65,175 +85,32 @@ export interface UserContext {
   };
 }
 
-// Catálogo de insights baseado no repertório aprovado
-const INSIGHT_CATALOG: Array<{
+type CatalogItem = {
   id: string;
   condition: (ctx: UserContext) => boolean;
   insight: NexusInsight;
-}> = [
-  // Home — Jornada de Entrada
+};
+
+const INSIGHT_CATALOG: CatalogItem[] = [
+  // ── HOME — tensão soberana ──
   {
-    id: 'local-central-start',
-    condition: (ctx) => !ctx.hasFinancialProfile,
+    id: 'home-sovereign-deficit',
+    condition: (ctx) => {
+      const deficit = ctx.freedomDeficit ?? 0;
+      const free = ctx.sovereignFreeBalance ?? ctx.freeBalance ?? 0;
+      return ctx.hasFinancialProfile && (deficit > 0 || free < 0);
+    },
     insight: {
-      id: 'local-central-start',
+      id: 'home-sovereign-deficit',
       message: {
-        title: 'Inicie sua Jornada',
-        body: 'Comece seu plano de evolução — organize suas dívidas na Central para ter clareza total do seu caminho.',
-        ctaLabel: 'Ir para Central',
+        title: 'Déficit de liberdade',
+        body: '{prefix} sua folga do mês está em déficit de {deficit}. A estrutura de proteção está sendo consumida — é hora de revisar compromissos.',
+        ctaLabel: 'Ver Estrutura',
       },
-      deepLink: 'central',
+      deepLink: 'manager',
       priority: 'alta',
     },
   },
-  // Home — Boas-vindas inteligente (Onboarding)
-  {
-    id: 'boas_vindas_primeira_sessao',
-    condition: (ctx) => ctx.isFirstSession === true,
-    insight: {
-      id: 'boas_vindas_primeira_sessao',
-      message: {
-        title: 'Bem-vindo ao Finanças Pro Invest',
-        body: 'Que tal lançar sua primeira receita para começarmos a te entender melhor?',
-        ctaLabel: 'Lançar Agora',
-      },
-      deepLink: 'transaction-form',
-      priority: 'media',
-      action: { label: 'Lançar agora', type: 'adjust' }
-    },
-  },
-
-  // [NEXUS DISCERNMENT] — Proteção de Lar
-  {
-    id: 'central-nexus-family-protection',
-    condition: (ctx) => {
-      const hasHighInterestDebt = ctx.debts?.some(d => (d.taxaMensal || 0) > 5);
-      const hasEssentialHome = ctx.passives?.some(p => checkPurpose(p, ['lar', 'moradia', 'família', 'casa']));
-      return !!hasHighInterestDebt && !!hasEssentialHome;
-    },
-    insight: {
-      id: 'central-nexus-family-protection',
-      message: {
-        title: 'Proteja seu Porto Seguro',
-        body: 'Leo, notei juros altos rodando em suas dívidas. Vamos traçar um plano para eliminá-los preservando 100% o seu lar?',
-        ctaLabel: 'Ver Estratégia',
-      },
-      deepLink: 'minhas-dividas',
-      priority: 'alta',
-    },
-  },
-
-  // [NEXUS DISCERNMENT] — Liquidez de Ativos Negociáveis
-  {
-    id: 'central-nexus-liquidity-opportunity',
-    condition: (ctx) => {
-      const isNegative = ctx.monthBalance < 0;
-      const hasNegotiableAsset = ctx.passives?.some(p => checkPurpose(p, ['venda', 'negociável', 'disponível', 'custo']));
-      return isNegative && !!hasNegotiableAsset;
-    },
-    insight: {
-      id: 'central-nexus-liquidity-opportunity',
-      message: {
-        title: 'Otimização de Patrimônio',
-        body: 'Seu saldo está apertado, mas você possui bens marcados como negociáveis. Quer simular como a venda de um deles aliviaria seu mês?',
-        ctaLabel: 'Simular Venda',
-      },
-      deepLink: 'central',
-      priority: 'media',
-    },
-  },
-
-  // Home — Jornada de Expansão (Premium)
-  {
-    id: 'local-central-premium-upsell',
-    condition: (ctx) => ctx.hasFinancialProfile && !ctx.hasPaidAccess,
-    insight: {
-      id: 'local-central-premium-upsell',
-      message: {
-        title: 'Sua base está pronta',
-        body: 'Você já domina sua rotina. Agora, amplie sua visão com o Premium e conecte investimentos ao seu patrimônio.',
-        ctaLabel: 'Evoluir meu plano',
-      },
-      deepLink: 'pricing',
-      priority: 'media',
-    },
-  },
-  // Home — Retomada de Ritmo (Inatividade > 7 dias)
-  {
-    id: 'local-inactive-7days',
-    condition: (ctx) => ctx.daysSinceLastTransaction >= 7,
-    insight: {
-      id: 'local-inactive-7days',
-      message: {
-        title: 'Retome o Ritmo',
-        body: 'Faz tempo que não te vemos. Seus dados atualizados hoje geram decisões melhores amanhã.',
-        ctaLabel: 'Lançar agora',
-      },
-      deepLink: 'transaction-form',
-      priority: 'media',
-    },
-  },
-  // Home — Marco de Investimento
-  {
-    id: 'local-first-investment',
-    condition: (ctx) => ctx.hasFirstInvestment,
-    insight: {
-      id: 'local-first-investment',
-      message: {
-        title: 'Marco de Investimento',
-        body: 'Parabéns pelo primeiro passo! O Nexus pode te ajudar a acompanhar a evolução deste ativo.',
-        ctaLabel: 'Ver Investimentos',
-      },
-      deepLink: 'investimentos',
-      priority: 'media',
-    },
-  },
-  // Home — Eficiência sem atrito (sem acesso pago)
-  {
-    id: 'local-efficiency-upsell',
-    condition: (ctx) => !ctx.hasPaidAccess && !ctx.isPremium,
-    insight: {
-      id: 'local-efficiency-upsell',
-      message: {
-        title: 'Eficiência sem atrito',
-        body: 'Descubra como o plano Pro remove os limites de lançamentos e acelera sua organização.',
-        ctaLabel: 'Conhecer Pro',
-      },
-      deepLink: 'pricing',
-      priority: 'baixa',
-    },
-  },
-  // Home — Profundidade (Premium com tudo ativo)
-  {
-    id: 'local-central-evolution',
-    condition: (ctx) => ctx.hasFinancialProfile && ctx.isPremium && ctx.transactionsToday > 0,
-    insight: {
-      id: 'local-central-evolution',
-      message: {
-        title: 'Ecossistema Ativo',
-        body: 'Seu ecossistema está completo. Veja sua evolução estratégica e novos insights do Nexus na Central.',
-        ctaLabel: 'Ver Panorama 360º',
-      },
-      deepLink: 'central',
-      priority: 'baixa',
-    },
-  },
-  // Home — Foco na Eficiência (sem lançamentos hoje)
-  {
-    id: 'local-today-reminder',
-    condition: (ctx) => ctx.transactionsToday === 0 && ctx.daysSinceLastTransaction < 7,
-    insight: {
-      id: 'local-today-reminder',
-      message: {
-        title: 'Foco na Eficiência',
-        body: 'Mantenha seus dados atualizados hoje para que o Nexus possa gerar insights reais sobre seu patrimônio.',
-        ctaLabel: 'Lançar agora',
-      },
-      deepLink: 'transaction-form',
-      priority: 'media',
-    },
-  },
-  // Home — Reserva de Fatura (Ação Acionável)
   {
     id: 'fatima_reserva',
     condition: (ctx) => {
@@ -243,124 +120,222 @@ const INSIGHT_CATALOG: Array<{
     insight: {
       id: 'fatima_reserva',
       message: {
-        title: 'Reserva de Fatura',
-        body: 'Sua fatura fecha em {days} dias. O valor estimado é de {value}. Deseja reservar esse valor agora?',
+        title: 'Fechamento de fatura',
+        body: '{prefix} sua fatura fecha em {days} dias ({value}). Movimente a reserva antes do fechamento.',
         ctaLabel: 'Ver Detalhes',
       },
       deepLink: 'manager',
       priority: 'alta',
-      action: {
-        label: 'Reservar valor',
-        type: 'reserve',
-        requiresPlan: 'pro',
-      },
+      action: { label: 'Reservar valor', type: 'reserve', requiresPlan: 'pro' },
     },
   },
-
-  // CENTRAL — Análises Estratégicas
   {
-    id: 'central-debt-interest',
-    condition: (ctx) => ctx.hasFinancialProfile && !!ctx.hasDebts,
+    id: 'home-bill-pressure',
+    condition: (ctx) => {
+      const bill = extractUpcomingBill(ctx);
+      if (!bill || bill.daysToClose > 7) return false;
+      const marco = ctx.marcoZero || 0;
+      return bill.estimatedValue > marco * 0.5 || bill.estimatedValue > (ctx.monthBalance || 0) * 0.4;
+    },
     insight: {
-      id: 'central-debt-interest',
+      id: 'home-bill-pressure',
       message: {
-        title: 'Estratégia de Alívio',
-        body: 'Detectamos juros de dívida ativos. O Nexus pode simular um plano de quitação acelerada para você.',
-        ctaLabel: 'Montar Plano',
+        title: 'Fatura vs estrutura',
+        body: '{prefix} fatura de {value} fecha em {days} dias. Isso pressiona seu Colchão Inicial — reserve o valor ou ajuste o mês.',
+        ctaLabel: 'Abrir Controla',
+      },
+      deepLink: 'manager',
+      priority: 'alta',
+    },
+  },
+  {
+    id: 'home-margin-thin',
+    condition: (ctx) => {
+      const free = ctx.sovereignFreeBalance ?? ctx.freeBalance ?? 0;
+      const buffer = (ctx.marcoZero || 0) + (ctx.reserveCurrent || 0);
+      if (free <= 0 || !ctx.hasFinancialProfile) return false;
+      return free < Math.max(500, buffer * 0.15);
+    },
+    insight: {
+      id: 'home-margin-thin',
+      message: {
+        title: 'Folga apertada',
+        body: '{prefix} sua folga do mês ({sovereign}) está abaixo de 15% da estrutura protegida. Qualquer movimento reduz seu fôlego.',
+        ctaLabel: 'Revisar mês',
+      },
+      deepLink: 'manager',
+      priority: 'media',
+    },
+  },
+  {
+    id: 'home-bonus-inflow',
+    condition: (ctx) => (ctx.recentLargeIncome || 0) >= 1500,
+    insight: {
+      id: 'home-bonus-inflow',
+      message: {
+        title: 'Entrada relevante',
+        body: '{prefix} detectei entrada de {bonus}. Duas rotas: reforçar o Colchão Inicial ou comprar segurança (reforçar reserva). Qual faz mais sentido agora?',
+        ctaLabel: 'Falar com Nexus',
+      },
+      deepLink: 'ia',
+      priority: 'media',
+    },
+  },
+  {
+    id: 'home-living-cost-drift',
+    condition: (ctx) => {
+      const income = ctx.monthIncome || 0;
+      const expenses = ctx.monthExpenses || 0;
+      if (income <= 0 || ctx.launchCount < 10) return false;
+      return expenses / income >= 0.88;
+    },
+    insight: {
+      id: 'home-living-cost-drift',
+      message: {
+        title: 'Erosão silenciosa',
+        body: '{prefix} seus {flowExpense} consomem {ratio}% dos {flowIncome} este mês. A inclinação da curva está apertando sua folga do mês.',
+        ctaLabel: 'Ver Controla',
+      },
+      deepLink: 'manager',
+      priority: 'media',
+    },
+  },
+  {
+    id: 'boas_vindas_primeira_sessao',
+    condition: (ctx) => ctx.isFirstSession === true,
+    insight: {
+      id: 'boas_vindas_primeira_sessao',
+      message: {
+        title: 'Início de comando',
+        body: '{prefix} registre sua primeira movimentação para o sistema calibrar sua estrutura.',
+        ctaLabel: 'Lançar agora',
+      },
+      deepLink: 'transaction-form',
+      priority: 'media',
+      action: { label: 'Lançar agora', type: 'adjust' },
+    },
+  },
+  // ── CENTRAL ──
+  {
+    id: 'central-cushion-warning',
+    condition: (ctx) => {
+      const sovereign = calculateSovereignBalance(
+        ctx.monthBalance,
+        ctx.upcomingCreditCardBill?.estimatedValue || 0,
+        ctx.obligationsDeduction || 0,
+        (ctx.marcoZero || 0) + (ctx.reserveCurrent || 0)
+      );
+      return ctx.hasFinancialProfile && sovereign < 0;
+    },
+    insight: {
+      id: 'central-cushion-warning',
+      message: {
+        title: 'Folga sob pressão',
+        body: '{prefix} folga do mês em déficit de {deficit}. Revise Colchão Inicial, reserva e compromissos do mês.',
+        ctaLabel: 'Rever Estrutura',
+      },
+      deepLink: 'central',
+      priority: 'alta',
+    },
+  },
+  {
+    id: 'central-nexus-family-protection',
+    condition: (ctx) => {
+      const hasHighInterestDebt = ctx.debts?.some((d) => (d.taxaMensal || 0) > 5);
+      const hasEssentialHome = ctx.passives?.some((p) =>
+        checkPurpose(p, ['lar', 'moradia', 'família', 'casa'])
+      );
+      return !!hasHighInterestDebt && !!hasEssentialHome;
+    },
+    insight: {
+      id: 'central-nexus-family-protection',
+      message: {
+        title: 'Proteção do lar',
+        body: '{prefix} juros altos coexistem com patrimônio essencial. Priorize quitação sem comprometer o porto seguro.',
+        ctaLabel: 'Ver Estratégia',
       },
       deepLink: 'minhas-dividas',
       priority: 'alta',
     },
   },
   {
-    id: 'central-wealth-diversification',
-    condition: (ctx) => ctx.isPremium && !!ctx.hasRealEstate,
+    id: 'central-debt-interest',
+    condition: (ctx) => ctx.hasFinancialProfile && !!ctx.hasDebts,
     insight: {
-      id: 'central-wealth-diversification',
+      id: 'central-debt-interest',
       message: {
-        title: 'Equilíbrio de Bens',
-        body: 'Sua concentração em imóveis é alta. Veja como pequenos aportes em liquidez aumentam sua segurança.',
-        ctaLabel: 'Analisar Alocação',
+        title: 'Hemorragia de Juros',
+        body: '{prefix} suas dívidas estão drenando sua folga do mês. Manter esse passivo é como tentar encher um balde furado. Vamos tapar esse buraco?',
+        ctaLabel: 'Estancar Juros',
       },
-      deepLink: 'passivos',
-      priority: 'media',
-    },
-  },
-  {
-    id: 'central-reserve-met',
-    condition: (ctx) => ctx.hasFinancialProfile && !!ctx.reserveGoalMet,
-    insight: {
-      id: 'central-reserve-met',
-      message: {
-        title: 'Objetivo Alcançado',
-        body: 'Sua Reserva de Emergência atingiu 100%. Hora de focar no próximo módulo de crescimento.',
-        ctaLabel: 'Definir Nova Meta',
-      },
-      deepLink: 'central',
+      deepLink: 'minhas-dividas',
       priority: 'alta',
     },
   },
   {
-    id: 'central-debt-paid',
-    condition: (ctx) => ctx.hasFinancialProfile && !!ctx.debtJustPaidOff,
+    id: 'strategic-opportunity-cost',
+    condition: (ctx) => {
+      const hasHighInterestDebt = ctx.debts?.some(d => (d.taxaMensal || 0) > 4);
+      const hasLiquidityAssets = ctx.assets?.some(a => a.flexibility === 'liquidez' && a.currentValue > 500);
+      return !!hasHighInterestDebt && !!hasLiquidityAssets;
+    },
     insight: {
-      id: 'central-debt-paid',
+      id: 'strategic-opportunity-cost',
       message: {
-        title: 'Vitória Financeira',
-        body: 'Mais um passo rumo à liberdade! Esse valor mensal agora pode trabalhar para o seu futuro.',
-        ctaLabel: 'Iniciar Investimento',
+        title: 'Custo de Oportunidade',
+        body: '{prefix} você possui ativos com liquidez enquanto paga juros altos em dívidas. Matematicamente, usar parte desse capital para quitar o débito é o seu melhor investimento hoje.',
+        ctaLabel: 'Ver Estratégia',
+      },
+      deepLink: 'minhas-dividas',
+      priority: 'alta',
+    },
+  },
+  {
+    id: 'strategic-idle-cash',
+    condition: (ctx) => {
+      const free = ctx.sovereignFreeBalance ?? ctx.freeBalance ?? 0;
+      const marco = ctx.marcoZero || 0;
+      return free > marco * 1.5 && free > 2000;
+    },
+    insight: {
+      id: 'strategic-idle-cash',
+      message: {
+        title: 'Capital Ocioso',
+        body: '{prefix} sua folga do mês ({sovereign}) está muito acima do seu Colchão Inicial. Esse dinheiro parado está perdendo poder de compra. Que tal colocá-lo para trabalhar?',
+        ctaLabel: 'Onde Investir?',
       },
       deepLink: 'investimentos',
-      priority: 'alta',
-    },
-  },
-  {
-    id: 'central-streak-milestone',
-    condition: (ctx) => [7, 14, 21, 30].includes(ctx.streak),
-    insight: {
-      id: 'central-streak-milestone',
-      message: {
-        title: 'Marco de Consistência',
-        body: 'Parabéns! Você atingiu {streak} dias de consistência. Sua clareza financeira está em um novo nível.',
-        ctaLabel: 'Ver Evolução',
-      },
-      deepLink: 'central',
       priority: 'media',
     },
   },
   {
-    id: 'central-monthly-consolidated',
-    condition: (ctx) => ctx.isPremium && ctx.transactionsToday > 0,
-    insight: {
-      id: 'central-monthly-consolidated',
-      message: {
-        title: 'Seu Panorama 360º',
-        body: 'O resumo do seu mês está pronto. Veja como sua rotina impactou seu patrimônio líquido real.',
-        ctaLabel: 'Ver Resumo',
-      },
-      deepLink: 'central',
-      priority: 'media',
+    id: 'strategic-purpose-alignment',
+    condition: (ctx) => {
+      const assetsWithoutPurpose = ctx.assets?.filter(a => !a.proposito || a.proposito.length < 5);
+      return (assetsWithoutPurpose?.length || 0) >= 2 && ctx.launchCount > 5;
     },
-  },
-  {
-    id: 'central-global-vision-inactive',
-    condition: (ctx) => ctx.hasFinancialProfile && !ctx.isPremium,
     insight: {
-      id: 'central-global-vision-inactive',
+      id: 'strategic-purpose-alignment',
       message: {
-        title: 'Conecte os Pontos',
-        body: 'O valor real do ecossistema surge quando você une a rotina do Controla à estratégia da Central.',
-        ctaLabel: 'Ativar Visão Global',
+        title: 'Investimento sem Alvo',
+        body: '{prefix} identifiquei ativos na sua carteira sem um propósito claro. Dinheiro sem destino costuma voltar para o fluxo de consumo. Vamos dar um nome a esse capital?',
+        ctaLabel: 'Dar Propósito',
       },
-      deepLink: 'central',
-      priority: 'media',
+      deepLink: 'investimentos',
+      priority: 'baixa',
     },
   },
 ];
 
-const SEEN_INSIGHTS_KEY = 'nexus-seen-insights';
-const CENTRAL_SEEN_KEY = 'nexus-central-seen';
-const MAX_SEEN_HISTORY = 5;
+const SEEN_HOME_KEY = 'nexus-seen-records-v2';
+const SEEN_CENTRAL_KEY = 'nexus-central-records-v2';
+const MAX_SEEN = 20;
+
+interface SeenRecord {
+  id: string;
+  fingerprint: string;
+  seenAt: number;
+}
 
 export function buildUserContext(params: Partial<UserContext>): UserContext {
   const ctx: UserContext = {
@@ -372,43 +347,109 @@ export function buildUserContext(params: Partial<UserContext>): UserContext {
     launchCount: 0,
     launchLimit: 30,
     monthBalance: 0,
+    accumulatedBalance: 0,
+    marcoZero: 0,
+    reserveTarget: 0,
+    reserveCurrent: 0,
+    freeBalance: 0,
     hasFirstInvestment: false,
     streak: 0,
-    ...params
+    ...params,
   };
 
-  // Enriquecimento automático
   ctx.upcomingCreditCardBill = extractUpcomingBill(ctx, params.debts);
-  
-  const onboardingCompleted = typeof window !== 'undefined' && localStorage.getItem('fpi_onboarding_op_completed');
+  const onboardingCompleted =
+    typeof window !== 'undefined' && localStorage.getItem('fpi_onboarding_op_completed');
   ctx.isFirstSession = ctx.launchCount === 0 && !onboardingCompleted;
+
+  if (ctx.recentLargeIncome === undefined && params.transactions?.length) {
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    ctx.recentLargeIncome = params.transactions
+      .filter((t) => t.type === 'income' && new Date(t.date).getTime() >= weekAgo)
+      .reduce((max, t) => Math.max(max, t.amount || 0), 0);
+  }
 
   return ctx;
 }
 
-/**
- * [NEXUS DISCERNMENT]
- * Analisa semanticamente o propósito de um item.
- */
+/** Tensão financeira real — quando false, Dom do Tempo silencia insights médios/baixos. */
+export function hasFinancialTension(ctx: UserContext): boolean {
+  const free = ctx.sovereignFreeBalance ?? ctx.freeBalance ?? 0;
+  if (free < 0 || (ctx.freedomDeficit || 0) > 0) return true;
+  if (ctx.monthBalance < 0) return true;
+  const bill = extractUpcomingBill(ctx);
+  if (bill && bill.daysToClose <= 5) return true;
+  const buffer = (ctx.marcoZero || 0) + (ctx.reserveCurrent || 0);
+  if (buffer > 0 && free > 0 && free < buffer * 0.1) return true;
+  return false;
+}
+
+export function isMarginStable(ctx: UserContext): boolean {
+  return ctx.launchCount >= 5 && !hasFinancialTension(ctx);
+}
+
 function checkPurpose(item: { proposito?: string }, keywords: string[]): boolean {
   if (!item.proposito) return false;
   const lower = item.proposito.toLowerCase();
-  return keywords.some(k => lower.includes(k.toLowerCase()));
+  return keywords.some((k) => lower.includes(k.toLowerCase()));
 }
 
-function getSeenInsights(key = SEEN_INSIGHTS_KEY): string[] {
+function bucket(n: number, step: number): number {
+  return Math.round(n / step) * step;
+}
+
+function getSeenRecords(key: string): SeenRecord[] {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = typeof window !== 'undefined' ? localStorage.getItem(key) : null;
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
   }
 }
 
-function markInsightAsSeen(id: string, key = SEEN_INSIGHTS_KEY): void {
-  const seen = getSeenInsights(key);
-  const updated = [id, ...seen.filter(s => s !== id)].slice(0, MAX_SEEN_HISTORY);
+function getInsightFingerprint(id: string, ctx: UserContext): string {
+  const free = ctx.sovereignFreeBalance ?? ctx.freeBalance ?? 0;
+  const bill = extractUpcomingBill(ctx);
+
+  switch (id) {
+    case 'home-sovereign-deficit':
+      return `def:${bucket(ctx.freedomDeficit || Math.abs(Math.min(0, free)), 250)}`;
+    case 'home-margin-thin':
+      return `thin:${bucket(free, 300)}`;
+    case 'home-bill-pressure':
+    case 'fatima_reserva':
+      return `bill:${bill?.estimatedValue || 0}:${bill?.daysToClose || 0}`;
+    case 'home-bonus-inflow':
+      return `bonus:${ctx.recentLargeIncome || 0}`;
+    case 'home-living-cost-drift': {
+      const income = ctx.monthIncome || 1;
+      return `drift:${bucket(ctx.monthExpenses || 0, 400)}:${bucket(income, 400)}`;
+    }
+    case 'central-cushion-warning':
+      return `cushion:${bucket(free, 500)}`;
+    default:
+      return 'static';
+  }
+}
+
+function isInsightSuppressed(id: string, ctx: UserContext, key: string): boolean {
+  const record = getSeenRecords(key).find((r) => r.id === id);
+  if (!record) return false;
+  return record.fingerprint === getInsightFingerprint(id, ctx);
+}
+
+function markInsightSeen(id: string, ctx: UserContext, key: string): void {
+  if (typeof window === 'undefined') return;
+  const fp = getInsightFingerprint(id, ctx);
+  const updated = [
+    { id, fingerprint: fp, seenAt: Date.now() },
+    ...getSeenRecords(key).filter((r) => r.id !== id),
+  ].slice(0, MAX_SEEN);
   localStorage.setItem(key, JSON.stringify(updated));
+}
+
+export function dismissPrioritizedInsight(id: string, ctx: UserContext): void {
+  markInsightSeen(id, ctx, SEEN_HOME_KEY);
 }
 
 function interpolateMessage(template: string, vars: Record<string, string | number>): string {
@@ -420,178 +461,142 @@ function interpolateMessage(template: string, vars: Record<string, string | numb
 }
 
 function prepareInsight(insight: NexusInsight, ctx: UserContext): NexusInsight {
+  const voice = getPersonaVoice(ctx.persona?.archetype || 'guardian');
+  const flow = getFlowLabels(ctx.commandMode);
   const bill = extractUpcomingBill(ctx);
-  const vars: Record<string, string | number> = {};
-  
+  const free = ctx.sovereignFreeBalance ?? ctx.freeBalance ?? 0;
+  const deficit = ctx.freedomDeficit ?? Math.abs(Math.min(0, free));
+  const fmt = (n: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
+
+  const vars: Record<string, string | number> = {
+    prefix: voice.prefix,
+    motto: voice.motto,
+    flowIncome: flow.income.toLowerCase(),
+    flowExpense: flow.expense.toLowerCase(),
+    streak: ctx.streak,
+    sovereign: fmt(free),
+    deficit: fmt(deficit),
+    bonus: fmt(ctx.recentLargeIncome || 0),
+    ratio: ctx.monthIncome
+      ? Math.round(((ctx.monthExpenses || 0) / ctx.monthIncome) * 100)
+      : 0,
+  };
+
   if (bill) {
     vars.days = bill.daysToClose;
-    vars.value = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(bill.estimatedValue);
-    vars.cardName = bill.cardName || 'seu cartão';
-    vars.when = bill.daysToClose === 0 ? 'HOJE' : 'AMANHÃ';
+    vars.value = fmt(bill.estimatedValue);
   }
 
-  vars.streak = ctx.streak;
-
-  const prepared = {
+  return {
     ...insight,
     message: {
       ...insight.message,
       body: interpolateMessage(insight.message.body, vars),
     },
+    style: { brandColor: voice.color },
   };
+}
 
-  if (bill && prepared.action?.type === 'reserve') {
-    prepared.action.payload = {
-      value: bill.estimatedValue,
-      title: `Fatura (${bill.daysToClose} dias)`,
-      targetDate: new Date(Date.now() + bill.daysToClose * 86400000).toISOString().split('T')[0],
-    };
-  }
-
-  if (bill && prepared.action?.type === 'pay_invoice' && bill.cardId) {
-    prepared.action.payload = {
-      cardId: bill.cardId,
-      amount: bill.estimatedValue,
-      cardName: bill.cardName
-    };
-  }
-
-  return prepared;
+function pickBest(candidates: CatalogItem[]): CatalogItem | null {
+  if (candidates.length === 0) return null;
+  const priorityOrder: Record<string, number> = { alta: 0, media: 1, baixa: 2, inline: 3 };
+  return [...candidates].sort(
+    (a, b) => priorityOrder[a.insight.priority] - priorityOrder[b.insight.priority]
+  )[0];
 }
 
 export function getPrioritizedInsight(ctx: UserContext): NexusInsight | null {
-  const seen = getSeenInsights(SEEN_INSIGHTS_KEY);
+  let candidates = INSIGHT_CATALOG.filter((item) => !item.id.startsWith('central-'))
+    .filter((item) => item.condition(ctx))
+    .filter((item) => !isInsightSuppressed(item.id, ctx, SEEN_HOME_KEY));
 
-  // Filtra insights cuja condição é verdadeira e QUE NÃO FORAM VISTOS
-  const candidates = INSIGHT_CATALOG
-    .filter(item => !item.id.startsWith('central-'))
-    .filter(item => item.condition(ctx))
-    .filter(item => !seen.includes(item.id));
+  // Dom do Tempo: plano estável → silencia insights médios/baixos
+  if (isMarginStable(ctx)) {
+    candidates = candidates.filter((item) => item.insight.priority === 'alta');
+  }
 
-  if (candidates.length === 0) return null;
+  const chosen = pickBest(candidates);
+  if (!chosen) return null;
 
-  // Ordena por prioridade (alta > media > baixa)
-  const priorityOrder: Record<string, number> = { alta: 0, media: 1, baixa: 2 };
-
-  candidates.sort((a, b) => {
-    return priorityOrder[a.insight.priority] - priorityOrder[b.insight.priority];
-  });
-
-  const chosen = candidates[0].insight;
-  markInsightAsSeen(chosen.id, SEEN_INSIGHTS_KEY);
-  return prepareInsight(chosen, ctx);
+  markInsightSeen(chosen.id, ctx, SEEN_HOME_KEY);
+  return prepareInsight(chosen.insight, ctx);
 }
 
 export function getCentralInsights(ctx: UserContext): NexusInsight[] {
-  const seen = getSeenInsights(CENTRAL_SEEN_KEY);
-
-  // Filtra apenas insights da Central e QUE NÃO FORAM VISTOS
-  const candidates = INSIGHT_CATALOG
-    .filter(item => item.id.startsWith('central-'))
-    .filter(item => item.condition(ctx))
-    .filter(item => !seen.includes(item.id));
+  const candidates = INSIGHT_CATALOG.filter((item) => item.id.startsWith('central-'))
+    .filter((item) => item.condition(ctx))
+    .filter((item) => !isInsightSuppressed(item.id, ctx, SEEN_CENTRAL_KEY));
 
   if (candidates.length === 0) return [];
 
   const priorityOrder: Record<string, number> = { alta: 0, media: 1, baixa: 2 };
+  const sorted = [...candidates].sort(
+    (a, b) => priorityOrder[a.insight.priority] - priorityOrder[b.insight.priority]
+  );
 
-  candidates.sort((a, b) => {
-    return priorityOrder[a.insight.priority] - priorityOrder[b.insight.priority];
-  });
-
-  const chosen = candidates.slice(0, 3).map(c => prepareInsight(c.insight, ctx));
-  
-  // Marca como visto apenas o mais prioritário para rotatividade
-  if (candidates.length > 0) {
-    markInsightAsSeen(candidates[0].id, CENTRAL_SEEN_KEY);
+  const top = sorted.slice(0, 3);
+  if (top.length > 0) {
+    markInsightSeen(top[0].id, ctx, SEEN_CENTRAL_KEY);
   }
 
-  return chosen;
+  return top.map((c) => prepareInsight(c.insight, ctx));
 }
 
-// Catálogo de insights operacionais (Nexus Inline)
-export interface NexusAdvisoryContext {
-  currentMonthBalance: number;
-  categorySpending: Record<string, number>;
-  isPremium: boolean;
-}
-
-const OPERATIONAL_CATALOG: Array<{
-  id: string;
-  condition: (ctx: UserContext) => boolean;
-  insight: NexusInsight;
-}> = [
-  {
-    id: 'op-consistency-5',
-    condition: (ctx) => ctx.transactionsToday === 5,
-    insight: {
-      id: 'op-consistency-5',
-      message: {
-        title: 'Ritmo Excelente',
-        body: 'Esta é sua 5ª transação hoje. Seu controle está em dia!',
-        ctaLabel: 'Continuar',
-      },
-      deepLink: 'manager',
-      priority: 'inline',
-    },
-  },
-  {
-    id: 'op-budget-warning',
-    condition: (ctx) => ctx.monthBalance < 0,
-    insight: {
-      id: 'op-budget-warning',
-      message: {
-        title: 'Atenção ao Saldo',
-        body: 'Seu saldo ficou negativo este mês. Isso acontece. Que tal revisarmos seus gastos juntos?',
-        ctaLabel: 'Ver Detalhes',
-      },
-      deepLink: 'manager',
-      priority: 'inline',
-    },
-  },
-  {
-    id: 'op-growth-positive',
-    condition: (ctx) => ctx.monthBalance > 0 && ctx.launchCount > 10,
-    insight: {
-      id: 'op-growth-positive',
-      message: {
-        title: 'Evolução Positiva',
-        body: 'Sua receita deste mês já superou a do mês passado. Ótimo progresso!',
-        ctaLabel: 'Ver Evolução',
-      },
-      deepLink: 'manager',
-      priority: 'inline',
-    },
-  },
-  {
-    id: 'op-pay-invoice',
-    condition: (ctx) => {
-      const bill = extractUpcomingBill(ctx);
-      return !!bill && !!bill.cardId && (bill.daysToClose === 0 || bill.daysToClose === 1);
-    },
-    insight: {
-      id: 'op-pay-invoice',
-      message: {
-        title: 'Vencimento de Fatura',
-        body: 'A fatura do seu cartão {cardName} vence {when} ({value}). Deseja registrar o pagamento?',
-        ctaLabel: 'Pagar Agora',
-      },
-      deepLink: 'manager',
-      priority: 'inline',
-      action: {
-        label: 'Registrar pagamento',
-        type: 'pay_invoice'
-      }
-    },
-  },
-];
-
-/**
- * Retorna um insight operacional para exibição inline.
- * Diferente dos insights da Home, estes não são marcados como "vistos" permanentemente,
- * pois são baseados no estado imediato da sessão.
- */
 export function getOperationalInsight(ctx: UserContext): NexusInsight | null {
-  const candidate = OPERATIONAL_CATALOG.find(item => item.condition(ctx));
-  return candidate ? prepareInsight(candidate.insight, ctx) : null;
+  const free = ctx.sovereignFreeBalance ?? ctx.freeBalance ?? 0;
+
+  const OPERATIONAL: CatalogItem[] = [
+    {
+      id: 'op-sovereign-deficit',
+      condition: (c) => {
+        const margin = c.sovereignFreeBalance ?? c.freeBalance ?? 0;
+        return !!c.commandMode && ((c.freedomDeficit || 0) > 0 || margin < 0);
+      },
+      insight: {
+        id: 'op-sovereign-deficit',
+        message: {
+          title: 'Estrutura pressionada',
+          body: '{prefix} este movimento mantém sua folga do mês em déficit de {deficit}.',
+          ctaLabel: 'Ver Baldes',
+        },
+        deepLink: 'manager',
+        priority: 'inline',
+      },
+    },
+    {
+      id: 'op-consistency-5',
+      condition: (c) => c.transactionsToday === 5,
+      insight: {
+        id: 'op-consistency-5',
+        message: {
+          title: 'Consistência de registro',
+          body: '{prefix} 5 movimentações hoje — registro em dia.',
+          ctaLabel: 'Continuar',
+        },
+        deepLink: 'manager',
+        priority: 'inline',
+      },
+    },
+    {
+      id: 'op-budget-warning',
+      condition: (c) => {
+        const margin = c.sovereignFreeBalance ?? c.freeBalance ?? c.monthBalance;
+        return margin < 0;
+      },
+      insight: {
+        id: 'op-budget-warning',
+        message: {
+          title: 'Folga negativa',
+          body: '{prefix} a folga do mês ficou negativa neste mês. Revisar estrutura pode recuperar fôlego.',
+          ctaLabel: 'Ver Detalhes',
+        },
+        deepLink: 'manager',
+        priority: 'inline',
+      },
+    },
+  ];
+
+  const hit = OPERATIONAL.find((item) => item.condition(ctx));
+  return hit ? prepareInsight(hit.insight, ctx) : null;
 }

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../core/query/queryKeys';
-import { getWealthHistory, getLastSnapshot, saveWealthSnapshot, WealthSnapshot } from '../services/wealthHistoryService';
+import type { WealthSnapshot } from '../services/wealthHistoryService';
+import { getWealthHistory, getLastSnapshot, saveWealthSnapshot } from '../services/wealthHistoryService';
 
 export const useWealthHistory = (userId?: string) => {
   const queryClient = useQueryClient();

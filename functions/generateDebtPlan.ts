@@ -2,7 +2,8 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 import { NexusIdentity } from './nexus-core/identity';
-import { DataIntegrator, UserDataResult } from './nexus-core/data-integrator';
+import type { UserDataResult } from './nexus-core/data-integrator';
+import { DataIntegrator } from './nexus-core/data-integrator';
 import { MultiModelRouter } from './nexus-core/MultiModelRouter';
 import { NexusDebtPlanRequestSchema } from './src/debtPlan.types';
 

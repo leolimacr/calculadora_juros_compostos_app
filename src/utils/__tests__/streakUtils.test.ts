@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { getConsecutiveDays, getStreakMilestoneMessage } from '../streakUtils';
-import { Transaction } from '../../types';
+import type { Transaction } from '../../types';
 
 describe('streakUtils', () => {
   beforeEach(() => {

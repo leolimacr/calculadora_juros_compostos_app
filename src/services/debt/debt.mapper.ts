@@ -1,5 +1,5 @@
-import { DebtItem } from './debt.types';
-import { DebtPersist } from './debt.persist';
+import type { DebtItem } from './debt.types';
+import type { DebtPersist } from './debt.persist';
 import { Timestamp } from 'firebase/firestore';
 
 export const mapDebtFromFirestore = (docId: string, data: any): DebtItem => {

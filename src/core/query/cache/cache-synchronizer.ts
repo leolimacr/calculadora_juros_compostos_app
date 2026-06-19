@@ -1,4 +1,4 @@
-import { QueryKey } from '@tanstack/react-query';
+import type { QueryKey } from '@tanstack/react-query';
 import { queryClient } from '../queryClient';
 
 export const cacheSynchronizer = {

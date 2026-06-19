@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 
 export type PeriodType = 'months' | 'years';
 export type RateType = 'monthly' | 'annual';

@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../core/query/queryKeys';
-import { PassiveAsset } from '../components/tools/wealth/PassiveWealthManager';
+import type { PassiveAsset } from '../components/tools/wealth/PassiveWealthManager';
 
 export const usePassives = (userId: string | undefined) => {
   const queryClient = useQueryClient();

@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../core/query/queryKeys';
-import { RecurringBill } from '../types';
+import type { RecurringBill } from '../types';
 import { useFinanceContext } from '../contexts/FinanceContext';
 
 export const useBills = (userId?: string) => {

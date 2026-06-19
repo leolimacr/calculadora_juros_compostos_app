@@ -1,5 +1,6 @@
 import React from 'react';
 import { RefreshCw, Check } from 'lucide-react';
+import { NEXUS_COPY } from '../../../../theme/fpiVoiceGuide';
 
 interface RecurringIntroModalProps {
   isOpen: boolean;
@@ -24,12 +25,12 @@ const RecurringIntroModal: React.FC<RecurringIntroModalProps> = ({
             <RefreshCw size={24} className="animate-spin-slow" />
           </div>
           <h3 className="text-xl font-black text-text-primary tracking-tight leading-tight">
-            Planeje seu Futuro
+            {NEXUS_COPY.recurringIntroTitle}
           </h3>
         </div>
 
         <p className="text-sm font-medium text-text-secondary leading-relaxed">
-          Este botão organiza seu futuro. Ao cadastrar contas fixas e assinaturas, o Controla projeta seu saldo para o fim do mês. Assim, você sabe exatamente quanto dinheiro terá <strong>livre</strong> para investir, evitando surpresas no orçamento.
+          {NEXUS_COPY.recurringIntroBody}
         </p>
 
         <div className="space-y-4 pt-2">

@@ -1,22 +1,31 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ChevronRight } from 'lucide-react';
 import type { Transaction } from '../../types';
+import { isTransactionVisible } from '../../utils/historyTimeGate';
 
 interface RecentTransactionsProps {
   transactions: Transaction[];
   isPrivacyMode: boolean;
   onNavigate: (tool: string) => void;
+  historyLocked?: boolean;
 }
 
 const RecentTransactions: React.FC<RecentTransactionsProps> = ({
   transactions,
   isPrivacyMode,
   onNavigate,
+  historyLocked = false,
 }) => {
-  const recent = [...transactions]
-    .filter((t) => t?.date)
-    .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
-    .slice(0, 5);
+  const plan = historyLocked ? 'free' : 'pro';
+
+  const recent = useMemo(
+    () =>
+      [...transactions]
+        .filter((t) => t?.date && isTransactionVisible(t.date, plan))
+        .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+        .slice(0, 5),
+    [transactions, plan]
+  );
 
   return (
     <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">

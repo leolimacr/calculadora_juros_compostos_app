@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '../core/query/queryKeys';
-import { createPresenceEventsRealtimeBridge, PresenceEvent } from '../services/presence.realtime';
+import type { PresenceEvent } from '../services/presence.realtime';
+import { createPresenceEventsRealtimeBridge } from '../services/presence.realtime';
 
 export const usePresenceEvents = (userId?: string) => {
   const key = queryKeys.presence.byUser(userId || 'anonymous');

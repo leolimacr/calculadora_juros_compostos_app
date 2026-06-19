@@ -1,6 +1,7 @@
-import { ref, query as rtdbQuery, limitToLast, DataSnapshot } from 'firebase/database';
+import type { DataSnapshot } from 'firebase/database';
+import { ref, query as rtdbQuery, limitToLast } from 'firebase/database';
 import { db } from '../firebase';
-import { Transaction } from '../types';
+import type { Transaction } from '../types';
 import { createRealtimeBridge } from '../core/realtime/realtimeBridge';
 import { queryKeys } from '../core/query/queryKeys';
 

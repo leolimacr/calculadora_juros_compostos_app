@@ -1,7 +1,7 @@
 
 import { functions, auth } from '../firebase';
 import { httpsCallable } from 'firebase/functions';
-import { SubscriptionPlanId } from '../../config/stripePlans';
+import type { SubscriptionPlanId } from '../../config/stripePlans';
 import { logEvent } from './logger';
 import { trackStartCheckout } from './analyticsService';
 

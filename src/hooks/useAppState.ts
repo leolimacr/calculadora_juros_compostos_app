@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import type React from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -10,9 +11,12 @@ import { useAppSecurity } from './useAppSecurity';
 import { useNavigation } from './useNavigation';
 import { useReengagementTrigger } from './useReengagementTrigger';
 import { NotificationService } from '../services/NotificationService';
-import { getPrioritizedInsight, UserContext, NexusInsight } from '../services/nexusInsightEngine';
-import { Transaction, Category, UserMeta } from '../types';
+import type { UserContext, NexusInsight } from '../services/nexusInsightEngine';
+import { getPrioritizedInsight } from '../services/nexusInsightEngine';
+import type { Transaction, Category, UserMeta } from '../types';
+import type { DebtItem } from '../services/debt/debt.types';
 import { getConsecutiveDays } from '../utils/streakUtils';
+import { useDebts } from './useDebts';
 
 export interface AppState {
   user: ReturnType<typeof useAuth>['user'];
@@ -20,6 +24,7 @@ export interface AppState {
   authLoading: boolean;
   lancamentos: Transaction[];
   categories: Category[];
+  debts: DebtItem[];
   saveLancamento: ReturnType<typeof useFirebase>['saveLancamento'];
   deleteLancamento: ReturnType<typeof useFirebase>['deleteLancamento'];
   saveCategory: ReturnType<typeof useFirebase>['saveCategory'];
@@ -62,7 +67,7 @@ export interface AppState {
 }
 
 export function useAppState(): AppState {
-  const { user, isAuthenticated, loading: authLoading, logout } = useAuth();
+  const { user, isAuthenticated, loading: authLoading, logout, userMeta } = useAuth();
 
   useEffect(() => {
     if (isAuthenticated && user?.uid) {
@@ -99,7 +104,7 @@ export function useAppState(): AppState {
       });
     }, 1500);
     return () => clearTimeout(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [isAuthenticated, user?.uid]); // Intencional: roda apenas quando o usuário autentica
 
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
@@ -110,14 +115,16 @@ export function useAppState(): AppState {
     deleteLancamento,
     saveCategory,
     deleteCategory,
-    userMeta,
-    userMetaLoaded,
     usagePercentage,
     isLimitReached,
     isSyncing,
     fetchHistory,
     fetchMonth,
   } = useFirebase(user?.uid);
+  
+  const { debts } = useDebts(user?.uid);
+
+  const userMetaLoaded = !authLoading;
   const { isPro, isPremium } = useSubscriptionAccess();
   const { isAppLocked, storedPin, handleUnlockSuccess } = useAppSecurity(user?.uid, isAuthenticated);
   const { navigationReady, resetNavigation } = useNavigation();
@@ -227,6 +234,7 @@ export function useAppState(): AppState {
     authLoading,
     lancamentos,
     categories,
+    debts,
     saveLancamento,
     deleteLancamento,
     fetchHistory,

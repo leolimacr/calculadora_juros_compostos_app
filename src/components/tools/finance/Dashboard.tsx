@@ -2,7 +2,6 @@ import React from 'react';
 import { RefreshCw, Plus, ChevronUp, ChevronDown } from 'lucide-react';
 
 // Hooks e Componentes Originais Reutilizados
-import UsageIndicator from './UsageIndicator';
 import TransactionHistory from './TransactionHistory';
 import FilterBar from './FilterBar';
 import CategoryManager from './CategoryManager';
@@ -20,9 +19,15 @@ import CategorySummaryPanel from './dashboard/CategorySummaryPanel';
 import AveragesAnalysisPanel from './dashboard/AveragesAnalysisPanel';
 import NexusInsightToast from './dashboard/NexusInsightToast';
 import RecurringIntroModal from './dashboard/RecurringIntroModal';
+import CalibrationInviteBanner from './dashboard/CalibrationInviteBanner';
+import CommandCalibration from '../nexus/CommandCalibration';
+import { seedPersonaFromIntent } from '../../../services/personaService';
+import { getFlowLabels, FPI_COPY } from '../../../theme/fpiVoiceGuide';
+import PaywallModal from '../../PaywallModal';
 
 const Dashboard: React.FC<any> = (props) => {
   const state = useDashboardState(props);
+  const voice = getFlowLabels(state.commandMode);
 
   if (state.showSkeleton) {
     return <DashboardSkeleton />;
@@ -35,7 +40,8 @@ const Dashboard: React.FC<any> = (props) => {
         onClose={() => state.setIsCategoryModalOpen(false)} 
         categories={state.categories} 
         onSave={state.onSaveCategory} 
-        onDelete={state.onDeleteCategory} 
+        onDelete={state.onDeleteCategory}
+        commandMode={state.commandMode}
       />
 
       {/* SYNC BANNER */}
@@ -66,19 +72,28 @@ const Dashboard: React.FC<any> = (props) => {
           isMobile={state.isMobile}
           isPrivacyMode={state.isPrivacyMode}
           onTogglePrivacy={state.onTogglePrivacy}
-          isLimitReached={state.isLimitReached}
-          isPremium={state.isPremium}
-          onShowPaywall={state.onShowPaywall}
           onOpenForm={state.onOpenForm}
           handleRecurringButtonClick={state.handleRecurringButtonClick}
         />
 
         {/* Cartões de saldo de topo */}
+        {state.showCalibrationOffer && (
+          <CalibrationInviteBanner
+            title={state.calibrationInviteCopy.title}
+            body={state.calibrationInviteCopy.body}
+            onStart={state.handleStartCalibration}
+            onDefer={state.handleDeferCalibration}
+            onDismiss={state.handleDismissCalibrationInvite}
+          />
+        )}
+
         <BalanceCards
           isPrivacyMode={state.isPrivacyMode}
+          commandMode={state.commandMode}
           stats={state.stats}
           totalPendingBills={state.totalPendingBills}
           projectedBalance={state.projectedBalance}
+          freeBalance={state.stats.freeBalance}
         />
 
         {/* Obrigações pendentes (Contas fixas e faturas ativas) */}
@@ -89,15 +104,6 @@ const Dashboard: React.FC<any> = (props) => {
           onOpenForm={state.onOpenForm}
         />
 
-        {/* Indicador de limite de uso de recursos */}
-        {!state.isFirstAccess && (
-          <UsageIndicator 
-            userMeta={state.userMeta} 
-            usagePercentage={state.usagePercentage} 
-            isPremium={state.isPremium} 
-          />
-        )}
-
         {/* Painel educativo ou Estado de primeiro acesso */}
         {state.isFirstAccess ? (
           <div className="py-16 px-6 bg-surface-primary border border-dashed border-brand-primary/30 rounded-4xl text-center">
@@ -105,18 +111,16 @@ const Dashboard: React.FC<any> = (props) => {
               <Plus size={28} className="text-brand-primary" />
             </div>
             <p className="text-text-primary font-black text-lg mb-2">
-              {state.userMeta?.isFirstSession ? 'Bem-vindo! Vamos começar?' : 'Seu painel está em branco'}
+              {state.userMeta?.isFirstSession ? 'Bem-vindo. Vamos calibrar?' : 'Seu painel está em branco'}
             </p>
             <p className="text-text-secondary text-sm max-w-sm mx-auto leading-relaxed mb-6">
-              {state.userMeta?.isFirstSession 
-                ? 'Que tal lançar sua primeira receita? É rápido e me ajuda a te entender melhor.'
-                : 'Registre sua primeira receita ou despesa. Eu cuido dos cálculos para você.'}
+              {state.userMeta?.isFirstSession ? voice.firstLaunchHint : voice.emptyLaunchHint}
             </p>
             <button
-              onClick={state.isLimitReached && !state.isPremium ? state.onShowPaywall : state.onOpenForm}
+              onClick={state.onOpenForm}
               className="inline-flex items-center gap-2 bg-brand-primary hover:bg-brand-primary/90 text-text-onBrand font-black text-xxs uppercase tracking-ultra-wide px-6 py-3 rounded-3xl transition-all active:scale-95 shadow-brand-glow"
             >
-              <Plus size={14} /> Adicionar primeiro lançamento
+              <Plus size={14} /> {voice.registerCta}
             </button>
           </div>
         ) : (
@@ -124,6 +128,7 @@ const Dashboard: React.FC<any> = (props) => {
           <DashboardCharts
             categoryStats={state.categoryStats}
             stats={state.stats}
+            commandMode={state.commandMode}
           />
         )}
 
@@ -152,6 +157,9 @@ const Dashboard: React.FC<any> = (props) => {
                 setSortMode={state.setSortMode}
                 searchQuery={state.searchQuery}
                 setSearchQuery={state.setSearchQuery}
+                commandMode={state.commandMode}
+                historyLocked={state.historyLocked}
+                currentMonthStartIso={state.currentMonthStartIso}
               />
 
               {/* Toggle de exibição */}
@@ -232,16 +240,18 @@ const Dashboard: React.FC<any> = (props) => {
             <CategorySummaryPanel 
               categorySummary={state.categorySummary} 
               categoryTransactionsMap={state.categoryTransactionsMap} 
-              isPrivacyMode={state.isPrivacyMode} 
+              isPrivacyMode={state.isPrivacyMode}
+              commandMode={state.commandMode}
             />
 
             {/* Painel de Análise de Médias */}
             <AveragesAnalysisPanel 
               userUid={state.user?.uid} 
               isReady={state.isReady} 
-              safeTransactions={state.safeTransactions} 
+              safeTransactions={state.historyVisibleTransactions} 
               isPrivacyMode={state.isPrivacyMode} 
-              isPremium={state.isPremium} 
+              hasHistoryAccess={state.hasHistoryAccess}
+              onHistoryBlocked={() => state.setShowHistoryPaywall(true)}
             />
 
             {/* Somatório Final do Resultado do Período */}
@@ -266,7 +276,7 @@ const Dashboard: React.FC<any> = (props) => {
                         <>
                           {totalIncome > 0 && (
                             <div className="text-center">
-                              <p className="text-xxs font-black text-text-muted uppercase mb-1">Entradas</p>
+                              <p className="text-xxs font-black text-text-muted uppercase mb-1">{voice.income}</p>
                               <p className="text-sm font-black text-brand-primary">  
                                 {state.isPrivacyMode ? '••••' : `R$ ${totalIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                               </p>
@@ -274,7 +284,7 @@ const Dashboard: React.FC<any> = (props) => {
                           )}
                           {totalExpense > 0 && (
                             <div className="text-center">
-                              <p className="text-xxs font-black text-text-muted uppercase mb-1">Saídas</p>
+                              <p className="text-xxs font-black text-text-muted uppercase mb-1">{voice.expense}</p>
                               <p className="text-sm font-black text-status-danger">  
                                 {state.isPrivacyMode ? '••••' : `R$ ${totalExpense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                               </p>
@@ -331,6 +341,21 @@ const Dashboard: React.FC<any> = (props) => {
         dontShowFor15Days={state.dontShowFor15Days}
         setDontShowFor15Days={state.setDontShowFor15Days}
         onConfirm={state.handleConfirmIntro}
+      />
+
+      {state.showCalibrationModal && state.user?.uid && (
+        <CommandCalibration
+          userId={state.user.uid}
+          initialAnswers={seedPersonaFromIntent(state.userMeta?.onboardingPersona || 'geral')}
+          onComplete={state.handleCalibrationComplete}
+          onClose={() => state.setShowCalibrationModal(false)}
+        />
+      )}
+
+      <PaywallModal
+        open={state.showHistoryPaywall}
+        onClose={() => state.setShowHistoryPaywall(false)}
+        feature="historico completo"
       />
     </div>
   );

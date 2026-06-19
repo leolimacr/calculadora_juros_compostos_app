@@ -3,6 +3,7 @@ import { ArrowRight, AlertTriangle } from 'lucide-react';
 import { firestore } from '../../firebase';
 import { collection, query, where, orderBy, limit, onSnapshot, getDocs } from 'firebase/firestore';
 import { PresenceEventService } from '../../services/PresenceEventService';
+import { FPI_COPY } from '../../theme/fpiVoiceGuide';
 
 interface PresenceEvent {
   eventId: string;
@@ -205,8 +206,8 @@ export const HomePresenceFeed: React.FC<Props> = ({ userId, isAuthenticated, onN
         expiresAt: { seconds: Infinity },
         status: 'pending',
         message: {
-          title: 'Seus gastos apertaram o plano',
-          body: 'Quando a rotina muda, o sistema detecta e sugere ajuste antes que a dívida saia do controle.',
+          title: FPI_COPY.presencePlanTightened,
+          body: 'Quando a rotina muda, o sistema detecta e sugere ajuste antes que a folga saia do controle.',
           ctaLabel: 'Começar de graça',
         },
         deepLink: 'register',

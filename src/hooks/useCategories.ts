@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { doc, setDoc } from 'firebase/firestore';
 import { firestore } from '../firebase';
 import { queryKeys } from '../core/query/queryKeys';
-import { Category } from '../types';
+import type { Category } from '../types';
 import { createCategoriesRealtimeBridge } from '../services/category.realtime';
 
 export const useCategories = (userId?: string) => {

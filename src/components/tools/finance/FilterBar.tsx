@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { getFlowLabels } from '../../../theme/fpiVoiceGuide';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -7,8 +8,10 @@ import {
   FileText,
   FolderOpen,
   Search,
-  X
+  X,
+  Lock,
 } from 'lucide-react';
+import type { HistoryViewMode } from '../../../utils/historyTimeGate';
 
 interface FilterBarProps {
   selectedCategories: string[];
@@ -31,6 +34,9 @@ interface FilterBarProps {
   setSortMode: (mode: 'date-desc' | 'date-asc' | 'category-asc' | 'category-desc') => void;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
+  commandMode?: boolean;
+  historyLocked?: boolean;
+  currentMonthStartIso?: string;
 }
 
 const FilterBar: React.FC<FilterBarProps> = ({ 
@@ -53,8 +59,12 @@ const FilterBar: React.FC<FilterBarProps> = ({
   sortMode,
   setSortMode,
   searchQuery,
-  setSearchQuery
+  setSearchQuery,
+  commandMode = false,
+  historyLocked = false,
+  currentMonthStartIso,
 }) => {  
+  const voice = getFlowLabels(commandMode);
   const dateInputRef = useRef<HTMLInputElement>(null);
   const [showCategories, setShowCategories] = useState(false);
   const handleLabelClick = () => {
@@ -98,7 +108,9 @@ const FilterBar: React.FC<FilterBarProps> = ({
       </div>
       {searchQuery && (
         <p className="text-xxs text-brand-accent font-black uppercase tracking-ultra-wide -mt-2 px-1">
-          Pesquisando em todos os períodos — filtro de data desativado
+          {historyLocked
+            ? 'Pesquisando no mês atual e futuro — histórico anterior no Pro'
+            : 'Pesquisando em todos os períodos — filtro de data desativado'}
         </p>
       )}
 
@@ -109,19 +121,25 @@ const FilterBar: React.FC<FilterBarProps> = ({
              
              {/* 1.1 Modos de Visualização */}
              <div className="flex bg-surface-secondary rounded-3xl p-1.5 w-full sm:w-auto justify-between border border-surface-elevated shadow-soft">
-                {['day', 'month', 'year', 'period', 'all'].map((mode) => (
+                {(['day', 'month', 'year', 'period', 'all'] as HistoryViewMode[]).map((mode) => {
+                  const isRestricted = historyLocked && (mode === 'year' || mode === 'period' || mode === 'all');
+                  return (
                     <button 
                         key={mode}
-                        onClick={() => setViewMode(mode as any)}
-                        className={`flex-1 sm:flex-none px-3 py-2 rounded-2xl text-xxs font-black uppercase transition-all duration-200 ${
+                        onClick={() => setViewMode(mode)}
+                        className={`flex-1 sm:flex-none px-3 py-2 rounded-2xl text-xxs font-black uppercase transition-all duration-200 flex items-center justify-center gap-1 ${
                             viewMode === mode 
                             ? 'bg-brand-primary text-text-onBrand shadow-soft scale-105' 
-                            : 'text-text-secondary hover:text-text-primary'
+                            : isRestricted
+                              ? 'text-text-muted/70 hover:text-brand-secondary'
+                              : 'text-text-secondary hover:text-text-primary'
                         }`}
                     >
                         {mode === 'day' ? 'Dia' : mode === 'month' ? 'Mês' : mode === 'year' ? 'Ano' : mode === 'period' ? 'Período' : 'Tudo'}
+                        {isRestricted && <Lock size={10} className="opacity-70" />}
                     </button>
-                ))}
+                  );
+                })}
              </div>
 
              {/* 1.2 Navegação Rápida com Calendário ao Clicar */}
@@ -141,6 +159,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
                         <input 
                           ref={dateInputRef}
                           type="date"
+                          min={historyLocked ? currentMonthStartIso : undefined}
                           className="absolute inset-0 opacity-0 w-full pointer-events-none"
                           onChange={(e) => onDateSelect(e.target.value)}
                         />
@@ -158,7 +177,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
             <div className="flex flex-col sm:flex-row items-center gap-2 w-full lg:w-auto bg-surface-secondary p-2 rounded-3xl border border-surface-elevated animate-in fade-in zoom-in duration-300">
                 <div className="flex items-center justify-between w-full sm:w-auto gap-3 px-3">
                     <span className="text-xxs font-black text-text-muted uppercase">De</span>
-                    <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="bg-surface-primary border border-surface-elevated rounded-2xl px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-brand-primary h-10 shadow-soft" />
+                    <input type="date" value={startDate} min={historyLocked ? currentMonthStartIso : undefined} onChange={(e) => setStartDate(e.target.value)} className="bg-surface-primary border border-surface-elevated rounded-2xl px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-brand-primary h-10 shadow-soft" />
                 </div>
                 <div className="flex items-center justify-between w-full sm:w-auto gap-3 px-3 border-t sm:border-t-0 sm:border-l border-surface-elevated pt-2 sm:pt-0 sm:pl-3">
                     <span className="text-xxs font-black text-text-muted uppercase">Até</span>
@@ -200,7 +219,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
                         : 'bg-surface-elevated/50 border-surface-elevated text-text-secondary hover:bg-surface-secondary hover:text-text-primary'
                     }`}
                 >
-                    Receitas
+                    {voice.incomeFilter}
                 </button>
                 <button 
                     onClick={() => setTypeFilter('expense')} 
@@ -210,7 +229,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
                         : 'bg-surface-elevated/50 border-surface-elevated text-text-secondary hover:bg-surface-secondary hover:text-text-primary'
                     }`}
                 >
-                    Despesas
+                    {voice.expenseFilter}
                 </button>
             </div>
 

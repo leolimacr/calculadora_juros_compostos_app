@@ -1,6 +1,7 @@
-import { doc, DocumentSnapshot, QuerySnapshot, DocumentData } from 'firebase/firestore';
+import type { DocumentSnapshot, QuerySnapshot, DocumentData } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import { firestore } from '../firebase';
-import { Category } from '../types';
+import type { Category } from '../types';
 import { createRealtimeBridge } from '../core/realtime';
 import { queryKeys } from '../core/query/queryKeys';
 

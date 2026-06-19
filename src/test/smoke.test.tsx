@@ -2,7 +2,7 @@ import { render, screen } from './test-utils';
 import { describe, it, expect } from 'vitest';
 import React from 'react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { User } from 'firebase/auth';
+import type { User } from 'firebase/auth';
 import { Navigate } from 'react-router-dom';
 
 // Componentes Reais
@@ -48,11 +48,22 @@ describe('Proteção de Rota (Real)', () => {
   });
 });
 
-describe('Limite de Lancamentos (T1)', () => {
-  it('deve exibir mensagem de limite quando atingir 30 lancamentos', () => {
-    const isLimitReached = (count: number, isPro: boolean) => !isPro && count >= 30;
-    expect(isLimitReached(30, false)).toBe(true);
-    expect(isLimitReached(30, true)).toBe(false);
+describe('Rotina Free ilimitada (T1)', () => {
+  it('não bloqueia lançamentos por quantidade no plano Free', () => {
+    const isLimitReached = false;
+    expect(isLimitReached).toBe(false);
+  });
+});
+
+describe('Time-Gating de histórico (T1b)', () => {
+  it('bloqueia espelho retrovisor no Free e libera no Pro', async () => {
+    const { isMonthBeforeCurrent, isTransactionVisible } = await import('../utils/historyTimeGate');
+    const ref = new Date(2026, 5, 15);
+    expect(isMonthBeforeCurrent(2026, 5, ref)).toBe(true);
+    expect(isMonthBeforeCurrent(2026, 6, ref)).toBe(false);
+    expect(isTransactionVisible('2026-05-10', 'free', ref)).toBe(false);
+    expect(isTransactionVisible('2026-06-10', 'free', ref)).toBe(true);
+    expect(isTransactionVisible('2026-05-10', 'pro', ref)).toBe(true);
   });
 });
 

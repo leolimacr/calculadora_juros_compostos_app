@@ -70,6 +70,7 @@ export const useSubscriptionAccess = () => {
   const hasPaidAccess = isPro;
   const planLabel = role === 'premium' ? 'Premium' : role === 'pro' ? 'Pro' : 'Free';
 
+  const currentPlan = role;
   return {
     isFree,
     isPro,
@@ -77,6 +78,9 @@ export const useSubscriptionAccess = () => {
     hasPaidAccess,
     loadingSubscription,
     role,
-    planLabel
+    planLabel,
+    currentPlan,
   };
 };
+
+export default useSubscriptionAccess;

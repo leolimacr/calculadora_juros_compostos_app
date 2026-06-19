@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../core/query/queryKeys';
-import { ActiveAsset } from '../components/tools/wealth/ActiveWealthManager';
+import type { ActiveAsset } from '../components/tools/wealth/ActiveWealthManager';
 
 export const useAssets = (userId: string | undefined) => {
   const queryClient = useQueryClient();
