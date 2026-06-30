@@ -1,70 +1,220 @@
-import React, { useState } from 'react';
-import { Check, CheckCircle, Zap, Shield, BarChart3, Target, ArrowRight, FileText, History } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Check, CheckCircle, Zap, Shield, BarChart3, Target, ArrowRight, Crown, Loader2 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../firebase';
+import { useEntitlement } from '../hooks/useEntitlement';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigation } from '../hooks/useNavigation';
+import { PLANS } from '../../config/stripePlans';
+import type { BillingTier, BillingStatus } from '../types/billing';
 
-interface PricingProps {
-  onNavigate: (tool: string) => void;
-  currentPlan: 'free' | 'pro' | 'premium';
-  onBack: () => void;
-  isAuthenticated: boolean;
-  userId?: string;
+const TIER_ORDER: Record<BillingTier, number> = { free: 0, pro: 1, premium: 2 };
+
+const PLAN_META = [
+  {
+    tier: 'free' as BillingTier,
+    label: 'Free',
+    title: 'Sua base',
+    desc: 'O essencial para construir o hábito financeiro sem limite.',
+    accent: 'slate',
+    config: PLANS.FREE,
+    features: [
+      'Lançamentos ilimitados no Controla',
+      'Mês atual e meses futuros',
+      'Base de Proteção — veja sua camada de segurança',
+      'Central — visão da sua evolução financeira',
+      'Ferramentas de simulação financeira',
+    ],
+    featureIcons: [Check, Check, Check, Check, Check],
+  },
+  {
+    tier: 'pro' as BillingTier,
+    label: 'Pro',
+    title: 'Seu passado',
+    desc: 'Seus meses anteriores revelam sua verdadeira proteção.',
+    accent: 'sky',
+    config: PLANS.PRO,
+    features: [
+      'Histórico completo — todos os meses e anos',
+      'Compare períodos e veja suas médias ao longo do tempo',
+      'Relatórios PDF e exportação de períodos anteriores',
+      'Trajetória da sua margem nos últimos 6 meses',
+      'Nexus com contexto do seu histórico financeiro',
+    ],
+    featureIcons: [HistoryIcon, BarChart3, FileTextIcon, Zap, Check],
+  },
+  {
+    tier: 'premium' as BillingTier,
+    label: 'Premium',
+    title: 'Sua soberania',
+    desc: 'Rotina, dívidas, investimentos e patrimônio conectados num só comando.',
+    accent: 'emerald',
+    config: PLANS.PREMIUM,
+    features: [
+      'Tudo do Pro incluído',
+      'Gestão de Dívidas com projeções e estratégia',
+      'Acompanhamento de investimentos e carteira',
+      'Patrimônio líquido consolidado',
+      'Central completa com módulos estratégicos',
+      'Nexus com visão de ecossistema',
+    ],
+    featureIcons: [CheckCircle, Target, Shield, BarChart3, Zap, Check],
+  },
+];
+
+function HistoryIcon(props: { size?: number; className?: string }) {
+  return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>;
 }
 
-const PricingPage: React.FC<PricingProps> = ({ onNavigate, currentPlan, onBack, isAuthenticated, userId }) => {
+function FileTextIcon(props: { size?: number; className?: string }) {
+  return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>;
+}
+
+interface ButtonConfig {
+  label: string;
+  action: 'checkout' | 'portal' | 'none';
+  disabled: boolean;
+}
+
+function getButtonConfig(
+  columnTier: BillingTier,
+  effectiveTier: BillingTier,
+  billingStatus: BillingStatus,
+): ButtonConfig {
+  const userOrder = TIER_ORDER[effectiveTier] ?? 0;
+  const colOrder = TIER_ORDER[columnTier] ?? 0;
+
+  if (columnTier === 'free') {
+    return { label: effectiveTier === 'free' ? 'Atual' : 'Incluso', action: 'none', disabled: true };
+  }
+
+  if (effectiveTier !== 'free' && userOrder >= colOrder) {
+    if (effectiveTier === columnTier) {
+      if (billingStatus === 'past_due') return { label: 'Regularizar', action: 'portal', disabled: false };
+      if (billingStatus === 'canceled') return { label: 'Reativar', action: 'portal', disabled: false };
+      return { label: 'Gerenciar', action: 'portal', disabled: false };
+    }
+    return { label: 'Incluso', action: 'none', disabled: true };
+  }
+
+  if (effectiveTier !== 'free' && userOrder < colOrder) {
+    return { label: 'Fazer Upgrade', action: 'checkout', disabled: false };
+  }
+
+  return { label: `Assinar ${columnTier === 'pro' ? 'Pro' : 'Premium'}`, action: 'checkout', disabled: false };
+}
+
+function getStatusBadge(billingStatus: BillingStatus): { label: string; color: string } | null {
+  switch (billingStatus) {
+    case 'trialing': return { label: 'Teste Gratuito', color: 'text-sky-600' };
+    case 'active':   return null;
+    case 'past_due': return { label: 'Pagamento Pendente', color: 'text-amber-600' };
+    case 'canceled': return { label: 'Cancelado', color: 'text-slate-500' };
+    default:         return null;
+  }
+}
+
+const PricingPage: React.FC = () => {
+  const { loading, effectiveTier, billingStatus } = useEntitlement();
+  const { user } = useAuth();
+  const { handleNavigate } = useNavigation();
   const isNative = Capacitor.isNativePlatform();
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [checkoutSuccess, setCheckoutSuccess] = useState(false);
 
-  const handleSubscriptionClick = async (baseUrl: string, planTarget: string) => {
-    if (!isAuthenticated) {
-      if (window.confirm("Você precisa estar logado para assinar. Ir para login?")) {
-        onNavigate('login');
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('checkout') === 'success') {
+      setCheckoutSuccess(true);
+      window.history.replaceState({}, '', window.location.pathname);
+      const timer = setTimeout(() => setCheckoutSuccess(false), 6000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  const handleCheckout = useCallback(async (planId: string) => {
+    if (!user) {
+      handleNavigate('login');
+      return;
+    }
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const fn = httpsCallable(functions, 'createCheckoutSession');
+      const result = await fn({
+        planId,
+        successUrl: window.location.origin + '/app/mais/pricing?checkout=success',
+        cancelUrl: window.location.href,
+      });
+      const data = result.data as { sessionUrl: string };
+      if (isNative) {
+        await Browser.open({ url: data.sessionUrl });
+      } else {
+        window.open(data.sessionUrl, '_blank');
       }
-      return;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro ao iniciar pagamento';
+      setActionError(msg);
+    } finally {
+      setActionLoading(false);
     }
+  }, [user, isNative, handleNavigate]);
 
-    if (currentPlan === planTarget || (currentPlan === 'premium' && planTarget === 'pro')) {
-      alert("Você já possui este plano ativo!");
-      return;
+  const handlePortal = useCallback(async () => {
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const fn = httpsCallable(functions, 'createPortalSession');
+      const result = await fn({ returnUrl: window.location.href });
+      const data = result.data as { url: string };
+      if (isNative) {
+        await Browser.open({ url: data.url });
+      } else {
+        window.open(data.url, '_blank');
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro ao abrir gerenciamento';
+      setActionError(msg);
+    } finally {
+      setActionLoading(false);
     }
+  }, [isNative]);
 
-    if (!userId) {
-      alert("ERRO: ID do usuário não encontrado. Tente sair e entrar na conta novamente.");
-      return;
-    }
-
-    const finalUrl = `${baseUrl}?client_reference_id=${userId}`;
-
-    if (isNative) {
-      await Browser.open({ url: finalUrl });
-    } else {
-      window.open(finalUrl, '_blank');
-    }
-  };
-
-  const proFeatures = [
-    { icon: History, text: 'Histórico completo — todos os meses e anos' },
-    { icon: BarChart3, text: 'Compare períodos e veja suas médias ao longo do tempo' },
-    { icon: FileText, text: 'Relatórios PDF e exportação de períodos anteriores' },
-    { icon: Zap, text: 'Trajetória da sua margem nos últimos 6 meses' },
-    { icon: Check, text: 'Nexus com contexto do seu histórico financeiro' },
-  ];
-
-  const premiumFeatures = [
-    { icon: CheckCircle, text: 'Tudo do Pro incluído' },
-    { icon: Target, text: 'Gestão de Dívidas com projeções e estratégia' },
-    { icon: Shield, text: 'Acompanhamento de investimentos e carteira' },
-    { icon: Zap, text: 'Patrimônio líquido consolidado' },
-    { icon: BarChart3, text: 'Central completa com módulos estratégicos' },
-    { icon: Check, text: 'Nexus com visão de ecossistema' },
-  ];
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white animate-in fade-in duration-500">
+        <div className="max-w-5xl mx-auto px-4 pt-24 pb-16">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="rounded-2xl border border-slate-200 bg-white p-6 animate-pulse">
+                <div className="h-4 bg-slate-200 rounded w-1/3 mb-4" />
+                <div className="h-6 bg-slate-200 rounded w-2/3 mb-3" />
+                <div className="h-3 bg-slate-200 rounded w-full mb-6" />
+                <div className="h-8 bg-slate-200 rounded w-1/2 mb-6" />
+                <div className="space-y-2 mb-8">
+                  {[1, 2, 3, 4, 5].map((j) => (
+                    <div key={j} className="h-3 bg-slate-100 rounded w-full" />
+                  ))}
+                </div>
+                <div className="h-10 bg-slate-200 rounded-xl w-full" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white animate-in fade-in duration-500">
       <div className="max-w-3xl mx-auto px-4 pt-12 pb-4 text-center">
         <button
-          onClick={onBack}
-          className="mb-10 text-slate-400 hover:text-slate-700 transition-colors flex items-center gap-2 font-bold uppercase text-[10px] tracking-widest mx-auto"
+          onClick={() => handleNavigate('home')}
+          className="mb-10 text-slate-500 hover:text-slate-700 transition-colors flex items-center gap-2 font-bold uppercase text-[10px] tracking-widest mx-auto"
         >
           ← Voltar
         </button>
@@ -74,180 +224,157 @@ const PricingPage: React.FC<PricingProps> = ({ onNavigate, currentPlan, onBack, 
         </p>
         <h1 className="text-4xl md:text-5xl font-black text-slate-900 leading-tight mb-4">
           Três camadas,<br />
-          <span className="text-emerald-600">
-            uma evolução.
-          </span>
+          <span className="text-emerald-600">uma evolução.</span>
         </h1>
         <p className="text-slate-500 text-base max-w-2xl mx-auto leading-relaxed">
           No Free, você constrói o hábito e vê sua proteção. No Pro, seu passado revela sua verdadeira segurança. No Premium, rotina, dívidas e patrimônio se conectam num só comando.
         </p>
       </div>
 
+      {checkoutSuccess && (
+        <div className="max-w-3xl mx-auto px-4 mb-4">
+          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center text-sm font-bold text-emerald-700">
+            Assinatura ativada com sucesso! Bem-vindo ao {effectiveTier === 'premium' ? 'Premium' : effectiveTier === 'pro' ? 'Pro' : 'novo plano'}.
+          </div>
+        </div>
+      )}
+
+      {actionError && (
+        <div className="max-w-3xl mx-auto px-4 mb-4">
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-center text-sm font-bold text-red-600">
+            {actionError}
+          </div>
+        </div>
+      )}
+
       <div className="max-w-5xl mx-auto px-4 py-10 grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 flex flex-col">
-          <div className="mb-5">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Free</p>
-            <h3 className="text-xl font-black text-slate-900">Sua base</h3>
-            <p className="text-slate-500 text-xs mt-1 leading-relaxed">
-              O essencial para construir o hábito financeiro sem limite.
-            </p>
-          </div>
+        {PLAN_META.map((plan) => {
+          const btn = getButtonConfig(plan.tier, effectiveTier, billingStatus);
+          const statusBadge = effectiveTier === plan.tier ? getStatusBadge(billingStatus) : null;
 
-          <div className="mb-6">
-            <span className="text-3xl font-black text-slate-900">R$ 0</span>
-            <span className="text-slate-400 text-sm"> /sempre</span>
-          </div>
+          const accentMap: Record<string, { border: string; bg: string; btn: string; text: string; shadow: string }> = {
+            slate: {
+              border: 'border-slate-200',
+              bg: 'bg-slate-50',
+              btn: 'bg-slate-100 text-slate-500 cursor-default',
+              text: 'text-slate-500',
+              shadow: '',
+            },
+            sky: {
+              border: effectiveTier === 'pro' ? 'border-sky-400' : 'border-sky-200',
+              bg: effectiveTier === 'pro' ? 'bg-sky-50' : 'bg-white',
+              btn: 'bg-sky-600 hover:bg-sky-500 text-white active:scale-95',
+              text: 'text-sky-500',
+              shadow: 'shadow-lg shadow-sky-100',
+            },
+            emerald: {
+              border: effectiveTier === 'premium' ? 'border-emerald-400' : 'border-emerald-300',
+              bg: effectiveTier === 'premium' ? 'bg-emerald-50' : 'bg-white',
+              btn: 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 active:scale-95',
+              text: 'text-emerald-600',
+              shadow: 'shadow-xl shadow-emerald-100',
+            },
+          };
 
-          <ul className="space-y-3 mb-8 flex-grow">
-            <li className="flex items-start gap-2 text-sm text-slate-600">
-              <Check size={15} className="text-slate-400 mt-0.5 shrink-0" />
-              Lançamentos ilimitados no Controla
-            </li>
-            <li className="flex items-start gap-2 text-sm text-slate-600">
-              <Check size={15} className="text-slate-400 mt-0.5 shrink-0" />
-              Mês atual e meses futuros
-            </li>
-            <li className="flex items-start gap-2 text-sm text-slate-600">
-              <Check size={15} className="text-slate-400 mt-0.5 shrink-0" />
-              Base de Proteção — veja sua camada de segurança
-            </li>
-            <li className="flex items-start gap-2 text-sm text-slate-600">
-              <Check size={15} className="text-slate-400 mt-0.5 shrink-0" />
-              Central — visão da sua evolução financeira
-            </li>
-            <li className="flex items-start gap-2 text-sm text-slate-600">
-              <Check size={15} className="text-slate-400 mt-0.5 shrink-0" />
-              Ferramentas de simulação financeira
-            </li>
-          </ul>
+          const style = accentMap[plan.accent] ?? accentMap.slate;
 
-          <button
-            disabled
-            className="w-full py-3 bg-slate-100 text-slate-400 rounded-xl font-bold uppercase text-[11px] tracking-widest cursor-default"
-          >
-            {currentPlan === 'free' ? 'Plano atual' : 'Disponível'}
-          </button>
-        </div>
+          return (
+            <div key={plan.tier} className={`relative rounded-2xl border ${style.border} ${style.bg} ${style.shadow} p-6 flex flex-col transition-all`}>
+              {plan.tier === 'premium' && (
+                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-emerald-500 text-white px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow">
+                  Próximo nível
+                </div>
+              )}
 
-        <div className={`rounded-2xl border p-6 flex flex-col transition-all ${
-          currentPlan === 'pro'
-            ? 'border-sky-400 bg-sky-50'
-            : 'border-sky-200 bg-white shadow-lg shadow-sky-100'
-        }`}>
-          <div className="mb-5">
-            <p className="text-[10px] font-black uppercase tracking-widest text-sky-500 mb-1">Pro</p>
-            <h3 className="text-xl font-black text-slate-900">Seu passado</h3>
-            <p className="text-slate-500 text-xs mt-1 leading-relaxed">
-              Seus meses anteriores revelam sua verdadeira proteção.
-            </p>
-          </div>
+              <div className="mb-5">
+                <p className={`text-[10px] font-black uppercase tracking-widest ${style.text} mb-1`}>{plan.label}</p>
+                <h3 className="text-xl font-black text-slate-900">{plan.title}</h3>
+                <p className="text-slate-500 text-xs mt-1 leading-relaxed">{plan.desc}</p>
+              </div>
 
-          <div className="mb-6">
-            <span className="text-3xl font-black text-slate-900">R$ 9,90</span>
-            <span className="text-slate-400 text-sm"> /mês</span>
-            <p className="text-[11px] text-sky-600 font-bold mt-1">
-              Acesse todo o seu histórico
-            </p>
-          </div>
+              <div className="mb-6">
+                <span className="text-3xl font-black text-slate-900">
+                  {plan.tier === 'free' ? 'R$ 0' : `R$ ${plan.config.price.toFixed(2).replace('.', ',')}`}
+                </span>
+                <span className="text-slate-500 text-sm">
+                  {plan.tier === 'free' ? ' /sempre' : plan.tier === 'premium' && billingCycle === 'yearly' ? ' /mês' : plan.config.period}
+                </span>
+                {plan.tier === 'premium' && billingCycle === 'yearly' && (
+                  <p className="text-[11px] text-emerald-600 font-bold mt-0.5">R$ 199,00/ano — 2 meses grátis</p>
+                )}
+                {statusBadge && (
+                  <p className={`text-[11px] font-bold mt-1 ${statusBadge.color}`}>{statusBadge.label}</p>
+                )}
+              </div>
 
-          <ul className="space-y-3 mb-8 flex-grow">
-            {proFeatures.map(({ icon: Icon, text }) => (
-              <li key={text} className="flex items-start gap-2 text-sm text-slate-700">
-                <Icon size={15} className="text-sky-500 mt-0.5 shrink-0" />
-                {text}
-              </li>
-            ))}
-          </ul>
+              {plan.tier === 'premium' && (
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl mb-6 w-full">
+                  <button
+                    onClick={() => setBillingCycle('monthly')}
+                    className={`flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
+                      billingCycle === 'monthly' ? 'bg-white text-slate-900 shadow' : 'text-slate-500'
+                    }`}
+                  >
+                    Mensal
+                  </button>
+                  <button
+                    onClick={() => setBillingCycle('yearly')}
+                    className={`flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
+                      billingCycle === 'yearly' ? 'bg-emerald-600 text-white shadow' : 'text-slate-500'
+                    }`}
+                  >
+                    Anual
+                  </button>
+                </div>
+              )}
 
-          <button
-            onClick={() => handleSubscriptionClick('https://buy.stripe.com/dRm7sNdcCe8p2vn5nXaAw02', 'pro')}
-            className={`w-full py-3.5 rounded-xl font-black uppercase text-[11px] tracking-widest transition-all flex items-center justify-center gap-2 ${
-              currentPlan === 'pro'
-                ? 'bg-sky-600 text-white cursor-default'
-                : 'bg-sky-600 hover:bg-sky-500 text-white active:scale-95'
-            }`}
-          >
-            {currentPlan === 'pro'
-              ? <><CheckCircle size={14} /> Plano ativo</>
-              : isAuthenticated
-                ? <>Assinar Pro <ArrowRight size={14} /></>
-                : 'Fazer login'}
-          </button>
-        </div>
+              <ul className="space-y-3 mb-8 flex-grow">
+                {plan.features.map((text, idx) => {
+                  const Icon = plan.featureIcons[idx] ?? Check;
+                  const iconColor = plan.tier === 'pro' ? 'text-sky-500' : plan.tier === 'premium' ? 'text-emerald-500' : 'text-slate-500';
+                  return (
+                    <li key={text} className="flex items-start gap-2 text-sm text-slate-600">
+                      <Icon size={15} className={`${iconColor} mt-0.5 shrink-0`} />
+                      {text}
+                    </li>
+                  );
+                })}
+              </ul>
 
-        <div className={`relative rounded-2xl border p-6 flex flex-col transition-all ${
-          currentPlan === 'premium'
-            ? 'border-emerald-400 bg-emerald-50'
-            : 'border-emerald-300 bg-white shadow-xl shadow-emerald-100'
-        }`}>
-          <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-emerald-500 text-white px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow">
-            Próximo nível
-          </div>
-
-          <div className="mb-5 mt-2">
-            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-1">Premium</p>
-            <h3 className="text-xl font-black text-slate-900">Sua soberania</h3>
-            <p className="text-slate-500 text-xs mt-1 leading-relaxed">
-              Rotina, dívidas, investimentos e patrimônio conectados num só comando.
-            </p>
-          </div>
-
-          <div className="mb-2">
-            <span className="text-3xl font-black text-slate-900">
-              {billingCycle === 'monthly' ? 'R$ 19,90' : 'R$ 16,58'}
-            </span>
-            <span className="text-slate-400 text-sm"> /mês</span>
-            {billingCycle === 'yearly' && (
-              <p className="text-[11px] text-emerald-600 font-bold mt-0.5">R$ 199,00/ano — 2 meses grátis</p>
-            )}
-          </div>
-
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl mb-6 w-full">
-            <button
-              onClick={() => setBillingCycle('monthly')}
-              className={`flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
-                billingCycle === 'monthly' ? 'bg-white text-slate-900 shadow' : 'text-slate-500'
-              }`}
-            >
-              Mensal
-            </button>
-            <button
-              onClick={() => setBillingCycle('yearly')}
-              className={`flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
-                billingCycle === 'yearly' ? 'bg-emerald-600 text-white shadow' : 'text-slate-500'
-              }`}
-            >
-              Anual
-            </button>
-          </div>
-
-          <ul className="space-y-3 mb-8 flex-grow">
-            {premiumFeatures.map(({ icon: Icon, text }) => (
-              <li key={text} className="flex items-start gap-2 text-sm text-slate-700">
-                <Icon size={15} className="text-emerald-500 mt-0.5 shrink-0" />
-                {text}
-              </li>
-            ))}
-          </ul>
-
-          <button
-            onClick={() => handleSubscriptionClick(
-              billingCycle === 'monthly'
-                ? 'https://buy.stripe.com/6oU8wRa0q4xPgmdcQpaAw01'
-                : 'https://buy.stripe.com/4gMaEZc8y8O54Dv5nXaAw00',
-              'premium'
-            )}
-            className={`w-full py-3.5 rounded-xl font-black uppercase text-[11px] tracking-widest transition-all flex items-center justify-center gap-2 ${
-              currentPlan === 'premium'
-                ? 'bg-emerald-600 text-white cursor-default'
-                : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 active:scale-95'
-            }`}
-          >
-            {currentPlan === 'premium'
-              ? <><CheckCircle size={14} /> Plano ativo</>
-              : <>Assinar Premium <ArrowRight size={14} /></>}
-          </button>
-        </div>
+              <button
+                onClick={() => {
+                  if (btn.disabled) return;
+                  if (btn.action === 'checkout') {
+                    const targetPlanId = plan.tier === 'premium'
+                      ? (billingCycle === 'yearly' ? 'premium_annual' : 'premium_monthly')
+                      : 'pro_monthly';
+                    handleCheckout(targetPlanId);
+                  } else if (btn.action === 'portal') {
+                    handlePortal();
+                  }
+                }}
+                disabled={btn.disabled || actionLoading}
+                className={`w-full py-3.5 rounded-xl font-black uppercase text-[11px] tracking-widest transition-all flex items-center justify-center gap-2 ${
+                  btn.disabled ? style.btn : `${style.btn}`
+                } ${actionLoading ? 'opacity-70' : ''}`}
+              >
+                {actionLoading && !btn.disabled ? (
+                  <><Loader2 size={14} className="animate-spin" /> Aguarde...</>
+                ) : btn.label === 'Gerenciar' ? (
+                  <><Crown size={14} /> Gerenciar</>
+                ) : btn.label === 'Regularizar' ? (
+                  <><Crown size={14} /> Regularizar</>
+                ) : btn.label === 'Reativar' ? (
+                  <><Crown size={14} /> Reativar</>
+                ) : btn.label === 'Incluso' || btn.label === 'Atual' ? (
+                  <><Check size={14} /> {btn.label}</>
+                ) : (
+                  <>{btn.label} <ArrowRight size={14} /></>
+                )}
+              </button>
+            </div>
+          );
+        })}
       </div>
 
       <div className="max-w-2xl mx-auto px-4 pb-16 text-center space-y-4">
@@ -257,7 +384,7 @@ const PricingPage: React.FC<PricingProps> = ({ onNavigate, currentPlan, onBack, 
             O Free já inclui sua Base de Proteção e o essencial para o dia a dia. Suba de plano quando quiser mergulhar no passado ou assumir o comando completo.
           </p>
         </div>
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-slate-500">
           Dúvidas? <a href="mailto:contato@financasproinvest.com.br" className="text-emerald-600 font-bold hover:underline">contato@financasproinvest.com.br</a>
         </p>
       </div>

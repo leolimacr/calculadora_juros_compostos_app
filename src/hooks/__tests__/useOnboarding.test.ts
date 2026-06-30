@@ -14,8 +14,8 @@ describe('useOnboarding', () => {
     expect(result.current.step).toBe(0);
   });
 
-  it('não ativa se flag fpi_onboarding_op_completed existe no localStorage', () => {
-    localStorage.setItem('fpi_onboarding_op_completed', 'true');
+  it('não ativa se flag onboarding_op_completed existe no localStorage (nova ou legada)', () => {
+    localStorage.setItem('financas-pro-invest_onboarding_op_completed', 'true');
     const { result } = renderHook(() => useOnboarding(0));
     expect(result.current.isActive).toBe(false);
     expect(result.current.step).toBe(0);
@@ -33,7 +33,7 @@ describe('useOnboarding', () => {
       result.current.skip();
     });
     expect(result.current.isActive).toBe(false);
-    expect(localStorage.getItem('fpi_onboarding_op_completed')).toBe('true');
+    expect(localStorage.getItem('financas-pro-invest_onboarding_op_completed')).toBe('true');
   });
 
   it('finish() salva flag e desativa', () => {
@@ -42,7 +42,7 @@ describe('useOnboarding', () => {
       result.current.finish();
     });
     expect(result.current.isActive).toBe(false);
-    expect(localStorage.getItem('fpi_onboarding_op_completed')).toBe('true');
+    expect(localStorage.getItem('financas-pro-invest_onboarding_op_completed')).toBe('true');
   });
 
   it('nextStep() avança do passo 1 ao 2, 2 ao 3', () => {

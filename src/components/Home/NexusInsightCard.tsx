@@ -52,7 +52,7 @@ const NexusInsightCard: React.FC<NexusInsightCardProps> = ({
         <div className="flex-1 space-y-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-600">Inteligência Estratégica Nexus</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-600">Nexus • Consultor Inteligente</span>
               <div className="h-px w-12 bg-emerald-100" />
             </div>
             <h3 className="text-2xl font-black text-slate-950 tracking-tight leading-tight drop-shadow-sm">

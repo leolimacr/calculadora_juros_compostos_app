@@ -29,6 +29,11 @@ export const queryKeys = {
     all: ['cards'] as const,
     byUser: (userId: string) => ['cards', userId] as const,
   },
+  invoices: {
+    all: ['invoices'] as const,
+    byUser: (userId: string) => ['invoices', userId] as const,
+    byCard: (userId: string, cardId: string) => ['invoices', userId, cardId] as const,
+  },
   bills: {
     all: ['recurring_bills'] as const,
     byUser: (userId: string) => ['recurring_bills', userId] as const,
@@ -36,6 +41,14 @@ export const queryKeys = {
   presence: {
     all: ['presence'] as const,
     byUser: (userId: string) => ['presence', userId] as const,
+  },
+  jurosRotativos: {
+    all: ['jurosRotativos'] as const,
+    byUser: (userId: string) => ['jurosRotativos', userId] as const,
+    byDebt: (userId: string, debtId: string) => ['jurosRotativos', userId, debtId] as const,
+  },
+  budget: {
+    byUser: (userId: string, month: string) => ['budget', userId, month] as const,
   },
   settings: {
     all: ['settings'] as const,

@@ -111,7 +111,7 @@ export const ExplorarHub: React.FC<ExplorarHubProps> = ({ onNavigate, routerNavi
           {/* 2. EXPERIMENTE (FERRAMENTAS) */}
           <section className="space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Ferramentas de Apoio</h2>
+              <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Ferramentas de Apoio</h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
               {ferramentas.map(f => (
@@ -138,24 +138,24 @@ export const ExplorarHub: React.FC<ExplorarHubProps> = ({ onNavigate, routerNavi
           {/* 3. APRENDA (TRILHAS) */}
           <section className="space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Educação e Estratégia</h2>
+              <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Educação e Estratégia</h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               {courses.slice(0, 4).map((curso: typeof courses[number]) => (
                 <button 
                   key={curso.slug} 
                   onClick={() => routerNavigate(`/curso/${curso.slug}`)} 
-                  className="group relative overflow-hidden p-6 md:p-8 bg-slate-800/90 rounded-[2rem] text-left hover:shadow-xl hover:scale-[1.01] transition-all flex items-center gap-4 md:gap-6"
+                  className="group relative overflow-hidden p-6 md:p-8 bg-white rounded-[2rem] text-left hover:shadow-lg hover:scale-[1.01] transition-all flex items-center gap-4 md:gap-6 border border-slate-200"
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent opacity-40" />
-                  <div className="relative z-10 w-10 h-10 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-white/5 text-emerald-400 flex items-center justify-center shrink-0">
+                  <div className="relative z-10 w-10 h-10 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
                     <BookOpen size={20} className="md:w-6 md:h-6" />
                   </div>
                   <div className="relative z-10 flex-1 min-w-0">
-                    <span className="block font-black text-base md:text-lg tracking-tight text-white group-hover:text-emerald-400 transition-colors uppercase truncate">{curso.title}</span>
-                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-1 block">Curso / Módulo</span>
+                    <span className="block font-black text-base md:text-lg tracking-tight text-slate-900 group-hover:text-emerald-600 transition-colors uppercase truncate">{curso.title}</span>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 mt-1 block">Curso / Módulo</span>
                   </div>
-                  <ChevronRight size={18} className="relative z-10 text-slate-600 group-hover:text-white transition-colors" />
+                  <ChevronRight size={18} className="relative z-10 text-slate-400 group-hover:text-slate-900 transition-colors" />
                 </button>
               ))}
             </div>
@@ -164,7 +164,7 @@ export const ExplorarHub: React.FC<ExplorarHubProps> = ({ onNavigate, routerNavi
           {/* 4. CONTEXTO (MERCADO & LEITURAS) */}
           <section className="space-y-10 pt-8 border-t border-slate-200">
             <div className="space-y-2">
-              <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Inteligência de Mercado</h2>
+              <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Inteligência de Mercado</h2>
               <p className="text-slate-500 text-xs md:text-sm font-medium">Fatos e movimentos que impactam suas decisões.</p>
             </div>
 

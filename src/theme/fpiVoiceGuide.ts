@@ -65,8 +65,8 @@ const ROTINA: FlowLabels = {
   flowChart: 'Visão de fluxo',
   compositionTitle: 'Onde seu dinheiro foi',
   registerCta: 'Lançar dinheiro',
-  firstLaunchHint: 'Anote sua primeira entrada para o sistema organizar seu mês.',
-  emptyLaunchHint: 'Anote o que entrou ou saiu — o FPI cuida do resto.',
+  firstLaunchHint: 'Anote sua primeira entrada para calcularmos o que sobra de verdade no seu mês.',
+  emptyLaunchHint: 'Anote o que entrou ou saiu — o sistema calcula seu Saldo Livre Real a partir daí.',
 };
 
 const COMANDO: FlowLabels = {
@@ -80,8 +80,8 @@ const COMANDO: FlowLabels = {
   flowChart: 'Pressão nas contas',
   compositionTitle: 'Onde o dinheiro pesa',
   registerCta: 'Lançar movimento',
-  firstLaunchHint: 'Anote o que entrou para calcularmos sua folga.',
-  emptyLaunchHint: 'Cada movimento muda sua folga — anote para ter controle.',
+  firstLaunchHint: 'Anote o que entrou para calcularmos sua folga real.',
+  emptyLaunchHint: 'Cada movimento muda sua folga real — anote para enxergar sua verdadeira margem.',
 };
 
 export function getFlowLabels(commandMode?: boolean): FlowLabels {
@@ -306,4 +306,22 @@ export const NEXUS_COPY = {
       ],
     },
   ] as const,
+
+  /** Introspecção do Nexus — texto exibido no primeiro contato */
+  introTitle: 'Nexus • Consultor Inteligente',
+  introBody:
+    'Ele lê sua rotina financeira — entradas, saídas, contas e folga do mês — e destaca o que merece atenção, padrões que você não vê e o próximo passo com base nos seus dados.',
+  introScopeFree: 'No plano Free, ele analisa seu mês atual. Cada lançamento alimenta a leitura.',
+  introScopePro: 'No Pro, ele cruza também seu histórico completo e sugere ações com base na sua trajetória.',
+  introScopePremium:
+    'No Premium, ele conecta investimentos, dívidas e patrimônio em uma visão integrada.',
+  introCtaOpen: 'Abrir Nexus',
+  introDismissLabel: 'Entendi',
 } as const;
+
+/** Intro do Nexus por plano — texto único com base no tier */
+export function getNexusIntroScope(effectiveTier: 'free' | 'pro' | 'premium'): string {
+  if (effectiveTier === 'premium') return NEXUS_COPY.introScopePremium;
+  if (effectiveTier === 'pro') return NEXUS_COPY.introScopePro;
+  return NEXUS_COPY.introScopeFree;
+}

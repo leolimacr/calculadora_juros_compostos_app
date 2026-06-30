@@ -36,13 +36,13 @@ const ExpandableSection: React.FC<ExpandableSectionProps> = ({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
           {label}
         </span>
         <button
           type="button"
           onClick={toggle}
-          className="flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-slate-600 transition-colors py-1 px-1 min-h-[44px]"
+          className="flex items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-slate-600 transition-colors py-1 px-1 min-h-[44px]"
           aria-expanded={isOpen}
         >
           <span>{isOpen ? 'Recolher' : 'Ver composição'}</span>

@@ -9,19 +9,19 @@ interface Props {
 }
 
 export const HomeSecoesSuporte: React.FC<Props> = ({ heroPersona, onNavigate, onStartNow, isAuthenticated }) => (
-  <div className="bg-[#0B0F17] text-[#E5E7EB] font-sans border-t border-white/[0.04]">
+  <div className="bg-surface-secondary text-slate-700 font-sans border-t border-slate-200">
     
     {/* Dobra de Comando & Integração FPI */}
     <section className="px-6 lg:px-16 py-20 max-w-[1400px] mx-auto w-full">
-      <div className="bg-[#111622] border border-white/[0.06] rounded-2xl p-8 lg:p-12 shadow-[0_20px_50px_rgba(0,0,0,0.4)]">
+      <div className="bg-white border border-slate-200 rounded-2xl p-8 lg:p-12 shadow-sm">
         <div className="max-w-3xl">
-          <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-950/40 border border-blue-900/50 text-blue-400 text-xs font-bold uppercase tracking-wider mb-6">
+          <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold uppercase tracking-wider mb-6">
             Sua Central de Comando
           </span>
-          <h3 className="text-2xl md:text-4xl font-extrabold text-white tracking-tight mb-4">
+          <h3 className="text-2xl md:text-4xl font-extrabold text-slate-900 tracking-tight mb-4">
             A verdade nua e crua na palma da sua mão.
           </h3>
-          <p className="text-[#A0A4AB] text-sm md:text-base leading-relaxed mb-8">
+          <p className="text-slate-500 text-sm md:text-base leading-relaxed mb-8">
             {heroPersona === 'dividas' 
               ? 'Pare de usar planilhas complexas que perdoam seus deslizes. O FPI monitora as taxas reais cobradas e alerta antes de os juros minarem sua folga do mês.'
               : 'O FPI junta todas as pontas. Mapeamos seus investimentos, descontamos a inflação em tempo real e mostramos quanto sua carteira está de fato protegendo a sua liberdade.'}
@@ -42,21 +42,21 @@ export const HomeSecoesSuporte: React.FC<Props> = ({ heroPersona, onNavigate, on
     {/* Benefícios Filosóficos */}
     <section className="px-6 lg:px-16 py-10 max-w-[1400px] mx-auto w-full">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="rounded-2xl border border-white/[0.06] bg-[#111622] p-6">
-          <h4 className="text-white font-bold text-lg mb-2">Clareza Imperturbável</h4>
-          <p className="text-[#A0A4AB] text-sm leading-relaxed">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6">
+          <h4 className="text-slate-900 font-bold text-lg mb-2">Clareza Imperturbável</h4>
+          <p className="text-slate-500 text-sm leading-relaxed">
             Nós não enviamos avisos de comemoração ou notificações coloridas desnecessárias. Nossa entrega é focada na verdade absoluta da sua saúde patrimonial.
           </p>
         </div>
-        <div className="rounded-2xl border border-white/[0.06] bg-[#111622] p-6">
-          <h4 className="text-white font-bold text-lg mb-2">Instinto de Comando</h4>
-          <p className="text-[#A0A4AB] text-sm leading-relaxed">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6">
+          <h4 className="text-slate-900 font-bold text-lg mb-2">Instinto de Comando</h4>
+          <p className="text-slate-500 text-sm leading-relaxed">
             Você é quem pilota. O sistema serve apenas como painel de dados com feedback imediato para proteger o seu Saldo Livre Real.
           </p>
         </div>
-        <div className="rounded-2xl border border-white/[0.06] bg-[#111622] p-6">
-          <h4 className="text-white font-bold text-lg mb-2">Foco no Colchão Inicial</h4>
-          <p className="text-[#A0A4AB] text-sm leading-relaxed">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6">
+          <h4 className="text-slate-900 font-bold text-lg mb-2">Foco no Colchão Inicial</h4>
+          <p className="text-slate-500 text-sm leading-relaxed">
             Todas as métricas são orientadas a construir sua primeira camada de proteção financeira o quanto antes. O resto é apenas ruído.
           </p>
         </div>
@@ -66,15 +66,15 @@ export const HomeSecoesSuporte: React.FC<Props> = ({ heroPersona, onNavigate, on
     {/* CTA Final Unificado */}
     <section className="px-6 lg:px-16 py-28 max-w-[1400px] mx-auto w-full text-center">
       <div className="max-w-3xl mx-auto space-y-6">
-        <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest block">
+        <span className="text-xs font-bold text-emerald-600 uppercase tracking-widest block">
           Ação Estratégica
         </span>
         
-        <h3 className="text-3xl md:text-5xl font-black text-white tracking-tight">
+        <h3 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tight">
           Pronto para assumir o controle?
         </h3>
         
-        <p className="text-[#A0A4AB] text-base md:text-lg leading-relaxed">
+        <p className="text-slate-500 text-base md:text-lg leading-relaxed">
           {heroPersona === 'dividas'
             ? 'Esconda o pânico. Mapeie a realidade e comece seu plano para sair do vermelho com suporte da autoridade silenciosa do Nexus.'
             : 'Consolide suas contas, acompanhe seu progresso real e deixe o cockpit te guiar com tranquilidade.'}

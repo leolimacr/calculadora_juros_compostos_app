@@ -38,7 +38,7 @@ const BaseDeProtecaoCard: React.FC<BaseDeProtecaoCardProps> = ({
   const reserveShortfall = Math.max(0, reserveTarget - reserveCurrent);
 
   return (
-    <section className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-emerald-50 to-white border border-emerald-200 border-l-4 border-l-emerald-500 p-6 md:p-8 shadow-sm">
+    <section className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-emerald-50 to-white border border-emerald-200 border-l-[3px] border-l-brand-primary p-6 md:p-8 shadow-floating">
       <div className="absolute top-0 right-0 w-40 h-40 bg-emerald-500/[0.04] rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
 
       <div className="relative space-y-5">
@@ -71,7 +71,7 @@ const BaseDeProtecaoCard: React.FC<BaseDeProtecaoCardProps> = ({
               <p className="text-4xl md:text-5xl font-black tracking-tighter text-slate-900">
                 {formatCurrency(totalProtegido)}
               </p>
-              <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">
+              <p className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em] mt-1">
                 {BASE_PROTECAO.totalLabel}
               </p>
             </div>
@@ -79,7 +79,7 @@ const BaseDeProtecaoCard: React.FC<BaseDeProtecaoCardProps> = ({
             {/* Bloco Colchão Inicial */}
             <div className="rounded-2xl bg-white border border-sky-100 p-4 space-y-2">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">
                   {BASE_PROTECAO.colchaoBlockTitle}
                 </p>
                 <p className="text-xs font-black text-sky-600">
@@ -93,7 +93,7 @@ const BaseDeProtecaoCard: React.FC<BaseDeProtecaoCardProps> = ({
                 />
               </div>
               <div className="flex justify-between items-center">
-                <p className="text-[9px] text-slate-400 font-medium">
+                <p className="text-[9px] text-slate-500 font-medium">
                   {colchaoInicialTarget > 0
                     ? `Meta ${formatCurrency(colchaoInicialTarget)}`
                     : BASE_PROTECAO.colchaoBlockSubtitle}
@@ -109,7 +109,7 @@ const BaseDeProtecaoCard: React.FC<BaseDeProtecaoCardProps> = ({
             {/* Bloco Reserva de Emergência */}
             <div className="rounded-2xl bg-white border border-emerald-100 p-4 space-y-2">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">
                   {BASE_PROTECAO.reservaBlockTitle}
                 </p>
                 <p className="text-xs font-black text-emerald-600">
@@ -123,7 +123,7 @@ const BaseDeProtecaoCard: React.FC<BaseDeProtecaoCardProps> = ({
                 />
               </div>
               <div className="flex justify-between items-center">
-                <p className="text-[9px] text-slate-400 font-medium">
+                <p className="text-[9px] text-slate-500 font-medium">
                   {reserveTarget > 0
                     ? `Meta ${formatCurrency(reserveTarget)}`
                     : BASE_PROTECAO.reservaBlockSubtitle}
@@ -138,12 +138,12 @@ const BaseDeProtecaoCard: React.FC<BaseDeProtecaoCardProps> = ({
 
             {/* Tempo de Segurança */}
             <div className="text-center">
-              <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">
+              <p className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">
                 {BASE_PROTECAO.safetyTimeLabel}: {tempoSeguranca !== null
                   ? `${tempoSeguranca} ${BASE_PROTECAO.safetyTimeSuffix}`
                   : '—'}
               </p>
-              <p className="text-[10px] text-slate-400 font-medium mt-2">
+              <p className="text-[10px] text-slate-500 font-medium mt-2">
                 Usado para calcular sua Disponibilidade Real na Home.
               </p>
             </div>

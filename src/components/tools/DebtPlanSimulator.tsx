@@ -348,7 +348,7 @@ export const DebtPlanSimulator: React.FC<DebtPlanSimulatorProps> = ({
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-teal-600"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
               </div>
               <div>
-                <p className="text-xs text-slate-400 uppercase font-black tracking-wider">
+                <p className="text-xs text-slate-500 uppercase font-black tracking-wider">
                   {hasExistingPlan ? "Nexus — Plano disponível" : "Nexus — Plano gerado"}
                 </p>
                 <h3 className="text-base font-black text-slate-800">Seu Plano de Quitação de Dívidas</h3>
@@ -358,7 +358,7 @@ export const DebtPlanSimulator: React.FC<DebtPlanSimulatorProps> = ({
             {plan.planoMarkdown && (
               <div className="prose prose-slate max-w-none text-sm leading-relaxed text-slate-800 print:break-inside-avoid">
                 {plan.generatedAt && (
-                  <p className="text-[10px] text-slate-400 uppercase font-black tracking-wider mb-2">
+                  <p className="text-[10px] text-slate-500 uppercase font-black tracking-wider mb-2">
                     Plano gerado em {new Date(plan.generatedAt).toLocaleString("pt-BR")}
                   </p>
                 )}

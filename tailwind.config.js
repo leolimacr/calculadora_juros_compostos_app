@@ -1,4 +1,5 @@
 /** @type {import('tailwindcss').Config} */
+/* ⚠️ MANTENHA SINCRONIZADO com src/theme/tokens.ts — altere apenas lá e valide com npm run check:tokens */
 export default {
   content: [
     './index.html',
@@ -25,10 +26,11 @@ export default {
       },
       colors: {
         brand: {
-          primary: '#10b981',   // emerald-500
-          secondary: '#0ea5e9', // sky-500
-          accent: '#f59e0b',    // amber-500
-          technical: '#6366f1', // indigo-500
+          primary: '#10b981',
+          primaryCta: '#059669',
+          secondary: '#0ea5e9',
+          accent: '#f59e0b',
+          technical: '#6366f1',
         },
         status: {
           success: '#10b981',
@@ -38,28 +40,29 @@ export default {
         },
         surface: {
           primary: '#ffffff',
-          secondary: '#f2f2f7', // Cinza Pérola (Apple Background)
-          elevated: '#e5e5ea',
-          dark: '#0f172a',
-          deep: '#020617',
+          secondary: '#f8fafc',
+          elevated: '#f1f5f9',
+          // dark tokens removed — LIGHT/CLEAR canonical theme
           glass: 'rgba(255, 255, 255, 0.8)',
         },
         text: {
           primary: '#0f172a',
-          secondary: '#3a3a3c',
-          muted: '#8e8e93',
+          secondary: '#475569',
+          muted: '#64748b',
           onBrand: '#ffffff',
           technical: '#64748b',
         }
       },
       borderRadius: {
-        '4xl': '2rem',
-        '5xl': '2.5rem',
+        'button': '0.75rem',
+        'card': '1rem',
+        'elevated': '2rem',
+        'hero': '2.5rem',
       },
       boxShadow: {
-        'soft': '0 2px 10px rgba(0, 0, 0, 0.03)',
-        'floating': '0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 10px 10px -5px rgba(0, 0, 0, 0.03)',
-        'card': '0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.02)',
+        'sm': '0 1px 3px 0 rgba(0, 0, 0, 0.04)',
+        'card': '0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03)',
+        'floating': '0 30px 60px -12px rgba(0, 0, 0, 0.12), 0 18px 36px -18px rgba(0, 0, 0, 0.15)',
         'brand-glow': '0 10px 15px -3px rgba(16, 185, 129, 0.1)',
       },
       letterSpacing: {

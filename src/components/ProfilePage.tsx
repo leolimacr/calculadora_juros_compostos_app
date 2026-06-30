@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useSubscriptionAccess } from '../hooks/useSubscriptionAccess';
+import { useEntitlement } from '../hooks/useEntitlement';
 import { Settings, LogOut, Crown, Zap, User } from 'lucide-react';
 
 interface ProfilePageProps {
@@ -10,15 +10,15 @@ interface ProfilePageProps {
 
 const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigateHome, onNavigate }) => {
   const { user, logout } = useAuth();
-  const { role } = useSubscriptionAccess();
+  const { effectiveTier } = useEntitlement();
 
-  const planLabel = role === 'premium' ? 'Premium' : role === 'pro' ? 'Pro' : 'Gratuito';
+  const planLabel = effectiveTier === 'premium' ? 'Premium' : effectiveTier === 'pro' ? 'Pro' : 'Gratuito';
   const planIcon =
-    role === 'premium' ? <Crown size={14} className="text-amber-500" /> :
-    role === 'pro' ? <Zap size={14} className="text-sky-500" /> : null;
+    effectiveTier === 'premium' ? <Crown size={14} className="text-amber-500" /> :
+    effectiveTier === 'pro' ? <Zap size={14} className="text-sky-500" /> : null;
   const planStyle =
-    role === 'premium' ? 'bg-amber-50 border-amber-200 text-amber-700' :
-    role === 'pro' ? 'bg-sky-50 border-sky-200 text-sky-700' :
+    effectiveTier === 'premium' ? 'bg-amber-50 border-amber-200 text-amber-700' :
+    effectiveTier === 'pro' ? 'bg-sky-50 border-sky-200 text-sky-700' :
     'bg-slate-100 border-slate-200 text-slate-500';
 
   const initial = user?.displayName?.[0] ?? user?.email?.[0] ?? '?';
@@ -57,7 +57,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigateHome, onNavigate })
           </button>
         )}
 
-        {role === 'free' && onNavigate && (
+        {effectiveTier === 'free' && onNavigate && (
           <button
             onClick={() => onNavigate('pricing')}
             className="w-full flex items-center justify-between p-4 bg-emerald-50 border border-emerald-200 rounded-2xl shadow-sm hover:bg-emerald-100 transition-all active:scale-[0.98] group"
@@ -89,7 +89,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigateHome, onNavigate })
 
         <button
           onClick={onNavigateHome}
-          className="w-full text-center text-slate-400 hover:text-slate-600 py-3 font-medium text-sm transition-colors"
+          className="w-full text-center text-slate-500 hover:text-slate-600 py-3 font-medium text-sm transition-colors"
         >
           Voltar
         </button>

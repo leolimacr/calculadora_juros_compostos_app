@@ -1,17 +1,17 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { ref, push } from 'firebase/database';
-import { db } from '../firebase';
 import { createNexusReserve } from '../services/goalService';
+import { payInvoice } from '../services/payInvoiceService';
+import { convertToDebt } from '../services/rotativoService';
 import type { NexusInsightAction } from '../services/nexusInsightEngine';
 import { NotificationService } from '../services/NotificationService';
-import { queryKeys } from '../core/query/queryKeys';
+import { trackActionCompleted, trackActionFailed } from '../services/nexusAnalyticsService';
 
 export const useNexusActions = () => {
   const [isExecuting, setIsExecuting] = useState(false);
   const queryClient = useQueryClient();
 
-  const executeAction = async (userId: string, insightId: string, action: NexusInsightAction) => {
+  const executeAction = async (userId: string, insightId: string, action: NexusInsightAction, priority?: string) => {
     if (!userId) return { success: false, error: 'User not authenticated' };
     
     setIsExecuting(true);
@@ -38,38 +38,57 @@ export const useNexusActions = () => {
         }
 
         setIsExecuting(false);
+        trackActionCompleted(insightId, priority || 'media', action.type);
         return { success: true, amount: action.payload.value };
       }
 
-      if (action.type === 'pay_invoice' && action.payload) {
-        const transactionsRef = ref(db, `transactions/${userId}`);
-        const today = new Date().toISOString().split('T')[0];
-        
-        await push(transactionsRef, {
-          userId,
-          type: 'expense',
-          category: 'Pagamento de Fatura',
-          amount: action.payload.amount || 0,
-          description: `Fatura ${action.payload.cardName || 'Cartão'}`,
-          date: today,
-          paymentMethod: 'money' // Sai do saldo disponível
-        });
-
-        // Invalida cache para o Dashboard atualizar
-        queryClient.invalidateQueries({ queryKey: queryKeys.transactions.byUser(userId) });
+      if (action.type === 'convert_rotativo' && action.payload?.cardId) {
+        const result = await convertToDebt(userId, action.payload);
 
         setIsExecuting(false);
-        return { success: true };
+        if (result.success) {
+          await queryClient.invalidateQueries({ queryKey: ['debts', userId] });
+          await queryClient.invalidateQueries({ queryKey: ['invoices', userId] });
+          trackActionCompleted(insightId, priority || 'alta', action.type);
+          return { success: true, debtId: result.debtId };
+        }
+        throw new Error(result.error);
+      }
+
+      if (action.type === 'pay_invoice' && action.payload?.cardId) {
+        const result = await payInvoice({
+          userId,
+          cardId: action.payload.cardId,
+          cardName: action.payload.cardName || 'Cartão',
+          amount: action.payload.amount || 0,
+          queryClient,
+        });
+
+        setIsExecuting(false);
+        if (result.success) {
+          trackActionCompleted(insightId, priority || 'media', action.type);
+          return { success: true };
+        }
+        throw new Error(result.error);
+      }
+
+      if (action.type === 'attack_debt') {
+        setIsExecuting(false);
+        trackActionCompleted(insightId, priority || 'alta', action.type);
+        return { success: true, debtId: action.payload?.debtId };
       }
 
       // Simula latência para outros tipos de ação placeholders
       await new Promise(resolve => setTimeout(resolve, 800));
       
       setIsExecuting(false);
+      trackActionCompleted(insightId, priority || 'media', action.type);
       return { success: true };
     } catch (error) {
       console.error('[NexusAction] Erro ao executar ação:', error);
       setIsExecuting(false);
+      const errMsg = error instanceof Error ? error.message : String(error);
+      trackActionFailed(insightId, priority || 'media', action.type, errMsg);
       return { success: false, error };
     }
   };

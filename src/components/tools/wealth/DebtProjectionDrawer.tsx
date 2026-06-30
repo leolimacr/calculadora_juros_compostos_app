@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { X, TrendingDown, Calendar, ShieldCheck, ArrowRight } from 'lucide-react';
 import { projectDebt } from '../../../services/debt/debt.projection';
 import type { DebtItem } from '../../../services/debt';
+import { MANUAL_DEBT_TYPES } from '../../../services/debt/debt.constants';
 
 interface DebtProjectionDrawerProps {
   debt: DebtItem;
@@ -24,13 +25,13 @@ export const DebtProjectionDrawer: React.FC<DebtProjectionDrawerProps> = ({
   const projection = useMemo(() => projectDebt({
     debt,
     extraPayment,
-    scenario: debt.tipo === 'Cartão rotativo' ? 'rotativo' : 'price' // simplificação inicial do MVP
+    scenario: debt.tipo === MANUAL_DEBT_TYPES.ROTATIVO ? 'rotativo' : 'price'
   }), [debt, extraPayment]);
 
   const baseProjection = useMemo(() => projectDebt({
     debt,
     extraPayment: 0,
-    scenario: debt.tipo === 'Cartão rotativo' ? 'rotativo' : 'price'
+    scenario: debt.tipo === MANUAL_DEBT_TYPES.ROTATIVO ? 'rotativo' : 'price'
   }), [debt]);
 
   if (!isOpen) return null;
@@ -63,9 +64,9 @@ export const DebtProjectionDrawer: React.FC<DebtProjectionDrawerProps> = ({
 
         <div className="space-y-6">
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Valor extra mensal</label>
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Valor extra mensal</label>
             <div className="relative">
-              <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm">R$</span>
+              <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 font-black text-sm">R$</span>
               <input
                 type="number"
                 value={extraPayment || ''}

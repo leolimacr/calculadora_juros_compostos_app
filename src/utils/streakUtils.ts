@@ -25,6 +25,22 @@ export function getConsecutiveDays(transactions: Transaction[]): number {
 }
 
 /**
+ * Conta quantos dias únicos do mês atual tiveram ao menos um lançamento.
+ */
+export function getMonthlyConsistency(transactions: Transaction[]): { current: number; total: number } {
+  const now = new Date();
+  const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  const dates = new Set(transactions.map((t) => t.date.split('T')[0]));
+  let count = 0;
+  for (const dateStr of dates) {
+    if (dateStr.startsWith(yearMonth)) count++;
+  }
+
+  return { current: count, total: now.getDate() };
+}
+
+/**
  * Mensagem analítica de consistência de registro (sem gamificação).
  */
 export function getStreakMilestoneMessage(streak: number): string {

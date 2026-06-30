@@ -81,7 +81,7 @@ export const ToolGate = ({ title, description, onNavigate }: any) => (
         </button>
       </div>
 
-      <p className="mt-8 text-slate-400 text-[10px] font-bold uppercase tracking-widest">
+      <p className="mt-8 text-slate-500 text-[10px] font-bold uppercase tracking-widest">
         Acesso liberado em menos de 1 minuto
       </p>
     </div>
@@ -202,7 +202,7 @@ export const Input = ({ label, value, onChange, prefix, placeholder, help }: any
 
       <div className="relative group">
         {prefix && (
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold group-focus-within:text-sky-600 transition-colors">
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold group-focus-within:text-sky-600 transition-colors">
             {prefix}
           </span>
         )}
@@ -236,7 +236,7 @@ export const PlaceholderTool = ({ title, icon, onBack, description, badge }: any
   <ToolLayout title={title} icon={icon} onBack={onBack} description={description} badge={badge || "Em Breve"}>
     <div className="py-32 flex flex-col items-center justify-center text-center space-y-6">
       <div className="p-6 bg-slate-100 rounded-full animate-pulse border border-slate-200">
-        <Zap size={48} className="text-slate-400" />
+        <Zap size={48} className="text-slate-500" />
       </div>
       <div className="space-y-2">
         <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Engenharia em progresso</h3>

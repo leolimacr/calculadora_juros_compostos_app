@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Plus, CreditCard as CardIcon, Trash2, EyeOff, Eye, RefreshCw, Calendar, Settings2, Check, ChevronLeft, ChevronDown, ChevronUp, Edit2 } from 'lucide-react';
+import { X, Plus, CreditCard as CardIcon, Trash2, EyeOff, Eye, RefreshCw, Calendar, Settings2, Check, ChevronLeft, ChevronDown, ChevronUp, Edit2, TrendingUp } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { addCard, getCards, updateCard, deleteCard } from '../../../services/cardService';
+import { payInvoice } from '../../../services/payInvoiceService';
 import type { CreditCard, Transaction } from '../../../types';
 import { getCurrentInvoice, getInvoiceBillingMonth } from '../../../utils/invoiceUtils';
 
@@ -11,14 +13,17 @@ interface CardManagerProps {
   userId: string;
   transactions: Transaction[];
   onEditTransaction: (t: Transaction) => void;
+  focusedCardId?: string | null;
+  contextualReason?: string;
 }
 
-const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, transactions, onEditTransaction }) => {
+const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, transactions, onEditTransaction, focusedCardId, contextualReason }) => {
   const [cards, setCards] = useState<CreditCard[]>([]);
   const [newCardName, setNewCardName] = useState('');
   const [newClosingDay, setNewClosingDay] = useState<string>('');
   const [newDueDay, setNewDueDay] = useState<string>('');
   const [newLimit, setNewLimit] = useState<string>('');
+  const [newTaxaJuros, setNewTaxaJuros] = useState<string>('');
   const [isAdding, setIsAdding] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -26,6 +31,7 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
   const [editClosingDay, setEditClosingDay] = useState<string>('');
   const [editDueDay, setEditDueDay] = useState<string>('');
   const [editLimit, setEditLimit] = useState<string>('');
+  const [editTaxaJuros, setEditTaxaJuros] = useState<string>('');
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
 
   // Estados para o novo fluxo de confirmação de pagamento
@@ -34,6 +40,7 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
   const [showEarlyPaymentWarning, setShowEarlyPaymentWarning] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedPaymentDate, setSelectedPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+  const queryClient = useQueryClient();
 
   const handleStartPaymentFlow = (inv: any) => {
     const today = new Date();
@@ -57,28 +64,20 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
     setShowDatePicker(true);
   };
 
-  const handleFinalConfirmPayment = () => {
+  const handleFinalConfirmPayment = async () => {
     if (!userId || !pendingInvoice) return;
 
-    const paymentData = {
-      type: 'expense',
-      category: `Fatura - Cartão ${pendingInvoice.cardName}`,
+    await payInvoice({
+      userId,
+      cardId: pendingInvoice.cardId,
+      cardName: pendingInvoice.cardName,
       amount: pendingInvoice.total,
-      description: `Pagamento Fatura ${pendingInvoice.cardName}`,
       date: selectedPaymentDate,
-      paymentMethod: 'money',
-      userId: userId,
-      isBillPayment: true,
-      linkedCardId: pendingInvoice.cardId,
-      createdAt: new Date().toISOString(),
-      isLocked: true,
-      lockMessage: "Este lançamento é gerado automaticamente pelas suas compras no cartão. Para alterar o valor, edite as compras na Gestão de Cartões."
-    };
+      queryClient,
+    });
 
-    onEditTransaction(paymentData as any);
     onClose(cards);
     
-    // Reseta estados
     setIsConfirmingPayment(false);
     setPendingInvoice(null);
     setShowEarlyPaymentWarning(false);
@@ -102,6 +101,13 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
     }
   }, [isOpen]);
 
+  // Auto-expande o cartão focado quando navega de PendingObligations
+  useEffect(() => {
+    if (focusedCardId && isOpen && cards.some(c => c.id === focusedCardId)) {
+      setExpandedCard(focusedCardId);
+    }
+  }, [focusedCardId, isOpen, cards]);
+
   const loadCards = async () => {
     setIsLoading(true);
     try {
@@ -120,6 +126,12 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
     const closing = Number(newClosingDay);
     const due = Number(newDueDay);
     const limitVal = Number(newLimit) || 0;
+    const taxaJurosVal = newTaxaJuros ? Number(newTaxaJuros) : undefined;
+
+    if (taxaJurosVal !== undefined && (taxaJurosVal < 0 || taxaJurosVal > 100)) {
+      alert("A taxa de juros deve estar entre 0% e 100% ao mês.");
+      return;
+    }
 
     if (closing < 1 || closing > 31 || due < 1 || due > 31) {
       alert("Os dias devem estar entre 1 e 31.");
@@ -133,12 +145,15 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
         newCardName.trim(), 
         closing, 
         due,
-        limitVal
+        limitVal,
+        taxaJurosVal
       );
       setNewCardName('');
       setNewClosingDay('');
       setNewDueDay('');
       setNewLimit('');
+      setNewTaxaJuros('');
+
       await loadCards();
     } catch (error) {
       console.error("Erro ao adicionar cartão:", error);
@@ -153,6 +168,7 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
     setEditClosingDay(card.closingDay?.toString() || '');
     setEditDueDay(card.dueDay?.toString() || '');
     setEditLimit(card.limit?.toString() || '');
+    setEditTaxaJuros(card.taxaJuros?.toString() || '');
   };
 
   const handleSaveEdit = async (cardId: string) => {
@@ -164,6 +180,12 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
     const closing = Number(editClosingDay);
     const due = Number(editDueDay);
     const limitVal = Number(editLimit) || 0;
+    const taxaJurosVal = editTaxaJuros ? Number(editTaxaJuros) : undefined;
+
+    if (taxaJurosVal !== undefined && (taxaJurosVal < 0 || taxaJurosVal > 100)) {
+      alert("A taxa de juros deve estar entre 0% e 100% ao mês.");
+      return;
+    }
 
     if (closing < 1 || closing > 31 || due < 1 || due > 31) {
       alert("Os dias devem estar entre 1 e 31.");
@@ -174,7 +196,8 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
       await updateCard(userId, cardId, {
         closingDay: closing,
         dueDay: due,
-        limit: limitVal
+        limit: limitVal,
+        ...(taxaJurosVal !== undefined && { taxaJuros: taxaJurosVal }),
       });
       setEditingCardId(null);
       await loadCards();
@@ -290,6 +313,11 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
               <CardIcon size={28} />
             </div>
             <div>
+              {contextualReason && (
+                <p className="text-[10px] font-black text-brand-primary uppercase tracking-wider mb-0.5 animate-in fade-in duration-300">
+                  ↳ {contextualReason}
+                </p>
+              )}
               <h2 className="text-2xl font-black text-text-primary uppercase tracking-tight">Gestão de Cartões</h2>
               <p className="text-xxs font-bold text-text-muted uppercase tracking-widest mt-1">Configure limites, faturas e o impacto na folga do mês</p>
             </div>
@@ -327,6 +355,20 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
                       onChange={(e) => setNewLimit(e.target.value)}
                       className="w-full bg-surface-secondary p-4 rounded-2xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary text-sm transition-all"
                     />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Juros mensais do cartão (%)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="Ex: 14.9"
+                      value={newTaxaJuros}
+                      onChange={(e) => setNewTaxaJuros(e.target.value)}
+                      className="w-full bg-surface-secondary p-4 rounded-2xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary text-sm transition-all"
+                    />
+                    <p className="text-[8px] font-medium text-text-muted ml-1">Usado em novas conversões para rotativo. Opcional.</p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -422,6 +464,12 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
                                       <span className="text-[10px] font-black uppercase tracking-tighter">Limite: R$ {card.limit.toLocaleString()}</span>
                                     </div>
                                   ) : null}
+                                  {card.taxaJuros ? (
+                                    <div className="flex items-center gap-1.5 text-amber-600">
+                                      <TrendingUp size={12} />
+                                      <span className="text-[10px] font-black uppercase tracking-tighter">{card.taxaJuros}% a.m.</span>
+                                    </div>
+                                  ) : null}
                                   {card.closingDay && (
                                     <div className="flex items-center gap-1.5 text-text-muted">
                                       <Calendar size={12} />
@@ -494,6 +542,17 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
                                     type="number"
                                     value={editLimit}
                                     onChange={(e) => setEditLimit(e.target.value)}
+                                    className="w-full bg-surface-secondary p-3 rounded-xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary text-sm"
+                                  />
+                                </div>
+                                <div className="space-y-1.5">
+                                  <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Juros mensais (%)</label>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={editTaxaJuros}
+                                    onChange={(e) => setEditTaxaJuros(e.target.value)}
                                     className="w-full bg-surface-secondary p-3 rounded-xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary text-sm"
                                   />
                                 </div>

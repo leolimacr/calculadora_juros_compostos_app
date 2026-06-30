@@ -195,10 +195,11 @@ export interface BuildSovereignSnapshotParams {
   monthlyAport?: number;
   income?: number;
   expenses?: number;
+  rotativoDebtBalance?: number;
 }
 
 export function buildSovereignSnapshot(params: BuildSovereignSnapshotParams): SovereignSnapshot {
-  const virtualImpact = params.virtualImpact ?? 0;
+  const virtualImpact = (params.virtualImpact ?? 0) + (params.rotativoDebtBalance ?? 0);
   const pendingBills = params.pendingBills ?? 0;
   const income = params.income ?? 0;
   const expenses = params.expenses ?? params.monthlyExpenses ?? 0;
@@ -285,15 +286,6 @@ export function computeLaunchImpact(
   };
 }
 
-export const calculateSovereignBalance = (
-  currentBalance: number,
-  upcomingInvoices: number,
-  monthlyFixedExpenses: number,
-  reserveProvision: number
-): number => {
-  const projected = currentBalance - upcomingInvoices - monthlyFixedExpenses;
-  return projected - reserveProvision;
-};
 
 export const calculateLeewayDays = (
   sovereignBalance: number,

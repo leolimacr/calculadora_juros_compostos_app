@@ -9,7 +9,7 @@ const PremiumInput = ({ label, icon: Icon, value, onChange, prefix = "R$" }: any
       {label}
     </label>
     <div className="relative">
-      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">{prefix}</span>
+      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold">{prefix}</span>
       <input
         type="number"
         value={value || ''}
@@ -82,16 +82,6 @@ const EducationalTabs = () => {
 };
 
 export const FireCalculatorTool = ({ onNavigate, onCalcUpdate, isAuthenticated }: any) => {
-  if (!isAuthenticated) {
-    return (
-      <ToolGate
-        title="Calculadora FIRE"
-        description="Descubra o número exato que você precisa acumular para viver de renda para sempre e nunca mais depender de salário."
-        onNavigate={onNavigate}
-      />
-    );
-  }
-
   const [expense, setExpense] = useState<number>(5000);
   const [currentWealth, setCurrentWealth] = useState<number>(0);
   const [monthlyInvestment, setMonthlyInvestment] = useState<number>(1000);
@@ -133,6 +123,16 @@ export const FireCalculatorTool = ({ onNavigate, onCalcUpdate, isAuthenticated }
 
     return () => clearTimeout(timer);
   }, [result, onCalcUpdate]);
+
+  if (!isAuthenticated) {
+    return (
+      <ToolGate
+        title="Calculadora FIRE"
+        description="Descubra o número exato que você precisa acumular para viver de renda para sempre e nunca mais depender de salário."
+        onNavigate={onNavigate}
+      />
+    );
+  }
 
   return (
     <ToolLayout
@@ -227,7 +227,7 @@ export const FireCalculatorTool = ({ onNavigate, onCalcUpdate, isAuthenticated }
                 </p>
                 {result.yearsToFire !== null ? (
                   <p className="text-3xl font-black text-slate-900">
-                    {result.yearsToFire.toFixed(1)} <span className="text-lg text-slate-400">anos</span>
+                    {result.yearsToFire.toFixed(1)} <span className="text-lg text-slate-500">anos</span>
                   </p>
                 ) : (
                   <p className="text-xl font-black text-red-500">Aumente o aporte</p>
@@ -235,7 +235,7 @@ export const FireCalculatorTool = ({ onNavigate, onCalcUpdate, isAuthenticated }
               </div>
             </div>
 
-            <p className="text-slate-400 text-[10px] mt-8 uppercase tracking-wider max-w-[250px] mx-auto leading-relaxed">
+            <p className="text-slate-500 text-[10px] mt-8 uppercase tracking-wider max-w-[250px] mx-auto leading-relaxed">
               Cálculo baseado em rendimento real projetado de 6% ao ano acima da inflação.
             </p>
           </div>

@@ -12,7 +12,18 @@ export const useDebts = (userId?: string) => {
   const key = queryKeys.debts.byUser(userId || 'anonymous');
 
   const cachedRaw = typeof window !== 'undefined' 
-    ? localStorage.getItem(`fpi_debts_${userId}`) 
+    ? (() => {
+        const newKey = `financas-pro-invest_debts_${userId}`;
+        const legacyKey = `fpi_debts_${userId}`;
+        const fromNew = localStorage.getItem(newKey);
+        if (fromNew) return fromNew;
+        const fromLegacy = localStorage.getItem(legacyKey);
+        if (fromLegacy) {
+          try { localStorage.setItem(newKey, fromLegacy); localStorage.removeItem(legacyKey); } catch {}
+          return fromLegacy;
+        }
+        return null;
+      })()
     : null;
     
   const cachedData = cachedRaw 

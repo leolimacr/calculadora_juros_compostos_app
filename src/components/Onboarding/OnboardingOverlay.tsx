@@ -1,6 +1,5 @@
 import React from 'react';
-import { FPI_COPY } from '../../theme/fpiVoiceGuide';
-import { X, ArrowRight, CheckCircle, Wallet, LayoutGrid } from 'lucide-react';
+import { X, ArrowRight, Wallet, BarChart3, ShieldCheck, Target } from 'lucide-react';
 
 interface OnboardingOverlayProps {
   step: number;
@@ -22,28 +21,36 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({
   const content = [
     {
       icon: <Wallet className="text-emerald-500" size={32} />,
-      title: 'Seu ponto de partida',
-      body: FPI_COPY.onboardingHome,
-      cta: 'Lançar agora',
-      action: onLaunch,
+      title: 'Seu painel financeiro',
+      body: 'O Finanças Pro Invest mostra sua situação real de forma clara. Aqui você vê o que realmente importa: quanto sobra, onde está protegido e o que fazer agora.',
+      cta: 'Continuar',
+      action: onNext,
     },
     {
-      icon: <CheckCircle className="text-sky-500" size={32} />,
-      title: 'Primeiro movimento registrado',
-      body: 'O Controla mostra para onde sua estrutura está indo. Lance mais alguns para o Nexus calibrar seu perfil.',
+      icon: <BarChart3 className="text-sky-500" size={32} />,
+      title: 'Seu dinheiro livre de verdade',
+      body: 'A Disponibilidade Real é o que sobra depois de descontar contas, cartão e proteção. Esse número mostra o que você pode decidir sem medo.',
       cta: 'Entendi',
       action: onNext,
     },
     {
-      icon: <LayoutGrid className="text-indigo-500" size={32} />,
-      title: 'Sua evolução na Central',
-      body: 'Conforme você usa o app, a Central resume sua folga e próximos passos. Volte em alguns dias para ver o progresso.',
-      cta: 'Concluir',
-      action: onFinish,
+      icon: <ShieldCheck className="text-indigo-500" size={32} />,
+      title: 'Sua primeira proteção',
+      body: 'O Colchão Inicial é uma reserva rápida para meses de aperto, antes de mexer na emergência. Defina sua meta e acompanhe na Home.',
+      cta: 'Continuar',
+      action: onNext,
+    },
+    {
+      icon: <Target className="text-rose-500" size={32} />,
+      title: 'Sua vez de agir',
+      body: 'Comece anotando o que entra e sai no Controla. Com alguns lançamentos, o sistema já mostra sua Disponibilidade Real e sugere o próximo passo.',
+      cta: 'Fazer primeiro lançamento',
+      action: onLaunch,
     },
   ];
 
   const currentContent = content[step - 1];
+  const isLast = step === 4;
 
   return (
     <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/40 backdrop-blur-sm px-4 animate-in fade-in duration-300">
@@ -69,15 +76,15 @@ const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({
           </button>
 
           <button
-            onClick={onSkip}
-            className="text-slate-400 hover:text-slate-600 font-bold text-[11px] uppercase tracking-widest transition-colors flex items-center gap-2 mx-auto py-2"
+            onClick={isLast ? onFinish : onSkip}
+            className="text-slate-500 hover:text-slate-600 font-bold text-[11px] uppercase tracking-widest transition-colors flex items-center gap-2 mx-auto py-2"
           >
-            <X size={14} /> Pular introdução
+            <X size={14} /> {isLast ? 'Pular' : 'Pular introdução'}
           </button>
         </div>
 
         <div className="flex gap-1.5 mt-6">
-          {[1, 2, 3].map((s) => (
+          {[1, 2, 3, 4].map((s) => (
             <div
               key={s}
               className={`h-1 rounded-full transition-all duration-300 ${

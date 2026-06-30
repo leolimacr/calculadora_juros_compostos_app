@@ -15,72 +15,40 @@ export const useSubscriptionAccess = () => {
       return;
     }
 
-    if (!firestore) {
-      setRole('free');
-      setLoading(false);
-      return;
-    }
+    const unsub = onSnapshot(doc(firestore, 'users', user.uid), (docSnapshot) => {
+      if (docSnapshot.exists()) {
+        const data = docSnapshot.data();
+        
+        // BLINDAGEM AQUI TAMB�M
+        const sub = data?.subscription;
+        const status = sub?.status || 'inactive';
+        const planId = sub?.planId || ''; // Garante que nunca � undefined
 
-    try {
-      const userDocRef = doc(firestore, 'users', user.uid);
-
-      const unsub = onSnapshot(
-        userDocRef,
-        (docSnapshot) => {
-          if (docSnapshot.exists()) {
-            const data = docSnapshot.data();
-            const sub = data?.subscription;
-            const isActive = sub?.active === true || sub?.status === 'active';
-            const planName = (sub?.plan || '').toLowerCase();
-
-            if (isActive) {
-              if (planName.includes('premium')) {
-                setRole('premium');
-              } else if (planName.includes('pro')) {
-                setRole('pro');
-              } else {
-                setRole('free');
-              }
-            } else {
-              setRole('free');
-            }
-          } else {
+        if (status === 'active' || status === 'trialing') {
+            if (planId.includes('premium')) setRole('premium');
+            else if (planId.includes('pro')) setRole('pro');
+            else setRole('free');
+        } else {
             setRole('free');
-          }
-
-          setLoading(false);
-        },
-        (err) => {
-          console.error('❌ Erro ao ler assinatura:', err);
-          setRole('free');
-          setLoading(false);
         }
-      );
-
-      return () => unsub();
-    } catch {
+      } else {
+        setRole('free');
+      }
+      setLoading(false);
+    }, (err) => {
+      console.error('Erro assinatura:', err);
+      // Em caso de erro, assume Free para n�o travar o app
       setRole('free');
       setLoading(false);
-    }
+    });
+
+    return () => unsub();
   }, [user]);
 
-  const isFree = role === 'free';
-  const isPro = role === 'pro' || role === 'premium';
-  const isPremium = role === 'premium';
-  const hasPaidAccess = isPro;
-  const planLabel = role === 'premium' ? 'Premium' : role === 'pro' ? 'Pro' : 'Free';
-
-  const currentPlan = role;
   return {
-    isFree,
-    isPro,
-    isPremium,
-    hasPaidAccess,
+    isPro: role === 'pro' || role === 'premium',
+    isPremium: role === 'premium',
     loadingSubscription,
-    role,
-    planLabel,
-    currentPlan,
+    role
   };
 };
-
-export default useSubscriptionAccess;

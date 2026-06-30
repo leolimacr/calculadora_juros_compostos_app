@@ -1,11 +1,5 @@
-export interface DomainEvent<T = any> {
-  timestamp: number;
-  domain: string;
-  type: string;
-  payload: T;
-  correlationId: string;
-  source: string;
-}
+import { eventDeduplicator } from './runtime/event-deduplicator';
+import type { DomainEvent } from './domainEvents';
 
 type EventHandler<T = any> = (event: DomainEvent<T>) => void | Promise<void>;
 
@@ -27,6 +21,9 @@ class EventBus {
   }
 
   async publish<T>(event: DomainEvent<T>) {
+    if (eventDeduplicator.isDuplicate(event.correlationId)) {
+      return;
+    }
     const eventHandlers = this.handlers.get(event.type) || [];
     await Promise.all(eventHandlers.map(handler => handler(event)));
   }

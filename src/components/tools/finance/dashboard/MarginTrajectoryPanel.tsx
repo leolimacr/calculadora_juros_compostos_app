@@ -57,7 +57,7 @@ const MarginTrajectoryPanel: React.FC<MarginTrajectoryPanelProps> = ({
       : summary.direction === 'down'
         ? 'text-rose-500'
         : isDark
-          ? 'text-slate-400'
+          ? 'text-slate-500'
           : 'text-text-muted';
 
   const strokeColor =
@@ -72,7 +72,7 @@ const MarginTrajectoryPanel: React.FC<MarginTrajectoryPanelProps> = ({
             : 'bg-surface-primary border-surface-elevated shadow-soft'
         }`}
       >
-        <p className={`text-xxs font-black uppercase tracking-ultra-wide ${isDark ? 'text-slate-400' : 'text-text-muted'}`}>
+        <p className={`text-xxs font-black uppercase tracking-ultra-wide ${isDark ? 'text-slate-500' : 'text-text-muted'}`}>
           Trajetória da folga
         </p>
         <p className={`text-sm font-medium mt-2 ${isDark ? 'text-slate-500' : 'text-text-muted'}`}>
@@ -94,7 +94,7 @@ const MarginTrajectoryPanel: React.FC<MarginTrajectoryPanelProps> = ({
         <div>
           <p
             className={`text-xxs font-black uppercase tracking-ultra-wide ${
-              isDark ? 'text-slate-400' : 'text-text-muted'
+              isDark ? 'text-slate-500' : 'text-text-muted'
             }`}
           >
             Trajetória da folga

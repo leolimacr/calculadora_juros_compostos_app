@@ -3,6 +3,10 @@ import { ToolLayout, Input, ToolGate } from './ToolComponents';
 import { Zap, TrendingUp, Target, Wallet } from 'lucide-react';
 
 export const DividendsTool = ({ onNavigate, onCalcUpdate, isAuthenticated }: any) => {
+  const [mode, setMode] = useState<'capital' | 'renda'>('capital');
+  const [inputs, setInputs] = useState({ capital: '', yield: '', desiredIncome: '' });
+  const [result, setResult] = useState<any>(null);
+
   if (!isAuthenticated)
     return (
       <ToolGate
@@ -11,10 +15,6 @@ export const DividendsTool = ({ onNavigate, onCalcUpdate, isAuthenticated }: any
         onNavigate={onNavigate}
       />
     );
-
-  const [mode, setMode] = useState<'capital' | 'renda'>('capital');
-  const [inputs, setInputs] = useState({ capital: '', yield: '', desiredIncome: '' });
-  const [result, setResult] = useState<any>(null);
 
   const calculate = () => {
     const y = Number(inputs.yield);

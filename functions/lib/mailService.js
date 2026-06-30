@@ -107,16 +107,19 @@ async function sendWeeklySummary(params) {
         </td>
         <td width="4%"></td>
         <td width="48%" style="background:#eff6ff;border-radius:8px;padding:16px;border:1px solid #bfdbfe;">
-          <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:0.5px;">Saldo do período</p>
+          <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:0.5px;">Dinheiro do mês</p>
           <p style="margin:0;font-size:22px;font-weight:800;color:#111827;">R$ ${saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
         </td>
       </tr>
     </table>
 
-    <p style="margin:0 0 12px;font-size:13px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:0.5px;">Maiores gastos da semana</p>
+      <p style="margin:0 0 12px;font-size:13px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:0.5px;">Maiores gastos da semana</p>
     <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #e5e7eb;">
       ${categoriasHtml}
     </table>
+    <p style="margin:16px 0 0;font-size:12px;color:#6b7280;line-height:1.5;">
+      No app, acompanhe sua <strong>folga do mês</strong> e o <strong>Saldo Livre Real</strong> com mais detalhe.
+    </p>
     ${btnPrimary('Ver relatório completo', 'https://financasproinvest.com.br')}
   `;
     await dispatch(to, 'Seu resumo financeiro da semana', content);
@@ -148,7 +151,7 @@ async function sendMonthlyClose(params) {
     <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">Veja como foram suas finanças no mês.</p>
 
     <div style="background:${positivo ? '#f0fdf4' : '#fef2f2'};border:1px solid ${positivo ? '#bbf7d0' : '#fecaca'};border-radius:8px;padding:20px;margin-bottom:24px;text-align:center;">
-      <p style="margin:0 0 4px;font-size:12px;font-weight:700;color:${positivo ? '#059669' : '#dc2626'};text-transform:uppercase;">Resultado do mês</p>
+      <p style="margin:0 0 4px;font-size:12px;font-weight:700;color:${positivo ? '#059669' : '#dc2626'};text-transform:uppercase;">Dinheiro do mês</p>
       <p style="margin:0;font-size:32px;font-weight:800;color:${positivo ? '#059669' : '#dc2626'};">${positivo ? '+' : ''}R$ ${saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
     </div>
 

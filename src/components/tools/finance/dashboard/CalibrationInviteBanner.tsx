@@ -22,7 +22,7 @@ const CalibrationInviteBanner: React.FC<Props> = ({ title, body, onStart, onDefe
             <button
               type="button"
               onClick={onDismiss}
-              className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+              className="p-1 rounded-lg text-slate-500 hover:text-slate-600 hover:bg-slate-100"
               aria-label="Dispensar convite"
             >
               <X size={14} />

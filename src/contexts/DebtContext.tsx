@@ -30,13 +30,28 @@ export function DebtProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    const storageKey = (() => {
+      const legacyKey = `fpi_debts_${user.uid}`;
+      const currentKey = `financas-pro-invest_debts_${user.uid}`;
+      try {
+        const current = localStorage.getItem(currentKey);
+        if (current) return currentKey;
+        const legacy = localStorage.getItem(legacyKey);
+        if (legacy) {
+          localStorage.setItem(currentKey, legacy);
+          localStorage.removeItem(legacyKey);
+        }
+      } catch {}
+      return currentKey;
+    })();
+
     const bridge = createDebtRealtimeBridge(user.uid);
     unsubscribeRef.current = bridge.subscribe((data: any) => {
       setDebtBridgeReady(true);
       setHasConnectedAtLeastOnce(true);
       try {
         localStorage.setItem(
-          `fpi_debts_${user.uid}`,
+          storageKey,
           JSON.stringify({ data, ts: Date.now() })
         );
       } catch {}

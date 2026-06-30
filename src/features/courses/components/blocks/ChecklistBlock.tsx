@@ -37,7 +37,7 @@ const ChecklistBlock: React.FC<Props> = ({ title, items }) => {
               className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all
                 ${
                   checked[i]
-                    ? 'bg-emerald-500 border-emerald-500'
+                    ? 'bg-emerald-600 border-emerald-600'
                     : 'border-slate-300 group-hover:border-emerald-400'
                 }`}
             >
@@ -60,7 +60,7 @@ const ChecklistBlock: React.FC<Props> = ({ title, items }) => {
             <span
               className={`text-sm transition-colors ${
                 checked[i]
-                  ? 'line-through text-slate-400'
+                  ? 'line-through text-slate-500'
                   : 'text-slate-600'
               }`}
             >

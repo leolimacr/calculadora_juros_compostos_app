@@ -6,6 +6,7 @@ interface DashboardHeaderProps {
   onNavigate?: (page: string) => void;
   periodLabel: string;
   streak: number;
+  monthlyConsistency: { current: number; total: number };
   isMobile: boolean;
   isPrivacyMode: boolean;
   onTogglePrivacy: () => void;
@@ -18,6 +19,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   onNavigate,
   periodLabel,
   streak,
+  monthlyConsistency,
   isMobile,
   isPrivacyMode,
   onTogglePrivacy,
@@ -26,6 +28,8 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
+  const [showStreakTooltip, setShowStreakTooltip] = useState(false);
+  const [showMonthlyTooltip, setShowMonthlyTooltip] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -78,19 +82,56 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
               <p className="text-text-muted text-xxs md:text-xs font-bold uppercase tracking-ultra-wide">
                 {periodLabel}
               </p>
-              {streak > 1 ? (
-                <div className="flex items-center gap-1.5 px-2.5 py-0.5 bg-surface-secondary border border-surface-elevated rounded-full animate-in fade-in slide-in-from-top-1">
-                  <span className="text-text-muted text-[9px] md:text-[10px] font-black uppercase tracking-widest leading-none">
-                    {streak} dias · consistência
-                  </span>
+              <div className="flex items-center gap-2">
+                {streak > 1 && (
+                  <div className="relative">
+                    <div
+                      className="flex items-center gap-1.5 px-2.5 py-0.5 bg-surface-secondary border border-surface-elevated rounded-full animate-in fade-in slide-in-from-top-1 cursor-help"
+                      onMouseEnter={() => !isMobile && setShowStreakTooltip(true)}
+                      onMouseLeave={() => setShowStreakTooltip(false)}
+                      onFocus={() => setShowStreakTooltip(true)}
+                      onBlur={() => setShowStreakTooltip(false)}
+                      tabIndex={0}
+                      role="tooltip"
+                      aria-label="Dias de consistência: dias consecutivos com registro"
+                    >
+                      <span className="text-text-muted text-[9px] md:text-[10px] font-black uppercase tracking-widest leading-none">
+                        {streak} dias · consistência
+                      </span>
+                    </div>
+                    {!isMobile && showStreakTooltip && (
+                      <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 z-[110] w-64 p-4 bg-surface-primary border border-surface-elevated rounded-2xl shadow-2xl animate-in fade-in zoom-in duration-200 pointer-events-none">
+                        <p className="text-[11px] leading-relaxed text-text-secondary font-medium">
+                          Dias de consistência: quantidade de dias consecutivos, incluindo hoje, em que você registrou pelo menos um lançamento no Controla.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <div className="relative">
+                  <div
+                    className="flex items-center gap-1.5 px-2.5 py-0.5 bg-surface-secondary border border-surface-elevated rounded-full animate-in fade-in slide-in-from-top-1 cursor-help"
+                    onMouseEnter={() => !isMobile && setShowMonthlyTooltip(true)}
+                    onMouseLeave={() => setShowMonthlyTooltip(false)}
+                    onFocus={() => setShowMonthlyTooltip(true)}
+                    onBlur={() => setShowMonthlyTooltip(false)}
+                    tabIndex={0}
+                    role="tooltip"
+                    aria-label="Dias lançados no mês"
+                  >
+                    <span className="text-text-muted text-[9px] md:text-[10px] font-black uppercase tracking-widest leading-none">
+                      {monthlyConsistency.current}/{monthlyConsistency.total} no mês
+                    </span>
+                  </div>
+                  {!isMobile && showMonthlyTooltip && (
+                    <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 z-[110] w-64 p-4 bg-surface-primary border border-surface-elevated rounded-2xl shadow-2xl animate-in fade-in zoom-in duration-200 pointer-events-none">
+                      <p className="text-[11px] leading-relaxed text-text-secondary font-medium">
+                        Dias lançados no mês: quantidade de dias corridos deste mês em que houve pelo menos um lançamento. Ex.: {monthlyConsistency.current}/{monthlyConsistency.total} significa {monthlyConsistency.current} dias com registro em {monthlyConsistency.total} dias já decorridos no mês.
+                      </p>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div className="flex items-center gap-1.5 px-2.5 py-0.5 bg-surface-primary border border-surface-elevated rounded-full opacity-60">
-                  <span className="text-text-muted text-[9px] md:text-[10px] font-black uppercase tracking-widest leading-none">
-                    Registro diário
-                  </span>
-                </div>
-              )}
+              </div>
             </div>
           </div>
         </div>

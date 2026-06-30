@@ -1,5 +1,5 @@
-import React from 'react';
-import { RefreshCw, Plus, ChevronUp, ChevronDown } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { RefreshCw, Plus, ChevronUp, ChevronDown, PiggyBank, X, CreditCard } from 'lucide-react';
 
 // Hooks e Componentes Originais Reutilizados
 import TransactionHistory from './TransactionHistory';
@@ -7,6 +7,10 @@ import FilterBar from './FilterBar';
 import CategoryManager from './CategoryManager';
 import RecurringBillManager from './RecurringBillManager';
 import CardManager from './CardManager';
+import BudgetSetupSheet from './BudgetSetupSheet';
+import BudgetStatusCard from './BudgetStatusCard';
+import BudgetExceededBanner from './BudgetExceededBanner';
+import { calcBudgetProgress } from '../../../services/budgetMath';
 
 // Subcomponentes Refatorados
 import { useDashboardState } from './dashboard/useDashboardState';
@@ -22,12 +26,17 @@ import RecurringIntroModal from './dashboard/RecurringIntroModal';
 import CalibrationInviteBanner from './dashboard/CalibrationInviteBanner';
 import CommandCalibration from '../nexus/CommandCalibration';
 import { seedPersonaFromIntent } from '../../../services/personaService';
-import { getFlowLabels, FPI_COPY } from '../../../theme/fpiVoiceGuide';
+import { getFlowLabels } from '../../../theme/fpiVoiceGuide';
 import PaywallModal from '../../PaywallModal';
 
 const Dashboard: React.FC<any> = (props) => {
   const state = useDashboardState(props);
   const voice = getFlowLabels(state.commandMode);
+
+  const budgetProgress = useMemo(
+    () => (state.currentBudget ? calcBudgetProgress(state.currentBudget, state.safeTransactions) : null),
+    [state.currentBudget, state.safeTransactions],
+  );
 
   if (state.showSkeleton) {
     return <DashboardSkeleton />;
@@ -69,6 +78,7 @@ const Dashboard: React.FC<any> = (props) => {
           onNavigate={state.onNavigate}
           periodLabel={state.periodLabel}
           streak={state.streak}
+          monthlyConsistency={state.monthlyConsistency}
           isMobile={state.isMobile}
           isPrivacyMode={state.isPrivacyMode}
           onTogglePrivacy={state.onTogglePrivacy}
@@ -102,7 +112,47 @@ const Dashboard: React.FC<any> = (props) => {
           pendingBills={state.pendingBills}
           isPrivacyMode={state.isPrivacyMode}
           onOpenForm={state.onOpenForm}
+          onNavigate={state.onNavigate}
         />
+
+        {/* Orçamento do Mês — Card de progresso ou CTA de criação */}
+        {!state.isFirstAccess && !state.budgetLoading && state.currentBudget && (
+          <>
+            <BudgetStatusCard
+              budget={state.currentBudget}
+              transactions={state.safeTransactions}
+              onEdit={() => state.setIsBudgetSetupOpen(true)}
+            />
+            <BudgetExceededBanner
+              progress={budgetProgress}
+              onEdit={() => state.setIsBudgetSetupOpen(true)}
+            />
+          </>
+        )}
+        {!state.isFirstAccess && !state.budgetLoading && !state.currentBudget && (
+          <div className="bg-surface-primary border border-surface-elevated rounded-4xl p-5 shadow-soft">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-brand-secondary/10 rounded-2xl text-brand-secondary flex-shrink-0">
+                <PiggyBank size={22} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-black text-text-primary uppercase tracking-ultra-wide mb-0.5">
+                  Orçamento do Mês
+                </p>
+                <p className="text-xxs text-text-secondary font-medium leading-relaxed">
+                  Defina limites de gastos por categoria e acompanhe seu progresso em tempo real.
+                </p>
+              </div>
+              <button
+                onClick={() => state.setIsBudgetSetupOpen(true)}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-3xl font-black text-xxs uppercase tracking-ultra-wide bg-brand-primary text-text-onBrand hover:bg-brand-primary/90 transition-all active:scale-95 shadow-brand-glow flex-shrink-0"
+              >
+                <Plus size={14} />
+                Criar
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Painel educativo ou Estado de primeiro acesso */}
         {state.isFirstAccess ? (
@@ -111,7 +161,7 @@ const Dashboard: React.FC<any> = (props) => {
               <Plus size={28} className="text-brand-primary" />
             </div>
             <p className="text-text-primary font-black text-lg mb-2">
-              {state.userMeta?.isFirstSession ? 'Bem-vindo. Vamos calibrar?' : 'Seu painel está em branco'}
+              {state.userMeta?.isFirstSession ? 'Aqui você não olha só o saldo da conta.' : 'Seu painel está em branco'}
             </p>
             <p className="text-text-secondary text-sm max-w-sm mx-auto leading-relaxed mb-6">
               {state.userMeta?.isFirstSession ? voice.firstLaunchHint : voice.emptyLaunchHint}
@@ -161,6 +211,38 @@ const Dashboard: React.FC<any> = (props) => {
                 historyLocked={state.historyLocked}
                 currentMonthStartIso={state.currentMonthStartIso}
               />
+
+              {/* Banner de filtro ativo por cartão */}
+              {state.filterCardId && (
+                <div className="flex items-center justify-between gap-3 px-5 py-3 bg-brand-secondary/10 border border-brand-secondary/20 rounded-3xl animate-in fade-in slide-in-from-top-2">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="p-2 bg-brand-secondary/20 rounded-xl text-brand-secondary shrink-0">
+                      <CreditCard size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xxs font-black text-text-muted uppercase tracking-ultra-wide">
+                        Fatura
+                      </p>
+                      <p className="text-sm font-black text-text-primary truncate">
+                        {state.filterCardName}
+                      </p>
+                      {state.filterPeriodStart && state.filterPeriodEnd && (
+                        <p className="text-xxs font-bold text-text-muted mt-0.5">
+                          {new Date(state.filterPeriodStart.replace(/-/g, '/')).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} a {new Date(state.filterPeriodEnd.replace(/-/g, '/')).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={state.handleClearCardFilter}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/80 hover:bg-white text-text-muted hover:text-status-danger font-black text-[10px] uppercase tracking-widest border border-surface-elevated transition-all active:scale-95 shrink-0"
+                  >
+                    <X size={14} />
+                    Limpar filtro
+                  </button>
+                </div>
+              )}
 
               {/* Toggle de exibição */}
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-1">
@@ -321,10 +403,13 @@ const Dashboard: React.FC<any> = (props) => {
         isOpen={state.isCardModalOpen}
         onClose={() => {
           state.setIsCardModalOpen(false);
+          state.setFocusedCardId(null);
         }}
         userId={state.user?.uid || ''}
         transactions={state.safeTransactions}
         onEditTransaction={state.onEditTransaction}
+        focusedCardId={state.focusedCardId}
+        contextualReason={state.cardManagerReason ?? undefined}
       />
 
       {/* Toast de Insights Rápidos */}
@@ -356,6 +441,16 @@ const Dashboard: React.FC<any> = (props) => {
         open={state.showHistoryPaywall}
         onClose={() => state.setShowHistoryPaywall(false)}
         feature="historico completo"
+      />
+
+      <BudgetSetupSheet
+        isOpen={state.isBudgetSetupOpen}
+        onClose={() => state.setIsBudgetSetupOpen(false)}
+        userId={state.user?.uid || ''}
+        categories={state.categories}
+        transactions={state.safeTransactions}
+        monthlyIncome={state.userMeta?.financialProfile?.monthlyIncome || state.stats.income || 0}
+        onSaved={() => state.setIsBudgetSetupOpen(false)}
       />
     </div>
   );

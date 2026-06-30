@@ -299,7 +299,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
             </h3>
           </div>
           {editingId && (
-            <button type="button" onClick={handleCancelEdit} className="text-xs font-bold text-slate-400 hover:text-slate-900 flex items-center gap-1">
+            <button type="button" onClick={handleCancelEdit} className="text-xs font-bold text-slate-500 hover:text-slate-900 flex items-center gap-1">
               <X size={14} /> Cancelar Edição
             </button>
           )}
@@ -308,7 +308,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
         <form onSubmit={handleSaveAsset} className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
           
           <div className="md:col-span-4">
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
               Descrição do Bem (Ex: Casa na Praia, Honda Civic) <span className="text-rose-500">*</span>
             </label>
             <input
@@ -317,29 +317,29 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
               placeholder="Digite a descrição..."
               value={currentAsset.description}
               onChange={(e) => setCurrentAsset({ ...currentAsset, description: e.target.value })}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-500 focus:outline-none focus:border-brand-primaryCta focus:ring-2 focus:ring-brand-primaryCta/30 transition-colors"
             />
           </div>
 
           <div className="md:col-span-4">
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
               Categoria <span className="text-rose-500">*</span>
             </label>
             <select
               value={currentAsset.category}
               onChange={(e) => setCurrentAsset({ ...currentAsset, category: e.target.value })}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors [&>option]:bg-white"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-500 focus:outline-none focus:border-brand-primaryCta focus:ring-2 focus:ring-brand-primaryCta/30 transition-colors [&>option]:bg-white"
             >
               {PASSIVE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
             </select>
           </div>
 
           <div className="md:col-span-4">
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
               Valor de Mercado (R$) <span className="text-rose-500">*</span>
             </label>
             <div className="relative w-full">
-              <span className="absolute left-4 top-[14px] text-slate-400 text-sm font-bold">R$</span>
+              <span className="absolute left-4 top-[14px] text-slate-500 text-sm font-bold">R$</span>
               <input
                 type="text"
                 inputMode="numeric"
@@ -347,7 +347,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
                 placeholder="0,00"
                 value={displayValue}
                 onChange={handleCurrencyChange}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-slate-900 text-sm placeholder:text-slate-500 focus:outline-none focus:border-brand-primaryCta focus:ring-2 focus:ring-brand-primaryCta/30 transition-colors"
               />
             </div>
           </div>
@@ -363,7 +363,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
                     <div className="absolute left-0 bottom-full mb-2 w-64 p-3 bg-slate-900 text-white text-[10px] font-medium leading-relaxed rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl border border-slate-800">
                       <p className="font-black text-emerald-400 mb-1 uppercase tracking-widest text-left">Por que preencher o Propósito?</p>
                       <p className="text-left leading-relaxed">Para o Finanças Pro Invest não ser apenas uma calculadora, o Nexus precisa entender sua vida. Se soubermos que sua casa é seu 'Lar Inegociável', nunca sugeriremos nada que a coloque em risco. Se soubermos que seu carro é 'Apenas para Trabalho', saberemos como otimizar seus custos.</p>
-                      <p className="mt-2 text-slate-400 italic text-left border-t border-slate-800 pt-2">Ex: "Este imóvel é para minha aposentadoria, quero viver do aluguel dele futuramente."</p>
+                      <p className="mt-2 text-slate-500 italic text-left border-t border-slate-800 pt-2">Ex: "Este imóvel é para minha aposentadoria, quero viver do aluguel dele futuramente."</p>
                     </div>
                   </div>
                 </label>
@@ -372,7 +372,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
               <textarea
                 value={currentAsset.proposito || ''}
                 onChange={e => setCurrentAsset({ ...currentAsset, proposito: e.target.value })}
-                className="w-full px-4 py-3 rounded-xl border border-emerald-100 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all text-sm font-medium bg-white min-h-[80px] resize-none placeholder:text-slate-300"
+                className="w-full px-4 py-3 rounded-xl border border-emerald-100 focus:ring-2 focus:ring-brand-primaryCta/30 focus:border-brand-primaryCta transition-all text-sm font-medium bg-white min-h-[80px] resize-none placeholder:text-slate-300"
                 placeholder="O que este bem representa para você? Qual a finalidade dele na sua vida?"
               />
             </div>
@@ -394,7 +394,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
                     className={`flex flex-col items-start p-3 rounded-xl border-2 transition-all text-left ${
                       currentAsset.flexibility === opt.id 
                         ? 'border-emerald-500 bg-white shadow-sm shadow-emerald-100' 
-                        : 'border-transparent bg-slate-100/50 hover:bg-slate-100 text-slate-400'
+                        : 'border-transparent bg-slate-100/50 hover:bg-slate-100 text-slate-500'
                     }`}
                   >
                     <span className="text-xs font-black uppercase tracking-tight flex items-center gap-1.5 mb-1">
@@ -410,7 +410,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
 
           <div className="md:col-span-4 space-y-4">
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
                 Observações <span className="text-slate-500 font-normal lowercase">(opcional)</span>
               </label>
               <input
@@ -418,7 +418,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
                 placeholder="Ano, placa, endereço..."
                 value={currentAsset.observations}
                 onChange={(e) => setCurrentAsset({ ...currentAsset, observations: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-500 focus:outline-none focus:border-brand-primaryCta focus:ring-2 focus:ring-brand-primaryCta/30 transition-colors"
               />
             </div>
             
@@ -426,7 +426,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
               type="submit"
               disabled={isSubmitting}
               className={`w-full text-slate-950 font-black py-3.5 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 ${
-                editingId ? 'bg-emerald-500 hover:bg-emerald-400' : 'bg-emerald-500 hover:bg-emerald-400'
+                editingId ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-emerald-600 hover:bg-emerald-700'
               } disabled:bg-slate-700`}
             >
               {editingId ? <><Pencil size={18} /> Salvar Alterações</> : <><Plus size={18} /> Adicionar Bem</>}
@@ -439,7 +439,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
       <div className="mt-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
           <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-            <Landmark size={20} className="text-slate-400" /> Seus Bens Registrados
+            <Landmark size={20} className="text-slate-500" /> Seus Bens Registrados
           </h3>
           <div className="flex flex-wrap items-center gap-3">
             {/* VIEW SWITCHER */}
@@ -449,7 +449,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
                 onClick={() => toggleViewMode('grid')}
                 onMouseEnter={() => setShowViewTooltip(true)}
                 onMouseLeave={() => setShowViewTooltip(false)}
-                className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-600'}`}
               >
                 <LayoutGrid size={16} />
               </button>
@@ -458,7 +458,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
                 onClick={() => toggleViewMode('list')}
                 onMouseEnter={() => setShowViewTooltip(true)}
                 onMouseLeave={() => setShowViewTooltip(false)}
-                className={`p-1.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                className={`p-1.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-600'}`}
               >
                 <List size={16} />
               </button>
@@ -492,7 +492,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
             <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
               <Car size={24} className="text-emerald-400" />
             </div>
-            <p className="text-slate-400 font-medium mb-2">Nenhum bem registrado ainda</p>
+            <p className="text-slate-500 font-medium mb-2">Nenhum bem registrado ainda</p>
             <p className="text-slate-500 text-sm">Adicione seu primeiro bem patrimonial no formulário acima e comece a consolidar sua visão de patrimônio.</p>
           </div>
         ) : viewMode === 'grid' ? (
@@ -567,10 +567,10 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
               <table className="w-full text-left border-collapse">
                 <thead className="bg-slate-50 border-b border-slate-100">
                   <tr>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Bem / Categoria</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Propósito</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Valor</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Ações</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Bem / Categoria</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Propósito</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Valor</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -586,7 +586,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
                         <div className="flex flex-col gap-1">
                           <span className="text-xs text-slate-500 font-medium line-clamp-1">{asset.proposito || '—'}</span>
                           {asset.flexibility && (
-                            <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
+                            <span className="text-[8px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-1">
                               {asset.flexibility === 'intocavel' ? '🔴 Intocável' : asset.flexibility === 'negociavel' ? '🟡 Negociável' : '🟢 Patrimônio'}
                             </span>
                           )}
@@ -601,14 +601,14 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
                         <div className="flex justify-center gap-2">
                           <button 
                             onClick={() => handleEditClick(asset)} 
-                            className="p-2 text-slate-400 hover:text-emerald-600 transition-colors"
+                            className="p-2 text-slate-500 hover:text-emerald-600 transition-colors"
                             title="Editar"
                           >
                             <Pencil size={14} />
                           </button>
                           <button 
                             onClick={() => asset.id && handleDeleteAsset(asset.id, asset.currentValue)} 
-                            className="p-2 text-slate-400 hover:text-red-600 transition-colors"
+                            className="p-2 text-slate-500 hover:text-red-600 transition-colors"
                             title="Excluir"
                           >
                             <Trash2 size={14} />

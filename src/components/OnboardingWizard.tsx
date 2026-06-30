@@ -52,7 +52,7 @@ const colorMap: Record<string, { bg: string; icon: string; button: string; ring:
   emerald: {
     bg: 'bg-emerald-50 border-emerald-200',
     icon: 'bg-emerald-100 text-emerald-600 border-emerald-200',
-    button: 'bg-emerald-500 hover:bg-emerald-400 shadow-emerald-500/30',
+    button: 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30',
     ring: 'bg-emerald-500',
   },
   sky: {
@@ -178,7 +178,7 @@ const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ userId, onComplete 
             <button
               type="button"
               onClick={handleSkip}
-              className="p-3 rounded-xl border border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300 transition-all"
+              className="p-3 rounded-xl border border-slate-200 text-slate-500 hover:text-slate-600 hover:border-slate-300 transition-all"
               aria-label="Pular"
             >
               <X size={18} />
@@ -187,7 +187,7 @@ const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ userId, onComplete 
         </div>
 
         {!isLast && (
-          <p className="text-center text-[11px] text-slate-400 pb-4">
+          <p className="text-center text-[11px] text-slate-500 pb-4">
             Passo {currentStep + 1} de {STEPS.length}
           </p>
         )}

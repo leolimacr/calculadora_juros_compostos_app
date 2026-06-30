@@ -1,20 +1,25 @@
 import React from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import AppHeader from '../components/AppHeader';
 import AppMobileDrawer from '../components/AppMobileDrawer';
 import MobileBottomNav from '../components/MobileBottomNav';
 import NotificationHub from '../components/NotificationHub';
 import ContentModal from '../components/ContentModal';
 import TransactionForm from '../components/tools/finance/TransactionForm';
-import ToastContainer from '../components/Toast';
+import { ToastProvider, useToast } from '../contexts/ToastContext';
+import { maskCurrency } from '../utils/calculations';
 import type { useAppState } from '../hooks/useAppState';
 import { useNavigation } from '../hooks/useNavigation';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useOnboarding } from '../hooks/useOnboarding';
-import OnboardingOverlay from '../components/Onboarding/OnboardingOverlay';
 import PageShell from './PageShell';
-import type { NexusAdvisoryContext } from '../services/nexusInsightEngine';
+import OnboardingOverlay from '../components/Onboarding/OnboardingOverlay';
 import { useSovereignSnapshot } from '../hooks/useSovereignSnapshot';
+import { useEventSubscriptions } from '../hooks/useEventSubscriptions';
+import { useNexusEventBridge } from '../hooks/useNexusEventBridge';
+import { useInvoiceSync } from '../hooks/useInvoiceSync';
+import { clearEventInsightStore } from '../services/eventInsightStore';
+import type { NexusAdvisoryContext } from '../services/nexusInsightEngine';
 
 import AppOnlyBlock from '../components/AppOnlyBlock';
 import AppDesktopNav from '../components/AppDesktopNav';
@@ -24,9 +29,11 @@ interface AppLayoutProps {
   children?: React.ReactNode;
 }
 
-const AppLayout: React.FC<AppLayoutProps> = ({ state }) => {
+const AppLayoutInner: React.FC<AppLayoutProps> = ({ state }) => {
   const isMobile = useIsMobile();
   const { handleNavigate, currentTool } = useNavigation();
+  const { addToast } = useToast();
+
   const {
     user,
     isAuthenticated,
@@ -38,7 +45,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state }) => {
     setIsNotificationsOpen,
     mobileMenuOpen,
     setMobileMenuOpen,
-    isNative,
+    isPremium,
     isAppLocked,
     activeModal,
     editingTransaction,
@@ -52,6 +59,17 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state }) => {
     routerNavigate,
     isMobileBrowser,
   } = state;
+
+  useEventSubscriptions(user?.uid);
+  useNexusEventBridge(user?.uid, userMeta?.persona?.archetype);
+  useInvoiceSync(lancamentos);
+
+  // Clean event insight store when session is lost (logout, token expiry, account switch)
+  React.useEffect(() => {
+    if (!isAuthenticated) {
+      clearEventInsightStore();
+    }
+  }, [isAuthenticated]);
 
   const sovereign = useSovereignSnapshot(lancamentos, userMeta);
 
@@ -74,9 +92,17 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state }) => {
       snapshot: sovereign,
       commandMode: sovereign.commandMode,
       categorySpending,
-      isPremium: !!userMeta?.isPremium,
+      isPremium,
     };
-  }, [lancamentos, userMeta, sovereign]);
+  }, [lancamentos, userMeta, sovereign, isPremium]);
+
+  const location = useLocation();
+  const filterCardId = (location.state as Record<string, unknown> | null)?.filterCardId as string | undefined;
+
+  const handleBackToCards = React.useCallback(() => {
+    handleCloseModal();
+    routerNavigate('/app/controla', { state: { clearCardFilter: true }, replace: true });
+  }, [handleCloseModal, routerNavigate]);
 
   const { step, nextStep, skip, finish } = useOnboarding(lancamentos.length);
 
@@ -90,14 +116,11 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state }) => {
   };
 
   const handleOnboardingNext = () => {
-    if (step === 1) {
-      handleNavigate('controla');
-    }
     nextStep();
   };
 
   return (
-    <div className="min-h-screen bg-surface-secondary text-text-primary flex flex-col font-sans">
+    <div className="min-h-screen bg-surface-secondary text-text-primary flex flex-col font-sans animate-in fade-in duration-300">
       <AppHeader
         isAuthenticated={isAuthenticated}
         userMeta={userMeta}
@@ -106,8 +129,6 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state }) => {
         onTogglePrivacy={() => setIsPrivacyMode(!isPrivacyMode)}
         onLogout={handleLogout}
         onOpenMobileMenu={() => setMobileMenuOpen(true)}
-        isPro={state.isPro}
-        isPremium={state.isPremium}
         isNotificationsOpen={isNotificationsOpen}
         onOpenNotifications={setIsNotificationsOpen}
         showDesktopNav={showDesktopNav}
@@ -140,7 +161,6 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state }) => {
         <MobileBottomNav
           onOpenMore={() => handleNavigate('settings')}
           onAdd={openTransactionForm}
-          onOpenNotifications={setIsNotificationsOpen}
         />
       )}
 
@@ -157,17 +177,53 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state }) => {
         onClose={handleCloseModal}
         title={editingTransaction?.id ? 'Editar Lançamento' : 'Novo Lançamento'}
       >
+        {filterCardId && (
+          <div className="flex items-center justify-end mb-4">
+            <button
+              type="button"
+              onClick={handleBackToCards}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-secondary/10 hover:bg-brand-secondary/20 text-brand-secondary font-black text-[9px] uppercase tracking-widest border border-brand-secondary/20 transition-all active:scale-95"
+            >
+              Voltar aos cartões
+            </button>
+          </div>
+        )}
         <TransactionForm
           initialData={editingTransaction}
-          onSave={async (t: { id?: string; amount: number; linkedDebtId?: string; [key: string]: any }) => {
+          onSave={async (t: { id?: string; amount: number; linkedDebtId?: string; type?: string; [key: string]: any }) => {
             const { id, ...rest } = t;
             const amount = Number(t.amount);
             const cleanData = { ...rest, amount } as Parameters<typeof saveLancamento>[0];
             if (id) cleanData.id = id;
 
-            // Salva o lançamento (A lógica reativa agora vive no useTransactions)
+            const wasFirstTransaction = lancamentos.length === 0;
+
             await saveLancamento(cleanData);
             handleCloseModal();
+
+            const freeBalance = sovereign.sovereignFreeBalance;
+
+            if (wasFirstTransaction && !t.type?.includes('expense') && amount > 0) {
+              addToast(
+                'Pronto. Agora você vê quanto sobra de verdade no seu mês.',
+                'success'
+              );
+            } else if (t.type === 'expense' && freeBalance < 0) {
+              addToast(
+                `Suas despesas consumiram a liberdade. Seu saldo livre é ${maskCurrency(freeBalance)}.`,
+                'warning'
+              );
+            } else if (t.type === 'expense' && freeBalance >= 0 && freeBalance < 500) {
+              addToast(
+                `Atenção: sua liberdade real é de ${maskCurrency(freeBalance)}.`,
+                'info'
+              );
+            } else if (!t.type?.includes('expense') && amount > 0) {
+              addToast(
+                `Receita registrada. Sua liberdade real agora é ${maskCurrency(freeBalance)}.`,
+                'success'
+              );
+            }
           }}
           onCancel={handleCloseModal}
           categories={categories}
@@ -182,8 +238,6 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state }) => {
         />
       </ContentModal>
 
-      <ToastContainer toasts={[]} removeToast={() => {}} />
-
       <OnboardingOverlay
         step={step}
         onNext={handleOnboardingNext}
@@ -194,5 +248,11 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state }) => {
     </div>
   );
 };
+
+const AppLayout: React.FC<AppLayoutProps> = (props) => (
+  <ToastProvider>
+    <AppLayoutInner {...props} />
+  </ToastProvider>
+);
 
 export default AppLayout;

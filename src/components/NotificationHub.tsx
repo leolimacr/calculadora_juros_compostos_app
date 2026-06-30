@@ -110,7 +110,7 @@ const NotificationHub: React.FC<NotificationHubProps> = ({ isOpen, onClose, onNa
             <div className="flex items-center gap-2">
                 <button 
                     onClick={onClose}
-                    className="p-2 text-slate-400 hover:text-slate-900 transition-colors"
+                    className="p-2 text-slate-500 hover:text-slate-900 transition-colors"
                 >
                     <X size={24} />
                 </button>
@@ -122,7 +122,7 @@ const NotificationHub: React.FC<NotificationHubProps> = ({ isOpen, onClose, onNa
               <button 
                 onClick={() => setActiveTab('unread')}
                 className={`pb-2 text-[10px] font-black uppercase tracking-widest border-b-2 transition-all ${
-                    activeTab === 'unread' ? 'border-sky-500 text-sky-600' : 'border-transparent text-slate-400 hover:text-slate-600'
+                    activeTab === 'unread' ? 'border-sky-500 text-sky-600' : 'border-transparent text-slate-500 hover:text-slate-600'
                 }`}
               >
                   Entrada ({unreadEvents.length})
@@ -130,7 +130,7 @@ const NotificationHub: React.FC<NotificationHubProps> = ({ isOpen, onClose, onNa
               <button 
                 onClick={() => setActiveTab('history')}
                 className={`pb-2 text-[10px] font-black uppercase tracking-widest border-b-2 transition-all ${
-                    activeTab === 'history' ? 'border-sky-500 text-sky-600' : 'border-transparent text-slate-400 hover:text-slate-600'
+                    activeTab === 'history' ? 'border-sky-500 text-sky-600' : 'border-transparent text-slate-500 hover:text-slate-600'
                 }`}
               >
                   Histórico
@@ -143,7 +143,7 @@ const NotificationHub: React.FC<NotificationHubProps> = ({ isOpen, onClose, onNa
           {loading && unreadEvents.length === 0 && historyEvents.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 gap-3 opacity-50">
                 <div className="w-8 h-8 border-4 border-slate-200 border-t-sky-500 rounded-full animate-spin" />
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Buscando atualizações...</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Buscando atualizações...</p>
             </div>
           ) : activeTab === 'unread' ? (
               <div className="space-y-3">
@@ -154,7 +154,7 @@ const NotificationHub: React.FC<NotificationHubProps> = ({ isOpen, onClose, onNa
                         </div>
                         <div>
                             <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight mb-1">Nada novo por aqui</h3>
-                            <p className="text-xs text-slate-400 leading-relaxed font-medium mb-6">
+                            <p className="text-xs text-slate-500 leading-relaxed font-medium mb-6">
                                 Suas mensagens lidas estão guardadas no histórico.
                             </p>
                             <button 
@@ -168,7 +168,7 @@ const NotificationHub: React.FC<NotificationHubProps> = ({ isOpen, onClose, onNa
                   ) : (
                       <>
                         <div className="flex items-center justify-between mb-4 px-2">
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Não lidas</span>
+                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Não lidas</span>
                             <button 
                                 onClick={markAllAsRead}
                                 className="flex items-center gap-1.5 text-[9px] font-black text-emerald-600 uppercase tracking-widest hover:text-emerald-700 transition-colors"
@@ -184,7 +184,7 @@ const NotificationHub: React.FC<NotificationHubProps> = ({ isOpen, onClose, onNa
               <div className="space-y-3">
                   {historyEvents.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-20 px-8 text-center gap-2">
-                        <p className="text-xs text-slate-400 font-medium">Nenhum histórico encontrado.</p>
+                        <p className="text-xs text-slate-500 font-medium">Nenhum histórico encontrado.</p>
                       </div>
                   ) : (
                       <>
@@ -193,7 +193,7 @@ const NotificationHub: React.FC<NotificationHubProps> = ({ isOpen, onClose, onNa
                             <button 
                                 onClick={handleLoadMore}
                                 disabled={isLoadingMore}
-                                className="w-full mt-6 py-4 border border-dashed border-slate-200 rounded-2xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-sky-600 hover:border-sky-300 transition-all active:scale-95 disabled:opacity-50"
+                                className="w-full mt-6 py-4 border border-dashed border-slate-200 rounded-2xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-sky-600 hover:border-sky-300 transition-all active:scale-95 disabled:opacity-50"
                             >
                                 {isLoadingMore ? (
                                     <RefreshCcw size={14} className="animate-spin" />
@@ -210,7 +210,7 @@ const NotificationHub: React.FC<NotificationHubProps> = ({ isOpen, onClose, onNa
 
         {/* Footer */}
         <div className="p-6 bg-white border-t border-slate-200 text-center">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">
                 Finanças Pro Invest · Nexus AI
             </p>
         </div>

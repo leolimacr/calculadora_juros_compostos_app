@@ -2,17 +2,17 @@ import React, { useState } from 'react';
 import { X, Maximize2, Minimize2 } from 'lucide-react';
 
 export const ContentModal = ({ title, icon: Icon, children, onClose }: any) => (
-  <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in duration-300">
-    <div className="bg-[#0f172a] border border-slate-700 w-full max-w-3xl max-h-[85vh] rounded-[3rem] shadow-2xl flex flex-col overflow-hidden relative">
+  <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
+    <div className="bg-white border border-slate-200 w-full max-w-3xl max-h-[85vh] rounded-[3rem] shadow-2xl flex flex-col overflow-hidden relative">
       <div className="absolute top-0 right-0 p-6">
-        <button onClick={onClose} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-400 transition-colors"><X size={24}/></button>
+        <button onClick={onClose} className="p-2 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-500 transition-colors"><X size={24}/></button>
       </div>
       <div className="p-8 md:p-12 overflow-y-auto custom-scrollbar">
         <div className="flex items-center gap-4 mb-8">
-          <div className="p-4 bg-emerald-500/10 rounded-2xl text-emerald-400"><Icon size={32} /></div>
-          <h2 className="text-3xl font-black text-white tracking-tighter">{title}</h2>
+          <div className="p-4 bg-emerald-50 rounded-2xl text-emerald-600"><Icon size={32} /></div>
+          <h2 className="text-3xl font-black text-slate-900 tracking-tighter">{title}</h2>
         </div>
-        <div className="text-slate-300 space-y-6 leading-relaxed">{children}</div>
+        <div className="text-slate-700 space-y-6 leading-relaxed">{children}</div>
       </div>
     </div>
   </div>
@@ -61,16 +61,16 @@ export const AssetModal = ({ asset, onClose }: { asset: { symbol: string; catego
   };
   
   return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/95 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       
       {/* Container do Modal com transição suave entre normal e full screen */}
-      <div className={`bg-[#0f172a] border border-slate-700 flex flex-col overflow-hidden relative 
+      <div className={`bg-white border border-slate-200 flex flex-col overflow-hidden relative 
         ${isFull ? 'fixed inset-0 w-full h-full rounded-none z-[10001]' : 'w-full max-w-5xl h-[600px] rounded-2xl'}`}>
         
         {/* Header do Modal */}
-        <div className="flex justify-between items-center p-4 border-b border-slate-800 bg-[#020617]">
-            <h3 className="text-white font-bold text-lg flex items-center gap-2">
-                <span className="text-emerald-400">📊</span> Análise Técnica: {asset.symbol}
+        <div className="flex justify-between items-center p-4 border-b border-slate-200 bg-surface-primary">
+            <h3 className="text-slate-900 font-bold text-lg flex items-center gap-2">
+                <span className="text-emerald-600">📊</span> Análise Técnica: {asset.symbol}
             </h3>
 
             {/* Agrupamento de botões à direita */}
@@ -78,7 +78,7 @@ export const AssetModal = ({ asset, onClose }: { asset: { symbol: string; catego
                 {/* Botão de Expandir / Reduzir */}
                 <button 
                     onClick={() => setIsFull(!isFull)} 
-                    className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-white transition border border-slate-600 group"
+                    className="p-2 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-700 transition border border-slate-300 group"
                     title={isFull ? "Reduzir Tela" : "Tela Cheia"}
                 >
                     {isFull ? (

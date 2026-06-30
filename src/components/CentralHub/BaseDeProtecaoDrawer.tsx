@@ -17,6 +17,7 @@ interface BaseDeProtecaoDrawerProps {
     reserveCurrent: number;
     protectionMonths: number;
   }) => Promise<void>;
+  contextualReason?: string;
 }
 
 type HelpField =
@@ -35,6 +36,7 @@ const BaseDeProtecaoDrawer: React.FC<BaseDeProtecaoDrawerProps> = ({
   reserveCurrent: initReserveCurrent,
   protectionMonths: initProtectionMonths,
   onSave,
+  contextualReason,
 }) => {
   const [colchaoTarget, setColchaoTarget] = useState(initColchaoTarget);
   const [colchaoCurrent, setColchaoCurrent] = useState(initColchaoCurrent);
@@ -87,7 +89,14 @@ const BaseDeProtecaoDrawer: React.FC<BaseDeProtecaoDrawerProps> = ({
             <div className="p-2 bg-emerald-100 rounded-xl text-emerald-600">
               <Shield size={20} />
             </div>
-            <h2 className="text-xl font-black text-slate-950">{BASE_PROTECAO.drawerTitle}</h2>
+            <div>
+              {contextualReason && (
+                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-wider mb-0.5 animate-in fade-in duration-300">
+                  ↳ {contextualReason}
+                </p>
+              )}
+              <h2 className="text-xl font-black text-slate-950">{BASE_PROTECAO.drawerTitle}</h2>
+            </div>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
             <X size={20} />
@@ -109,7 +118,7 @@ const BaseDeProtecaoDrawer: React.FC<BaseDeProtecaoDrawerProps> = ({
             {/* Meta do Colchão Inicial */}
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5 ml-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
                   {BASE_PROTECAO.colchaoMetaLabel}
                 </label>
                 <button
@@ -122,7 +131,7 @@ const BaseDeProtecaoDrawer: React.FC<BaseDeProtecaoDrawerProps> = ({
                 </button>
               </div>
               <div className="relative">
-                <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm">R$</span>
+                <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 font-black text-sm">R$</span>
                 <input
                   type="number"
                   value={colchaoTarget || ''}
@@ -146,7 +155,7 @@ const BaseDeProtecaoDrawer: React.FC<BaseDeProtecaoDrawerProps> = ({
             {/* Saldo do Colchão Inicial */}
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5 ml-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
                   {BASE_PROTECAO.colchaoSaldoLabel}
                 </label>
                 <button
@@ -159,7 +168,7 @@ const BaseDeProtecaoDrawer: React.FC<BaseDeProtecaoDrawerProps> = ({
                 </button>
               </div>
               <div className="relative">
-                <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm">R$</span>
+                <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 font-black text-sm">R$</span>
                 <input
                   type="number"
                   value={colchaoCurrent || ''}
@@ -195,7 +204,7 @@ const BaseDeProtecaoDrawer: React.FC<BaseDeProtecaoDrawerProps> = ({
             {/* Meta da Reserva */}
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5 ml-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
                   {BASE_PROTECAO.reservaMetaLabel}
                 </label>
                 <button
@@ -208,12 +217,12 @@ const BaseDeProtecaoDrawer: React.FC<BaseDeProtecaoDrawerProps> = ({
                 </button>
               </div>
               <div className="relative">
-                <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm">R$</span>
+                <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 font-black text-sm">R$</span>
                 <input
                   type="number"
                   value={reserveTarget || ''}
                   onChange={(e) => setReserveTarget(Math.max(0, Number(e.target.value)))}
-                  className="w-full pl-12 pr-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-emerald-500 transition-all text-sm font-black outline-none"
+                  className="w-full pl-12 pr-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-brand-primaryCta transition-all text-sm font-black outline-none"
                   placeholder={BASE_PROTECAO.reservaMetaPlaceholder}
                 />
               </div>
@@ -232,7 +241,7 @@ const BaseDeProtecaoDrawer: React.FC<BaseDeProtecaoDrawerProps> = ({
             {/* Saldo da Reserva */}
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5 ml-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
                   {BASE_PROTECAO.reservaSaldoLabel}
                 </label>
                 <button
@@ -245,12 +254,12 @@ const BaseDeProtecaoDrawer: React.FC<BaseDeProtecaoDrawerProps> = ({
                 </button>
               </div>
               <div className="relative">
-                <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm">R$</span>
+                <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 font-black text-sm">R$</span>
                 <input
                   type="number"
                   value={reserveCurrent || ''}
                   onChange={(e) => setReserveCurrent(Math.max(0, Number(e.target.value)))}
-                  className="w-full pl-12 pr-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-emerald-500 transition-all text-sm font-black outline-none"
+                  className="w-full pl-12 pr-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-brand-primaryCta transition-all text-sm font-black outline-none"
                   placeholder={BASE_PROTECAO.reservaSaldoPlaceholder}
                 />
               </div>

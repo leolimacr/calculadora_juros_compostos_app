@@ -176,7 +176,7 @@ const CommandCalibration: React.FC<CommandCalibrationProps> = ({
               Comando calibrado
             </p>
             <h2 className="text-2xl font-black text-white mb-1">{voice.title}</h2>
-            <p className="text-sm font-bold text-slate-400 mb-6">{voice.motto}</p>
+            <p className="text-sm font-bold text-slate-500 mb-6">{voice.motto}</p>
             <p className="text-sm text-slate-300 leading-relaxed mb-8">{voice.firstInsight}</p>
 
             <div className="text-left bg-slate-900/60 border border-slate-800 rounded-2xl p-5 mb-8">
@@ -223,7 +223,7 @@ const CommandCalibration: React.FC<CommandCalibrationProps> = ({
           {onClose && (
             <button
               onClick={onClose}
-              className="p-2 rounded-xl hover:bg-slate-800 text-slate-400 transition-colors"
+              className="p-2 rounded-xl hover:bg-slate-800 text-slate-500 transition-colors"
               aria-label="Fechar"
             >
               <X size={20} />
@@ -312,7 +312,7 @@ const CommandCalibration: React.FC<CommandCalibrationProps> = ({
               className="w-2 h-2 rounded-full animate-pulse"
               style={{ backgroundColor: getPersonaVoice(previewPersona.archetype).color }}
             />
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
               Perfil provável:{' '}
               <span style={{ color: getPersonaVoice(previewPersona.archetype).color }}>
                 {getPersonaVoice(previewPersona.archetype).title}

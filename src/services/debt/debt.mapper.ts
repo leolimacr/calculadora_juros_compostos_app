@@ -14,6 +14,11 @@ export const mapDebtFromFirestore = (docId: string, data: any): DebtItem => {
     valorParcela: persistData.valorParcela,
     dataVencimento: persistData.dataVencimento || null,
     createdAt: persistData.createdAt instanceof Timestamp ? persistData.createdAt.toDate() : new Date(persistData.createdAt),
+    originType: (persistData.originType as DebtItem['originType']) || undefined,
+    originCardId: persistData.originCardId || undefined,
+    originInvoiceId: persistData.originInvoiceId || undefined,
+    originInvoicePeriodEnd: persistData.originInvoicePeriodEnd || undefined,
+    lastInterestAppliedAt: persistData.lastInterestAppliedAt || undefined,
   };
 };
 
@@ -27,5 +32,10 @@ export const mapDebtToFirestore = (debt: Omit<DebtItem, 'id'>): DebtPersist => {
     valorParcela: debt.valorParcela,
     dataVencimento: debt.dataVencimento,
     createdAt: debt.createdAt || new Date(),
+    originType: debt.originType,
+    originCardId: debt.originCardId,
+    originInvoiceId: debt.originInvoiceId,
+    originInvoicePeriodEnd: debt.originInvoicePeriodEnd,
+    lastInterestAppliedAt: debt.lastInterestAppliedAt,
   };
 };

@@ -82,7 +82,7 @@ const ToolCTA: React.FC<Props> = ({
           <button
             onClick={copyPrompt}
             title="Copiar prompt"
-            className="absolute top-2 right-2 text-slate-400 hover:text-slate-600"
+            className="absolute top-2 right-2 text-slate-500 hover:text-slate-600"
           >
             <Copy size={14} />
           </button>

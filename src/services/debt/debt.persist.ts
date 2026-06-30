@@ -9,4 +9,9 @@ export interface DebtPersist {
   valorParcela: number;
   dataVencimento?: string | null;
   createdAt: Timestamp | Date;
+  originType?: string;
+  originCardId?: string;
+  originInvoiceId?: string;
+  originInvoicePeriodEnd?: string;
+  lastInterestAppliedAt?: string;
 }

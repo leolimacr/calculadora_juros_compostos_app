@@ -343,18 +343,18 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
               placeholder="Digite o nome..."
               value={currentAsset.name}
               onChange={(e) => setCurrentAsset({ ...currentAsset, name: e.target.value })}
-              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
+              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-500 focus:outline-none focus:border-brand-primaryCta focus:ring-2 focus:ring-brand-primaryCta/30 transition-colors"
             />
           </div>
 
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
               Categoria
             </label>
             <select
               value={currentAsset.category}
               onChange={(e) => setCurrentAsset({ ...currentAsset, category: e.target.value })}
-              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors [&>option]:bg-white"
+              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm focus:outline-none focus:border-brand-primaryCta focus:ring-2 focus:ring-brand-primaryCta/30 transition-colors [&>option]:bg-white"
             >
               <option value="Renda Fixa">Renda Fixa</option>
               <option value="Ações">Ações (Brasil)</option>
@@ -378,7 +378,7 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
                 placeholder="0,00"
                 value={displayValue}
                 onChange={handleCurrencyChange}
-                className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
+                className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-slate-900 text-sm placeholder:text-slate-500 focus:outline-none focus:border-brand-primaryCta focus:ring-2 focus:ring-brand-primaryCta/30 transition-colors"
               />
             </div>
           </div>
@@ -394,7 +394,7 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
                     <div className="absolute left-0 bottom-full mb-2 w-64 p-3 bg-slate-900 text-white text-[10px] font-medium leading-relaxed rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl border border-slate-800">
                       <p className="font-black text-emerald-400 mb-1 uppercase tracking-widest text-left">Por que preencher o Propósito?</p>
                       <p className="text-left leading-relaxed">Para o Finanças Pro Invest não ser apenas uma calculadora, o Nexus precisa entender sua vida. Se soubermos qual a meta deste investimento (ex: aposentadoria vs reserva), nossas análises de rentabilidade e risco serão muito mais precisas e humanas.</p>
-                      <p className="mt-2 text-slate-400 italic text-left border-t border-slate-800 pt-2">Ex: "Reserva de emergência para segurança da família." ou "Meta: Casa própria em 5 anos."</p>
+                      <p className="mt-2 text-slate-500 italic text-left border-t border-slate-800 pt-2">Ex: "Reserva de emergência para segurança da família." ou "Meta: Casa própria em 5 anos."</p>
                     </div>
                   </div>
                 </label>
@@ -403,7 +403,7 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
               <textarea
                 value={currentAsset.proposito || ''}
                 onChange={e => setCurrentAsset({ ...currentAsset, proposito: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-xl border border-emerald-100/50 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all text-sm font-medium bg-white min-h-[60px] resize-none placeholder:text-slate-300"
+                className="w-full px-4 py-2.5 rounded-xl border border-emerald-100/50 focus:ring-2 focus:ring-brand-primaryCta/30 focus:border-brand-primaryCta transition-all text-sm font-medium bg-white min-h-[60px] resize-none placeholder:text-slate-300"
                 placeholder="Qual o objetivo deste investimento? O que você planeja conquistar com ele?"
               />
             </div>
@@ -425,7 +425,7 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
                     className={`flex flex-col items-start p-3 rounded-xl border-2 transition-all text-left ${
                       currentAsset.flexibility === opt.id 
                         ? 'border-emerald-500 bg-white shadow-sm shadow-emerald-100' 
-                        : 'border-transparent bg-slate-100/50 hover:bg-slate-100 text-slate-400'
+                        : 'border-transparent bg-slate-100/50 hover:bg-slate-100 text-slate-500'
                     }`}
                   >
                     <span className="text-xs font-black uppercase tracking-tight flex items-center gap-1.5 mb-1">
@@ -444,7 +444,7 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
               type="submit"
               disabled={isSubmitting}
               className={`w-full text-slate-950 font-black py-3.5 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 ${
-                editingId ? 'bg-amber-500 hover:bg-amber-400' : 'bg-emerald-500 hover:bg-emerald-400'
+                editingId ? 'bg-amber-600 hover:bg-amber-700' : 'bg-emerald-600 hover:bg-emerald-700'
               } disabled:bg-slate-700 h-[46px]`}
               title={editingId ? 'Salvar Alterações' : 'Adicionar Ativo'}
             >
@@ -468,7 +468,7 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
                 onClick={() => toggleViewMode('grid')}
                 onMouseEnter={() => setShowViewTooltip(true)}
                 onMouseLeave={() => setShowViewTooltip(false)}
-                className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-600'}`}
               >
                 <LayoutGrid size={16} />
               </button>
@@ -477,7 +477,7 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
                 onClick={() => toggleViewMode('list')}
                 onMouseEnter={() => setShowViewTooltip(true)}
                 onMouseLeave={() => setShowViewTooltip(false)}
-                className={`p-1.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                className={`p-1.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-600'}`}
               >
                 <List size={16} />
               </button>
@@ -585,10 +585,10 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
               <table className="w-full text-left border-collapse">
                 <thead className="bg-slate-50 border-b border-slate-100">
                   <tr>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Ativo / Categoria</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Propósito</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Valor Atual</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Ações</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Ativo / Categoria</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Propósito</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Valor Atual</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -605,7 +605,7 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
                           }`} />
                           <div className="flex flex-col">
                             <span className="text-sm font-bold text-slate-900">{asset.name}</span>
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{asset.category}</span>
+                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">{asset.category}</span>
                           </div>
                         </div>
                       </td>
@@ -613,7 +613,7 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
                         <div className="flex flex-col gap-1">
                           <span className="text-xs text-slate-500 font-medium line-clamp-1">{asset.proposito || '—'}</span>
                           {asset.flexibility && (
-                            <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
+                            <span className="text-[8px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-1">
                               {asset.flexibility === 'intocavel' ? '🔴 Intocável' : asset.flexibility === 'negociavel' ? '🟡 Estratégico' : '🟢 Liquidez'}
                             </span>
                           )}
@@ -628,14 +628,14 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
                         <div className="flex justify-center gap-2">
                           <button 
                             onClick={() => handleEditClick(asset)} 
-                            className="p-2 text-slate-400 hover:text-emerald-600 transition-colors"
+                            className="p-2 text-slate-500 hover:text-emerald-600 transition-colors"
                             title="Editar"
                           >
                             <Pencil size={14} />
                           </button>
                           <button 
                             onClick={() => asset.id && handleDeleteAsset(asset.id, asset.currentValue)} 
-                            className="p-2 text-slate-400 hover:text-red-600 transition-colors"
+                            className="p-2 text-slate-500 hover:text-red-600 transition-colors"
                             title="Excluir"
                           >
                             <Trash2 size={14} />

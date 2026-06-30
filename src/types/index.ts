@@ -1,3 +1,25 @@
+export type InvoiceStatus = 'open' | 'paid' | 'partial';
+
+export interface CardInvoice {
+  id: string;
+  cardId: string;
+  periodStart: string;
+  periodEnd: string;
+  dueDate: string;
+  total: number;
+  status: InvoiceStatus;
+  paidAmount: number;
+  remainingAmount: number;
+  transactionCount: number;
+  createdAt: string;
+  updatedAt: string;
+  lastTransactionDate?: string;
+  rotativoConverted?: boolean;
+  rotativoDebtId?: string;
+  rotativoConvertedAt?: string;
+  rotativoSettled?: boolean;
+}
+
 export interface CreditCard {
   id: string;
   name: string;
@@ -7,6 +29,7 @@ export interface CreditCard {
   limit?: number;
   saldoUtilizadoTotal?: number; // [NEXUS] Controle reativo de limite
   proposito?: string; // [NEXUS] Finalidade emocional ou estratégica
+  taxaJuros?: number; // Percentual mensal do cartão (ex: 14.9 = 14.9% ao mês)
 }
 
 export interface RecurringBill {
@@ -71,6 +94,26 @@ export interface Category {
   userId?: string;
 }
 
+export interface CategoryBudget {
+  categoryName: string;
+  categoryKey: string;
+  limit: number;
+  alertThreshold: number;
+  rollover: boolean;
+}
+
+export interface Budget {
+  id: string;
+  userId: string;
+  month: string;
+  totalIncome: number;
+  totalBudget: number;
+  categories: CategoryBudget[];
+  savingsGoal: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface FinancialProfile {
   monthlyIncome: number;
   emergencyReserveTarget: number;
@@ -96,6 +139,7 @@ export interface PersonaContext {
 }
 
 export interface UserMeta {
+  /** @deprecated Será removido na Fase 6. Usar billing.tier. */
   plan: string;
   nickname?: string;
   launchLimit: number;
@@ -103,6 +147,7 @@ export interface UserMeta {
   onboardingCompleted?: boolean;
   onboardingPersona?: 'dividas' | 'patrimonio' | 'geral';
   financialProfile?: FinancialProfile;
+  /** @deprecated Será removido na Fase 6. Usar billing.* */
   subscription?: { active: boolean };
   persona?: PersonaContext; // [NEXUS] Inteligência de Persona
 }

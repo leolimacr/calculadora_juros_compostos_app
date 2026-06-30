@@ -1,22 +1,18 @@
 import React from 'react';
-import { House, Plus, Sparkles, Menu, Bell } from 'lucide-react';
+import { Plus, Menu, House, LayoutDashboard, Sparkles, Compass } from 'lucide-react';
 import { useNavigation } from '../hooks/useNavigation';
 import type { Transaction } from '../types';
-import { useNotifications } from '../contexts/NotificationContext';
 
 interface MobileBottomNavProps {
   onOpenMore: () => void;
   onAdd: (initialData?: Partial<Transaction>) => void;
-  onOpenNotifications: (open: boolean) => void;
 }
 
 const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   onOpenMore,
   onAdd,
-  onOpenNotifications
 }) => {
   const { currentTool, handleNavigate } = useNavigation();
-  const { unreadCount } = useNotifications();
 
   const centralTools = new Set([
     'central',
@@ -28,25 +24,39 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   ]);
 
   const isHomeActive = currentTool === 'home';
+  const isControlaActive = currentTool === 'manager';
   const isCentralActive = centralTools.has(currentTool);
-  const isMoreActive = currentTool === 'settings' || currentTool === 'pricing';
+  const isExplorarActive = currentTool.startsWith('tool-') || currentTool === 'explorar';
 
   return (
-    <>
     <div className="fixed bottom-0 left-0 right-0 z-[90] md:hidden bg-white/95 backdrop-blur-xl border-t border-slate-200 shadow-[0_-10px_30px_rgba(15,23,42,0.08)]">
       <div className="mx-auto max-w-lg px-6 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
         <div className="flex items-end justify-between">
           <button
             onClick={() => handleNavigate('home')}
             className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-1.5 py-2 transition-all active:scale-95 group ${
-              isHomeActive ? 'text-amber-500' : 'text-slate-500 hover:text-slate-700'
+              isHomeActive ? 'text-emerald-600' : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            <div className={`p-1 rounded-lg transition-all ${isHomeActive ? 'bg-amber-400/10' : ''}`}>
+            <div className={`p-1 rounded-lg transition-all ${isHomeActive ? 'bg-emerald-400/10' : ''}`}>
               <House size={24} strokeWidth={isHomeActive ? 2.5 : 2} />
             </div>
             <span className="text-[9px] font-black uppercase tracking-widest leading-none">
               Home
+            </span>
+          </button>
+
+          <button
+            onClick={() => handleNavigate('manager')}
+            className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-1.5 py-2 transition-all active:scale-95 group ${
+              isControlaActive ? 'text-emerald-600' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <div className={`p-1 rounded-lg transition-all ${isControlaActive ? 'bg-emerald-400/10' : ''}`}>
+              <LayoutDashboard size={24} strokeWidth={isControlaActive ? 2.5 : 2} />
+            </div>
+            <span className="text-[9px] font-black uppercase tracking-widest leading-none">
+              Controla
             </span>
           </button>
 
@@ -73,11 +83,11 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           <button
             onClick={() => handleNavigate('central')}
             className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-1.5 py-2 transition-all active:scale-95 ${
-              currentTool === 'central' ? 'text-sky-500' : 'text-slate-500 hover:text-slate-700'
+              isCentralActive ? 'text-emerald-600' : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            <div className={`p-1 rounded-lg transition-all ${currentTool === 'central' ? 'bg-sky-400/10' : ''}`}>
-              <Sparkles size={24} strokeWidth={currentTool === 'central' ? 2.5 : 2} />
+            <div className={`p-1 rounded-lg transition-all ${isCentralActive ? 'bg-emerald-400/10' : ''}`}>
+              <Sparkles size={24} strokeWidth={isCentralActive ? 2.5 : 2} />
             </div>
             <span className="text-[9px] font-black uppercase tracking-widest leading-none">
               Central
@@ -85,30 +95,25 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           </button>
 
           <button
-            onClick={() => onOpenNotifications(true)}
-            className="flex-1 min-w-0 flex flex-col items-center justify-center gap-1.5 py-2 transition-all active:scale-95 text-slate-500 hover:text-slate-700"
+            onClick={() => handleNavigate('explorar')}
+            className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-1.5 py-2 transition-all active:scale-95 ${
+              isExplorarActive ? 'text-emerald-600' : 'text-slate-500 hover:text-slate-700'
+            }`}
           >
-            <div className="relative p-1">
-              <Bell size={24} />
-              {unreadCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-rose-500 text-white text-[8px] font-black flex items-center justify-center rounded-full border-2 border-white animate-in zoom-in duration-300">
-                  {unreadCount}
-                </span>
-              )}
+            <div className={`p-1 rounded-lg transition-all ${isExplorarActive ? 'bg-emerald-400/10' : ''}`}>
+              <Compass size={24} strokeWidth={isExplorarActive ? 2.5 : 2} />
             </div>
             <span className="text-[9px] font-black uppercase tracking-widest leading-none">
-              Alertas
+              Explorar
             </span>
           </button>
 
           <button
             onClick={onOpenMore}
-            className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-1.5 py-2 transition-all active:scale-95 ${
-              isMoreActive ? 'text-slate-900' : 'text-slate-500 hover:text-slate-700'
-            }`}
+            className="flex-1 min-w-0 flex flex-col items-center justify-center gap-1.5 py-2 transition-all active:scale-95 text-slate-500 hover:text-slate-700"
           >
-            <div className={`p-1 rounded-lg transition-all ${isMoreActive ? 'bg-slate-200' : ''}`}>
-              <Menu size={24} strokeWidth={isMoreActive ? 2.5 : 2} />
+            <div className="p-1 rounded-lg">
+              <Menu size={24} />
             </div>
             <span className="text-[9px] font-black uppercase tracking-widest leading-none">
               Mais
@@ -117,7 +122,6 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         </div>
       </div>
     </div>
-    </>
   );
 };
 

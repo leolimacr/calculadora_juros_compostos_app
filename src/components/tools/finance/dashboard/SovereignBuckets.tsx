@@ -1,11 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Shield, Lock, Wallet, AlertTriangle, Target } from 'lucide-react';
-import type {
-  SovereignSnapshot} from '../../../../utils/calculations';
+import type { SovereignSnapshot } from '../../../../utils/calculations';
 import {
   deriveSovereignBuckets,
   maskCurrency,
 } from '../../../../utils/calculations';
+import BucketDetailDrawer from './BucketDetailDrawer';
 
 export interface SovereignBucketsProps {
   snapshot: SovereignSnapshot;
@@ -15,44 +15,59 @@ export interface SovereignBucketsProps {
   variant?: 'light' | 'dark';
 }
 
-const BUCKET_META = [
+interface BucketMetaItem {
+  key: string;
+  actionId: string;
+  label: string;
+  sub: string;
+  color: string;
+  icon: React.ElementType;
+}
+
+const BUCKET_META: BucketMetaItem[] = [
   {
-    key: 'comprometido' as const,
+    key: 'comprometido',
+    actionId: 'contas',
     label: 'Contas do Mês',
     sub: 'O que já está carimbado',
     color: '#f97316',
     icon: AlertTriangle,
   },
   {
-    key: 'marcoZero' as const,
+    key: 'marcoZero',
+    actionId: 'colchao',
     label: 'Colchão Inicial',
     sub: 'Já protegido',
     color: '#0ea5e9',
     icon: Shield,
   },
   {
-    key: 'reserve' as const,
+    key: 'reserve',
+    actionId: 'reserva',
     label: 'Reserva',
     sub: 'Já protegido',
     color: '#10b981',
     icon: Lock,
   },
   {
-    key: 'colchaoShortfall' as const,
+    key: 'colchaoShortfall',
+    actionId: 'falta-proteger',
     label: 'Falta proteger',
     sub: 'Meta pendente',
     color: '#8b5cf6',
     icon: Target,
   },
   {
-    key: 'reserveShortfall' as const,
+    key: 'reserveShortfall',
+    actionId: 'falta-reserva',
     label: 'Falta na Reserva',
     sub: 'Meta pendente',
     color: '#a78bfa',
     icon: Target,
   },
   {
-    key: 'livre' as const,
+    key: 'livre',
+    actionId: 'disponivel',
     label: 'Disponível',
     sub: 'Realmente livre',
     color: '#059669',
@@ -67,10 +82,35 @@ const SovereignBuckets: React.FC<SovereignBucketsProps> = ({
   isPrivacyMode = false,
   variant = 'light',
 }) => {
+  const isDark = variant === 'dark';
+
   const buckets = useMemo(
     () => deriveSovereignBuckets(snapshot, marcoZero, reserveCurrent),
     [snapshot, marcoZero, reserveCurrent]
   );
+
+  const deficitAlert = useMemo(() => {
+    if (isPrivacyMode) return null;
+    if (buckets.structureInvaded) {
+      return {
+        type: 'structureInvaded' as const,
+        description: `seu saldo acumulado não cobre cartão, contas e a proteção que ainda falta formar. Sua Disponibilidade Real está em déficit de ${maskCurrency(buckets.freedomDeficit)}.`,
+        alertClass: isDark
+          ? 'bg-rose-950/40 border-rose-800/50 text-rose-300'
+          : 'bg-rose-50 border-rose-100 text-rose-700',
+      };
+    }
+    if (snapshot.projectedBalance < 0) {
+      return {
+        type: 'flowDeficit' as const,
+        description: `o mês não se paga sozinho. Faltam ${maskCurrency(Math.abs(snapshot.projectedBalance))} para equilibrar suas receitas e despesas.`,
+        alertClass: isDark
+          ? 'bg-amber-950/40 border-amber-800/50 text-amber-300'
+          : 'bg-amber-50 border-amber-100 text-amber-700',
+      };
+    }
+    return null;
+  }, [buckets, snapshot, isPrivacyMode, isDark]);
 
   const barItems = useMemo(() => {
     const items: { value: number; color: string; label: string }[] = [];
@@ -86,13 +126,21 @@ const SovereignBuckets: React.FC<SovereignBucketsProps> = ({
 
   const barTotal = barItems.reduce((s, i) => s + i.value, 0);
 
-  const isDark = variant === 'dark';
-
   const format = (val: number) =>
     isPrivacyMode ? '••••' : maskCurrency(val);
 
   const getWidth = (val: number) =>
     barTotal > 0 ? Math.max((val / barTotal) * 100, val > 0 ? 2 : 0) : 0;
+
+  const [selectedActionId, setSelectedActionId] = useState<string | null>(null);
+
+  const handleBucketClick = (actionId: string) => {
+    setSelectedActionId(actionId);
+  };
+
+  const handleCloseDrawer = () => {
+    setSelectedActionId(null);
+  };
 
   return (
     <div
@@ -114,7 +162,7 @@ const SovereignBuckets: React.FC<SovereignBucketsProps> = ({
       <div className="flex items-center justify-between gap-3 relative z-10">
         <p
           className={`text-xxs font-black uppercase tracking-ultra-wide ${
-            isDark ? 'text-slate-400' : 'text-text-muted'
+            isDark ? 'text-slate-500' : 'text-text-muted'
           }`}
         >
           Resumo financeiro
@@ -126,7 +174,6 @@ const SovereignBuckets: React.FC<SovereignBucketsProps> = ({
         )}
       </div>
 
-      {/* Barra proporcional */}
       {!isPrivacyMode && barTotal > 0 && (
         <div className="flex h-2.5 rounded-full overflow-hidden bg-slate-200/30">
           {barItems.map((item, i) => (
@@ -140,9 +187,8 @@ const SovereignBuckets: React.FC<SovereignBucketsProps> = ({
         </div>
       )}
 
-      {/* Cards dos buckets */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-3">
-        {BUCKET_META.map(({ key, label, sub, color, icon: Icon }) => {
+        {BUCKET_META.map(({ key, actionId, label, sub, color, icon: Icon }) => {
           const value = (buckets as any)[key];
           const invaded = key === 'marcoZero' && buckets.structureInvaded;
           const isShortfall = key === 'colchaoShortfall' || key === 'reserveShortfall';
@@ -152,7 +198,8 @@ const SovereignBuckets: React.FC<SovereignBucketsProps> = ({
           return (
             <div
               key={key}
-              className={`rounded-2xl p-3 border transition-all ${
+              onClick={() => handleBucketClick(actionId)}
+              className={`rounded-2xl p-3 border transition-all cursor-pointer hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.98] ${
                 isDark
                   ? 'bg-slate-800/50 border-slate-700/60'
                   : 'bg-surface-secondary border-surface-elevated'
@@ -167,7 +214,7 @@ const SovereignBuckets: React.FC<SovereignBucketsProps> = ({
                 </div>
                 <p
                   className={`text-[9px] font-black uppercase tracking-widest ${
-                    isDark ? 'text-slate-400' : 'text-text-muted'
+                    isDark ? 'text-slate-500' : 'text-text-muted'
                   }`}
                 >
                   {label}
@@ -192,36 +239,25 @@ const SovereignBuckets: React.FC<SovereignBucketsProps> = ({
         })}
       </div>
 
-      {/* Alertas de Déficit */}
-      {!isPrivacyMode && (
-        <>
-          {buckets.structureInvaded ? (
-            <div className={`flex items-start gap-2.5 rounded-2xl px-3 py-2.5 border ${
-                isDark
-                  ? 'bg-rose-950/40 border-rose-800/50 text-rose-300'
-                  : 'bg-rose-50 border-rose-100 text-rose-700'
-              }`}
-            >
-              <AlertTriangle size={14} className="shrink-0 mt-0.5" />
-              <p className="text-[10px] font-medium leading-relaxed">
-                <span className="font-black">Disponibilidade negativa:</span> seu saldo acumulado não cobre cartão, contas e a proteção que ainda falta formar. Sua Disponibilidade Real está em déficit de {maskCurrency(buckets.freedomDeficit)}.
-              </p>
-            </div>
-          ) : snapshot.projectedBalance < 0 ? (
-            <div className={`flex items-start gap-2.5 rounded-2xl px-3 py-2.5 border ${
-                isDark
-                  ? 'bg-amber-950/40 border-amber-800/50 text-amber-300'
-                  : 'bg-amber-50 border-amber-100 text-amber-700'
-              }`}
-            >
-              <AlertTriangle size={14} className="shrink-0 mt-0.5" />
-              <p className="text-[10px] font-medium leading-relaxed">
-                <span className="font-black">Déficit de fluxo:</span> o mês não se paga sozinho. Faltam {maskCurrency(Math.abs(snapshot.projectedBalance))} para equilibrar suas receitas e despesas.
-              </p>
-            </div>
-          ) : null}
-        </>
+      {deficitAlert && (
+        <div className={`flex items-start gap-2.5 rounded-2xl px-3 py-2.5 border ${deficitAlert.alertClass}`}>
+          <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+          <p className="text-[10px] font-medium leading-relaxed">
+            <span className="font-black">
+              {deficitAlert.type === 'structureInvaded' ? 'Disponibilidade negativa:' : 'Déficit de fluxo:'}
+            </span>{' '}
+            {deficitAlert.description}
+          </p>
+        </div>
       )}
+
+      <BucketDetailDrawer
+        isOpen={selectedActionId !== null}
+        onClose={handleCloseDrawer}
+        actionId={selectedActionId}
+        snapshot={snapshot}
+        variant={variant}
+      />
     </div>
   );
 };

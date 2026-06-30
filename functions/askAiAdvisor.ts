@@ -44,6 +44,30 @@ async function getUserDebts(userId: string): Promise<any[]> {
   }
 }
 
+async function getUserAssets(userId: string): Promise<any[]> {
+  try {
+    const db = getFirestore();
+    const snapshot = await db.collection('users').doc(userId).collection('ativos').get();
+    if (snapshot.empty) return [];
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  } catch (error: any) {
+    logger.error(`[Assets] Erro ao buscar ativos: ${error.message}`);
+    return [];
+  }
+}
+
+async function getUserPassives(userId: string): Promise<any[]> {
+  try {
+    const db = getFirestore();
+    const snapshot = await db.collection('users').doc(userId).collection('passivos').get();
+    if (snapshot.empty) return [];
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  } catch (error: any) {
+    logger.error(`[Passives] Erro ao buscar passivos: ${error.message}`);
+    return [];
+  }
+}
+
 function describeHistoryWindow(plan?: string): string {
   switch (plan) {
     case 'free': return 'Você está no plano Free, então posso analisar apenas os últimos 3 dias do seu histórico';
@@ -327,9 +351,13 @@ export const askAiAdvisor = onCall(
       let userData: UserDataResult;
       let historyDescription = 'analiso um recorte recente do seu histórico, definido pelo seu plano';
       let serverDebts: any[] = [];
+      let serverAssets: any[] = [];
+      let serverPassives: any[] = [];
       try {
         const userPlan = await getUserPlan(userId);
         serverDebts = await getUserDebts(userId);
+        serverAssets = await getUserAssets(userId);
+        serverPassives = await getUserPassives(userId);
         logger.info(`🔍 [DEBUG] userId: ${userId}`);
         logger.info(`🔍 [DEBUG] Plano retornado: "${userPlan}"`);
         logger.info(`🔍 [DEBUG] Tipo: ${typeof userPlan}`);
@@ -341,6 +369,10 @@ export const askAiAdvisor = onCall(
         userData = { goals: [], recentTransactions: [], simulations: [], summary: '', hasData: false, dataStatus: 'error' };
       }
 
+      // Fallback server-side: se frontend não enviou assets/passives, usa dados do Firestore
+      const resolvedAssets = (assets && assets.length > 0) ? assets : serverAssets;
+      const resolvedPassives = (passives && passives.length > 0) ? passives : serverPassives;
+
       console.log("🔍 DEBUG - INÍCIO DO PROCESSAMENTO DE METAS");
       console.log("🔍 userData existe?", !!userData);
       console.log("🔍 userData.goals é array?", Array.isArray(userData?.goals));
@@ -348,13 +380,15 @@ export const askAiAdvisor = onCall(
       if (userData?.goals?.length > 0) console.log("🔍 Primeira goal:", JSON.stringify(userData.goals[0]));
       console.log("🔍 userData.hasData:", userData?.hasData);
 
-      const assetsSummary = DataIntegrator.formatAssetsSummary(assets);
-      const passivesSummary = DataIntegrator.formatPassivesSummary(passives);
+      const assetsSummary = DataIntegrator.formatAssetsSummary(resolvedAssets);
+      const passivesSummary = DataIntegrator.formatPassivesSummary(resolvedPassives);
       const debtsSummary = DataIntegrator.formatDebtsSummary(serverDebts);
-      const patrimonioVisaoGerencialStr = DataIntegrator.formatPatrimonioVisaoGerencial(assets, passives);
+      const patrimonioVisaoGerencialStr = DataIntegrator.formatPatrimonioVisaoGerencial(resolvedAssets, resolvedPassives);
 
-      console.log("🔍 assets recebidos:", JSON.stringify(assets));
-      console.log("🔍 passives recebidos:", JSON.stringify(passives));
+      const assetsSource = (assets && assets.length > 0) ? 'frontend' : 'server';
+      const passivesSource = (passives && passives.length > 0) ? 'frontend' : 'server';
+      console.log(`🔍 resolvedAssets (${assetsSource}):`, JSON.stringify(resolvedAssets));
+      console.log(`🔍 resolvedPassives (${passivesSource}):`, JSON.stringify(resolvedPassives));
       console.log("🔍 assetsSummary:", assetsSummary);
       console.log("🔍 passivesSummary:", passivesSummary);
       console.log("🔍 patrimonioVisaoGerencialStr:", patrimonioVisaoGerencialStr);

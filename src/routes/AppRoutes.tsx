@@ -31,8 +31,8 @@ import AppLayout from '../layouts/AppLayout';
 import PublicLayout from '../layouts/PublicLayout';
 import FeatureGate from '../components/FeatureGate';
 import PremiumUpgradePrompt from '../components/PremiumUpgradePrompt';
-import { useSubscriptionAccess } from '../hooks/useSubscriptionAccess';
 import { useNavigation } from '../hooks/useNavigation';
+import { useEntitlement } from '../hooks/useEntitlement';
 import { courseRoutes, CourseRoutesShell } from './courseRoutes';
 import { useTransactionsContext } from '../contexts/TransactionsContext';
 import { useDebtContext } from '../contexts/DebtContext';
@@ -85,7 +85,9 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
     (!anyConnected && loadingTime < 7000)
   );
 
-  const { isPro, isPremium, currentPlan } = useSubscriptionAccess();
+  const { effectiveTier } = useEntitlement();
+  const isPro = effectiveTier !== 'free';
+  const isPremium = effectiveTier === 'premium';
 
   const {
     handleNavigate,
@@ -209,7 +211,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
           path="home" 
           element={
             isAuthenticated && userMetaLoaded && userMeta?.onboardingCompleted === false ? (
-              <div className="min-h-screen bg-[#020617] flex items-center justify-center px-4">
+              <div className="min-h-screen bg-surface-primary flex items-center justify-center px-4">
                 <OnboardingWizard userId={user!.uid} onComplete={() => setOnboardingDismissed(true)} />
               </div>
             ) : (
@@ -217,9 +219,8 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
                   transactions={state.lancamentos}
                   isPrivacyMode={state.isPrivacyMode}
                   onNavigate={(tool, state) => handleNavigate(tool, state)}
+                  onOpenForm={state.openTransactionForm}
                   userMeta={userMeta}
-                  isPremium={isPremium}
-                  isPro={isPro}
                   isSyncing={state.isSyncing}
                 />
             )
@@ -254,8 +255,6 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
           path="central" 
           element={
             <CentralHub
-              isPro={isPro}
-              isPremium={isPremium}
               lancamentos={lancamentos}
               userMeta={userMeta}
               onNavigate={handleNavigate}
@@ -284,22 +283,14 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
         
         <Route 
           path="mais/pricing" 
-          element={
-            <PricingPage
-              onNavigate={handleNavigate}
-              currentPlan={isPremium ? 'premium' : isPro ? 'pro' : 'free'}
-              onBack={() => handleNavigate('home')}
-              isAuthenticated={isAuthenticated}
-              userId={user?.uid}
-            />
-          } 
+          element={<PricingPage />} 
         />
 
         <Route 
           path="investimentos" 
           element={
             <FeatureGate
-              requiredPlan="premium"
+              featureKey="investments"
               fallback={
                 <PremiumUpgradePrompt
                   title="Investimentos"
@@ -319,7 +310,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
           path="passivos"
           element={
             <FeatureGate
-              requiredPlan="premium"
+              featureKey="passives"
               fallback={
                 <PremiumUpgradePrompt
                   title="Patrimônio e Passivos"
@@ -336,7 +327,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
           path="minhas-dividas" 
           element={
             <FeatureGate
-              requiredPlan="premium"
+              featureKey="debts"
               fallback={
                 <PremiumUpgradePrompt
                   title="Minhas Dívidas"

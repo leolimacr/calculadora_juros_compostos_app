@@ -25,17 +25,13 @@ interface MonthlyData {
 }
 
 export const CompoundInterestTool = ({ onNavigate, onCalcUpdate, isAuthenticated }: any) => {
-  if (!isAuthenticated) {
-    return <ToolGate title="Simulador de Riqueza" description="Descubra exatamente quanto tempo falta para você atingir seu primeiro milhão com o poder dos juros compostos." onNavigate={onNavigate} />;
-  }
-
   const [inputs, setInputs] = useState({ p: '', m: '', r: '', t: '' });
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
   const [result, setResult] = useState<{ total: number; investido: number; juros: number; percentJuros: number } | null>(null);
   const [activeTab, setActiveTab] = useState<'result' | 'table' | 'learn'>('result');
   const [errorMessage, setErrorMessage] = useState('');
   const [showScrollHint, setShowScrollHint] = useState(false);
-  
+
   const resultRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -46,6 +42,10 @@ export const CompoundInterestTool = ({ onNavigate, onCalcUpdate, isAuthenticated
       }, 300);
     }
   }, [result]);
+
+  if (!isAuthenticated) {
+    return <ToolGate title="Simulador de Riqueza" description="Descubra exatamente quanto tempo falta para você atingir seu primeiro milhão com o poder dos juros compostos." onNavigate={onNavigate} />;
+  }
 
   const calculate = () => {
     setErrorMessage('');
@@ -224,7 +224,7 @@ export const CompoundInterestTool = ({ onNavigate, onCalcUpdate, isAuthenticated
             </div>
 
             {showScrollHint && (
-              <div className="flex flex-col items-center justify-center text-slate-400 animate-bounce mt-2">
+              <div className="flex flex-col items-center justify-center text-slate-500 animate-bounce mt-2">
                 <p className="text-xs uppercase tracking-wider mb-1">Role para ver os detalhes</p>
                 <ChevronDown size={20} />
               </div>

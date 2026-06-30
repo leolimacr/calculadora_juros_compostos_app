@@ -199,14 +199,14 @@ const NexusBriefingView: React.FC<{
                     <Sparkles size={24} className="animate-pulse" />
                 </div>
              </div>
-             <p className="text-xs font-black uppercase tracking-[0.3em] text-slate-400">Processando Inteligência...</p>
+             <p className="text-xs font-black uppercase tracking-[0.3em] text-slate-500">Processando Inteligência...</p>
           </div>
         ) : briefing && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
             {renderBlocks(briefing)}
 
             <div className="mt-12 space-y-4">
-               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 text-center mb-6">Qual seu próximo passo?</p>
+               <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 text-center mb-6">Qual seu próximo passo?</p>
                <div className="flex flex-col gap-3">
                  {options.map((option, idx) => (
                     <button
@@ -221,7 +221,7 @@ const NexusBriefingView: React.FC<{
                  ))}
                  <button
                     onClick={() => navigate('/app/home')}
-                    className="w-full p-5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors"
+                    className="w-full p-5 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-600 transition-colors"
                  >
                     Encerrar Briefing e Voltar
                  </button>

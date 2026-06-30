@@ -1,4 +1,5 @@
 import { extractUpcomingBill } from './nexusContextUtils';
+import { rankDebts } from './debt/debt.math';
 import type { DebtItem } from './debt/debt.types';
 import type {
   CreditCard,
@@ -10,13 +11,40 @@ import type {
 } from '../types';
 import { getPersonaVoice } from './personaService';
 import { getFlowLabels } from '../theme/fpiVoiceGuide';
-import { calculateSovereignBalance } from '../utils/calculations';
+import { traceInsightShown, collectFollowUp, getEffectivePriorityDelta, getDomainSuppressionMultiplier, getToneMarker } from './insightResponseObserver';
+
+
+export type CategoryBudgetStatus = 'green' | 'yellow' | 'red';
+
+export interface BudgetCategoryData {
+  name: string;
+  limit: number;
+  spent: number;
+  percentage: number;
+  status: CategoryBudgetStatus;
+}
+
+export interface BudgetInsightData {
+  totalBudget: number;
+  totalSpent: number;
+  totalPercentage: number;
+  daysElapsed: number;
+  daysInMonth: number;
+  categories: BudgetCategoryData[];
+}
 
 export interface NexusAdvisoryContext {
   snapshot: import('../utils/calculations').SovereignSnapshot;
   commandMode: boolean;
   categorySpending: Record<string, number>;
   isPremium: boolean;
+}
+
+export interface NexusInsightAction {
+  label: string;
+  type: string;
+  requiresPlan?: string;
+  payload?: any;
 }
 
 export interface NexusInsight {
@@ -28,15 +56,11 @@ export interface NexusInsight {
   };
   deepLink: string;
   priority: 'alta' | 'media' | 'baixa' | 'inline';
-  action?: {
-    label: string;
-    type: string;
-    requiresPlan?: string;
-    payload?: any;
-  };
+  action?: NexusInsightAction;
   style?: {
     brandColor?: string;
   };
+  followUp?: string;
 }
 
 export interface UserContext {
@@ -56,7 +80,6 @@ export interface UserContext {
   marcoZero?: number;
   reserveTarget?: number;
   reserveCurrent?: number;
-  freeBalance?: number;
   sovereignFreeBalance?: number;
   freedomDeficit?: number;
   obligationsDeduction?: number;
@@ -75,6 +98,7 @@ export interface UserContext {
   debtJustPaidOff?: boolean;
   isFirstSession?: boolean;
   cards?: CreditCard[];
+  budgetProgress?: BudgetInsightData;
   transactions?: Transaction[];
   upcomingCreditCardBill?: {
     daysToClose: number;
@@ -97,18 +121,19 @@ const INSIGHT_CATALOG: CatalogItem[] = [
     id: 'home-sovereign-deficit',
     condition: (ctx) => {
       const deficit = ctx.freedomDeficit ?? 0;
-      const free = ctx.sovereignFreeBalance ?? ctx.freeBalance ?? 0;
-      return ctx.hasFinancialProfile && (deficit > 0 || free < 0);
+      const free = ctx.sovereignFreeBalance ?? 0;
+      return deficit > 0 || free < 0;
     },
     insight: {
       id: 'home-sovereign-deficit',
       message: {
         title: 'Déficit de liberdade',
-        body: '{prefix} sua folga do mês está em déficit de {deficit}. A estrutura de proteção está sendo consumida — é hora de revisar compromissos.',
+        body: '{tone_observacao}{prefix} sua folga do mês está em déficit de {deficit}. A estrutura de proteção está sendo consumida — é hora de revisar compromissos.',
         ctaLabel: 'Ver Estrutura',
       },
       deepLink: 'manager',
       priority: 'alta',
+      action: { label: 'Revisar mês', type: 'adjust' },
     },
   },
   {
@@ -121,7 +146,7 @@ const INSIGHT_CATALOG: CatalogItem[] = [
       id: 'fatima_reserva',
       message: {
         title: 'Fechamento de fatura',
-        body: '{prefix} sua fatura fecha em {days} dias ({value}). Movimente a reserva antes do fechamento.',
+        body: '{tone_observacao}{prefix} sua fatura fecha em {days} dias ({value}). Movimente a reserva antes do fechamento.',
         ctaLabel: 'Ver Detalhes',
       },
       deepLink: 'manager',
@@ -141,26 +166,27 @@ const INSIGHT_CATALOG: CatalogItem[] = [
       id: 'home-bill-pressure',
       message: {
         title: 'Fatura vs estrutura',
-        body: '{prefix} fatura de {value} fecha em {days} dias. Isso pressiona seu Colchão Inicial — reserve o valor ou ajuste o mês.',
+        body: '{tone_observacao}{prefix} fatura de {value} fecha em {days} dias. Isso pressiona seu Colchão Inicial — reserve o valor ou ajuste o mês.',
         ctaLabel: 'Abrir Controla',
       },
       deepLink: 'manager',
       priority: 'alta',
+      action: { label: 'Abrir Controla', type: 'adjust' },
     },
   },
   {
     id: 'home-margin-thin',
     condition: (ctx) => {
-      const free = ctx.sovereignFreeBalance ?? ctx.freeBalance ?? 0;
+      const free = ctx.sovereignFreeBalance ?? 0;
       const buffer = (ctx.marcoZero || 0) + (ctx.reserveCurrent || 0);
-      if (free <= 0 || !ctx.hasFinancialProfile) return false;
+      if (free <= 0) return false;
       return free < Math.max(500, buffer * 0.15);
     },
     insight: {
       id: 'home-margin-thin',
       message: {
         title: 'Folga apertada',
-        body: '{prefix} sua folga do mês ({sovereign}) está abaixo de 15% da estrutura protegida. Qualquer movimento reduz seu fôlego.',
+        body: '{tone_observacao}{prefix} sua folga do mês ({sovereign}) está abaixo de 15% da estrutura protegida. Qualquer movimento reduz seu fôlego.',
         ctaLabel: 'Revisar mês',
       },
       deepLink: 'manager',
@@ -200,6 +226,69 @@ const INSIGHT_CATALOG: CatalogItem[] = [
       priority: 'media',
     },
   },
+  // ── HOME — pressão orçamentária (budget activo) ──
+  {
+    id: 'budget-margin-pressure',
+    condition: (ctx) => {
+      const bp = ctx.budgetProgress;
+      if (!bp) return false;
+      const monthExp = ctx.monthExpenses ?? 0;
+      const free = ctx.sovereignFreeBalance ?? 0;
+      return bp.totalPercentage > 90 || (free >= 0 && free < monthExp * 0.3 && bp.totalPercentage > 80);
+    },
+    insight: {
+      id: 'budget-margin-pressure',
+      message: {
+        title: 'Margem sob pressão',
+        body: '{tone_observacao}{prefix} o orçamento consumiu {budgetPct}% da meta e sua folga está em {sovereign}. O orçamento está comprimindo sua margem real — revise antes do fim do mês.',
+        ctaLabel: 'Revisar orçamento',
+      },
+      deepLink: 'manager',
+      priority: 'alta',
+      action: { label: 'Revisar orçamento', type: 'adjust' },
+    },
+  },
+  {
+    id: 'budget-burn-rate',
+    condition: (ctx) => {
+      const bp = ctx.budgetProgress;
+      if (!bp) return false;
+      const pctComplete = bp.daysInMonth > 0 ? bp.daysElapsed / bp.daysInMonth : 1;
+      return bp.totalPercentage > 75 && pctComplete < 0.7;
+    },
+    insight: {
+      id: 'budget-burn-rate',
+      message: {
+        title: 'Consumo acelerado',
+        body: '{tone_observacao}{prefix} o orçamento já consumiu {budgetPct}% da meta em {budgetDays} dias. O ritmo atual projeta estouro antes do fim do mês.',
+        ctaLabel: 'Ajustar orçamento',
+      },
+      deepLink: 'manager',
+      priority: 'alta',
+      action: { label: 'Ajustar orçamento', type: 'adjust' },
+    },
+  },
+  {
+    id: 'budget-category-at-risk',
+    condition: (ctx) => {
+      const bp = ctx.budgetProgress;
+      if (!bp) return false;
+      const pctComplete = bp.daysInMonth > 0 ? bp.daysElapsed / bp.daysInMonth : 1;
+      if (pctComplete < 0.3) return false;
+      return bp.categories.some((c) => c.status === 'yellow') && bp.totalPercentage < 85;
+    },
+    insight: {
+      id: 'budget-category-at-risk',
+      message: {
+        title: 'Categoria no limite',
+        body: '{tone_observacao}{prefix} {budgetCategory} está com {budgetCatPct}% do orçamento usado. Ajuste o limite ou reduza o ritmo antes que pressione o resto do mês.',
+        ctaLabel: 'Ajustar categoria',
+      },
+      deepLink: 'manager',
+      priority: 'media',
+      action: { label: 'Ajustar categoria', type: 'adjust' },
+    },
+  },
   {
     id: 'boas_vindas_primeira_sessao',
     condition: (ctx) => ctx.isFirstSession === true,
@@ -219,13 +308,8 @@ const INSIGHT_CATALOG: CatalogItem[] = [
   {
     id: 'central-cushion-warning',
     condition: (ctx) => {
-      const sovereign = calculateSovereignBalance(
-        ctx.monthBalance,
-        ctx.upcomingCreditCardBill?.estimatedValue || 0,
-        ctx.obligationsDeduction || 0,
-        (ctx.marcoZero || 0) + (ctx.reserveCurrent || 0)
-      );
-      return ctx.hasFinancialProfile && sovereign < 0;
+      const free = ctx.sovereignFreeBalance ?? 0;
+      return free < 0;
     },
     insight: {
       id: 'central-cushion-warning',
@@ -260,7 +344,7 @@ const INSIGHT_CATALOG: CatalogItem[] = [
   },
   {
     id: 'central-debt-interest',
-    condition: (ctx) => ctx.hasFinancialProfile && !!ctx.hasDebts,
+    condition: (ctx) => !!ctx.hasDebts,
     insight: {
       id: 'central-debt-interest',
       message: {
@@ -293,8 +377,8 @@ const INSIGHT_CATALOG: CatalogItem[] = [
   {
     id: 'strategic-idle-cash',
     condition: (ctx) => {
-      const free = ctx.sovereignFreeBalance ?? ctx.freeBalance ?? 0;
-      const marco = ctx.marcoZero || 0;
+      const free = ctx.sovereignFreeBalance ?? 0;
+      const marco = ctx.marcoZero || 0;      
       return free > marco * 1.5 && free > 2000;
     },
     insight: {
@@ -325,11 +409,28 @@ const INSIGHT_CATALOG: CatalogItem[] = [
       priority: 'baixa',
     },
   },
+  // ── HOME — prioridade de dívidas ──
+  {
+    id: 'strategic-debt-priority',
+    condition: (ctx) => !!ctx.hasDebts && (ctx.debts?.length || 0) >= 2,
+    insight: {
+      id: 'strategic-debt-priority',
+      message: {
+        title: 'Dívida Prioritária',
+        body: '{prefix} identifiquei qual das suas dívidas atacar primeiro com base na taxa, urgência e oportunidade. Eliminar esta dívida libera mais fluxo e acelera sua liberdade financeira.',
+        ctaLabel: 'Atacar Dívida',
+      },
+      deepLink: 'minhas-dividas',
+      priority: 'alta',
+      action: { label: 'Atacar Agora', type: 'attack_debt' },
+    },
+  },
 ];
 
 const SEEN_HOME_KEY = 'nexus-seen-records-v2';
 const SEEN_CENTRAL_KEY = 'nexus-central-records-v2';
 const MAX_SEEN = 20;
+const SUPPRESSION_DURATION_MS = 60 * 60 * 1000;
 
 interface SeenRecord {
   id: string;
@@ -351,7 +452,6 @@ export function buildUserContext(params: Partial<UserContext>): UserContext {
     marcoZero: 0,
     reserveTarget: 0,
     reserveCurrent: 0,
-    freeBalance: 0,
     hasFirstInvestment: false,
     streak: 0,
     ...params,
@@ -359,7 +459,7 @@ export function buildUserContext(params: Partial<UserContext>): UserContext {
 
   ctx.upcomingCreditCardBill = extractUpcomingBill(ctx, params.debts);
   const onboardingCompleted =
-    typeof window !== 'undefined' && localStorage.getItem('fpi_onboarding_op_completed');
+    typeof window !== 'undefined' && (localStorage.getItem('financas-pro-invest_onboarding_op_completed') || localStorage.getItem('fpi_onboarding_op_completed'));
   ctx.isFirstSession = ctx.launchCount === 0 && !onboardingCompleted;
 
   if (ctx.recentLargeIncome === undefined && params.transactions?.length) {
@@ -374,7 +474,7 @@ export function buildUserContext(params: Partial<UserContext>): UserContext {
 
 /** Tensão financeira real — quando false, Dom do Tempo silencia insights médios/baixos. */
 export function hasFinancialTension(ctx: UserContext): boolean {
-  const free = ctx.sovereignFreeBalance ?? ctx.freeBalance ?? 0;
+  const free = ctx.sovereignFreeBalance ?? 0;
   if (free < 0 || (ctx.freedomDeficit || 0) > 0) return true;
   if (ctx.monthBalance < 0) return true;
   const bill = extractUpcomingBill(ctx);
@@ -394,6 +494,13 @@ function checkPurpose(item: { proposito?: string }, keywords: string[]): boolean
   return keywords.some((k) => lower.includes(k.toLowerCase()));
 }
 
+function catalogItemDomain(id: string): string | null {
+  if (id === 'home-sovereign-deficit' || id === 'home-margin-thin' || id === 'central-cushion-warning') return 'protecao';
+  if (id === 'fatima_reserva' || id === 'home-bill-pressure') return 'cartao';
+  if (id.startsWith('budget-')) return 'orcamento';
+  return null;
+}
+
 function bucket(n: number, step: number): number {
   return Math.round(n / step) * step;
 }
@@ -408,7 +515,7 @@ function getSeenRecords(key: string): SeenRecord[] {
 }
 
 function getInsightFingerprint(id: string, ctx: UserContext): string {
-  const free = ctx.sovereignFreeBalance ?? ctx.freeBalance ?? 0;
+  const free = ctx.sovereignFreeBalance ?? 0;
   const bill = extractUpcomingBill(ctx);
 
   switch (id) {
@@ -427,6 +534,22 @@ function getInsightFingerprint(id: string, ctx: UserContext): string {
     }
     case 'central-cushion-warning':
       return `cushion:${bucket(free, 500)}`;
+    case 'budget-burn-rate': {
+      const pct = ctx.budgetProgress?.totalPercentage ?? 0;
+      return `burn:${bucket(pct, 10)}:${bucket(ctx.budgetProgress?.daysElapsed ?? 0, 5)}`;
+    }
+    case 'budget-margin-pressure': {
+      const pct2 = ctx.budgetProgress?.totalPercentage ?? 0;
+      return `margin:${bucket(pct2, 10)}:${bucket(free, 500)}`;
+    }
+    case 'budget-category-at-risk': {
+      const bp = ctx.budgetProgress;
+      if (!bp) return 'cat:static';
+      const risk = bp.categories
+        .filter((c) => c.status === 'yellow' || c.status === 'red')
+        .sort((a, b) => b.percentage - a.percentage)[0];
+      return risk ? `cat:${risk.name}:${bucket(risk.percentage, 10)}` : 'cat:static';
+    }
     default:
       return 'static';
   }
@@ -435,6 +558,9 @@ function getInsightFingerprint(id: string, ctx: UserContext): string {
 function isInsightSuppressed(id: string, ctx: UserContext, key: string): boolean {
   const record = getSeenRecords(key).find((r) => r.id === id);
   if (!record) return false;
+  const domain = catalogItemDomain(id);
+  const multiplier = domain ? getDomainSuppressionMultiplier(domain as any) : 1;
+  if (Date.now() - record.seenAt >= SUPPRESSION_DURATION_MS * multiplier) return false;
   return record.fingerprint === getInsightFingerprint(id, ctx);
 }
 
@@ -464,10 +590,12 @@ function prepareInsight(insight: NexusInsight, ctx: UserContext): NexusInsight {
   const voice = getPersonaVoice(ctx.persona?.archetype || 'guardian');
   const flow = getFlowLabels(ctx.commandMode);
   const bill = extractUpcomingBill(ctx);
-  const free = ctx.sovereignFreeBalance ?? ctx.freeBalance ?? 0;
+  const free = ctx.sovereignFreeBalance ?? 0;
   const deficit = ctx.freedomDeficit ?? Math.abs(Math.min(0, free));
   const fmt = (n: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
+
+  const toneMarker = getToneMarker(catalogItemDomain(insight.id) as any);
 
   const vars: Record<string, string | number> = {
     prefix: voice.prefix,
@@ -481,6 +609,7 @@ function prepareInsight(insight: NexusInsight, ctx: UserContext): NexusInsight {
     ratio: ctx.monthIncome
       ? Math.round(((ctx.monthExpenses || 0) / ctx.monthIncome) * 100)
       : 0,
+    tone_observacao: toneMarker,
   };
 
   if (bill) {
@@ -488,7 +617,27 @@ function prepareInsight(insight: NexusInsight, ctx: UserContext): NexusInsight {
     vars.value = fmt(bill.estimatedValue);
   }
 
-  return {
+  if (ctx.budgetProgress) {
+    const bp = ctx.budgetProgress;
+    vars.budgetPct = Math.round(bp.totalPercentage);
+    vars.budgetDays = bp.daysElapsed;
+    const projected = bp.daysElapsed > 0
+      ? Math.max(0, (bp.totalSpent / bp.daysElapsed) * bp.daysInMonth - bp.totalBudget)
+      : 0;
+    vars.budgetOvershoot = fmt(projected);
+    const riskCat = [...bp.categories]
+      .filter((c) => c.status === 'yellow' || c.status === 'red')
+      .sort((a, b) => b.percentage - a.percentage)[0];
+    if (riskCat) {
+      vars.budgetCategory = riskCat.name;
+      vars.budgetCatPct = Math.round(riskCat.percentage);
+    } else {
+      vars.budgetCategory = '—';
+      vars.budgetCatPct = 0;
+    }
+  }
+
+  const prepared: NexusInsight = {
     ...insight,
     message: {
       ...insight.message,
@@ -496,6 +645,15 @@ function prepareInsight(insight: NexusInsight, ctx: UserContext): NexusInsight {
     },
     style: { brandColor: voice.color },
   };
+
+  if (prepared.action?.type === 'attack_debt' && ctx.debts && ctx.debts.length >= 2) {
+    const rankings = rankDebts(ctx.debts, ctx.sovereignFreeBalance);
+    if (rankings[0]?.debt?.id) {
+      prepared.action = { ...prepared.action, payload: { debtId: rankings[0].debt.id } };
+    }
+  }
+
+  return prepared;
 }
 
 function pickBest(candidates: CatalogItem[]): CatalogItem | null {
@@ -511,6 +669,18 @@ export function getPrioritizedInsight(ctx: UserContext): NexusInsight | null {
     .filter((item) => item.condition(ctx))
     .filter((item) => !isInsightSuppressed(item.id, ctx, SEEN_HOME_KEY));
 
+  const priorityLevels: Array<'alta' | 'media' | 'baixa' | 'inline'> = ['alta', 'media', 'baixa', 'inline'];
+
+  // Comportamento: rebalanceia prioridade por domínio
+  candidates = candidates.map((item) => {
+    const domain = catalogItemDomain(item.id);
+    const delta = domain ? getEffectivePriorityDelta(domain as any) : 0;
+    if (delta === 0) return item;
+    const idx = priorityLevels.indexOf(item.insight.priority);
+    const adjusted = Math.max(0, Math.min(3, idx + delta));
+    return { ...item, insight: { ...item.insight, priority: priorityLevels[adjusted] } };
+  });
+
   // Dom do Tempo: plano estável → silencia insights médios/baixos
   if (isMarginStable(ctx)) {
     candidates = candidates.filter((item) => item.insight.priority === 'alta');
@@ -520,7 +690,16 @@ export function getPrioritizedInsight(ctx: UserContext): NexusInsight | null {
   if (!chosen) return null;
 
   markInsightSeen(chosen.id, ctx, SEEN_HOME_KEY);
-  return prepareInsight(chosen.insight, ctx);
+  const prepared = prepareInsight(chosen.insight, ctx);
+
+  traceInsightShown(chosen.insight, ctx);
+
+  const followUp = collectFollowUp(ctx);
+  if (followUp) {
+    prepared.followUp = followUp.text;
+  }
+
+  return prepared;
 }
 
 export function getCentralInsights(ctx: UserContext): NexusInsight[] {
@@ -544,13 +723,13 @@ export function getCentralInsights(ctx: UserContext): NexusInsight[] {
 }
 
 export function getOperationalInsight(ctx: UserContext): NexusInsight | null {
-  const free = ctx.sovereignFreeBalance ?? ctx.freeBalance ?? 0;
+  const free = ctx.sovereignFreeBalance ?? 0;
 
   const OPERATIONAL: CatalogItem[] = [
     {
       id: 'op-sovereign-deficit',
       condition: (c) => {
-        const margin = c.sovereignFreeBalance ?? c.freeBalance ?? 0;
+        const margin = c.sovereignFreeBalance ?? 0;
         return !!c.commandMode && ((c.freedomDeficit || 0) > 0 || margin < 0);
       },
       insight: {
@@ -581,7 +760,7 @@ export function getOperationalInsight(ctx: UserContext): NexusInsight | null {
     {
       id: 'op-budget-warning',
       condition: (c) => {
-        const margin = c.sovereignFreeBalance ?? c.freeBalance ?? c.monthBalance;
+        const margin = c.sovereignFreeBalance ?? c.monthBalance;
         return margin < 0;
       },
       insight: {

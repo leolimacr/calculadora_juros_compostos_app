@@ -4,7 +4,7 @@ import { useNavigation } from '../hooks/useNavigation';
 import { PRIMARY_NAV_ITEMS } from '../config/appPrimaryNav';
 import type { PrimaryNavItem } from '../config/appPrimaryNav';
 
-const SESSION_KEY = 'fpi-desktop-nav-expanded';
+const SESSION_KEY = 'financas-pro-invest-desktop-nav-expanded';
 
 function readExpandedPreference(): boolean {
   try {
@@ -55,7 +55,7 @@ const NavItem: React.FC<NavItemProps> = ({ item, isActive, showLabels, onNavigat
           showLabels ? 'mt-0.5' : ''
         } ${
           isActive
-            ? 'bg-emerald-500 border-emerald-500 text-white'
+            ? 'bg-emerald-600 border-emerald-600 text-white'
             : 'bg-slate-50 border-slate-100 text-slate-500'
         }`}
       >
@@ -84,6 +84,22 @@ const AppDesktopNav: React.FC = () => {
 
   const showLabels = expanded || isPeeking;
 
+  const centralTools = new Set([
+    'central',
+    'chat',
+    'minhas-dividas',
+    'passivos',
+    'investimentos',
+    'metas',
+  ]);
+
+  function isNavItemActive(toolId: string): boolean {
+    if (toolId === currentTool) return true;
+    if (toolId === 'central' && centralTools.has(currentTool)) return true;
+    if (toolId === 'explorar' && currentTool.startsWith('tool-')) return true;
+    return false;
+  }
+
   useEffect(() => {
     persistExpandedPreference(expanded);
   }, [expanded]);
@@ -104,7 +120,7 @@ const AppDesktopNav: React.FC = () => {
   const navList = (
     <nav className="flex flex-col gap-1 flex-1 min-h-0">
       {showLabels && (
-        <p className="px-3 pt-2 pb-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 shrink-0">
+        <p className="px-3 pt-2 pb-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 shrink-0">
           Navegação
         </p>
       )}
@@ -113,7 +129,7 @@ const AppDesktopNav: React.FC = () => {
           <NavItem
             key={item.toolId}
             item={item}
-            isActive={currentTool === item.toolId}
+            isActive={isNavItemActive(item.toolId)}
             showLabels={showLabels}
             onNavigate={handleNavigate}
           />
@@ -141,7 +157,7 @@ const AppDesktopNav: React.FC = () => {
                 <NavItem
                   key={item.toolId}
                   item={item}
-                  isActive={currentTool === item.toolId}
+                  isActive={isNavItemActive(item.toolId)}
                   showLabels={false}
                   onNavigate={handleNavigate}
                 />

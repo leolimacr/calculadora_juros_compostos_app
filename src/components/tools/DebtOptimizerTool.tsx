@@ -169,7 +169,7 @@ const InputModeButton = ({
 const SectionTitle = ({ children }: { children: React.ReactNode }) => (
   <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4">{children}</p>
 );
-const DEBT_SIM_STORAGE_KEY = 'fpi-debt-sim-v1';
+const DEBT_SIM_STORAGE_KEY = 'financas-pro-invest-debt-sim-v1';
 
 export const DebtOptimizerTool = ({ onNavigate, isAuthenticated }: any) => {
   const [inputMode, setInputMode] = useState<InputMode>('payment');
@@ -978,7 +978,7 @@ export const DebtOptimizerTool = ({ onNavigate, isAuthenticated }: any) => {
             className={`px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all ${
               canCalculate
                 ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                : 'bg-slate-200 text-slate-500 cursor-not-allowed'
             }`}
           >
             Calcular

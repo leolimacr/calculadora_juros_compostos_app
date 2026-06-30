@@ -6,6 +6,7 @@ import { createAssetsRealtimeBridge, createPassivesRealtimeBridge } from '../ser
 import { createDebtRealtimeBridge } from '../services/debt/debt.realtime';
 import { createGoalRealtimeBridge } from '../services/goal.realtime';
 import { createCategoriesRealtimeBridge } from '../services/category.realtime';
+import { createInvoicesRealtimeBridge } from '../services/invoice.realtime';
 
 interface FinanceContextValue {
   financeBridgeReady: boolean;
@@ -29,6 +30,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const unsubscribeDebtsRef = useRef<(() => void) | null>(null);
   const unsubscribeGoalsRef = useRef<(() => void) | null>(null);
   const unsubscribeCategoriesRef = useRef<(() => void) | null>(null);
+  const unsubscribeInvoicesRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (!user?.uid) {
@@ -39,6 +41,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       if (unsubscribeDebtsRef.current) unsubscribeDebtsRef.current();
       if (unsubscribeGoalsRef.current) unsubscribeGoalsRef.current();
       if (unsubscribeCategoriesRef.current) unsubscribeCategoriesRef.current();
+      if (unsubscribeInvoicesRef.current) unsubscribeInvoicesRef.current();
 
       unsubscribeCardsRef.current = null;
       unsubscribeBillsRef.current = null;
@@ -47,6 +50,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       unsubscribeDebtsRef.current = null;
       unsubscribeGoalsRef.current = null;
       unsubscribeCategoriesRef.current = null;
+      unsubscribeInvoicesRef.current = null;
       setFinanceBridgeReady(false);
       return;
     }
@@ -80,6 +84,10 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     const categoriesBridge = createCategoriesRealtimeBridge(uid);
     unsubscribeCategoriesRef.current = categoriesBridge.subscribe(() => checkReady());
 
+    // Bridge para Faturas por período
+    const invoicesBridge = createInvoicesRealtimeBridge(uid);
+    unsubscribeInvoicesRef.current = invoicesBridge.subscribe(() => checkReady());
+
     function checkReady() {
       setFinanceBridgeReady(true);
       setHasConnectedAtLeastOnce(true);
@@ -93,6 +101,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       if (unsubscribeDebtsRef.current) unsubscribeDebtsRef.current();
       if (unsubscribeGoalsRef.current) unsubscribeGoalsRef.current();
       if (unsubscribeCategoriesRef.current) unsubscribeCategoriesRef.current();
+      if (unsubscribeInvoicesRef.current) unsubscribeInvoicesRef.current();
     };
   }, [user?.uid]);
 

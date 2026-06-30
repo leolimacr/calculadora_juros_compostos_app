@@ -76,6 +76,32 @@ async function getUserDebts(userId) {
         return [];
     }
 }
+async function getUserAssets(userId) {
+    try {
+        const db = (0, firestore_1.getFirestore)();
+        const snapshot = await db.collection('users').doc(userId).collection('ativos').get();
+        if (snapshot.empty)
+            return [];
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    }
+    catch (error) {
+        logger.error(`[Assets] Erro ao buscar ativos: ${error.message}`);
+        return [];
+    }
+}
+async function getUserPassives(userId) {
+    try {
+        const db = (0, firestore_1.getFirestore)();
+        const snapshot = await db.collection('users').doc(userId).collection('passivos').get();
+        if (snapshot.empty)
+            return [];
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    }
+    catch (error) {
+        logger.error(`[Passives] Erro ao buscar passivos: ${error.message}`);
+        return [];
+    }
+}
 function describeHistoryWindow(plan) {
     switch (plan) {
         case 'free': return 'Você está no plano Free, então posso analisar apenas os últimos 3 dias do seu histórico';
@@ -384,9 +410,13 @@ exports.askAiAdvisor = (0, https_1.onCall)({ memory: "1GiB", timeoutSeconds: 120
         let userData;
         let historyDescription = 'analiso um recorte recente do seu histórico, definido pelo seu plano';
         let serverDebts = [];
+        let serverAssets = [];
+        let serverPassives = [];
         try {
             const userPlan = await getUserPlan(userId);
             serverDebts = await getUserDebts(userId);
+            serverAssets = await getUserAssets(userId);
+            serverPassives = await getUserPassives(userId);
             logger.info(`🔍 [DEBUG] userId: ${userId}`);
             logger.info(`🔍 [DEBUG] Plano retornado: "${userPlan}"`);
             logger.info(`🔍 [DEBUG] Tipo: ${typeof userPlan}`);
@@ -398,6 +428,8 @@ exports.askAiAdvisor = (0, https_1.onCall)({ memory: "1GiB", timeoutSeconds: 120
             logger.error("Falha dados usuário:", dataError);
             userData = { goals: [], recentTransactions: [], simulations: [], summary: '', hasData: false, dataStatus: 'error' };
         }
+        const resolvedAssets = (assets && assets.length > 0) ? assets : serverAssets;
+        const resolvedPassives = (passives && passives.length > 0) ? passives : serverPassives;
         console.log("🔍 DEBUG - INÍCIO DO PROCESSAMENTO DE METAS");
         console.log("🔍 userData existe?", !!userData);
         console.log("🔍 userData.goals é array?", Array.isArray(userData?.goals));
@@ -405,12 +437,14 @@ exports.askAiAdvisor = (0, https_1.onCall)({ memory: "1GiB", timeoutSeconds: 120
         if (userData?.goals?.length > 0)
             console.log("🔍 Primeira goal:", JSON.stringify(userData.goals[0]));
         console.log("🔍 userData.hasData:", userData?.hasData);
-        const assetsSummary = data_integrator_1.DataIntegrator.formatAssetsSummary(assets);
-        const passivesSummary = data_integrator_1.DataIntegrator.formatPassivesSummary(passives);
+        const assetsSummary = data_integrator_1.DataIntegrator.formatAssetsSummary(resolvedAssets);
+        const passivesSummary = data_integrator_1.DataIntegrator.formatPassivesSummary(resolvedPassives);
         const debtsSummary = data_integrator_1.DataIntegrator.formatDebtsSummary(serverDebts);
-        const patrimonioVisaoGerencialStr = data_integrator_1.DataIntegrator.formatPatrimonioVisaoGerencial(assets, passives);
-        console.log("🔍 assets recebidos:", JSON.stringify(assets));
-        console.log("🔍 passives recebidos:", JSON.stringify(passives));
+        const patrimonioVisaoGerencialStr = data_integrator_1.DataIntegrator.formatPatrimonioVisaoGerencial(resolvedAssets, resolvedPassives);
+        const assetsSource = (assets && assets.length > 0) ? 'frontend' : 'server';
+        const passivesSource = (passives && passives.length > 0) ? 'frontend' : 'server';
+        console.log(`🔍 resolvedAssets (${assetsSource}):`, JSON.stringify(resolvedAssets));
+        console.log(`🔍 resolvedPassives (${passivesSource}):`, JSON.stringify(resolvedPassives));
         console.log("🔍 assetsSummary:", assetsSummary);
         console.log("🔍 passivesSummary:", passivesSummary);
         console.log("🔍 patrimonioVisaoGerencialStr:", patrimonioVisaoGerencialStr);

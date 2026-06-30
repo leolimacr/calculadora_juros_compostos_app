@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useAiAgent } from '../../../hooks/useAiAgent';
-import { useSubscriptionAccess } from '../../../hooks/useSubscriptionAccess';
+import { useEntitlement } from '../../../hooks/useEntitlement';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Send,
@@ -181,7 +181,9 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
 }) => {
   const { user } = useAuth();
   const { sendToNexus, isLoading: isAiLoading } = useAiAgent();
-  const { isPro, isPremium } = useSubscriptionAccess();
+  const { effectiveTier } = useEntitlement();
+  const isPro = effectiveTier !== 'free';
+  const isPremium = effectiveTier === 'premium';
   const chatEndRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
@@ -192,6 +194,7 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
   const [dailyCount, setDailyCount] = useState(0);
   const [input, setInput] = useState('');
   const [hubVisible, setHubVisible] = useState(true);
+  const [inputExpanded, setInputExpanded] = useState(false);
   const hasProcessedRef = useRef(false);
   const isFromHubRef = useRef(false);
 
@@ -208,8 +211,8 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'ai',
-      isIntro: true,
-      text: `=== NEXUS CONSULTOR ===\nUsuário: ${capitalizedName}\nStatus: Conexão Segura Ativa`,
+      isSpecialIntro: true,
+      text: `Olá, ${capitalizedName}. Eu sou o Nexus, seu consultor inteligente dentro do FPI.\n\nAnaliso sua rotina financeira — entradas, saídas, contas e o que sobra no seu mês — para destacar padrões, sinais e próximos passos com base nos seus dados.\n\nPergunte o que quiser sobre seu dinheiro. Estou aqui para te ajudar a enxergar o que realmente importa.`,
       timestamp: new Date()
     }
   ]);
@@ -310,6 +313,7 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
     if (state?.initialPrompt && !hasProcessedRef.current && user) {
       hasProcessedRef.current = true;
       setHubVisible(false);
+      setInputExpanded(false);
       isFromHubRef.current = true;
       navigate(location.pathname, { replace: true, state: {} });
       handleSend(state.initialPrompt);
@@ -430,11 +434,12 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
   const startNewConversation = () => {
     setCurrentChatId(null);
     setHubVisible(true);
+    setInputExpanded(false);
     setMessages([
       {
         role: 'ai',
-        isIntro: true,
-        text: `=== NEXUS CONSULTOR ===\nUsuário: ${capitalizedName}\nStatus: Conexão Segura Ativa`,
+        isSpecialIntro: true,
+        text: `Olá, ${capitalizedName}. Eu sou o Nexus, seu consultor inteligente dentro do FPI.\n\nAnaliso sua rotina financeira — entradas, saídas, contas e o que sobra no seu mês — para destacar padrões, sinais e próximos passos com base nos seus dados.\n\nPergunte o que quiser sobre seu dinheiro. Estou aqui para te ajudar a enxergar o que realmente importa.`,
         timestamp: new Date()
       }
     ]);
@@ -444,6 +449,15 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
     <div className="flex flex-col h-full bg-white relative font-sans">
       <div className="flex items-center justify-between p-4 border-b border-slate-300 bg-white/95 backdrop-blur-md">
         <div className="flex items-center gap-3">
+          {!hubVisible && (
+            <button
+              onClick={() => { setHubVisible(true); setInputExpanded(false); }}
+              className="p-2 text-slate-600 hover:text-sky-700 hover:bg-sky-50 rounded-lg transition-all"
+              title="Voltar ao hub"
+            >
+              <ChevronRight size={20} className="rotate-180" />
+            </button>
+          )}
           <div className="p-2 bg-sky-100 rounded-lg border border-sky-300 shadow-sm">
             <Cpu size={18} className="text-sky-700" />
           </div>
@@ -534,7 +548,7 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
                         <span>{action}</span>
                         <ChevronRight
                           size={14}
-                          className="text-slate-400 group-hover:text-slate-700 transition-colors shrink-0 ml-2"
+                          className="text-slate-500 group-hover:text-slate-700 transition-colors shrink-0 ml-2"
                         />
                       </button>
                     ))}
@@ -543,9 +557,11 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
               ))}
             </div>
 
-            <p className="text-center text-xs text-slate-400 mt-6 pb-2">
-              Ou use o campo de texto abaixo para uma pergunta livre
-            </p>
+            {!inputExpanded && (
+              <p className="text-center text-xs text-slate-500 mt-6 pb-2">
+                Ou clique no campo abaixo para uma pergunta personalizada
+              </p>
+            )}
           </div>
         </div>
       ) : (
@@ -577,8 +593,10 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
                   </div>
                 </div>
               ) : msg.isSpecialIntro ? (
-                <div className="w-full max-w-lg bg-sky-50 border border-sky-300 rounded-2xl p-4 shadow-md text-center">
-                  <p className="text-sm text-sky-800 leading-relaxed font-medium">{msg.text}</p>
+                <div className="w-full max-w-lg bg-sky-50 border border-sky-300 rounded-2xl p-5 shadow-md text-left">
+                  <div className="text-sm text-sky-800 leading-relaxed font-medium markdown-container">
+                    {formatMarkdown(msg.text)}
+                  </div>
                 </div>
               ) : (
                 <div
@@ -631,42 +649,33 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
           <div ref={chatEndRef} />
         </div>
       )}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
       <div className="p-4 md:p-6 bg-white border-t border-slate-300">
         <div className="max-w-4xl mx-auto relative">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            placeholder={
+          {hubVisible && !inputExpanded ? (
+            <button
+              onClick={() => setInputExpanded(true)}
+              className="w-full flex items-center justify-between p-4 bg-slate-50 border border-slate-200 hover:border-sky-300 hover:bg-sky-50 rounded-2xl transition-all text-sm text-slate-500 hover:text-sky-700 font-medium"
+            >
+              <span>Digite uma pergunta personalizada...</span>
+              <Send size={16} className="text-slate-500" />
+            </button>
+          ) : (
+            <>
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    if (hubVisible && inputExpanded) {
+                      isFromHubRef.current = true;
+                      setHubVisible(false);
+                      setInputExpanded(false);
+                    }
+                    handleSend();
+                  }
+                }}
+                placeholder={
               !isPro && !isPremium && dailyCount >= FREE_DAILY_LIMIT
                 ? 'Você atingiu o limite diário. Faça upgrade para continuar.'
                 : NEXUS_COPY.advisorPlaceholder
@@ -676,7 +685,14 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
           />
 
           <button
-            onClick={handleSend}
+            onClick={() => {
+                  if (hubVisible && inputExpanded) {
+                    isFromHubRef.current = true;
+                    setHubVisible(false);
+                    setInputExpanded(false);
+                  }
+                  handleSend();
+                }}
             disabled={
               isAiLoading ||
               !input.trim() ||
@@ -690,6 +706,8 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
               <Send size={18} />
             )}
           </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -713,10 +731,10 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
               {conversationHistory.length === 0 ? (
                 <div className="flex flex-col items-center text-center mt-10 px-4 gap-3">
                   <div className="w-10 h-10 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center">
-                    <Folder size={18} className="text-slate-400" />
+                    <Folder size={18} className="text-slate-500" />
                   </div>
                   <p className="text-slate-700 font-black text-sm">Nenhuma conversa ainda</p>
-                  <p className="text-slate-400 text-xs leading-relaxed">Suas conversas com o Nexus ficam salvas aqui para você retomar quando quiser.</p>
+                  <p className="text-slate-500 text-xs leading-relaxed">Suas conversas com o Nexus ficam salvas aqui para você retomar quando quiser.</p>
                 </div>
               ) : (
                 conversationHistory.map((item) => (

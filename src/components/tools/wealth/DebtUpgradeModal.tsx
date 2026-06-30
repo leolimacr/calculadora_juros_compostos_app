@@ -37,7 +37,7 @@ export const DebtUpgradeModal: React.FC<DebtUpgradeModalProps> = ({
             </button>
             <button
               onClick={onClose}
-              className="w-full py-4 bg-slate-50 text-slate-400 rounded-2xl font-black uppercase tracking-widest hover:bg-slate-100 transition-all text-xs"
+              className="w-full py-4 bg-slate-50 text-slate-500 rounded-2xl font-black uppercase tracking-widest hover:bg-slate-100 transition-all text-xs"
             >
               Talvez depois
             </button>

@@ -1,7 +1,7 @@
 import type { UserMeta } from '../types';
 
-const DEFER_KEY_PREFIX = 'fpi-calibration-defer-';
-const DISMISS_KEY_PREFIX = 'fpi-calibration-dismissed-';
+const DEFER_KEY_PREFIX = 'financas-pro-invest-calibration-defer-';
+const DISMISS_KEY_PREFIX = 'financas-pro-invest-calibration-dismissed-';
 
 export interface CalibrationContext {
   userMeta?: UserMeta | null;
@@ -63,6 +63,6 @@ export function getCalibrationInviteCopy(launchCount: number): { title: string; 
   }
   return {
     title: 'Hora de calibrar seu comando',
-    body: 'Suas movimentações já formam um padrão. Responda 7 perguntas para o FPI adaptar linguagem, prioridades e análises ao seu momento.',
+    body: 'Suas movimentações já formam um padrão. Responda 7 perguntas para adaptar linguagem, prioridades e análises ao seu momento.',
   };
 }

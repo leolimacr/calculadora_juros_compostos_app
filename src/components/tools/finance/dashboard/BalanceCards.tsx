@@ -75,7 +75,7 @@ const BalanceCards: React.FC<BalanceCardsProps> = ({
               <span>= Saldo do mês</span>
               <span>{isPrivacyMode ? '••••' : fmt(heroValue)}</span>
             </div>
-            <p className="text-[9px] text-slate-400 font-medium mt-1">
+            <p className="text-[9px] text-slate-500 font-medium mt-1">
               Compras no cartão só entram quando a fatura é paga.
             </p>
           </div>

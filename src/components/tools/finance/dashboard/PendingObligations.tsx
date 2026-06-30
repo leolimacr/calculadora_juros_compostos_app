@@ -6,6 +6,7 @@ interface PendingObligationsProps {
   pendingBills: any[];
   isPrivacyMode: boolean;
   onOpenForm: (initialData?: any) => void;
+  onNavigate?: (tool: string, state?: any) => void;
 }
 
 const PendingObligations: React.FC<PendingObligationsProps> = ({
@@ -13,6 +14,7 @@ const PendingObligations: React.FC<PendingObligationsProps> = ({
   pendingBills,
   isPrivacyMode,
   onOpenForm,
+  onNavigate,
 }) => {
   if (activeInvoices.length === 0 && pendingBills.length === 0) return null;
 
@@ -22,7 +24,20 @@ const PendingObligations: React.FC<PendingObligationsProps> = ({
       {activeInvoices.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {activeInvoices.map((inv) => (
-            <div key={inv.cardId} className="bg-surface-primary border border-surface-elevated p-4 rounded-3xl shadow-soft flex items-center gap-4 group">
+            <div
+              key={inv.cardId}
+              role="button"
+              tabIndex={0}
+              onClick={() => {
+                onNavigate?.('manager', { openCards: true, focusedCardId: inv.cardId });
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  onNavigate?.('manager', { openCards: true, focusedCardId: inv.cardId });
+                }
+              }}
+              className="bg-surface-primary border border-surface-elevated p-4 rounded-3xl shadow-soft flex items-center gap-4 group cursor-pointer hover:border-brand-secondary/40 hover:shadow-md transition-all active:scale-[0.98]"
+            >
               <div className="p-3 bg-brand-secondary/10 rounded-2xl text-brand-secondary group-hover:scale-110 transition-transform">
                 <CardIcon size={20} />
               </div>

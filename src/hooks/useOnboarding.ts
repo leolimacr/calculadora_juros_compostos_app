@@ -5,7 +5,16 @@ export const useOnboarding = (launchCount: number) => {
   const [isActive, setIsActive] = useState(false);
 
   useEffect(() => {
-    const completed = localStorage.getItem('fpi_onboarding_op_completed');
+    const completed = (() => {
+      const current = localStorage.getItem('financas-pro-invest_onboarding_op_completed');
+      if (current) return current;
+      const legacy = localStorage.getItem('fpi_onboarding_op_completed');
+      if (legacy) {
+        try { localStorage.setItem('financas-pro-invest_onboarding_op_completed', legacy); localStorage.removeItem('fpi_onboarding_op_completed'); } catch {}
+        return legacy;
+      }
+      return null;
+    })();
     // Só ativa se nunca foi completado e não tem lançamentos (usuário novo real)
     if (!completed && launchCount === 0) {
       setIsActive(true);
@@ -14,7 +23,7 @@ export const useOnboarding = (launchCount: number) => {
   }, [launchCount]);
 
   const nextStep = () => {
-    if (step < 3) {
+    if (step < 4) {
       setStep(s => s + 1);
     }
   };
@@ -22,13 +31,15 @@ export const useOnboarding = (launchCount: number) => {
   const skip = () => {
     setIsActive(false);
     setStep(0);
-    localStorage.setItem('fpi_onboarding_op_completed', 'true');
+    localStorage.setItem('financas-pro-invest_onboarding_op_completed', 'true');
+    try { localStorage.removeItem('fpi_onboarding_op_completed'); } catch {}
   };
 
   const finish = () => {
     setIsActive(false);
     setStep(0);
-    localStorage.setItem('fpi_onboarding_op_completed', 'true');
+    localStorage.setItem('financas-pro-invest_onboarding_op_completed', 'true');
+    try { localStorage.removeItem('fpi_onboarding_op_completed'); } catch {}
   };
 
   return {

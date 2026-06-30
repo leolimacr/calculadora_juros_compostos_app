@@ -3,6 +3,21 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './AuthContext';
 import { createTransactionsRealtimeBridge } from '../services/transaction.realtime';
 
+function migrateLocalStorageKey(uid: string): string {
+  const legacyKey = `fpi_tx_${uid}`;
+  const currentKey = `financas-pro-invest_tx_${uid}`;
+  try {
+    const current = localStorage.getItem(currentKey);
+    if (current) return currentKey;
+    const legacy = localStorage.getItem(legacyKey);
+    if (legacy) {
+      localStorage.setItem(currentKey, legacy);
+      localStorage.removeItem(legacyKey);
+    }
+  } catch {}
+  return currentKey;
+}
+
 interface TransactionsContextValue {
   bridgeReady: boolean;
   hasConnectedAtLeastOnce: boolean;
@@ -30,13 +45,15 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       return;
     }
 
+    const storageKey = migrateLocalStorageKey(user.uid);
+
     const bridge = createTransactionsRealtimeBridge(user.uid);
     unsubscribeRef.current = bridge.subscribe((data: any) => {
       setBridgeReady(true);
       setHasConnectedAtLeastOnce(true);
       try {
         localStorage.setItem(
-          `fpi_tx_${user.uid}`,
+          storageKey,
           JSON.stringify({ data, ts: Date.now() })
         );
       } catch {}

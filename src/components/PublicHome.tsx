@@ -150,7 +150,7 @@ export const PublicHome: React.FC<any> = ({ onNavigate, isAuthenticated, userMet
   };
 
   return (
-    <div className="bg-[#0B0F17] flex flex-col overflow-x-hidden font-sans">
+    <div className="bg-surface-secondary flex flex-col overflow-x-hidden font-sans">
       <HomeHero
         isAuthenticated={isAuthenticated}
         onNavigate={handleProtectedAction}
@@ -240,9 +240,9 @@ export const PublicHome: React.FC<any> = ({ onNavigate, isAuthenticated, userMet
       )}
       {selectedArticle && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 md:p-8">
-          <div className="bg-[#111622] rounded-3xl max-w-4xl w-full p-8 relative mt-8 mb-8 border border-white/[0.06] text-[#E5E7EB]">
-            <button onClick={() => setSelectedArticle(null)} className="absolute top-6 right-6 p-2 hover:bg-white/10 rounded-xl transition-colors">
-              <LogOut size={20} className="text-[#A0A4AB]" />
+          <div className="bg-white rounded-3xl max-w-4xl w-full p-8 relative mt-8 mb-8 border border-slate-200 text-slate-700">
+            <button onClick={() => setSelectedArticle(null)} className="absolute top-6 right-6 p-2 hover:bg-slate-100 rounded-xl transition-colors">
+              <LogOut size={20} className="text-slate-500" />
             </button>
             <selectedArticle.component />
           </div>
@@ -250,9 +250,9 @@ export const PublicHome: React.FC<any> = ({ onNavigate, isAuthenticated, userMet
       )}
       {selectedCourse && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center overflow-y-auto p-4 md:p-8">
-          <div className="bg-[#111622] rounded-3xl max-w-4xl w-full p-8 relative mt-8 mb-8 border border-white/[0.06] text-[#E5E7EB]">
-            <button onClick={() => setSelectedCourse(null)} className="absolute top-6 right-6 p-2 hover:bg-white/10 rounded-xl transition-colors">
-              <LogOut size={20} className="text-[#A0A4AB]" />
+          <div className="bg-white rounded-3xl max-w-4xl w-full p-8 relative mt-8 mb-8 border border-slate-200 text-slate-700">
+            <button onClick={() => setSelectedCourse(null)} className="absolute top-6 right-6 p-2 hover:bg-slate-100 rounded-xl transition-colors">
+              <LogOut size={20} className="text-slate-500" />
             </button>
             <selectedCourse.component />
           </div>

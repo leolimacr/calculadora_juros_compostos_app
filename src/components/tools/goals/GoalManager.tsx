@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useGoals } from '../../../hooks/useGoals';
 import type { Goal } from '../../../services/goalService';
 import { Timestamp } from 'firebase/firestore';
+import { useToast } from '../../../contexts/ToastContext';
 import { 
   TrendingUp, 
   Plus, 
@@ -21,6 +22,7 @@ interface GoalManagerProps {
 
 const GoalManager: React.FC<GoalManagerProps> = ({ userId }) => {
   const { goals, loading, addGoal, editGoal, removeGoal } = useGoals(userId);
+  const { addToast } = useToast();
 
   // Estado do formulário
   const [formData, setFormData] = useState<Partial<Goal>>({
@@ -142,11 +144,11 @@ const GoalManager: React.FC<GoalManagerProps> = ({ userId }) => {
     setIsSubmitting(true);
     try {
       if (editingId) {
-        // Editar
         await editGoal(editingId, formData);
+        addToast('Meta atualizada. Continue firme no plano!', 'success');
       } else {
-        // Criar
         await addGoal(formData as any);
+        addToast('Nova meta criada. Cada aporte te aproxima da liberdade.', 'success');
       }
       resetForm();
     } catch (error) {
@@ -226,7 +228,7 @@ const GoalManager: React.FC<GoalManagerProps> = ({ userId }) => {
                 value={formData.nome || ''}
                 onChange={handleChange}
                 placeholder="Dê um nome para sua meta"                
-                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"                
+                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-500 focus:outline-none focus:border-brand-primaryCta focus:ring-2 focus:ring-brand-primaryCta/30 transition-colors"                
                 required
               />
             </div>
@@ -244,7 +246,7 @@ const GoalManager: React.FC<GoalManagerProps> = ({ userId }) => {
                   value={displayValor}
                   onChange={handleValorChange}
                   placeholder="0,00"
-                  className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
+                  className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-slate-900 text-sm placeholder:text-slate-500 focus:outline-none focus:border-brand-primaryCta focus:ring-2 focus:ring-brand-primaryCta/30 transition-colors"
                   required
                 />
               </div>
@@ -259,7 +261,7 @@ const GoalManager: React.FC<GoalManagerProps> = ({ userId }) => {
                 name="frequencia"
                 value={formData.frequencia}
                 onChange={handleChange}
-                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors [&>option]:bg-white"
+                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm focus:outline-none focus:border-brand-primaryCta focus:ring-2 focus:ring-brand-primaryCta/30 transition-colors [&>option]:bg-white"
               >
                 <option value="semanal">Semanal</option>
                 <option value="quinzenal">Quinzenal</option>
@@ -280,7 +282,7 @@ const GoalManager: React.FC<GoalManagerProps> = ({ userId }) => {
                   value={formData.diasPersonalizado || ''}
                   onChange={handleChange}
                   min="1"
-                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm focus:outline-none focus:border-brand-primaryCta focus:ring-2 focus:ring-brand-primaryCta/30 transition-colors"
                   required
                 />
               </div>
@@ -299,7 +301,7 @@ const GoalManager: React.FC<GoalManagerProps> = ({ userId }) => {
                   const date = new Date(e.target.value);
                   setFormData(prev => ({ ...prev, dataInicio: Timestamp.fromDate(date) }));
                 }}
-                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
+                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm focus:outline-none focus:border-brand-primaryCta focus:ring-2 focus:ring-brand-primaryCta/30 transition-colors"
                 required
               />
             </div>
@@ -312,7 +314,7 @@ const GoalManager: React.FC<GoalManagerProps> = ({ userId }) => {
                   name="ativa"
                   checked={formData.ativa}
                   onChange={(e) => setFormData(prev => ({ ...prev, ativa: e.target.checked }))}
-                  className="w-4 h-4 text-emerald-600 bg-white border-slate-300 rounded focus:ring-emerald-500"
+                  className="w-4 h-4 text-emerald-600 bg-white border-slate-300 rounded focus:ring-brand-primaryCta/30"
                 />
                 <span className="text-sm text-slate-800">Meta ativa</span>
               </label>
@@ -331,7 +333,7 @@ const GoalManager: React.FC<GoalManagerProps> = ({ userId }) => {
                     type="checkbox"
                     checked={formData.lembretes?.cincoDias || false}
                     onChange={(e) => handleLembreteChange('cincoDias', e.target.checked)}
-                    className="w-4 h-4 text-emerald-600 bg-white border-slate-300 rounded focus:ring-emerald-500"
+                    className="w-4 h-4 text-emerald-600 bg-white border-slate-300 rounded focus:ring-brand-primaryCta/30"
                   />
                   <span className="text-sm text-slate-800">Lembrar 5 dias antes</span>
                 </label>
@@ -340,7 +342,7 @@ const GoalManager: React.FC<GoalManagerProps> = ({ userId }) => {
                     type="checkbox"
                     checked={formData.lembretes?.vespera || false}
                     onChange={(e) => handleLembreteChange('vespera', e.target.checked)}
-                    className="w-4 h-4 text-emerald-600 bg-white border-slate-300 rounded focus:ring-emerald-500"
+                    className="w-4 h-4 text-emerald-600 bg-white border-slate-300 rounded focus:ring-brand-primaryCta/30"
                   />
                   <span className="text-sm text-slate-800">Lembrar na véspera</span>
                 </label>
@@ -349,7 +351,7 @@ const GoalManager: React.FC<GoalManagerProps> = ({ userId }) => {
                     type="checkbox"
                     checked={formData.lembretes?.dia || false}
                     onChange={(e) => handleLembreteChange('dia', e.target.checked)}
-                    className="w-4 h-4 text-emerald-600 bg-white border-slate-300 rounded focus:ring-emerald-500"
+                    className="w-4 h-4 text-emerald-600 bg-white border-slate-300 rounded focus:ring-brand-primaryCta/30"
                   />
                   <span className="text-sm text-slate-800">Lembrar no dia</span>
                 </label>
@@ -366,7 +368,7 @@ const GoalManager: React.FC<GoalManagerProps> = ({ userId }) => {
                       value="email"
                       checked={formData.lembretes?.canal === 'email'}
                       onChange={() => handleCanalChange('email')}
-                      className="w-4 h-4 text-emerald-600 bg-white border-slate-300 focus:ring-emerald-500"
+                      className="w-4 h-4 text-emerald-600 bg-white border-slate-300 focus:ring-brand-primaryCta/30"
                     />
                     <Mail size={14} className="text-emerald-500" />
                     <span className="text-sm text-slate-800">E-mail</span>
@@ -378,9 +380,9 @@ const GoalManager: React.FC<GoalManagerProps> = ({ userId }) => {
                       value="push"
                       checked={formData.lembretes?.canal === 'push'}
                       onChange={() => handleCanalChange('push')}
-                      className="w-4 h-4 text-emerald-600 bg-white border-slate-300 focus:ring-emerald-500"
+                      className="w-4 h-4 text-emerald-600 bg-white border-slate-300 focus:ring-brand-primaryCta/30"
                     />
-                    <BellRing size={14} className="text-slate-400" />
+                    <BellRing size={14} className="text-slate-500" />
                     <span className="text-sm text-slate-800">Push</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -390,7 +392,7 @@ const GoalManager: React.FC<GoalManagerProps> = ({ userId }) => {
                       value="ambos"
                       checked={formData.lembretes?.canal === 'ambos'}
                       onChange={() => handleCanalChange('ambos')}
-                      className="w-4 h-4 text-emerald-600 bg-white border-slate-300 focus:ring-emerald-500"
+                      className="w-4 h-4 text-emerald-600 bg-white border-slate-300 focus:ring-brand-primaryCta/30"
                     />
                     <span className="text-sm text-slate-800">Ambos</span>
                   </label>
@@ -407,7 +409,7 @@ const GoalManager: React.FC<GoalManagerProps> = ({ userId }) => {
               className={`px-6 py-3 rounded-xl font-black text-slate-950 transition-all shadow-lg flex items-center gap-2 ${
                 editingId
                   ? 'bg-amber-400 hover:bg-amber-300'
-                  : 'bg-emerald-500 hover:bg-emerald-400'
+                  : 'bg-emerald-600 hover:bg-emerald-700'
               } disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed`}
             >
               {isSubmitting ? (
@@ -472,7 +474,7 @@ const GoalManager: React.FC<GoalManagerProps> = ({ userId }) => {
                   {/* Indicador de status */}
                   <div
                     className={`absolute top-0 left-0 w-full h-1 ${
-                      goal.ativa ? 'bg-emerald-500' : 'bg-slate-300'
+                      goal.ativa ? 'bg-emerald-600' : 'bg-slate-300'
                     }`}
                   />
 
@@ -533,7 +535,7 @@ const GoalManager: React.FC<GoalManagerProps> = ({ userId }) => {
                         </div>
                         <div className={`text-right ${
                           diasRestantes !== null && diasRestantes <= 0 ? 'text-emerald-400' : 
-                          diasRestantes !== null && diasRestantes <= 5 ? 'text-amber-400' : 'text-slate-400'
+                          diasRestantes !== null && diasRestantes <= 5 ? 'text-amber-400' : 'text-slate-500'
                         }`}>
                           <p className="text-[10px] font-bold uppercase">Faltam</p>
                           <p className="text-lg font-black">

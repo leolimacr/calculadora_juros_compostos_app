@@ -9,19 +9,42 @@ import { useDebts } from './useDebts';
 import { useCards } from './useCards';
 import { updateDebt } from '../services/debt/debtService';
 import { updateCard } from '../services/cardService';
-import { useSubscriptionAccess } from './useSubscriptionAccess';
+import { useEntitlement } from './useEntitlement';
 import { isMonthFetchAllowed } from '../utils/historyTimeGate';
+import { eventBus } from '../core/orchestration/event-bus';
+import { 
+  createDomainEvent, 
+  EVENT_TYPES,
+  type TransactionCreatedEvent,
+  type TransactionUpdatedEvent,
+  type TransactionDeletedEvent,
+  type CardUsageUpdatedEvent,
+  type DebtUpdatedEvent,
+  type DebtAmortizedEvent,
+} from '../core/orchestration/domainEvents';
 
 export const useTransactions = (userId?: string) => {
   const queryClient = useQueryClient();
-  const { currentPlan } = useSubscriptionAccess();
+  const { effectiveTier } = useEntitlement();
+  const currentPlan = effectiveTier;
   const { bridgeReady } = useTransactionsContext();
   const key = queryKeys.transactions.byUser(userId || 'anonymous');
   const extraKey = ['transactions_extra', userId || 'anonymous'];
   const registryKey = ['transactions_fetched_months', userId || 'anonymous'];
 
   const cachedRaw = typeof window !== 'undefined' 
-    ? localStorage.getItem(`fpi_tx_${userId}`) 
+    ? (() => {
+        const newKey = `financas-pro-invest_tx_${userId}`;
+        const legacyKey = `fpi_tx_${userId}`;
+        const fromNew = localStorage.getItem(newKey);
+        if (fromNew) return fromNew;
+        const fromLegacy = localStorage.getItem(legacyKey);
+        if (fromLegacy) {
+          try { localStorage.setItem(newKey, fromLegacy); localStorage.removeItem(legacyKey); } catch {}
+          return fromLegacy;
+        }
+        return null;
+      })()
     : null;
   const cachedData = cachedRaw 
     ? (() => { try { const p = JSON.parse(cachedRaw); return Date.now() - p.ts < 600_000 ? p.data : undefined; } catch { return undefined; } })()
@@ -202,6 +225,17 @@ export const useTransactions = (userId?: string) => {
                                 parcelasRestantes: Math.max(0, finalParcelas)
                             });
                             console.log(`[Reactive Core] Ajuste de dívida ${oldDebt.nome} por edição.`);
+                            await eventBus.publish(createDomainEvent<DebtUpdatedEvent['payload']>(
+                              'debt',
+                              EVENT_TYPES.debt.updated,
+                              {
+                                debtId: oldDebtId,
+                                userId,
+                                previousDebt: oldDebt,
+                                changes: { saldoDevedor: Math.max(0, finalSaldo), parcelasRestantes: Math.max(0, finalParcelas) },
+                              },
+                              'useTransactions.saveLancamento'
+                            ));
                         } catch (error) {
                             console.error("[Reactive Core] Erro no ajuste (edição - old):", error);
                         }
@@ -218,6 +252,17 @@ export const useTransactions = (userId?: string) => {
                                 parcelasRestantes: Math.max(0, newDebt.parcelasRestantes - 1)
                             });
                             console.log(`[Reactive Core] Novo vínculo com dívida ${newDebt.nome} por edição.`);
+                            await eventBus.publish(createDomainEvent<DebtUpdatedEvent['payload']>(
+                              'debt',
+                              EVENT_TYPES.debt.updated,
+                              {
+                                debtId: newDebtId,
+                                userId,
+                                previousDebt: newDebt,
+                                changes: { saldoDevedor: Math.max(0, newDebt.saldoDevedor - Number(transaction.amount)), parcelasRestantes: Math.max(0, newDebt.parcelasRestantes - 1) },
+                              },
+                              'useTransactions.saveLancamento'
+                            ));
                         } catch (error) {
                             console.error("[Reactive Core] Erro no ajuste (edição - new):", error);
                         }
@@ -252,6 +297,19 @@ export const useTransactions = (userId?: string) => {
 
                             await updateCard(userId, oldCardId, { saldoUtilizadoTotal: Math.max(0, newUsed) });
                             console.log(`[Reactive Core] Ajuste de limite do cartão ${card.name} por edição.`);
+                            await eventBus.publish(createDomainEvent<CardUsageUpdatedEvent['payload']>(
+                              'card',
+                              EVENT_TYPES.card.usageUpdated,
+                              {
+                                cardId: oldCardId,
+                                userId,
+                                previousSaldoUtilizado: card.saldoUtilizadoTotal || 0,
+                                newSaldoUtilizado: Math.max(0, newUsed),
+                                reason: 'edit',
+                                transactionId: transaction.id,
+                              },
+                              'useTransactions.saveLancamento'
+                            ));
                         } catch (error) {
                             console.error("[Reactive Core] Erro no ajuste de limite (edição - old):", error);
                         }
@@ -267,6 +325,19 @@ export const useTransactions = (userId?: string) => {
                             const newUsed = (card.saldoUtilizadoTotal || 0) + (Number(transaction.amount) * factor);
                             await updateCard(userId, newCardId, { saldoUtilizadoTotal: Math.max(0, newUsed) });
                             console.log(`[Reactive Core] Novo vínculo de limite com cartão ${card.name} por edição.`);
+                            await eventBus.publish(createDomainEvent<CardUsageUpdatedEvent['payload']>(
+                              'card',
+                              EVENT_TYPES.card.usageUpdated,
+                              {
+                                cardId: newCardId,
+                                userId,
+                                previousSaldoUtilizado: card.saldoUtilizadoTotal || 0,
+                                newSaldoUtilizado: newUsed,
+                                reason: 'edit',
+                                transactionId: transaction.id,
+                              },
+                              'useTransactions.saveLancamento'
+                            ));
                         } catch (error) {
                             console.error("[Reactive Core] Erro no ajuste de limite (edição - new):", error);
                         }
@@ -278,7 +349,24 @@ export const useTransactions = (userId?: string) => {
         const transactionRef = ref(db, `transactions/${userId}/${transaction.id}`);
         const { id, ...dataToUpdate } = transaction;
         await update(transactionRef, dataToUpdate);
-        queryClient.invalidateQueries({ queryKey: key });
+        
+        if (oldTx) {
+          const changedFields = Object.keys(dataToUpdate).filter(k => 
+            JSON.stringify(oldTx[k as keyof Transaction]) !== JSON.stringify(dataToUpdate[k as keyof typeof dataToUpdate])
+          );
+          await eventBus.publish(createDomainEvent<TransactionUpdatedEvent['payload']>(
+            'transaction',
+            EVENT_TYPES.transaction.updated,
+            {
+              transaction: { ...oldTx, ...dataToUpdate, id: transaction.id } as Transaction,
+              previousTransaction: oldTx,
+              userId,
+              changedFields,
+            },
+            'useTransactions.saveLancamento'
+          ));
+        }
+        
         return;
     }
 
@@ -289,9 +377,23 @@ export const useTransactions = (userId?: string) => {
         const card = cards.find(c => c.id === transaction.linkedCardId);
         if (card) {
           try {
-            const newUsed = Math.max(0, (card.saldoUtilizadoTotal || 0) - Number(transaction.amount));
+            const previousSaldo = card.saldoUtilizadoTotal || 0;
+            const newUsed = Math.max(0, previousSaldo - Number(transaction.amount));
             await updateCard(userId, card.id, { saldoUtilizadoTotal: newUsed });
             console.log(`[Reactive Core] Limite do cartão ${card.name} liberado por pagamento de fatura.`);
+            await eventBus.publish(createDomainEvent<CardUsageUpdatedEvent['payload']>(
+              'card',
+              EVENT_TYPES.card.usageUpdated,
+              {
+                cardId: card.id,
+                userId,
+                previousSaldoUtilizado: previousSaldo,
+                newSaldoUtilizado: newUsed,
+                reason: 'bill_payment',
+                transactionId: transaction.id,
+              },
+              'useTransactions.saveLancamento'
+            ));
           } catch (error) {
             console.error("[Reactive Core] Erro ao liberar limite do cartão:", error);
           }
@@ -301,9 +403,23 @@ export const useTransactions = (userId?: string) => {
         const card = cards.find(c => c.id === transaction.cardId);
         if (card) {
           try {
-            const newUsed = (card.saldoUtilizadoTotal || 0) + Number(transaction.amount);
+            const previousSaldo = card.saldoUtilizadoTotal || 0;
+            const newUsed = previousSaldo + Number(transaction.amount);
             await updateCard(userId, card.id, { saldoUtilizadoTotal: newUsed });
             console.log(`[Reactive Core] Limite do cartão ${card.name} consumido por nova compra.`);
+            await eventBus.publish(createDomainEvent<CardUsageUpdatedEvent['payload']>(
+              'card',
+              EVENT_TYPES.card.usageUpdated,
+              {
+                cardId: card.id,
+                userId,
+                previousSaldoUtilizado: previousSaldo,
+                newSaldoUtilizado: newUsed,
+                reason: 'purchase',
+                transactionId: transaction.id,
+              },
+              'useTransactions.saveLancamento'
+            ));
           } catch (error) {
             console.error("[Reactive Core] Erro ao consumir limite do cartão:", error);
           }
@@ -317,8 +433,10 @@ export const useTransactions = (userId?: string) => {
       const debt = debts.find(d => d.id === linkedDebtId);
       if (debt) {
         const amount = Number(transaction.amount);
-        const newSaldo = Math.max(0, debt.saldoDevedor - amount);
-        const newParcelas = Math.max(0, debt.parcelasRestantes - 1);
+        const previousSaldo = debt.saldoDevedor;
+        const previousParcelas = debt.parcelasRestantes;
+        const newSaldo = Math.max(0, previousSaldo - amount);
+        const newParcelas = Math.max(0, previousParcelas - 1);
         
         try {
           await updateDebt(userId, linkedDebtId, {
@@ -326,6 +444,20 @@ export const useTransactions = (userId?: string) => {
             parcelasRestantes: newParcelas
           });
           console.log(`[Reactive Core] Dívida ${debt.nome} amortizada.`);
+          await eventBus.publish(createDomainEvent<DebtAmortizedEvent['payload']>(
+            'debt',
+            EVENT_TYPES.debt.amortized,
+            {
+              debtId: linkedDebtId,
+              userId,
+              amount,
+              previousSaldo,
+              newSaldo,
+              previousParcelas,
+              newParcelas,
+            },
+            'useTransactions.saveLancamento'
+          ));
         } catch (error) {
           console.error("[Reactive Core] Erro na amortização:", error);
         }
@@ -370,6 +502,22 @@ export const useTransactions = (userId?: string) => {
         promises.push(set(newRef, data));
       }
       await Promise.all(promises);
+      
+      await eventBus.publish(createDomainEvent<TransactionCreatedEvent['payload']>(
+        'transaction',
+        EVENT_TYPES.transaction.created,
+        {
+          transaction: {
+            ...transaction,
+            userId,
+            id: installmentId,
+            createdAtMs: now,
+          } as Transaction,
+          isNew: true,
+          userId,
+        },
+        'useTransactions.saveLancamento'
+      ));
     } else {
       const newRef = push(transactionsRef);
       const data = { 
@@ -379,8 +527,23 @@ export const useTransactions = (userId?: string) => {
         sortKey: `${dateClean}_${now}_${newRef.key}`
       };
       await set(newRef, data);
+      
+      await eventBus.publish(createDomainEvent<TransactionCreatedEvent['payload']>(
+        'transaction',
+        EVENT_TYPES.transaction.created,
+        {
+          transaction: {
+            ...transaction,
+            userId,
+            id: newRef.key!,
+            createdAtMs: now,
+          } as Transaction,
+          isNew: true,
+          userId,
+        },
+        'useTransactions.saveLancamento'
+      ));
     }
-    queryClient.invalidateQueries({ queryKey: key });
   };
 
   const deleteLancamento = async (id: string) => {
@@ -394,11 +557,24 @@ export const useTransactions = (userId?: string) => {
         const debt = debts.find(d => d.id === txToDelete.linkedDebtId);
         if (debt) {
           try {
+            const newSaldo = debt.saldoDevedor + txToDelete.amount;
+            const newParcelas = debt.parcelasRestantes + 1;
             await updateDebt(userId, txToDelete.linkedDebtId, {
-              saldoDevedor: debt.saldoDevedor + txToDelete.amount,
-              parcelasRestantes: debt.parcelasRestantes + 1
+              saldoDevedor: newSaldo,
+              parcelasRestantes: newParcelas
             });
             console.log(`[Reactive Core] Estorno de dívida ${debt.nome} por exclusão.`);
+            await eventBus.publish(createDomainEvent<DebtUpdatedEvent['payload']>(
+              'debt',
+              EVENT_TYPES.debt.updated,
+              {
+                debtId: txToDelete.linkedDebtId,
+                userId,
+                previousDebt: debt,
+                changes: { saldoDevedor: newSaldo, parcelasRestantes: newParcelas },
+              },
+              'useTransactions.deleteLancamento'
+            ));
           } catch (error) {
             console.error("[Reactive Core] Erro no estorno (dívida):", error);
           }
@@ -411,9 +587,23 @@ export const useTransactions = (userId?: string) => {
         const card = cards.find(c => c.id === txToDelete.linkedCardId);
         if (card) {
           try {
-            const newUsed = (card.saldoUtilizadoTotal || 0) + txToDelete.amount;
+            const previousSaldo = card.saldoUtilizadoTotal || 0;
+            const newUsed = previousSaldo + txToDelete.amount;
             await updateCard(userId, card.id, { saldoUtilizadoTotal: newUsed });
             console.log(`[Reactive Core] Estorno de pagamento de fatura: Limite do cartão ${card.name} re-consumido.`);
+            await eventBus.publish(createDomainEvent<CardUsageUpdatedEvent['payload']>(
+              'card',
+              EVENT_TYPES.card.usageUpdated,
+              {
+                cardId: card.id,
+                userId,
+                previousSaldoUtilizado: previousSaldo,
+                newSaldoUtilizado: newUsed,
+                reason: 'rollback',
+                transactionId: id,
+              },
+              'useTransactions.deleteLancamento'
+            ));
           } catch (error) {
             console.error("[Reactive Core] Erro no estorno (pagamento fatura):", error);
           }
@@ -425,11 +615,25 @@ export const useTransactions = (userId?: string) => {
           try {
             // Restore only the individual transaction amount. 
             // If it's a series of installments, each deletion will release its part.
+            const previousSaldo = card.saldoUtilizadoTotal || 0;
             const amountToRestore = txToDelete.amount;
-              
-            const newUsed = Math.max(0, (card.saldoUtilizadoTotal || 0) - amountToRestore);
+               
+            const newUsed = Math.max(0, previousSaldo - amountToRestore);
             await updateCard(userId, card.id, { saldoUtilizadoTotal: newUsed });
             console.log(`[Reactive Core] Estorno de compra: Limite do cartão ${card.name} liberado.`);
+            await eventBus.publish(createDomainEvent<CardUsageUpdatedEvent['payload']>(
+              'card',
+              EVENT_TYPES.card.usageUpdated,
+              {
+                cardId: card.id,
+                userId,
+                previousSaldoUtilizado: previousSaldo,
+                newSaldoUtilizado: newUsed,
+                reason: 'rollback',
+                transactionId: id,
+              },
+              'useTransactions.deleteLancamento'
+            ));
           } catch (error) {
             console.error("[Reactive Core] Erro no estorno (compra crédito):", error);
           }
@@ -439,6 +643,17 @@ export const useTransactions = (userId?: string) => {
 
     const transactionRef = ref(db, `transactions/${userId}/${id}`);
     await remove(transactionRef);
+
+    await eventBus.publish(createDomainEvent<TransactionDeletedEvent['payload']>(
+      'transaction',
+      EVENT_TYPES.transaction.deleted,
+      {
+        transactionId: id,
+        userId,
+        previousTransaction: txToDelete!,
+      },
+      'useTransactions.deleteLancamento'
+    ));
   };
 
   const isSyncing = isFetching && !loading;

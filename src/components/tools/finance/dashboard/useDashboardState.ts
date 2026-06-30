@@ -1,12 +1,14 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { useCards } from '../../../../hooks/useCards';
 import { useBills } from '../../../../hooks/useBills';
+import { useBudget } from '../../../../hooks/useBudget';
 import { useIsMobile } from '../../../../hooks/useIsMobile';
 import { getCurrentInvoice, isBillPaid } from '../../../../utils/invoiceUtils';
-import { getConsecutiveDays } from '../../../../utils/streakUtils';
+import { useInvoicesByUser } from '../../../../hooks/useCardInvoices';
+import { getConsecutiveDays, getMonthlyConsistency } from '../../../../utils/streakUtils';
 import type { NexusInsight } from '../../../../services/nexusInsightEngine';
 import { buildUserContext, getOperationalInsight } from '../../../../services/nexusInsightEngine';
 import { generateFinancialReport } from '../../../../utils/reportGenerator';
@@ -58,8 +60,11 @@ export const useDashboardState = (props: any) => {
   
   const { cards: userCards } = useCards(user?.uid);
   const { bills: recurringBills } = useBills(user?.uid);
+  const { budget: currentBudget, isLoading: budgetLoading } = useBudget(user?.uid);
+  const { invoices: storedInvoices } = useInvoicesByUser(user?.uid);
 
   const [isRecurringBillModalOpen, setIsRecurringBillModalOpen] = useState(false);
+  const [isBudgetSetupOpen, setIsBudgetSetupOpen] = useState(false);
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
@@ -74,6 +79,7 @@ export const useDashboardState = (props: any) => {
 
   const [inlineInsight, setInlineInsight] = useState<NexusInsight | null>(null);
   const [showInsight, setShowInsight] = useState(false);
+  const lastToastRef = useRef<{ id: string; time: number } | null>(null);
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
@@ -87,6 +93,12 @@ export const useDashboardState = (props: any) => {
   const [visibleCount, setVisibleCount] = useState(10);
   const [isCalculating, setIsCalculating] = useState(true);
   const [showHistoryPaywall, setShowHistoryPaywall] = useState(false);
+    const [filterCardId, setFilterCardId] = useState<string | null>(null);
+  const [filterCardName, setFilterCardName] = useState('');
+  const [filterPeriodStart, setFilterPeriodStart] = useState('');
+  const [filterPeriodEnd, setFilterPeriodEnd] = useState('');
+  const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
+  const [cardManagerReason, setCardManagerReason] = useState<string | null>(null);
 
   /** AppRoutes passa isPro||isPremium como isPremium — equivale a acesso ao histórico. */
   const hasHistoryAccess = !!isPremium;
@@ -110,13 +122,42 @@ export const useDashboardState = (props: any) => {
   const showBackToTools = !!onNavigate && !Capacitor.isNativePlatform();
 
 
-  // Efeito para abrir a gestão de cartões via estado de navegação
+  // Efeito para abrir a gestão de cartões, aplicar filtro de cartão, ou limpar filtro via estado de navegação
   useEffect(() => {
-    if (location.state && (location.state as any).openCards) {
+    const state = location.state as Record<string, unknown> | null;
+    if (state?.openCards) {
       setIsCardModalOpen(true);
+      setFocusedCardId((state?.focusedCardId as string) || null);
+      setCardManagerReason((state?.reason as string) || null);
       window.history.replaceState({}, document.title);
+      return;
+    }
+    if (state?.clearCardFilter) {
+      setFilterCardId(null);
+      setFilterCardName('');
+      setFilterPeriodStart('');
+      setFilterPeriodEnd('');
+      window.history.replaceState({}, document.title);
+      return;
+    }
+    if (state?.filterCardId) {
+      setFilterCardId(state.filterCardId as string);
+      setFilterCardName((state.filterCardName as string) || '');
+      setFilterPeriodStart((state.periodStart as string) || '');
+      setFilterPeriodEnd((state.periodEnd as string) || '');
+      setShowTransactions(true);
+      window.history.replaceState(
+        { filterCardId: state.filterCardId, filterCardName: state.filterCardName, periodStart: state.periodStart, periodEnd: state.periodEnd },
+        document.title
+      );
     }
   }, [location.state]);
+
+  useEffect(() => {
+    if (!cardManagerReason) return;
+    const t = setTimeout(() => setCardManagerReason(null), 5000);
+    return () => clearTimeout(t);
+  }, [cardManagerReason]);
 
   // Temporizador para simulação/suavização de cálculo pesado
   useEffect(() => {
@@ -203,10 +244,23 @@ export const useDashboardState = (props: any) => {
     return userCards
       .map(card => {
         const invoice = getCurrentInvoice(card, safeTransactions);
-        return invoice ? { ...invoice, cardName: card.name, cardId: card.id } : null;
+        if (!invoice) return null;
+        const storedInvoice = storedInvoices.find(
+          si => si.cardId === card.id && si.periodEnd === invoice.periodEnd
+        );
+        return {
+          ...invoice,
+          cardName: card.name,
+          cardId: card.id,
+          storedStatus: storedInvoice?.status || null,
+          storedPaidAmount: storedInvoice?.paidAmount || 0,
+          storedRemaining: storedInvoice?.remainingAmount || 0,
+          storedTransactionCount: storedInvoice?.transactionCount || 0,
+          storedInvoiceId: storedInvoice?.id || null,
+        };
       })
       .filter((inv): inv is NonNullable<typeof inv> => inv !== null && inv.total > 0);
-  }, [userCards, safeTransactions]);
+  }, [userCards, safeTransactions, storedInvoices]);
 
   const pendingBills = useMemo(() => {
     return recurringBills.filter(bill => bill.isActive && !isBillPaid(bill, safeTransactions));
@@ -217,6 +271,7 @@ export const useDashboardState = (props: any) => {
   }, [pendingBills]);
 
   const streak = useMemo(() => getConsecutiveDays(safeTransactions), [safeTransactions]);
+  const monthlyConsistency = useMemo(() => getMonthlyConsistency(safeTransactions), [safeTransactions]);
 
   const periodLabel = useMemo(() => {
     if (viewMode === 'all') return 'Tudo';
@@ -257,6 +312,12 @@ export const useDashboardState = (props: any) => {
 
       if (!isTransactionVisible(t.date, historyPlan)) return false;
 
+      if (filterCardId && t.cardId !== filterCardId) return false;
+
+      if (filterCardId && t.isVirtual) return false;
+
+      if (filterPeriodStart && filterPeriodEnd && (t.date < filterPeriodStart || t.date > filterPeriodEnd)) return false;
+
       if (query) {
         return normalize(t.description || '').includes(query) ||
                normalize(t.category || '').includes(query);
@@ -286,7 +347,7 @@ export const useDashboardState = (props: any) => {
       if (sortMode === 'date-desc') return dateB.localeCompare(dateA);
       return 0;
     });
-  }, [safeTransactions, activeInvoices, selectedCategories, typeFilter, currentDate, viewMode, startDate, endDate, sortMode, searchQuery, isLoading, historyPlan]);
+  }, [safeTransactions, activeInvoices, selectedCategories, typeFilter, currentDate, viewMode, startDate, endDate, sortMode, searchQuery, isLoading, historyPlan, filterCardId, filterPeriodStart, filterPeriodEnd]);
 
   const stats = useMemo(() => {
     if (!isReady) {
@@ -312,7 +373,20 @@ export const useDashboardState = (props: any) => {
     let realBalance = 0;
     let virtualImpact = 0;
 
-    filtered.forEach((t: any) => {
+    const statsTransactions = viewMode === 'all'
+      ? safeTransactions
+      : safeTransactions.filter((t: any) => {
+          if (!t.date) return false;
+          const [year, month, day] = t.date.split('-').map(Number);
+          if (!year) return false;
+          if (viewMode === 'year') return year === currentDate.getFullYear();
+          if (viewMode === 'month') return year === currentDate.getFullYear() && month === (currentDate.getMonth() + 1);
+          if (viewMode === 'day') return year === currentDate.getFullYear() && month === (currentDate.getMonth() + 1) && day === currentDate.getDate();
+          if (viewMode === 'period') return t.date >= startDate && t.date <= endDate;
+          return false;
+        });
+
+    statsTransactions.forEach((t: any) => {
       const val = Number(t?.amount) || 0;
       const isCredit = t?.paymentMethod === 'credit';
 
@@ -350,7 +424,7 @@ export const useDashboardState = (props: any) => {
       expenses,
       balance: realBalance,
       projectedBalance: sovereign.projectedBalance,
-      freeBalance: sovereign.heroValue,
+      freeBalance: sovereign.sovereignFreeBalance,
       sovereignFreeBalance: sovereign.sovereignFreeBalance,
       freedomDeficit: sovereign.freedomDeficit,
       protectionBuffer: sovereign.protectionBuffer,
@@ -360,7 +434,7 @@ export const useDashboardState = (props: any) => {
       reserveShortfall: sovereign.reserveShortfall,
       sovereignSnapshot: sovereign,
     };
-  }, [filtered, safeTransactions, isLoading, totalPendingBills, userMeta, localCommandMode]);
+  }, [safeTransactions, isLoading, viewMode, currentDate, startDate, endDate, totalPendingBills, userMeta, localCommandMode]);
 
   const commandMode = isCommandMode(userMeta) || localCommandMode;
 
@@ -411,7 +485,7 @@ export const useDashboardState = (props: any) => {
 
   // Efeito para monitorar novos lançamentos e disparar insight
   useEffect(() => {
-    if (lastActionTimestamp && transactions.length > 0) {
+    if (transactions.length > 0) {
       const ctx = buildUserContext({
         launchCount: transactions.length,
         transactionsToday: transactions.filter((t: any) => t.date === new Date().toISOString().split('T')[0]).length,
@@ -424,7 +498,6 @@ export const useDashboardState = (props: any) => {
         marcoZero: userMeta?.financialProfile?.marcoZero,
         reserveCurrent: userMeta?.financialProfile?.emergencyReserveCurrent,
         reserveTarget: userMeta?.financialProfile?.emergencyReserveTarget,
-        freeBalance: stats.sovereignFreeBalance,
         sovereignFreeBalance: stats.sovereignFreeBalance,
         freedomDeficit: stats.freedomDeficit,
         obligationsDeduction: stats.sovereignSnapshot?.obligationsDeduction,
@@ -436,6 +509,11 @@ export const useDashboardState = (props: any) => {
 
       const insight = getOperationalInsight(ctx);
       if (insight) {
+        const now = Date.now();
+        if (lastToastRef.current?.id === insight.id && now - lastToastRef.current.time < 60_000) {
+          return;
+        }
+        lastToastRef.current = { id: insight.id, time: now };
         setInlineInsight(insight);
         setShowInsight(true);
         const timer = setTimeout(() => setShowInsight(false), 5000);
@@ -443,7 +521,6 @@ export const useDashboardState = (props: any) => {
       }
     }
   }, [
-    lastActionTimestamp,
     transactions.length,
     isPremium,
     userMeta?.isFirstSession,
@@ -613,6 +690,27 @@ export const useDashboardState = (props: any) => {
     // Esta função é mantida vazia apenas para evitar erros de referência no onClose do modal.
   };
 
+  const handleClearCardFilter = useCallback(() => {
+    setFilterCardId(null);
+    setFilterCardName('');
+    setFilterPeriodStart('');
+    setFilterPeriodEnd('');
+    window.history.replaceState({}, document.title);
+  }, []);
+
+  const handleFilterByCard = useCallback((
+    cardId: string,
+    cardName: string,
+    periodStart: string,
+    periodEnd: string
+  ) => {
+    setFilterCardId(cardId);
+    setFilterCardName(cardName);
+    setFilterPeriodStart(periodStart);
+    setFilterPeriodEnd(periodEnd);
+    setShowTransactions(true);
+  }, []);
+
   return {
     // Parent values & state values
     user,
@@ -631,6 +729,10 @@ export const useDashboardState = (props: any) => {
     inlineInsight,
     showInsight,
     setShowInsight,
+    currentBudget,
+    budgetLoading,
+    isBudgetSetupOpen,
+    setIsBudgetSetupOpen,
     selectedCategories,
     setSelectedCategories,
     typeFilter,
@@ -658,6 +760,7 @@ export const useDashboardState = (props: any) => {
     pendingBills,
     totalPendingBills,
     streak,
+    monthlyConsistency,
     periodLabel,
     filtered,
     stats,
@@ -692,6 +795,15 @@ export const useDashboardState = (props: any) => {
     hasHistoryAccess,
     historyVisibleTransactions,
     currentMonthStartIso: getCurrentMonthStartIso(),
+    filterCardId,
+    filterCardName,
+    filterPeriodStart,
+    filterPeriodEnd,
+    focusedCardId,
+    setFocusedCardId,
+    cardManagerReason,
+    handleClearCardFilter,
+    handleFilterByCard,
     setRecurringBills,
     setUserCards,
 

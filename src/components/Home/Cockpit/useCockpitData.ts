@@ -1,11 +1,13 @@
 import { useMemo } from 'react';
-import type { Transaction, UserMeta, RecurringBill, CreditCard as CreditCardType } from '../../../types';
+import type { Transaction, UserMeta } from '../../../types';
 import { useBills } from '../../../hooks/useBills';
 import { isBillPaid, getCurrentInvoice } from '../../../utils/invoiceUtils';
 import { useWealthData } from '../../../hooks/useWealthData';
 import { useCards } from '../../../hooks/useCards';
 import { useWealthHistory } from '../../../hooks/useWealthHistory';
 import { useSovereignSnapshot } from '../../../hooks/useSovereignSnapshot';
+import { useNexusEvents } from '../../../hooks/useNexusEvents';
+import { classifyFromSnapshot } from '../../../services/sovereignMap';
 
 export const useCockpitData = (
   user: { uid: string } | null,
@@ -38,6 +40,16 @@ export const useCockpitData = (
 
   const safeTx = useMemo(() => Array.isArray(transactions) ? transactions : [], [transactions]);
   const sovereign = useSovereignSnapshot(safeTx, userMeta);
+
+  // Estágio do Mapa de Soberania
+  const stage = useMemo(
+    () => classifyFromSnapshot(sovereign, safeTx.length),
+    [sovereign, safeTx.length],
+  );
+
+  // Evento Nexus para o CommandRitual (linha de Atenção)
+  const { event: serverEvent } = useNexusEvents();
+  const contextualEvent = serverEvent;
 
   // Lógica de Urgência
   const urgentBills = useMemo(() => {
@@ -174,6 +186,8 @@ export const useCockpitData = (
     totalDebts,
     totalProperty,
     marcoZero,
-    reserveCurrent
+    reserveCurrent,
+    stage,
+    contextualEvent,
   };
 };

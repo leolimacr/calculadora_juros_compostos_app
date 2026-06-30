@@ -36,7 +36,7 @@ const AppOnlyBlock: React.FC<AppOnlyBlockProps> = ({ isMobileBrowser, hasBottomN
           </div>
           <div className="flex flex-col">
             <p className="text-white text-xs font-bold leading-tight">Experiência Completa</p>
-            <p className="text-slate-400 text-[10px] leading-tight">Baixe nosso app gratuito</p>
+            <p className="text-slate-500 text-[10px] leading-tight">Baixe nosso app gratuito</p>
           </div>
         </div>
         

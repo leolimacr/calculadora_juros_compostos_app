@@ -204,7 +204,7 @@ export const ModuleOverviewPage: React.FC = () => {
           ) : (
             <button 
               onClick={() => navigate(`/curso/${courseSlug}`)}
-              className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
             >
               <CheckCircle2 className="w-5 h-5" />
               Módulo Concluído - Voltar à Trilha

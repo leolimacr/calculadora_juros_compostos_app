@@ -35,7 +35,7 @@ const PreAuthModal: React.FC<PreAuthModalProps> = ({
         <div className="w-full space-y-4">
           <button
             onClick={onCreateAccount}
-            className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black py-4 rounded-2xl transition-all shadow-lg shadow-emerald-500/20 active:scale-[0.98] flex items-center justify-center gap-2 text-xs uppercase tracking-widest"
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-2xl transition-all shadow-lg shadow-emerald-600/20 active:scale-[0.98] flex items-center justify-center gap-2 text-xs uppercase tracking-widest"
           >
             Criar Conta Grátis
             <ArrowRight size={16} />
@@ -50,13 +50,13 @@ const PreAuthModal: React.FC<PreAuthModalProps> = ({
 
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 font-bold text-[11px] uppercase tracking-widest transition-colors flex items-center gap-2 mx-auto py-2"
+            className="text-slate-500 hover:text-slate-600 font-bold text-[11px] uppercase tracking-widest transition-colors flex items-center gap-2 mx-auto py-2"
           >
             <X size={14} /> Continuar explorando o site
           </button>
         </div>
 
-        <div className="flex items-center gap-2 mt-6 text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+        <div className="flex items-center gap-2 mt-6 text-[10px] text-slate-500 font-bold uppercase tracking-widest">
           <ShieldCheck size={12} className="text-emerald-500" />
           Seus dados estão protegidos
         </div>

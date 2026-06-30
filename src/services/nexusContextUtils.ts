@@ -1,6 +1,7 @@
 import type { UserContext } from './nexusInsightEngine';
 import type { DebtItem } from './debt/debt.types';
 import { getCurrentInvoice } from '../utils/invoiceUtils';
+import { MANUAL_DEBT_TYPES } from './debt/debt.constants';
 
 export function extractUpcomingBill(ctx: UserContext, debts?: DebtItem[]): UserContext['upcomingCreditCardBill'] {
   // 1. Se o contexto já veio preenchido (ex: de um cálculo externo), usa ele.
@@ -26,10 +27,15 @@ export function extractUpcomingBill(ctx: UserContext, debts?: DebtItem[]): UserC
         dueDate.setHours(0, 0, 0, 0);
         const diffTime = dueDate.getTime() - today.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 3600 * 24));
+
+        const paidToCard = ctx.transactions!
+          .filter(t => t.isBillPayment && t.linkedCardId === card.id && t.date >= invoice.periodStart && t.date <= invoice.periodEnd)
+          .reduce((sum, t) => sum + t.amount, 0);
+        const remainingAmount = Math.max(0, invoice.total - paidToCard);
         
         candidates.push({
           daysToClose: diffDays,
-          estimatedValue: invoice.total,
+          estimatedValue: remainingAmount,
           cardName: card.name,
           cardId: card.id,
           dueDate: invoice.dueDate,
@@ -42,7 +48,7 @@ export function extractUpcomingBill(ctx: UserContext, debts?: DebtItem[]): UserC
   // 3. Coleta dados de dívidas (legado ou rotativo manual)
   if (debts) {
     const cardDebts = debts.filter(d => 
-      (d.tipo === 'Cartão rotativo' || d.tipo === 'Cartão de crédito') && 
+      (d.tipo === MANUAL_DEBT_TYPES.ROTATIVO || d.tipo === 'Cartão de crédito') && 
       d.dataVencimento
     );
     cardDebts.forEach(d => {

@@ -2,14 +2,16 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import AppHeader from '../components/AppHeader';
 import { useAuth } from '../contexts/AuthContext';
-import { useSubscriptionAccess } from '../hooks/useSubscriptionAccess';
+import { useEntitlement } from '../hooks/useEntitlement';
 
 const PublicLayout: React.FC = () => {
   const { isAuthenticated, user } = useAuth();
-  const { isPro, isPremium } = useSubscriptionAccess();
+  const { effectiveTier } = useEntitlement();
+  const isPro = effectiveTier !== 'free';
+  const isPremium = effectiveTier === 'premium';
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-surface-secondary">
       <AppHeader
         isAuthenticated={isAuthenticated}
         userMeta={null}

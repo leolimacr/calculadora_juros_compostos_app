@@ -4,8 +4,7 @@ import { Browser } from '@capacitor/browser';
 import { LogOut, Settings, Sparkles, Eye, EyeOff, Menu, Globe, CreditCard, Compass, ArrowLeft, Crown, Bell } from 'lucide-react';
 import { useNavigation } from '../hooks/useNavigation';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useSubscriptionAccess } from '../hooks/useSubscriptionAccess';
-import { hasPlanAccess } from '../utils/plan';
+import { useEntitlement } from '../hooks/useEntitlement';
 import type { UserMeta } from '../types';
 import { useNotifications } from '../contexts/NotificationContext';
 
@@ -43,9 +42,10 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   const { unreadCount } = useNotifications();
   const isMainRoute = MAIN_ROUTES.includes(location.pathname);
 
-  const { currentPlan } = useSubscriptionAccess();
-  const hasProAccess = hasPlanAccess(currentPlan, 'pro');
-  const hasPremiumAccess = hasPlanAccess(currentPlan, 'premium');
+  const { effectiveTier } = useEntitlement();
+  const hasProAccess = effectiveTier !== 'free';
+  const hasPremiumAccess = effectiveTier === 'premium';
+  const isProOnly = hasProAccess && !hasPremiumAccess;
   const isStrictlyPro = isAuthenticated && hasProAccess;
 
   const handleSmartBack = useCallback(() => {
@@ -135,50 +135,69 @@ const AppHeader: React.FC<AppHeaderProps> = ({
 
         {isAuthenticated && (
           <>
-            {isStrictlyPro && (
+            {hasPremiumAccess && (
               <div 
-                className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-600 mr-4 animate-in fade-in zoom-in duration-300"
+                className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 mr-4 animate-in fade-in zoom-in duration-300 shadow-[0_0_10px_rgba(16,185,129,0.1)]"
                 role="status"
-                aria-label="Plano Pro ativo"
+                aria-label="Plano Premium"
               >
                 <Crown size={12} className="fill-emerald-500" />
-                <span className="text-[10px] font-black uppercase tracking-wider">Pro Ativo</span>
+                <span className="text-[10px] font-black uppercase tracking-wider">Premium</span>
+              </div>
+            )}
+            {isProOnly && (
+              <div 
+                className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-sky-50 border border-sky-200 text-sky-600 mr-4 animate-in fade-in zoom-in duration-300"
+                role="status"
+                aria-label="Plano Pro"
+              >
+                <Crown size={12} className="text-sky-500" />
+                <span className="text-[10px] font-black uppercase tracking-wider">Pro</span>
               </div>
             )}
 
             <div className="hidden xl:flex items-center gap-3 mr-2 text-sm border-r border-slate-100 pr-4">
               <div className="flex flex-col text-right leading-none">
-				<span className="text-slate-400 text-[9px] font-black uppercase mb-1 tracking-widest">Soberano</span>
+				<span className="text-slate-500 text-[9px] font-black uppercase mb-1 tracking-widest">Soberano</span>
                 <span className="text-[12px] font-black text-slate-950 uppercase tracking-tight">
                   {rawName}!
                 </span>
               </div>
-              <button onClick={onTogglePrivacy} className="p-2 bg-slate-50 rounded-xl text-slate-400 hover:text-slate-900 transition-colors border border-slate-100">
+              <button onClick={onTogglePrivacy} className="p-2 bg-slate-50 rounded-xl text-slate-500 hover:text-slate-900 transition-colors border border-slate-100">
                 {isPrivacyMode ? <EyeOff size={16}/> : <Eye size={16}/>}
               </button>
             </div>
 
-            {isStrictlyPro && (
+            {hasPremiumAccess && (
               <div 
                 className="xl:hidden flex items-center justify-center w-6 h-6 rounded-lg bg-emerald-500 text-white shadow-lg shadow-emerald-200/50 mr-2"
                 role="status"
-                aria-label="Plano Pro ativo"
+                aria-label="Plano Premium"
+              >
+                <Crown size={12} />
+              </div>
+            )}
+            {isProOnly && (
+              <div 
+                className="xl:hidden flex items-center justify-center w-6 h-6 rounded-lg bg-sky-500 text-white shadow-lg shadow-sky-200/50 mr-2"
+                role="status"
+                aria-label="Plano Pro"
               >
                 <Crown size={12} />
               </div>
             )}
 
             <div className="xl:hidden flex flex-col items-end text-right mr-1 leading-none animate-in fade-in">
-              <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Seja</span>
-              <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">bem vindo(a),</span>
+              <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Seja</span>
+              <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">bem vindo(a),</span>
               <span className="text-xs font-black text-emerald-600 tracking-tight">
                 {firstName}!
               </span>
             </div>
 
             <div className="hidden md:flex items-center gap-2">
-              <button onClick={() => handleNavigate('settings')} className="p-2 text-slate-400 hover:text-slate-900 transition-colors"><Settings size={18} /></button>
-              <button onClick={onLogout} className="p-2 text-slate-400 hover:text-red-500 transition-colors"><LogOut size={18} /></button>
+              <button onClick={() => handleNavigate('settings')} className="p-2 text-slate-500 hover:text-slate-900 transition-colors"><Settings size={18} /></button>
+              <button onClick={onLogout} className="p-2 text-slate-500 hover:text-red-500 transition-colors"><LogOut size={18} /></button>
             </div>
 
             {!isNative && (

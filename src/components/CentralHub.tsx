@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Sparkles,
   CreditCard,
@@ -17,12 +18,11 @@ import { buildUserContext, getCentralInsights } from '../services/nexusInsightEn
 import NexusActionButton from './Home/NexusActionButton';
 import { useWealthData } from '../hooks/useWealthData';
 import { useSovereignSnapshot } from '../hooks/useSovereignSnapshot';
+import { useEntitlement } from '../hooks/useEntitlement';
 import { getConsecutiveDays } from '../utils/streakUtils';
 import { getCentralHeroCopy, getCentralJourneyStage, INSTITUTIONAL_TERM } from '../theme/fpiVoiceGuide';
 import { isCommandMode } from '../services/personaCalibrationService';
 import CommandCalibration from './tools/nexus/CommandCalibration';
-import { hasPlanAccess as checkPlanAccess } from '../utils/plan';
-import { useSubscriptionAccess } from '../hooks/useSubscriptionAccess';
 import BaseDeProtecaoCard from './CentralHub/BaseDeProtecaoCard';
 import BaseDeProtecaoDrawer from './CentralHub/BaseDeProtecaoDrawer';
 import { firestore } from '../firebase';
@@ -49,6 +49,50 @@ const CentralHub: React.FC<CentralHubProps> = ({
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  const location = useLocation();
+  const [drawerReason, setDrawerReason] = useState<string | null>(null);
+  const [sectionReason, setSectionReason] = useState<string | null>(null);
+
+  useEffect(() => {
+    const state = location.state as Record<string, unknown> | null;
+    if (!state?.focusSection) return;
+
+    const reason = (state.reason as string) || null;
+
+    const timer = setTimeout(() => {
+      if (state.focusSection === 'protecao') {
+        const el = document.getElementById('base-protecao');
+        el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setDrawerReason(reason);
+        setShowBaseDrawer(true);
+      } else if (state.focusSection === 'estrutura') {
+        const el = document.getElementById('prioridades');
+        el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setSectionReason(reason);
+      } else if (state.focusSection === 'dividas') {
+        const el = document.getElementById('prioridades');
+        el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setSectionReason(reason);
+      }
+    }, 150);
+
+    window.history.replaceState({}, '');
+
+    return () => clearTimeout(timer);
+  }, [location.state]);
+
+  useEffect(() => {
+    if (!sectionReason) return;
+    const t = setTimeout(() => setSectionReason(null), 5000);
+    return () => clearTimeout(t);
+  }, [sectionReason]);
+
+  useEffect(() => {
+    if (!drawerReason) return;
+    const t = setTimeout(() => setDrawerReason(null), 5000);
+    return () => clearTimeout(t);
+  }, [drawerReason]);
 
   const {
     assets = [],
@@ -81,9 +125,9 @@ const CentralHub: React.FC<CentralHubProps> = ({
     return null;
   };
 
-  const { currentPlan } = useSubscriptionAccess();
-  const hasProAccess = checkPlanAccess(currentPlan, 'pro');
-  const hasPremiumAccess = checkPlanAccess(currentPlan, 'premium');
+  const { effectiveTier } = useEntitlement();
+  const hasProAccess = effectiveTier === 'pro' || effectiveTier === 'premium';
+  const hasPremiumAccess = effectiveTier === 'premium';
   const now = new Date();
 
   const formatCurrency = (value: number) =>
@@ -125,7 +169,6 @@ const CentralHub: React.FC<CentralHubProps> = ({
     : null;
 
   const streak = useMemo(() => getConsecutiveDays(lancamentos), [lancamentos]);
-  const saldoLivreOperacional = sovereign.heroValue;
   const userId = lancamentos.length > 0 ? lancamentos[0]?.userId : null;
   const { data: debts = [] } = useDebts(userId || undefined);
 
@@ -167,7 +210,6 @@ const CentralHub: React.FC<CentralHubProps> = ({
       marcoZero,
       reserveCurrent,
       reserveTarget,
-      freeBalance: saldoLivreOperacional,
       reserveGoalMet: false,
       debtJustPaidOff,
       assets,
@@ -192,7 +234,6 @@ const CentralHub: React.FC<CentralHubProps> = ({
     marcoZero,
     reserveCurrent,
     reserveTarget,
-    saldoLivreOperacional,
   ]);
 
   const heroCopy = getCentralHeroCopy(hasPremiumAccess, hasProAccess);
@@ -351,6 +392,7 @@ const CentralHub: React.FC<CentralHubProps> = ({
 
       <div className="max-w-6xl mx-auto px-4 pt-14 md:pt-6 pb-10 space-y-8 animate-in fade-in duration-300">
         {/* 0. Base de Proteção */}
+        <div id="base-protecao">
         <BaseDeProtecaoCard
           colchaoInicialTarget={colchaoInicialTarget}
           colchaoInicialCurrent={marcoZero}
@@ -360,6 +402,7 @@ const CentralHub: React.FC<CentralHubProps> = ({
           formatCurrency={formatCurrency}
           onAjustar={() => setShowBaseDrawer(true)}
         />
+        </div>
 
         {/* 1. Onde você está */}
         <section className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-white to-slate-50 border border-slate-200 border-l-4 border-l-indigo-500 p-6 md:p-8 shadow-sm">
@@ -378,9 +421,9 @@ const CentralHub: React.FC<CentralHubProps> = ({
                 }`}
               >
                 {hasPremiumAccess ? <Crown size={12} /> : null}
-                Plano {currentPlan}
+                Plano {effectiveTier === 'premium' ? 'Premium' : effectiveTier === 'pro' ? 'Pro' : 'Free'}
               </span>
-              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 text-white text-[10px] font-black uppercase tracking-[0.2em]">
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-black uppercase tracking-[0.2em]">
                 Estágio: {journeyStage.stage}
               </span>
             </div>
@@ -395,7 +438,7 @@ const CentralHub: React.FC<CentralHubProps> = ({
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="rounded-2xl bg-slate-50 border border-slate-100 px-4 py-3">
-                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Reserva</p>
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Reserva</p>
                 <p className="text-sm font-black text-slate-900">
                   {reserveCurrent > 0 ? formatCurrency(reserveCurrent) : '—'}
                 </p>
@@ -404,13 +447,13 @@ const CentralHub: React.FC<CentralHubProps> = ({
                 )}
               </div>
               <div className="rounded-2xl bg-slate-50 border border-slate-100 px-4 py-3">
-                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">{INSTITUTIONAL_TERM}</p>
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">{INSTITUTIONAL_TERM}</p>
                 <p className="text-sm font-black text-slate-900">
                   {marcoZero > 0 ? formatCurrency(marcoZero) : '—'}
                 </p>
               </div>
               <div className="rounded-2xl bg-slate-50 border border-slate-100 px-4 py-3">
-                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Patrimônio líquido</p>
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Patrimônio líquido</p>
                 <p className="text-sm font-black text-slate-900">
                   {patrimonioLiquido !== 0 || passives.length > 0 || assets.length > 0
                     ? formatCurrency(patrimonioLiquido)
@@ -418,7 +461,7 @@ const CentralHub: React.FC<CentralHubProps> = ({
                 </p>
               </div>
               <div className="rounded-2xl bg-slate-50 border border-slate-100 px-4 py-3">
-                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Dívidas ativas</p>
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Dívidas ativas</p>
                 <p className="text-sm font-black text-slate-900">{activeDebtsCount > 0 ? activeDebtsCount : '—'}</p>
               </div>
             </div>
@@ -434,7 +477,12 @@ const CentralHub: React.FC<CentralHubProps> = ({
         </section>
 
         {/* 2. O que priorizar agora */}
-        <section className={`rounded-[2rem] border p-6 md:p-8 shadow-sm ${recTone.wrapper}`}>
+        <section id="prioridades" className={`rounded-[2rem] border p-6 md:p-8 shadow-sm ${recTone.wrapper}`}>
+          {sectionReason && (
+            <p className="text-[10px] font-black text-indigo-600 uppercase tracking-wider mb-3 animate-in fade-in duration-300">
+              ↳ {sectionReason}
+            </p>
+          )}
           <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${recTone.eyebrow}`}>
             {centralRecommendation.eyebrow}
           </span>
@@ -518,7 +566,7 @@ const CentralHub: React.FC<CentralHubProps> = ({
                   {insight.action && (
                     <NexusActionButton
                       insight={insight}
-                      userPlan={currentPlan}
+                      userPlan={effectiveTier}
                       userId={userId || 'unknown'}
                       onActionExecuted={() => {}}
                     />
@@ -572,20 +620,20 @@ const CentralHub: React.FC<CentralHubProps> = ({
                           {dynamicBadge}
                         </span>
                       )}
-                      {locked && <Lock size={16} className="text-slate-400" />}
+                      {locked && <Lock size={16} className="text-slate-500" />}
                     </div>
                   </div>
 
                   <h4 className={`text-lg font-black tracking-tight mb-2 ${locked ? 'text-slate-500' : 'text-slate-900'}`}>
                     {title}
                   </h4>
-                  <p className={`text-sm leading-relaxed mb-5 ${locked ? 'text-slate-400' : 'text-slate-600'}`}>
+                  <p className={`text-sm leading-relaxed mb-5 ${locked ? 'text-slate-500' : 'text-slate-600'}`}>
                     {description}
                   </p>
 
                   <span
                     className={`inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-widest ${
-                      locked ? 'text-slate-400' : 'text-slate-900 group-hover:text-sky-600'
+                      locked ? 'text-slate-500' : 'text-slate-900 group-hover:text-sky-600'
                     }`}
                   >
                     {locked ? 'Saber mais' : cta}
@@ -607,6 +655,7 @@ const CentralHub: React.FC<CentralHubProps> = ({
         reserveCurrent={reserveCurrent}
         protectionMonths={protectionMonths}
         onSave={handleSaveBaseProtecao}
+        contextualReason={drawerReason ?? undefined}
       />
 
       {lockedModule && (
@@ -620,7 +669,7 @@ const CentralHub: React.FC<CentralHubProps> = ({
                 <button
                   type="button"
                   onClick={() => setLockedModule(null)}
-                  className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors"
+                  className="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors"
                 >
                   <X size={24} />
                 </button>
@@ -632,7 +681,7 @@ const CentralHub: React.FC<CentralHubProps> = ({
               </p>
 
               <div className="bg-slate-50 border border-slate-100 rounded-2xl p-5 mb-8">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">No Premium você ganha:</p>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">No Premium você ganha:</p>
                 <ul className="space-y-2.5">
                   {(lockedModule === 'Gestão de Dívidas'
                     ? ['Projeção de quitação e economia de juros', 'Acompanhamento de vencimentos', 'Priorização entre dívidas']

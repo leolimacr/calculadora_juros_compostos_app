@@ -6,13 +6,14 @@ import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { firestore } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useFirebase } from './useFirebase';
-import { useSubscriptionAccess } from './useSubscriptionAccess';
+import { useEntitlement } from './useEntitlement';
 import { useAppSecurity } from './useAppSecurity';
 import { useNavigation } from './useNavigation';
 import { useReengagementTrigger } from './useReengagementTrigger';
 import { NotificationService } from '../services/NotificationService';
 import type { UserContext, NexusInsight } from '../services/nexusInsightEngine';
 import { getPrioritizedInsight } from '../services/nexusInsightEngine';
+import { clearEventInsightStore } from '../services/eventInsightStore';
 import type { Transaction, Category, UserMeta } from '../types';
 import type { DebtItem } from '../services/debt/debt.types';
 import { getConsecutiveDays } from '../utils/streakUtils';
@@ -73,15 +74,18 @@ export function useAppState(): AppState {
     if (isAuthenticated && user?.uid) {
       const updateHeartbeat = async () => {
         try {
-          const STORAGE_KEY = `fpi_last_heartbeat_${user.uid}`;
+          const STORAGE_KEY = `financas-pro-invest_last_heartbeat_${user.uid}`;
+          const LEGACY_KEY = `fpi_last_heartbeat_${user.uid}`;
           const today = new Date().toISOString().split('T')[0];
-          if (localStorage.getItem(STORAGE_KEY) !== today) {
+          const stored = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_KEY);
+          if (stored !== today) {
             const userRef = doc(firestore, 'users', user.uid);
             await setDoc(userRef, { 
               lastActiveAt: serverTimestamp() 
             }, { merge: true });
             
             localStorage.setItem(STORAGE_KEY, today);
+            try { localStorage.removeItem(LEGACY_KEY); } catch {}
           }
         } catch (error) {
           console.warn('[FinOps] Heartbeat bypass:', error);
@@ -125,7 +129,9 @@ export function useAppState(): AppState {
   const { debts } = useDebts(user?.uid);
 
   const userMetaLoaded = !authLoading;
-  const { isPro, isPremium } = useSubscriptionAccess();
+  const { effectiveTier } = useEntitlement();
+  const isPro = effectiveTier !== 'free';
+  const isPremium = effectiveTier === 'premium';
   const { isAppLocked, storedPin, handleUnlockSuccess } = useAppSecurity(user?.uid, isAuthenticated);
   const { navigationReady, resetNavigation } = useNavigation();
   
@@ -206,6 +212,7 @@ export function useAppState(): AppState {
 
   const handleLogout = useCallback(async () => {
     await NotificationService.cancelAll();
+    clearEventInsightStore();
     await logout();
     resetNavigation();
     setMobileMenuOpen(false);

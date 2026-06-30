@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { ToolLayout, Input, ToolGate } from './ToolComponents';
 
 export const InflationTool = ({ onNavigate, isAuthenticated }: any) => {
-  if (!isAuthenticated) return <ToolGate title="Calculadora de Inflação" description="Veja como a inflação destrói o poder de compra do dinheiro parado e aprenda a se proteger." onNavigate={onNavigate} />;
-
   const [value, setValue] = useState('');
   const [result, setResult] = useState<any>(null);
+
+  if (!isAuthenticated) return <ToolGate title="Calculadora de Inflação" description="Veja como a inflação destrói o poder de compra do dinheiro parado e aprenda a se proteger." onNavigate={onNavigate} />;
 
   const calculate = () => {
     const val = Number(value);

@@ -103,7 +103,7 @@ export default function UpgradePage() {
               </div>
               <div className="text-right">
                 <span className="text-2xl font-black text-slate-900">{plan.price}</span>
-                <span className="text-xs text-slate-400 font-medium">{plan.period}</span>
+                <span className="text-xs text-slate-500 font-medium">{plan.period}</span>
               </div>
             </div>
 
@@ -130,7 +130,7 @@ export default function UpgradePage() {
         ))}
       </div>
 
-      <p className="text-center text-xs text-slate-400 leading-relaxed">
+      <p className="text-center text-xs text-slate-500 leading-relaxed">
         Pagamento seguro. Cancele quando quiser.<br />Dúvidas? <span className="text-emerald-600 font-bold">contato@financasproinvest.com.br</span>
       </p>
     </div>

@@ -92,7 +92,7 @@ const AuthLogin: React.FC<AuthLoginProps> = ({ onSuccess, onSwitchToRegister }) 
   };
 
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen w-full px-4 bg-slate-50 pt-20">
+      <div className="flex flex-col items-center justify-center min-h-screen w-full px-4 bg-surface-secondary pt-20">
         <div className="w-full max-w-md">
           {/* Botão Voltar */}
           <button 
@@ -151,7 +151,7 @@ const AuthLogin: React.FC<AuthLoginProps> = ({ onSuccess, onSwitchToRegister }) 
               <form onSubmit={handleLogin} className="space-y-5">
                 {/* Campo E-mail */}
                 <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={20} />
                   <input 
                     type="email" 
                     placeholder="Seu melhor e-mail" 
@@ -164,7 +164,7 @@ const AuthLogin: React.FC<AuthLoginProps> = ({ onSuccess, onSwitchToRegister }) 
 
                 {/* Campo Senha */}
                 <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={20} />
                   <input 
                     type={showPassword ? "text" : "password"} 
                     placeholder="Sua senha" 
@@ -176,7 +176,7 @@ const AuthLogin: React.FC<AuthLoginProps> = ({ onSuccess, onSwitchToRegister }) 
                   <button 
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-indigo-600 transition-colors"
                   >
                     {showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}
                   </button>
@@ -196,7 +196,7 @@ const AuthLogin: React.FC<AuthLoginProps> = ({ onSuccess, onSwitchToRegister }) 
                 <button 
                   type="submit" 
                   disabled={loading}
-                  className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black py-4 rounded-xl transition-all active:scale-[0.98] shadow-md shadow-emerald-500/30 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm uppercase tracking-wider"
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-xl transition-all active:scale-[0.98] shadow-md shadow-emerald-600/30 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm uppercase tracking-wider"
                 >
                   {loading ? 'Acessando...' : 'Acessar Conta'} <ArrowRight size={18} />
                 </button>
@@ -216,7 +216,7 @@ const AuthLogin: React.FC<AuthLoginProps> = ({ onSuccess, onSwitchToRegister }) 
           </div>
           
           {/* Texto de segurança */}
-          <p className="text-center text-xs text-slate-400 mt-6">
+          <p className="text-center text-xs text-slate-500 mt-6">
             🔒 Seus dados estão protegidos com criptografia de ponta a ponta.
           </p>
         </div>

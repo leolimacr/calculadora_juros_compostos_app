@@ -34,7 +34,7 @@ const QuizBlock: React.FC<Props> = ({
             else if (i === selected)
               style = 'border border-red-300 bg-red-50 text-red-700';
             else
-              style = 'border border-slate-100 text-slate-400 cursor-default';
+              style = 'border border-slate-100 text-slate-500 cursor-default';
           }
           return (
             <button

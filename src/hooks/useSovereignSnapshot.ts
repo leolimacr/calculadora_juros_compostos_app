@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCards } from './useCards';
 import { useBills } from './useBills';
 import { useDebts } from './useDebts';
+import { useInvoicesByUser } from './useCardInvoices';
 import type { Transaction, UserMeta } from '../types';
 import { getCurrentInvoice, isBillPaid } from '../utils/invoiceUtils';
 import type { SovereignSnapshot } from '../utils/calculations';
@@ -13,6 +14,9 @@ export interface SovereignSnapshotResult extends SovereignSnapshot {
   totalPendingBills: number;
   virtualImpact: number;
   commandMode: boolean;
+  cardInvoiceRemaining: number;
+  cardFuturePressure: number;
+  rotativoDebtBalance: number;
 }
 
 export function useSovereignSnapshot(
@@ -25,6 +29,7 @@ export function useSovereignSnapshot(
   const { cards: userCards } = useCards(user?.uid);
   const { bills: recurringBills } = useBills(user?.uid);
   const { debts: userDebts } = useDebts(user?.uid);
+  const { invoices: storedInvoices } = useInvoicesByUser(user?.uid);
 
   return useMemo(() => {
     const now = refDate ?? new Date();
@@ -35,22 +40,39 @@ export function useSovereignSnapshot(
     const totalCreditUsed = userCards.reduce((sum, c) => sum + (c.saldoUtilizadoTotal || 0), 0);
     const totalDebtBalance = userDebts.reduce((sum, d) => sum + (d.saldoDevedor || 0), 0);
 
-    const activeInvoices = userCards
-      .map((card) => {
-        const invoice = getCurrentInvoice(card, safeTx);
-        if (!invoice) return null;
+    const cardInvoicePressure = userCards.map((card) => {
+      const computedInvoice = getCurrentInvoice(card, safeTx);
+      if (!computedInvoice) return { remainingAmount: 0, periodTotal: 0 };
 
-        const paidToThisCard = safeTx
-          .filter(t => t.isBillPayment && t.linkedCardId === card.id && t.date >= invoice.periodStart && t.date <= invoice.periodEnd)
-          .reduce((sum, t) => sum + t.amount, 0);
+      const storedInvoice = storedInvoices.find(
+        si => si.cardId === card.id && si.periodEnd === computedInvoice.periodEnd
+      );
 
-        const adjustedTotal = Math.max(0, invoice.total - paidToThisCard);
+      if (storedInvoice) {
+        if (storedInvoice.rotativoConverted) {
+          return { remainingAmount: 0, periodTotal: 0 };
+        }
+        return {
+          remainingAmount: storedInvoice.remainingAmount,
+          periodTotal: storedInvoice.total,
+        };
+      }
 
-        return { ...invoice, total: adjustedTotal, cardId: card.id };
-      })
-      .filter((inv): inv is NonNullable<typeof inv> => inv !== null && inv.total > 0);
+      const paidToThisCard = safeTx
+        .filter(t => t.isBillPayment && t.linkedCardId === card.id && t.date >= computedInvoice.periodStart && t.date <= computedInvoice.periodEnd)
+        .reduce((sum, t) => sum + t.amount, 0);
 
-    const virtualImpact = activeInvoices.reduce((sum, inv) => sum + inv.total, 0);
+      return {
+        remainingAmount: Math.max(0, computedInvoice.total - paidToThisCard),
+        periodTotal: computedInvoice.total,
+      };
+    });
+
+    const cardInvoiceRemaining = cardInvoicePressure.reduce((sum, c) => sum + c.remainingAmount, 0);
+    const rotativoDebtBalance = userDebts
+      .filter(d => d.originType === 'rotativo_cartao')
+      .reduce((sum, d) => sum + (d.saldoDevedor || 0), 0);
+    const cardFuturePressure = Math.max(0, totalCreditUsed - cardInvoiceRemaining - rotativoDebtBalance);
 
     const pendingBillItems = recurringBills.filter(
       (bill) => bill.isActive && !isBillPaid(bill, safeTx)
@@ -66,22 +88,26 @@ export function useSovereignSnapshot(
       accumulatedBalance: allTimeFlow.realBalance,
       accumulatedIncome: allTimeFlow.income,
       accumulatedExpenses: allTimeFlow.expenses,
-      virtualImpact,
+      virtualImpact: cardInvoiceRemaining,
       pendingBills: totalPendingBills,
       financialProfile: userMeta?.financialProfile,
       commandMode,
       income: flow.income,
       expenses: flow.expenses,
       monthlyAport: Math.max(0, flow.income - flow.expenses),
+      rotativoDebtBalance,
     });
 
     return {
       ...snapshot,
       totalPendingBills,
-      virtualImpact,
+      virtualImpact: cardInvoiceRemaining,
       commandMode,
       totalCreditUsed,
       totalDebtBalance,
+      cardInvoiceRemaining,
+      cardFuturePressure,
+      rotativoDebtBalance,
     };
-  }, [transactions, userCards, recurringBills, userDebts, userMeta, localCommandMode, refDate]);
+  }, [transactions, userCards, recurringBills, userDebts, storedInvoices, userMeta, localCommandMode, refDate]);
 }

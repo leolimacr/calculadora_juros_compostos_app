@@ -16,7 +16,7 @@ const CheckoutBridge: React.FC<CheckoutBridgeProps> = ({ stripeUrl }) => {
   }, [finalUrl]);
 
   return (
-    <div className="min-h-screen bg-[#020617] flex items-center justify-center p-6 text-white font-sans">
+    <div className="min-h-screen bg-surface-primary flex items-center justify-center p-6 text-slate-900 font-sans">
       <div className="w-full max-w-md text-center space-y-8 animate-in fade-in zoom-in duration-500">
         {/* Logos Container */}
         <div className="flex items-center justify-center gap-6">
@@ -27,11 +27,11 @@ const CheckoutBridge: React.FC<CheckoutBridgeProps> = ({ stripeUrl }) => {
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Ecossistema</span>
           </div>
           
-          <div className="h-px w-8 bg-slate-800" />
+          <div className="h-px w-8 bg-slate-200" />
           
           <div className="flex flex-col items-center gap-2">
-            <div className="w-16 h-16 bg-slate-800/50 border border-slate-700 rounded-2xl flex items-center justify-center">
-              <ShieldCheck size={32} className="text-slate-400" />
+            <div className="w-16 h-16 bg-slate-100 border border-slate-200 rounded-2xl flex items-center justify-center">
+              <ShieldCheck size={32} className="text-slate-500" />
             </div>
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Stripe Secure</span>
           </div>
@@ -40,7 +40,7 @@ const CheckoutBridge: React.FC<CheckoutBridgeProps> = ({ stripeUrl }) => {
         {/* Messaging */}
         <div className="space-y-3">
           <h1 className="text-2xl font-black tracking-tight">Preparando seu checkout seguro...</h1>
-          <p className="text-slate-400 text-sm leading-relaxed max-w-xs mx-auto">
+          <p className="text-slate-500 text-sm leading-relaxed max-w-xs mx-auto">
             Você será redirecionado para concluir sua assinatura em um ambiente protegido.
           </p>
         </div>
