@@ -32,19 +32,12 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createPortalSession = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const logger = __importStar(require("firebase-functions/logger"));
-const stripe_1 = __importDefault(require("stripe"));
 const firestore_1 = require("firebase-admin/firestore");
-const stripe = new stripe_1.default(process.env.STRIPE_SECRET_KEY ?? '', {
-    apiVersion: '2026-01-28.clover',
-    typescript: true,
-});
+const getStripe_1 = require("./src/lib/getStripe");
 const db = (0, firestore_1.getFirestore)();
 exports.createPortalSession = (0, https_1.onCall)(async (request) => {
     const auth = request.auth;
@@ -72,7 +65,7 @@ exports.createPortalSession = (0, https_1.onCall)(async (request) => {
     const { returnUrl } = request.data;
     const finalReturnUrl = returnUrl ?? 'https://app.financasproinvest.com.br/app/mais/pricing';
     try {
-        const session = await stripe.billingPortal.sessions.create({
+        const session = await (0, getStripe_1.getStripe)().billingPortal.sessions.create({
             customer: customerId,
             return_url: finalReturnUrl,
         });

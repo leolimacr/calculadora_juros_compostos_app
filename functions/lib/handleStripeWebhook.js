@@ -32,21 +32,14 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handleStripeWebhook = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const logger = __importStar(require("firebase-functions/logger"));
 const firestore_1 = require("firebase-admin/firestore");
-const stripe_1 = __importDefault(require("stripe"));
 const normalizeSubscription_1 = require("./src/helpers/normalizeSubscription");
 const computeEntitlements_1 = require("./src/helpers/computeEntitlements");
-const stripe = new stripe_1.default(process.env.STRIPE_SECRET_KEY ?? '', {
-    apiVersion: '2026-01-28.clover',
-    typescript: true,
-});
+const getStripe_1 = require("./src/lib/getStripe");
 const db = (0, firestore_1.getFirestore)();
 async function isEventProcessed(eventId) {
     const doc = await db.collection('_stripeEvents').doc(eventId).get();
@@ -64,7 +57,7 @@ async function resolveUserIdFromCustomer(customer) {
         return null;
     const customerId = typeof customer === 'string' ? customer : customer.id;
     try {
-        const c = await stripe.customers.retrieve(customerId);
+        const c = await (0, getStripe_1.getStripe)().customers.retrieve(customerId);
         return c.deleted ? null : c.metadata?.userId ?? null;
     }
     catch {
@@ -145,7 +138,7 @@ async function handleInvoiceEvent(invoice, eventType, eventId) {
     let userId = typeof sub !== 'string' ? sub.metadata?.userId ?? null : null;
     if (!userId) {
         try {
-            const fullSub = await stripe.subscriptions.retrieve(subscriptionId);
+            const fullSub = await (0, getStripe_1.getStripe)().subscriptions.retrieve(subscriptionId);
             userId = fullSub.metadata?.userId ?? await resolveUserIdFromCustomer(fullSub.customer);
         }
         catch {
@@ -178,7 +171,7 @@ exports.handleStripeWebhook = (0, https_1.onRequest)(async (req, res) => {
     }
     let event;
     try {
-        event = stripe.webhooks.constructEvent(req.rawBody, sig, webhookSecret);
+        event = (0, getStripe_1.getStripe)().webhooks.constructEvent(req.rawBody, sig, webhookSecret);
     }
     catch (err) {
         const message = err instanceof Error ? err.message : 'Invalid signature';

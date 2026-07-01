@@ -32,20 +32,13 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createCheckoutSession = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const logger = __importStar(require("firebase-functions/logger"));
-const stripe_1 = __importDefault(require("stripe"));
 const firestore_1 = require("firebase-admin/firestore");
 const prices_1 = require("./src/config/prices");
-const stripe = new stripe_1.default(process.env.STRIPE_SECRET_KEY ?? '', {
-    apiVersion: '2026-01-28.clover',
-    typescript: true,
-});
+const getStripe_1 = require("./src/lib/getStripe");
 const db = (0, firestore_1.getFirestore)();
 async function getOrCreateCustomer(uid, email) {
     const snapshot = await db.collection('stripeCustomers')
@@ -55,7 +48,7 @@ async function getOrCreateCustomer(uid, email) {
     if (!snapshot.empty) {
         return snapshot.docs[0].id;
     }
-    const customer = await stripe.customers.create({
+    const customer = await (0, getStripe_1.getStripe)().customers.create({
         email: email ?? undefined,
         metadata: { userId: uid },
     });
@@ -86,7 +79,7 @@ exports.createCheckoutSession = (0, https_1.onCall)(async (request) => {
     const priceId = (0, prices_1.resolvePriceId)(planId, isProd);
     const mapping = (0, prices_1.resolvePriceMapping)(priceId);
     try {
-        const session = await stripe.checkout.sessions.create({
+        const session = await (0, getStripe_1.getStripe)().checkout.sessions.create({
             mode: 'subscription',
             line_items: [{ price: priceId, quantity: 1 }],
             customer: customerId,

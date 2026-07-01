@@ -1,5 +1,5 @@
 import React from 'react';
-import { Browser } from '@capacitor/browser';
+import { useNavigate } from 'react-router-dom';
 import { TrendingUp, Target, X, ChevronRight, Sparkles, LayoutGrid, Brain, Crown, BarChart3, FileText, Shield } from 'lucide-react';
 import { useEntitlement } from '../hooks/useEntitlement';
 
@@ -190,6 +190,7 @@ interface PaywallModalProps {
 }
 
 export default function PaywallModal({ open, onClose, feature }: PaywallModalProps) {
+  const navigate = useNavigate();
   const { effectiveTier } = useEntitlement();
 
   if (!open) return null;
@@ -237,7 +238,7 @@ export default function PaywallModal({ open, onClose, feature }: PaywallModalPro
 
         <div className="px-6 pb-6 space-y-3">
           <button
-            onClick={() => Browser.open({ url: 'https://financasproinvest.com.br/pricing' })}
+            onClick={() => navigate('/app/mais/pricing')}
             className="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-black py-3.5 px-6 rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 uppercase text-xs tracking-widest"
           >
             {context.cta} <ChevronRight size={16} />

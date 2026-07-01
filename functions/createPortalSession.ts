@@ -1,12 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
-import Stripe from 'stripe';
 import { getFirestore } from 'firebase-admin/firestore';
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', {
-  apiVersion: '2026-01-28.clover',
-  typescript: true,
-});
+import { getStripe } from './src/lib/getStripe';
 
 const db = getFirestore();
 
@@ -41,7 +36,7 @@ export const createPortalSession = onCall(async (request) => {
   const finalReturnUrl = returnUrl ?? 'https://app.financasproinvest.com.br/app/mais/pricing';
 
   try {
-    const session = await stripe.billingPortal.sessions.create({
+    const session = await getStripe().billingPortal.sessions.create({
       customer: customerId,
       return_url: finalReturnUrl,
     });

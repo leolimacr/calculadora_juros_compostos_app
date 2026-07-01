@@ -35,7 +35,7 @@ const CheckoutCancelPage: React.FC = () => {
           </button>
           
           <button
-            onClick={() => navigate('/pricing')}
+            onClick={() => navigate('/app/mais/pricing')}
             className="flex items-center justify-center gap-2 bg-transparent hover:bg-slate-100 text-emerald-600 px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95"
           >
             <Ticket size={16} />

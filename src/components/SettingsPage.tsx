@@ -12,6 +12,7 @@ import { deleteUser } from 'firebase/auth';
 import { httpsCallable } from 'firebase/functions';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useFirebase } from '../hooks/useFirebase';
 import { useEntitlement } from '../hooks/useEntitlement';
@@ -22,6 +23,7 @@ import CommandCalibration from './tools/nexus/CommandCalibration';
 import { seedPersonaFromIntent } from '../services/personaService';
 
 const SettingsPage: React.FC<any> = ({ onBack }) => {
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { userMeta, saveFinancialProfile, wipeUserData } = useFirebase(user?.uid);
   const { effectiveTier, billingStatus, loading: billingLoading } = useEntitlement();
@@ -324,7 +326,7 @@ const SettingsPage: React.FC<any> = ({ onBack }) => {
               </div>
             </div>
             <button
-              onClick={() => handleOpenExternal('/pricing')}
+              onClick={() => navigate('/app/mais/pricing')}
               className="text-[10px] font-black text-sky-600 bg-sky-50 px-4 py-2 rounded-xl uppercase tracking-widest flex items-center gap-2 border border-sky-200 hover:bg-sky-100 transition-all"
             >
               Ver planos <ExternalLink size={12} />

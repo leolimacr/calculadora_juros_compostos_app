@@ -71,12 +71,13 @@ async function backfill() {
             }
             withSubscription++;
             const planId = sub.planId;
+            const legacyPlan = data.plan;
             const subStatus = sub.status;
             const currentPeriodEnd = sub.currentPeriodEnd ?? null;
             const subActive = subStatus === 'active' || subStatus === 'trialing';
-            const resolved = resolveLegacyPlan(planId, subActive);
+            const resolved = resolveLegacyPlan(planId ?? legacyPlan, subActive);
             if (resolved === 'block') {
-                blockedUsers.push({ uid: userId, planId, subActive });
+                blockedUsers.push({ uid: userId, planId, legacyPlan, subActive });
                 blocked++;
                 continue;
             }
@@ -129,7 +130,7 @@ async function backfill() {
         console.log('');
         console.log('BLOCKED USERS:');
         for (const bu of blockedUsers) {
-            console.log(`  UID: ${bu.uid}  —  planId="${bu.planId ?? '(none)'}"  —  active=${bu.subActive}`);
+            console.log(`  UID: ${bu.uid}  —  planId="${bu.planId ?? '(none)'}"  —  legacyPlan="${bu.legacyPlan ?? '(none)'}"  —  active=${bu.subActive}`);
         }
     }
     console.log('');

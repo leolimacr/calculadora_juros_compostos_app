@@ -1,13 +1,8 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
-import Stripe from 'stripe';
 import { getFirestore } from 'firebase-admin/firestore';
 import { resolvePriceId, resolvePriceMapping, PLAN_IDS, type PlanId } from './src/config/prices';
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', {
-  apiVersion: '2026-01-28.clover',
-  typescript: true,
-});
+import { getStripe } from './src/lib/getStripe';
 
 const db = getFirestore();
 
@@ -21,7 +16,7 @@ async function getOrCreateCustomer(uid: string, email: string | null): Promise<s
     return snapshot.docs[0].id;
   }
 
-  const customer = await stripe.customers.create({
+  const customer = await getStripe().customers.create({
     email: email ?? undefined,
     metadata: { userId: uid },
   });
@@ -65,7 +60,7 @@ export const createCheckoutSession = onCall(async (request) => {
   const mapping = resolvePriceMapping(priceId);
 
   try {
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
       customer: customerId,

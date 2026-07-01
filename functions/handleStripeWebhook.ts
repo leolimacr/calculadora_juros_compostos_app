@@ -5,11 +5,7 @@ import Stripe from 'stripe';
 
 import { normalizeSubscription, normalizeDeletedSubscription, type NormalizedBillingData } from './src/helpers/normalizeSubscription';
 import { computeEntitlements } from './src/helpers/computeEntitlements';
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', {
-  apiVersion: '2026-01-28.clover',
-  typescript: true,
-});
+import { getStripe } from './src/lib/getStripe';
 
 const db = getFirestore();
 
@@ -34,7 +30,7 @@ async function resolveUserIdFromCustomer(customer: string | Stripe.Customer | St
   if (!customer) return null;
   const customerId = typeof customer === 'string' ? customer : customer.id;
   try {
-    const c = await stripe.customers.retrieve(customerId);
+    const c = await getStripe().customers.retrieve(customerId);
     return c.deleted ? null : (c as Stripe.Customer).metadata?.userId ?? null;
   } catch {
     return null;
@@ -146,7 +142,7 @@ async function handleInvoiceEvent(
   let userId = typeof sub !== 'string' ? sub.metadata?.userId ?? null : null;
   if (!userId) {
     try {
-      const fullSub = await stripe.subscriptions.retrieve(subscriptionId);
+      const fullSub = await getStripe().subscriptions.retrieve(subscriptionId);
       userId = fullSub.metadata?.userId ?? await resolveUserIdFromCustomer(fullSub.customer);
     } catch {
       return;
@@ -186,7 +182,7 @@ export const handleStripeWebhook = onRequest(async (req, res) => {
 
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(req.rawBody, sig, webhookSecret);
+    event = getStripe().webhooks.constructEvent(req.rawBody, sig, webhookSecret);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Invalid signature';
     logger.error(`Stripe webhook signature verification failed: ${message}`);

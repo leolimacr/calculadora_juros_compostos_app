@@ -6,7 +6,7 @@ interface CheckoutBridgeProps {
 }
 
 const CheckoutBridge: React.FC<CheckoutBridgeProps> = ({ stripeUrl }) => {
-  const finalUrl = stripeUrl || 'https://financasproinvest.com.br/pricing';
+  const finalUrl = stripeUrl || '/app/mais/pricing';
 
   useEffect(() => {
     const timer = setTimeout(() => {

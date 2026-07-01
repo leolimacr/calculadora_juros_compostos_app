@@ -1,5 +1,5 @@
 import React from 'react';
-import { Browser } from '@capacitor/browser';
+import { useNavigate } from 'react-router-dom';
 import {
   Zap, TrendingUp, Target, MessageSquare,
   Bell, BarChart2, Lock, ChevronRight, CheckCircle2
@@ -51,6 +51,7 @@ const FEATURE_ICONS = [
 ];
 
 export default function UpgradePage() {
+  const navigate = useNavigate();
   return (
     <div className="w-full max-w-2xl mx-auto px-4 py-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
@@ -117,7 +118,7 @@ export default function UpgradePage() {
             </ul>
 
             <button
-              onClick={() => Browser.open({ url: 'https://financasproinvest.com.br/pricing' })}
+              onClick={() => navigate('/app/mais/pricing')}
               className={`w-full py-3.5 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${
                 plan.highlight
                   ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20'
