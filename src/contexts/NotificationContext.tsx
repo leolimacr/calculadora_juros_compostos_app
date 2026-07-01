@@ -6,8 +6,10 @@ import { useAuth } from './AuthContext';
 
 export interface NexusEvent {
   id: string;
+  eventType?: string;
   message: { title: string; body: string; ctaLabel?: string };
   deepLink?: string;
+  resourceId?: string;
   urgency?: 'high' | 'medium' | 'low';
   createdAt?: any;
   read?: boolean;

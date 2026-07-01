@@ -41,25 +41,12 @@ const https_1 = require("firebase-functions/v2/https");
 const logger = __importStar(require("firebase-functions/logger"));
 const stripe_1 = __importDefault(require("stripe"));
 const firestore_1 = require("firebase-admin/firestore");
+const prices_1 = require("./src/config/prices");
 const stripe = new stripe_1.default(process.env.STRIPE_SECRET_KEY ?? '', {
     apiVersion: '2026-01-28.clover',
     typescript: true,
 });
 const db = (0, firestore_1.getFirestore)();
-const PRICE_IDS = {
-    pro_monthly: {
-        test: 'price_pro_test',
-        prod: 'price_pro_prod',
-    },
-    premium_monthly: {
-        test: 'price_premium_test',
-        prod: 'price_premium_prod',
-    },
-    premium_annual: {
-        test: 'price_premium_annual_test',
-        prod: 'price_premium_annual_prod',
-    },
-};
 async function getOrCreateCustomer(uid, email) {
     const snapshot = await db.collection('stripeCustomers')
         .where('uid', '==', uid)
@@ -86,20 +73,18 @@ exports.createCheckoutSession = (0, https_1.onCall)(async (request) => {
     }
     const uid = auth.uid;
     const { planId, successUrl, cancelUrl } = request.data;
-    if (!planId || !PRICE_IDS[planId]) {
-        throw new https_1.HttpsError('invalid-argument', `Invalid planId. Must be one of: ${Object.keys(PRICE_IDS).join(', ')}`);
+    if (!planId || !prices_1.PLAN_IDS.includes(planId)) {
+        throw new https_1.HttpsError('invalid-argument', `Invalid planId. Must be one of: ${prices_1.PLAN_IDS.join(', ')}`);
     }
     if (!successUrl || !cancelUrl) {
         throw new https_1.HttpsError('invalid-argument', 'successUrl and cancelUrl are required');
     }
     const email = auth.token?.email ?? null;
     const customerId = await getOrCreateCustomer(uid, email);
-    const priceIdKey = planId;
     const isProd = process.env.NODE_ENV === 'production'
         || process.env.FUNCTIONS_EMULATOR === undefined;
-    const priceId = isProd
-        ? PRICE_IDS[priceIdKey].prod
-        : PRICE_IDS[priceIdKey].test;
+    const priceId = (0, prices_1.resolvePriceId)(planId, isProd);
+    const mapping = (0, prices_1.resolvePriceMapping)(priceId);
     try {
         const session = await stripe.checkout.sessions.create({
             mode: 'subscription',
@@ -107,7 +92,11 @@ exports.createCheckoutSession = (0, https_1.onCall)(async (request) => {
             customer: customerId,
             client_reference_id: uid,
             subscription_data: {
-                metadata: { userId: uid },
+                metadata: {
+                    userId: uid,
+                    tier: mapping?.tier ?? 'pro',
+                    billingCycle: mapping?.billingCycle ?? 'monthly',
+                },
             },
             success_url: successUrl,
             cancel_url: cancelUrl,

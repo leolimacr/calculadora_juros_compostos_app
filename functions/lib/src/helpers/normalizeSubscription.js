@@ -14,7 +14,7 @@ const STRIPE_STATUS_MAP = {
     unpaid: 'expired',
     paused: 'canceled',
 };
-function normalizeSubscription(subscription, userId) {
+function normalizeSubscription(subscription, _userId) {
     const now = firestore_1.Timestamp.now();
     const rawStatus = subscription.status ?? null;
     const normalizedStatus = rawStatus ? (STRIPE_STATUS_MAP[rawStatus] ?? null) : null;
@@ -61,12 +61,33 @@ function normalizeSubscription(subscription, userId) {
     };
 }
 function normalizeDeletedSubscription(subscription) {
+    const now = firestore_1.Timestamp.now();
+    const rawStatus = subscription.status ?? null;
+    const priceId = subscription.items?.data?.[0]?.price?.id ?? null;
+    const priceMapping = priceId ? (0, prices_1.resolvePriceMapping)(priceId) : null;
+    const itemsData = subscription.items?.data?.[0];
+    let currentPeriodEnd = null;
+    if (itemsData?.current_period_end) {
+        currentPeriodEnd = firestore_1.Timestamp.fromMillis(itemsData.current_period_end * 1000);
+    }
+    const metadataTier = subscription.metadata?.tier;
+    const metadataCycle = subscription.metadata?.billingCycle;
+    const tier = metadataTier ?? priceMapping?.tier ?? 'free';
+    const billingCycle = metadataCycle ?? priceMapping?.billingCycle ?? null;
     return {
-        tier: 'free',
+        tier,
         status: 'canceled',
-        billingCycle: null,
-        providerStatusRaw: subscription.status ?? null,
-        updatedAt: firestore_1.Timestamp.now(),
+        billingCycle,
+        currentPeriodStart: null,
+        currentPeriodEnd,
+        trialEnd: null,
+        canceledAt: now,
+        provider: 'stripe',
+        providerCustomerId: (typeof subscription.customer === 'string' ? subscription.customer : subscription.customer?.id) ?? null,
+        providerSubscriptionId: subscription.id,
+        providerPriceId: priceId,
+        providerStatusRaw: rawStatus,
+        updatedAt: now,
     };
 }
 //# sourceMappingURL=normalizeSubscription.js.map

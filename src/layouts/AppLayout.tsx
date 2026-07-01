@@ -20,6 +20,9 @@ import { useNexusEventBridge } from '../hooks/useNexusEventBridge';
 import { useInvoiceSync } from '../hooks/useInvoiceSync';
 import { clearEventInsightStore } from '../services/eventInsightStore';
 import type { NexusAdvisoryContext } from '../services/nexusInsightEngine';
+import { useBills } from '../hooks/useBills';
+import { addPaidRecurringBillTransaction } from '../services/transactionService';
+import { PresenceEventService } from '../services/PresenceEventService';
 
 import AppOnlyBlock from '../components/AppOnlyBlock';
 import AppDesktopNav from '../components/AppDesktopNav';
@@ -63,6 +66,7 @@ const AppLayoutInner: React.FC<AppLayoutProps> = ({ state }) => {
   useEventSubscriptions(user?.uid);
   useNexusEventBridge(user?.uid, userMeta?.persona?.archetype);
   useInvoiceSync(lancamentos);
+  const { bills: recurringBills } = useBills(user?.uid);
 
   // Clean event insight store when session is lost (logout, token expiry, account switch)
   React.useEffect(() => {
@@ -119,6 +123,26 @@ const AppLayoutInner: React.FC<AppLayoutProps> = ({ state }) => {
     nextStep();
   };
 
+  const handleMarkBillAsPaid = React.useCallback(async (billId: string) => {
+    if (!user) return;
+
+    const bill = recurringBills.find((item) => item.id === billId && item.isActive);
+    if (!bill) return;
+
+    const now = new Date();
+    if (bill.lastPaidDate) {
+      const lastPaid = new Date(bill.lastPaidDate);
+      if (lastPaid.getFullYear() === now.getFullYear() && lastPaid.getMonth() === now.getMonth()) {
+        addToast(`A conta ${bill.name} já foi marcada como paga neste mês.`, 'warning');
+        return;
+      }
+    }
+
+    await addPaidRecurringBillTransaction(user.uid, bill);
+    await PresenceEventService.markRecurringBillActioned(user.uid, bill.id);
+    handleNavigate('manager');
+  }, [user, recurringBills, addToast, handleNavigate]);
+
   return (
     <div className="min-h-screen bg-surface-secondary text-text-primary flex flex-col font-sans animate-in fade-in duration-300">
       <AppHeader
@@ -170,6 +194,7 @@ const AppLayoutInner: React.FC<AppLayoutProps> = ({ state }) => {
         isOpen={isNotificationsOpen}
         onClose={() => setIsNotificationsOpen(false)}
         onNavigate={handleNavigate}
+        onMarkBillAsPaid={handleMarkBillAsPaid}
       />
 
       <ContentModal

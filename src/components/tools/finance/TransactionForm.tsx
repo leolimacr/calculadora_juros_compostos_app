@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FolderPlus } from 'lucide-react';
+import { FolderPlus, RefreshCw } from 'lucide-react';
 import CategoryManager from './CategoryManager';
 import CardManager from './CardManager';
 import type { Transaction, Category, CreditCard } from '../../../types';
@@ -7,6 +7,7 @@ import { useDebts } from '../../../hooks/useDebts';
 import { getFlowLabels, FPI_COPY } from '../../../theme/fpiVoiceGuide';
 import NexusInlineAdvisor from './NexusInlineAdvisor';
 import { getCards } from '../../../services/cardService';
+import { addRecurringBill } from '../../../services/billService';
 import { useAuth } from '../../../contexts/AuthContext';
 
 interface TransactionFormProps {
@@ -50,6 +51,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
+  const [isRecurring, setIsRecurring] = useState(false);
 
   // NOVO: Integração Reativa com Dívidas (Assisted Amortization)
   const { debts: activeDebts } = useDebts(user?.uid);
@@ -90,6 +92,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     setPaymentMethod(initialData?.paymentMethod || 'money');
     setCardId(initialData?.cardId || '');
     setInstallments(initialData?.installments || 1);
+    setIsRecurring(false);
 
     // Auto-focus amount if requested
     if (initialData?.autoFocusAmount && !isLocked) {
@@ -163,6 +166,18 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       installments: paymentMethod === 'credit' ? installments : 1,
       linkedDebtId: showDebtSelector ? linkedDebtId : null
     });
+
+    if (isRecurring && user?.uid && type === 'expense' && !initialData?.id) {
+      const dueDay = date ? parseInt(date.split('-')[2], 10) : new Date().getDate();
+      await addRecurringBill(user.uid, {
+        name: description.trim(),
+        amount: numericAmount,
+        dueDay,
+        category,
+        type: 'fixed',
+        isActive: true,
+      });
+    }
   };
 
   const voice = getFlowLabels(nexusAdvisoryContext?.commandMode);
@@ -377,6 +392,35 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           </div>
         )}
         
+        {type === 'expense' && !initialData?.id && !isLocked && (
+          <div className="flex items-center justify-between p-4 rounded-2xl border border-surface-elevated bg-surface-secondary">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-brand-primary/10 text-brand-primary">
+                <RefreshCw size={16} />
+              </div>
+              <div>
+                <p className="text-xs font-black text-text-primary uppercase tracking-widest">Repetir todo mês</p>
+                <p className="text-[9px] text-text-muted font-medium">Cria uma conta fixa com os mesmos dados</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isRecurring}
+              onClick={() => setIsRecurring(!isRecurring)}
+              className={`relative w-12 h-6 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 ${
+                isRecurring ? 'bg-brand-primary' : 'bg-slate-200'
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-200 ${
+                  isRecurring ? 'translate-x-6' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+        )}
+
         <button 
           type="button"
           onClick={() => setIsCategoryModalOpen(true)}

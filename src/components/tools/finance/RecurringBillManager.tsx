@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Calendar, CreditCard, RefreshCw, Check, Clock } from 'lucide-react';
+import { X, Plus, Trash2, Calendar, CreditCard, RefreshCw, Check, Clock, ChevronDown } from 'lucide-react';
 import { addRecurringBill, getRecurringBills, updateRecurringBill, deleteRecurringBill } from '../../../services/billService';
 import type { RecurringBill, Category } from '../../../types';
 
@@ -19,6 +19,7 @@ const RecurringBillManager: React.FC<RecurringBillManagerProps> = ({ isOpen, onC
   const [type, setType] = useState<'fixed' | 'subscription'>('fixed');
   const [isAdding, setIsAdding] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [formExpanded, setFormExpanded] = useState(true);
 
   useEffect(() => {
     if (isOpen && userId) {
@@ -28,6 +29,12 @@ const RecurringBillManager: React.FC<RecurringBillManagerProps> = ({ isOpen, onC
       setCategory(categories[0].name);
     }
   }, [isOpen, userId, categories]);
+
+  useEffect(() => {
+    if (!isLoading) {
+      setFormExpanded(bills.length === 0);
+    }
+  }, [isLoading]);
 
   const loadBills = async () => {
     setIsLoading(true);
@@ -105,80 +112,95 @@ const RecurringBillManager: React.FC<RecurringBillManagerProps> = ({ isOpen, onC
             </p>
           </div>
 
-          {/* Formulário de Adição */}
+          {/* Formulário de Adição — colapsável quando já existem contas */}
           <div className="space-y-4 bg-surface-secondary/30 p-4 rounded-3xl border border-surface-elevated">
-            <p className="text-[10px] font-black text-text-muted uppercase tracking-widest ml-1">Novo Compromisso</p>
-            
-            <div className="flex bg-surface-primary p-1 rounded-2xl border border-surface-elevated mb-2">
-              <button 
-                onClick={() => setType('fixed')} 
-                className={`flex-1 py-2 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all ${type === 'fixed' ? 'bg-surface-elevated text-text-primary shadow-soft' : 'text-text-muted'}`}
-              >
-                Conta Fixa
-              </button>
-              <button 
-                onClick={() => setType('subscription')} 
-                className={`flex-1 py-2 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all ${type === 'subscription' ? 'bg-surface-elevated text-text-primary shadow-soft' : 'text-text-muted'}`}
-              >
-                Assinatura
-              </button>
-            </div>
+            <button
+              onClick={() => setFormExpanded((prev) => !prev)}
+              className="w-full flex items-center justify-between text-left"
+            >
+              <p className="text-[10px] font-black text-text-muted uppercase tracking-widest">Novo Compromisso</p>
+              {bills.length > 0 && (
+                <ChevronDown
+                  size={16}
+                  className={`text-text-muted transition-transform duration-200 ${formExpanded ? '' : '-rotate-90'}`}
+                />
+              )}
+            </button>
 
-            <div className="space-y-3">
-              <input
-                type="text"
-                placeholder="Nome (ex: Aluguel, Netflix)"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full bg-surface-primary p-4 rounded-2xl text-text-primary font-medium outline-none border border-surface-elevated focus:border-brand-primary text-sm shadow-sm"
-              />
-              
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Valor Mensal</label>
-                  <input
-                    type="number"
-                    placeholder="R$ 0,00"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    className="w-full bg-surface-primary p-3 rounded-xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary text-xs"
-                  />
+            {formExpanded && (
+              <>
+                <div className="flex bg-surface-primary p-1 rounded-2xl border border-surface-elevated mb-2">
+                  <button 
+                    onClick={() => setType('fixed')} 
+                    className={`flex-1 py-2 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all ${type === 'fixed' ? 'bg-surface-elevated text-text-primary shadow-soft' : 'text-text-muted'}`}
+                  >
+                    Conta Fixa
+                  </button>
+                  <button 
+                    onClick={() => setType('subscription')} 
+                    className={`flex-1 py-2 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all ${type === 'subscription' ? 'bg-surface-elevated text-text-primary shadow-soft' : 'text-text-muted'}`}
+                  >
+                    Assinatura
+                  </button>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Dia Vencimento</label>
+
+                <div className="space-y-3">
                   <input
-                    type="number"
-                    min="1"
-                    max="31"
-                    placeholder="Ex: 10"
-                    value={dueDay}
-                    onChange={(e) => setDueDay(e.target.value)}
-                    className="w-full bg-surface-primary p-3 rounded-xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary text-xs"
+                    type="text"
+                    placeholder="Nome (ex: Aluguel, Netflix)"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full bg-surface-primary p-4 rounded-2xl text-text-primary font-medium outline-none border border-surface-elevated focus:border-brand-primary text-sm shadow-sm"
                   />
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Valor Mensal</label>
+                      <input
+                        type="number"
+                        placeholder="R$ 0,00"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        className="w-full bg-surface-primary p-3 rounded-xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Dia Vencimento</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="31"
+                        placeholder="Ex: 10"
+                        value={dueDay}
+                        onChange={(e) => setDueDay(e.target.value)}
+                        className="w-full bg-surface-primary p-3 rounded-xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Categoria</label>
+                    <select
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      className="w-full bg-surface-primary p-3 rounded-xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary text-xs appearance-none"
+                    >
+                      {categories.filter(c => c.type === 'expense').map(cat => (
+                        <option key={cat.id || cat.name} value={cat.name}>{cat.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <button
+                    onClick={handleAdd}
+                    disabled={isAdding || !name.trim() || !amount || !dueDay}
+                    className="w-full py-4 bg-brand-primary text-text-onBrand rounded-2xl shadow-brand-glow active:scale-95 disabled:opacity-50 transition-all font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2"
+                  >
+                    <Plus size={16} /> Adicionar Compromisso
+                  </button>
                 </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Categoria</label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full bg-surface-primary p-3 rounded-xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary text-xs appearance-none"
-                >
-                  {categories.filter(c => c.type === 'expense').map(cat => (
-                    <option key={cat.id || cat.name} value={cat.name}>{cat.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <button
-                onClick={handleAdd}
-                disabled={isAdding || !name.trim() || !amount || !dueDay}
-                className="w-full py-4 bg-brand-primary text-text-onBrand rounded-2xl shadow-brand-glow active:scale-95 disabled:opacity-50 transition-all font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2"
-              >
-                <Plus size={16} /> Adicionar Compromisso
-              </button>
-            </div>
+              </>
+            )}
           </div>
 
           {/* Lista de Contas */}

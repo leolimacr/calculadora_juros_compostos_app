@@ -38,6 +38,13 @@ const Dashboard: React.FC<any> = (props) => {
     [state.currentBudget, state.safeTransactions],
   );
 
+  const totalOutstandingCredit = state.activeInvoices.reduce(
+    (sum, inv: any) => {
+      if (inv.storedStatus === 'paid') return sum;
+      return sum + Math.max(0, inv.storedRemaining || inv.total || 0);
+    }, 0
+  );
+
   if (state.showSkeleton) {
     return <DashboardSkeleton />;
   }
@@ -100,8 +107,10 @@ const Dashboard: React.FC<any> = (props) => {
         <BalanceCards
           isPrivacyMode={state.isPrivacyMode}
           commandMode={state.commandMode}
+          hasHistoryAccess={state.hasHistoryAccess}
           stats={state.stats}
           totalPendingBills={state.totalPendingBills}
+          totalOutstandingCredit={totalOutstandingCredit}
           projectedBalance={state.projectedBalance}
           freeBalance={state.stats.freeBalance}
         />

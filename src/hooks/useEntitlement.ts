@@ -1,13 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { firestore } from '../firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import type { BillingDoc, BillingTier, BillingStatus } from '../types/billing';
 import type { EntitlementKey } from '../config/featureAccessMatrix';
 import {
   getEffectiveTier,
   hasFeature as checkFeatureFn,
   getUsageLimit as getUsageLimitFn,
+  getDisplayLabel,
 } from '../config/featureAccessMatrix';
 
 export function useEntitlement() {
@@ -30,16 +31,39 @@ export function useEntitlement() {
 
     const unsubBilling = onSnapshot(
       billingDocRef,
-      (snapshot) => {
+      async (snapshot) => {
         if (snapshot.exists()) {
           const data = snapshot.data() as BillingDoc;
           setBilling({ tier: data.tier, status: data.status });
           setEffectiveTier(getEffectiveTier(data.tier, data.status));
           setBillingStatus(data.status);
         } else {
-          setEffectiveTier('free');
-          setBillingStatus(null);
-          setBilling(null);
+          // Fallback: ler campos legados do documento do usuário
+          // O sistema antigo escrevia plan (top-level) e subscription.status
+          // (handleCheckoutCompleted em functions/lib/index.js)
+          const userDocRef = doc(firestore, 'users', user.uid);
+          const userSnap = await getDoc(userDocRef);
+          if (userSnap.exists()) {
+            const userData = userSnap.data();
+            const legacyPlan = userData?.plan as string | undefined;
+            const subStatus = (userData?.subscription as Record<string, unknown> | undefined)?.status as string | undefined;
+            const subActive = subStatus === 'active' || subStatus === 'trialing';
+
+            if (legacyPlan && legacyPlan !== 'free' && subActive) {
+              const legacyTier = legacyPlan === 'premium' ? 'premium' : 'pro';
+              setBilling({ tier: legacyTier, status: subStatus as BillingStatus });
+              setEffectiveTier(legacyTier);
+              setBillingStatus(subStatus as BillingStatus);
+            } else {
+              setEffectiveTier('free');
+              setBillingStatus(null);
+              setBilling(null);
+            }
+          } else {
+            setEffectiveTier('free');
+            setBillingStatus(null);
+            setBilling(null);
+          }
         }
         setLoading(false);
       },
@@ -72,10 +96,23 @@ export function useEntitlement() {
     [billing],
   );
 
+  const isFree = effectiveTier === 'free';
+  const isPro = effectiveTier !== 'free';
+  const isPremium = effectiveTier === 'premium';
+
+  const displayLabel = useMemo(() => {
+    const tier = billing?.tier ?? 'free';
+    return getDisplayLabel(tier, billingStatus);
+  }, [billing, billingStatus]);
+
   return {
     loading,
     effectiveTier,
     billingStatus,
+    isFree,
+    isPro,
+    isPremium,
+    displayLabel,
     hasFeature,
     getUsageLimit: getLimit,
   };

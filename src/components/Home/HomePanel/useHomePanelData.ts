@@ -6,6 +6,7 @@ import { useWealthData } from '../../hooks/useWealthData';
 import { buildUserContext, getPrioritizedInsight, dismissPrioritizedInsight } from '../../services/nexusInsightEngine';
 import { isCommandMode } from '../../services/personaCalibrationService';
 import { useSovereignSnapshot } from '../../hooks/useSovereignSnapshot';
+import { useEntitlement } from '../../../hooks/useEntitlement';
 import type { Transaction } from '../../types';
 
 export const useHomePanelData = (
@@ -16,6 +17,7 @@ export const useHomePanelData = (
   const now = useMemo(() => new Date(), []);
   const safeTx = useMemo(() => Array.isArray(transactions) ? transactions : [], [transactions]);
   const userId = safeTx.length > 0 ? safeTx[0]?.userId : null;
+  const { isPremium } = useEntitlement();
 
   const { event: serverEvent, dismiss } = useNexusEvents();
   const { data: debts = [] } = useDebts(userId || undefined);
@@ -42,7 +44,7 @@ export const useHomePanelData = (
       hasFinancialProfile: !!userMeta?.financialProfile,
       financialProfile: userMeta?.financialProfile,
       hasPaidAccess: hasPaidAccess,
-      isPremium: !!userMeta?.isPremium,
+      isPremium,
       persona: userMeta?.persona,
       transactionsToday: txToday,
       daysSinceLastTransaction: daysSince,

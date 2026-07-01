@@ -1,5 +1,6 @@
 import React from 'react';
 import { ChevronRight } from 'lucide-react';
+import { useEntitlement } from '../../../hooks/useEntitlement';
 import DailyStatus from '../DailyStatus';
 import ActiveReservesCard from '../ActiveReservesCard';
 import QuickCategoryShortcuts from '../QuickCategoryShortcuts';
@@ -25,12 +26,13 @@ const HomeMainColumn: React.FC<HomeMainColumnProps> = ({
   nexusReserves,
   contextualEvent,
   userId,
-  userMeta,
   hasPaidAccess,
   onNavigate,
   onOpenForm,
   onDismissInsight,
 }) => {
+  const { isPremium } = useEntitlement();
+
   const handleAdd = () => {
     onOpenForm();
   };
@@ -87,7 +89,7 @@ const HomeMainColumn: React.FC<HomeMainColumnProps> = ({
       <NexusInsightCard
         event={contextualEvent as any}
         userId={userId || ''}
-        userPlan={userMeta?.isPremium ? 'premium' : hasPaidAccess ? 'pro' : 'free'}
+        userPlan={isPremium ? 'premium' : hasPaidAccess ? 'pro' : 'free'}
         onDismiss={onDismissInsight}
         onNavigate={handleInsightNavigate}
       />

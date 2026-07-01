@@ -1,6 +1,7 @@
 import type React from 'react';
 import { useState, useEffect, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
+import { LocalNotifications } from '@capacitor/local-notifications';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { firestore } from '../firebase';
@@ -11,6 +12,8 @@ import { useAppSecurity } from './useAppSecurity';
 import { useNavigation } from './useNavigation';
 import { useReengagementTrigger } from './useReengagementTrigger';
 import { NotificationService } from '../services/NotificationService';
+import { addPaidRecurringBillTransaction } from '../services/transactionService';
+import { PresenceEventService } from '../services/PresenceEventService';
 import type { UserContext, NexusInsight } from '../services/nexusInsightEngine';
 import { getPrioritizedInsight } from '../services/nexusInsightEngine';
 import { clearEventInsightStore } from '../services/eventInsightStore';
@@ -18,6 +21,7 @@ import type { Transaction, Category, UserMeta } from '../types';
 import type { DebtItem } from '../services/debt/debt.types';
 import { getConsecutiveDays } from '../utils/streakUtils';
 import { useDebts } from './useDebts';
+import { useBills } from './useBills';
 
 export interface AppState {
   user: ReturnType<typeof useAuth>['user'];
@@ -127,13 +131,14 @@ export function useAppState(): AppState {
   } = useFirebase(user?.uid);
   
   const { debts } = useDebts(user?.uid);
+  const { bills: recurringBills } = useBills(user?.uid);
 
   const userMetaLoaded = !authLoading;
   const { effectiveTier } = useEntitlement();
   const isPro = effectiveTier !== 'free';
   const isPremium = effectiveTier === 'premium';
   const { isAppLocked, storedPin, handleUnlockSuccess } = useAppSecurity(user?.uid, isAuthenticated);
-  const { navigationReady, resetNavigation } = useNavigation();
+  const { resetNavigation } = useNavigation();
   
   useReengagementTrigger({ userId: user?.uid, isLoading: authLoading });
 
@@ -209,6 +214,101 @@ export function useAppState(): AppState {
       setupNotifications();
     }
   }, [isAuthenticated, isNative, lancamentos, userMeta, isPro, isPremium]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !isNative || !user?.uid) return;
+
+    let cancelled = false;
+    let listener: { remove: () => Promise<void> | void } | null = null;
+
+    const handleBillPaidAction = async (billId: string) => {
+      const bill = recurringBills.find((item) => item.id === billId && item.isActive);
+      if (!bill) return;
+
+      const now = new Date();
+      if (bill.lastPaidDate) {
+        const lastPaid = new Date(bill.lastPaidDate);
+        if (lastPaid.getFullYear() === now.getFullYear() && lastPaid.getMonth() === now.getMonth()) {
+          window.alert(`A conta ${bill.name} já foi marcada como paga neste mês.`);
+          return;
+        }
+      }
+
+      const confirmed = window.confirm(
+        `Você tem certeza que este lançamento pode ser registrado como pago? Se confirmar, você pode alterar a qualquer momento.`
+      );
+      if (!confirmed) return;
+
+      await addPaidRecurringBillTransaction(user.uid, bill);
+      await PresenceEventService.markRecurringBillActioned(user.uid, bill.id);
+      routerNavigate('/app/controla');
+    };
+
+    const setupNotificationTapListener = async () => {
+      try {
+        // Listener nativo de ação na notificação local.
+        listener = await LocalNotifications.addListener('localNotificationActionPerformed', async (event: any) => {
+          if (cancelled) return;
+
+          const deepLink = event?.notification?.extra?.deepLink as string | undefined;
+          if (!deepLink?.startsWith('app://mark-bill-paid/')) return;
+
+          const billId = deepLink.split('/').pop();
+          if (!billId) return;
+
+          await handleBillPaidAction(billId);
+        });
+      } catch (error) {
+        console.warn('[useAppState] Falha ao registrar listener de notificação:', error);
+      }
+    };
+
+    setupNotificationTapListener();
+
+    return () => {
+      cancelled = true;
+      if (listener) {
+        try {
+          const result = listener.remove();
+          void result;
+        } catch {}
+      }
+    };
+  }, [isAuthenticated, isNative, user?.uid, recurringBills, routerNavigate]);
+
+  // Agenda notificações para contas recorrentes ativas
+  useEffect(() => {
+    if (!isAuthenticated || !user?.uid) return;
+    const scheduleBills = async () => {
+      const today = new Date();
+      const isBillDueToday = (bill: { dueDay: number; lastPaidDate?: string }) => {
+        if (bill.lastPaidDate) {
+          const lastPaid = new Date(bill.lastPaidDate);
+          if (lastPaid.getMonth() === today.getMonth() && lastPaid.getFullYear() === today.getFullYear()) {
+            return false;
+          }
+        }
+
+        const dueDay = Math.min(Math.max(1, bill.dueDay), new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate());
+        return today.getDate() === dueDay;
+      };
+
+      const canScheduleNativePush = isNative ? await NotificationService.requestPermission() : false;
+
+      for (const bill of recurringBills) {
+        if (!bill.isActive) continue;
+
+        if (isBillDueToday(bill)) {
+          await PresenceEventService.createRecurringBillDue(user.uid, bill);
+        }
+
+        if (isNative && canScheduleNativePush) {
+          await NotificationService.scheduleRecurringBillDueNotification(bill, user.uid);
+        }
+      }
+    };
+    scheduleBills();
+  }, [isAuthenticated, isNative, user?.uid, recurringBills]);
 
   const handleLogout = useCallback(async () => {
     await NotificationService.cancelAll();

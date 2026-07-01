@@ -3,6 +3,7 @@ import {
   collection, addDoc, doc, getDoc, setDoc, updateDoc,
   query, where, getDocs, Timestamp, increment,
 } from 'firebase/firestore';
+import type { RecurringBill } from '../types';
 import type { PresenceNotificationPayload, NotificationCategory } from './NotificationService';
 import { NotificationService } from './NotificationService';
 
@@ -56,7 +57,54 @@ export interface CreatePresenceEventParams {
   payload?: Record<string, unknown>;
 }
 
+const RECURRING_BILL_DUE_EVENT = 'finance.recurring_bill_due_today';
+
 export const PresenceEventService = {
+  async createRecurringBillDue(uid: string, bill: RecurringBill): Promise<boolean> {
+    return this.create({
+      uid,
+      eventType: RECURRING_BILL_DUE_EVENT,
+      persona: 'wealth',
+      urgency: 'high',
+      message: {
+        title: `${bill.name} vence hoje`,
+        body: 'Você já pode marcar esta despesa como paga ou revisar no Controla.',
+        ctaLabel: 'Marcar como paga',
+      },
+      deepLink: 'manager',
+      cooldownHours: 24,
+      expiresInHours: 72,
+      resourceId: bill.id,
+      payload: {
+        billId: bill.id,
+        billName: bill.name,
+        amount: bill.amount,
+        dueDay: bill.dueDay,
+      },
+    });
+  },
+
+  async markRecurringBillActioned(uid: string, billId: string): Promise<void> {
+    try {
+      const eventsRef = collection(firestore, 'users', uid, 'presenceEvents');
+      const q = query(
+        eventsRef,
+        where('eventType', '==', RECURRING_BILL_DUE_EVENT),
+        where('resourceId', '==', billId),
+      );
+      const snap = await getDocs(q);
+      await Promise.all(
+        snap.docs.map((d) => updateDoc(d.ref, {
+          status: 'actioned',
+          read: true,
+          actionedAt: Timestamp.now(),
+        }))
+      );
+    } catch {
+      // Silencioso — não bloqueia o fluxo de pagamento
+    }
+  },
+
   // Cria um evento de presença respeitando cooldown, frequency cap e preferências do usuário
   async create(params: CreatePresenceEventParams): Promise<boolean> {
     const {
@@ -237,7 +285,7 @@ export const PresenceEventService = {
   async markActioned(uid: string, eventId: string): Promise<void> {
     try {
       const ref = doc(firestore, 'users', uid, 'presenceEvents', eventId);
-      await updateDoc(ref, { status: 'actioned', actionedAt: Timestamp.now() });
+      await updateDoc(ref, { status: 'actioned', read: true, actionedAt: Timestamp.now() });
     } catch {
       // Silencioso — não bloqueia navegação
     }

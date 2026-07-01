@@ -1,12 +1,12 @@
 import React from 'react';
-import { useSubscriptionAccess } from '../../hooks/useSubscriptionAccess';
+import { useEntitlement } from '../../hooks/useEntitlement';
 
 interface PlanIndicatorProps {
   launchCount: number;
 }
 
 const PlanIndicator: React.FC<PlanIndicatorProps> = ({ launchCount }) => {
-  const { isPro } = useSubscriptionAccess();
+  const { isPro } = useEntitlement();
 
   if (isPro) {
     return null;

@@ -42,6 +42,7 @@ export interface RecurringBill {
   isActive: boolean;
   type: 'fixed' | 'subscription'; // fixed = conta fixa, subscription = assinatura
   proposito?: string; // [NEXUS] Por que essa conta existe?
+  lastPaidDate?: string; // NOVO: Data do último pagamento para controle de notificação
 }
 
 export type AssetFlexibility = 'intocavel' | 'negociavel' | 'liquidez';
@@ -77,6 +78,7 @@ export interface Transaction {
   cardId?: string;
   linkedDebtId?: string; // [NEXUS] Vínculo para amortização assistida
   isBillPayment?: boolean; // [NEXUS] Identifica pagamento de fatura
+  linkedRecurringBillId?: string; // [NEXUS] Vínculo para conta recorrente paga
   linkedCardId?: string;  // [NEXUS] ID do cartão para liberação de limite
   installments?: number;        // Total de parcelas (ex: 12)
   currentInstallment?: number; // Parcela atual (ex: 1)

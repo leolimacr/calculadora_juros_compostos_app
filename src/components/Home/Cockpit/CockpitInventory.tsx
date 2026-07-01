@@ -1,7 +1,7 @@
 import React from 'react';
 import { TrendingUp, Building2, CreditCard, AlertCircle, ChevronRight, Crown, ShieldCheck, Plus } from 'lucide-react';
 import { FPI_COPY } from '../../../theme/fpiVoiceGuide';
-import { useSubscriptionAccess } from '../../../hooks/useSubscriptionAccess';
+import { useEntitlement } from '../../../hooks/useEntitlement';
 import FeatureGate from '../../FeatureGate';
 
 interface CockpitInventoryProps {
@@ -19,7 +19,7 @@ const CockpitInventory: React.FC<CockpitInventoryProps> = ({
   onNavigate,
   formatCurrency,
 }) => {
-  const { isPro, isPremium } = useSubscriptionAccess();
+  const { isPro, isPremium } = useEntitlement();
   const renderCardsCard = (item: any) => {
     const hasData = item.hasItems ?? item.value > 0;
     const displayCards = detailedCards.slice(0, 3);

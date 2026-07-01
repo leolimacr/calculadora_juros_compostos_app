@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { Transaction, UserMeta } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCockpitData } from './Cockpit/useCockpitData';
@@ -12,6 +12,7 @@ import CommandRitual from './CommandRitual';
 import SovereignMapCard from './SovereignMapCard';
 import FirstTransactionCTA from './FirstTransactionCTA';
 import NexusIntroCard from './NexusIntroCard';
+import UrgentBillsSheet from './UrgentBillsSheet';
 import { RefreshCw } from 'lucide-react';
 interface AppCockpitProps {
   transactions: Transaction[];
@@ -33,6 +34,7 @@ const AppCockpit: React.FC<AppCockpitProps> = ({
   const { user } = useAuth();
   const { effectiveTier } = useEntitlement();
   const cockpit = useCockpitData(user, transactions, userMeta);
+  const [showUrgentBills, setShowUrgentBills] = useState(false);
 
   const hasTransactions = transactions.length > 0;
 
@@ -94,7 +96,7 @@ const AppCockpit: React.FC<AppCockpitProps> = ({
       />
 
       <CockpitHero 
-        urgentBillsCount={cockpit.urgentBills.length}
+        urgentBills={cockpit.urgentBills}
         userMeta={userMeta}
         isPrivacyMode={isPrivacyMode}
         sovereign={cockpit.sovereign}
@@ -103,6 +105,8 @@ const AppCockpit: React.FC<AppCockpitProps> = ({
         transactions={transactions}
         formatCurrency={formatCurrency}
         onNavigate={onNavigate}
+        onOpenForm={onOpenForm}
+        onShowUrgentBills={() => setShowUrgentBills(true)}
       />
 
       <CockpitControlaAction 
@@ -151,6 +155,12 @@ const AppCockpit: React.FC<AppCockpitProps> = ({
         </div>
       </div>
 
+      <UrgentBillsSheet
+        bills={cockpit.urgentBills}
+        isOpen={showUrgentBills}
+        onClose={() => setShowUrgentBills(false)}
+        onOpenForm={onOpenForm}
+      />
     </div>
   );
 };

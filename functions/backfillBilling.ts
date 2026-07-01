@@ -19,6 +19,7 @@ const LEGACY_PLAN_TABLE: Record<string, { tier: 'free' | 'pro' | 'premium'; bill
 interface BlockedUser {
   uid: string;
   planId: string | undefined;
+  legacyPlan: string | undefined;
   subActive: boolean;
 }
 
@@ -96,13 +97,17 @@ async function backfill(): Promise<void> {
       withSubscription++;
 
       const planId: string | undefined = sub.planId;
+      const legacyPlan: string | undefined = data.plan as string | undefined;
       const subStatus: string | undefined = sub.status;
       const currentPeriodEnd = sub.currentPeriodEnd ?? null;
       const subActive = subStatus === 'active' || subStatus === 'trialing';
 
-      const resolved = resolveLegacyPlan(planId, subActive);
+      // Fallback: subscription.planId nunca era escrito pelo webhook antigo
+      // (handleCheckoutCompleted em functions/lib/index.js), que escrevia
+      // apenas plan (top-level) e subscription.status.
+      const resolved = resolveLegacyPlan(planId ?? legacyPlan, subActive);
       if (resolved === 'block') {
-        blockedUsers.push({ uid: userId, planId, subActive });
+        blockedUsers.push({ uid: userId, planId, legacyPlan, subActive });
         blocked++;
         continue;
       }
@@ -164,7 +169,7 @@ async function backfill(): Promise<void> {
     console.log('');
     console.log('BLOCKED USERS:');
     for (const bu of blockedUsers) {
-      console.log(`  UID: ${bu.uid}  —  planId="${bu.planId ?? '(none)'}"  —  active=${bu.subActive}`);
+      console.log(`  UID: ${bu.uid}  —  planId="${bu.planId ?? '(none)'}"  —  legacyPlan="${bu.legacyPlan ?? '(none)'}"  —  active=${bu.subActive}`);
     }
   }
 

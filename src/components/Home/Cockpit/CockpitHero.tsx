@@ -2,13 +2,13 @@ import React, { useState, useMemo } from 'react';
 import { AlertCircle, Crown, ChevronDown } from 'lucide-react';
 import SovereignBuckets from '../../tools/finance/dashboard/SovereignBuckets';
 import MarginTrajectoryPanel from '../../tools/finance/dashboard/MarginTrajectoryPanel';
-import type { Transaction, UserMeta } from '../../../types';
-import { useSubscriptionAccess } from '../../../hooks/useSubscriptionAccess';
+import type { Transaction, UserMeta, RecurringBill } from '../../../types';
+import { useEntitlement } from '../../../hooks/useEntitlement';
 import { getHeroHelperText, DISPONIBILIDADE_REAL } from '../../../theme/fpiVoiceGuide';
 import ExpandableSection from '../../ui/ExpandableSection';
 
 interface CockpitHeroProps {
-  urgentBillsCount: number;
+  urgentBills: RecurringBill[];
   userMeta: UserMeta | null | undefined;
   isPrivacyMode: boolean;
   sovereign: any;
@@ -17,12 +17,14 @@ interface CockpitHeroProps {
   transactions: Transaction[];
   formatCurrency: (val: number) => string;
   onNavigate?: (tool: string) => void;
+  onOpenForm?: (data?: any) => void;
+  onShowUrgentBills?: () => void;
 }
 
 type ExpandedSection = 'hero' | 'saldoMes' | 'saldoAcumulado' | 'cartao' | 'contas' | 'falta' | null;
 
 const CockpitHero: React.FC<CockpitHeroProps> = ({
-  urgentBillsCount,
+  urgentBills,
   userMeta,
   isPrivacyMode,
   sovereign,
@@ -31,8 +33,10 @@ const CockpitHero: React.FC<CockpitHeroProps> = ({
   transactions,
   formatCurrency,
   onNavigate,
+  onOpenForm,
+  onShowUrgentBills,
 }) => {
-  const { isPro, isPremium } = useSubscriptionAccess();
+  const { isPro, isPremium } = useEntitlement();
   const [expandedSection, setExpandedSection] = useState<ExpandedSection>(null);
   const [expandedInline, setExpandedInline] = useState<ExpandedSection>(null);
 
@@ -71,17 +75,54 @@ const CockpitHero: React.FC<CockpitHeroProps> = ({
       
       <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-10">
         <div className="space-y-2 flex-1">
-          {urgentBillsCount > 0 ? (
-            <>
+          {urgentBills.length > 0 ? (
+            <div
+              onClick={() => {
+                if (urgentBills.length === 1) {
+                  const bill = urgentBills[0];
+                  onOpenForm?.({
+                    type: 'expense',
+                    category: bill.category,
+                    amount: bill.amount,
+                    description: bill.name,
+                    date: new Date().toISOString().split('T')[0],
+                    autoFocusAmount: true,
+                  });
+                } else {
+                  onShowUrgentBills?.();
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  if (urgentBills.length === 1) {
+                    const bill = urgentBills[0];
+                    onOpenForm?.({
+                      type: 'expense',
+                      category: bill.category,
+                      amount: bill.amount,
+                      description: bill.name,
+                      date: new Date().toISOString().split('T')[0],
+                      autoFocusAmount: true,
+                    });
+                  } else {
+                    onShowUrgentBills?.();
+                  }
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              className="cursor-pointer"
+            >
               <div className="flex items-center gap-2 text-status-danger animate-pulse">
                 <AlertCircle size={20} />
                 <span className="text-[10px] font-black uppercase tracking-widest">Atenção Prioritária</span>
               </div>
               <h1 className="text-3xl md:text-4xl font-black tracking-tight leading-tight text-slate-950">
-                {urgentBillsCount} {urgentBillsCount === 1 ? 'conta vence' : 'contas vencem'} <br />
+                {urgentBills.length} {urgentBills.length === 1 ? 'conta vence' : 'contas vencem'} <br />
                 <span className="text-brand-primary">hoje ou amanhã.</span>
               </h1>
-            </>
+            </div>
           ) : (
             <>
               <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.25em] mb-3">{greeting}, {userMeta?.nickname || 'Investidor'}</p>
@@ -370,7 +411,7 @@ const CockpitHero: React.FC<CockpitHeroProps> = ({
           )}
         </div>
 
-        {!urgentBillsCount && (
+        {urgentBills.length === 0 && (
           <div className="hidden lg:block w-72 h-48 shrink-0 relative animate-in fade-in slide-in-from-right-4 duration-700">
             <div className="w-full h-full rounded-3xl overflow-hidden border border-slate-100 shadow-card relative group-hover:scale-[1.02] transition-transform duration-500">
               <img 

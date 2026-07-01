@@ -1,54 +1,23 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { firestore } from '../firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { useEntitlement } from './useEntitlement';
 
+/**
+ * @deprecated Use `useEntitlement` diretamente.
+ *
+ * Este hook é um wrapper de compatibilidade sobre `useEntitlement` (billing/main).
+ * Antes lia de `users/{uid}.subscription.planId` — agora delega para a fonte
+ * canônica `users/{uid}/billing/main`.
+ *
+ * Migre para `useEntitlement()` para acesso direto a:
+ *   effectiveTier, billingStatus, isFree, isPro, isPremium, displayLabel,
+ *   hasFeature(key), getUsageLimit(key)
+ */
 export const useSubscriptionAccess = () => {
-  const { user } = useAuth();
-  const [role, setRole] = useState<'free' | 'pro' | 'premium'>('free');
-  const [loadingSubscription, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!user) {
-      setRole('free');
-      setLoading(false);
-      return;
-    }
-
-    const unsub = onSnapshot(doc(firestore, 'users', user.uid), (docSnapshot) => {
-      if (docSnapshot.exists()) {
-        const data = docSnapshot.data();
-        
-        // BLINDAGEM AQUI TAMB�M
-        const sub = data?.subscription;
-        const status = sub?.status || 'inactive';
-        const planId = sub?.planId || ''; // Garante que nunca � undefined
-
-        if (status === 'active' || status === 'trialing') {
-            if (planId.includes('premium')) setRole('premium');
-            else if (planId.includes('pro')) setRole('pro');
-            else setRole('free');
-        } else {
-            setRole('free');
-        }
-      } else {
-        setRole('free');
-      }
-      setLoading(false);
-    }, (err) => {
-      console.error('Erro assinatura:', err);
-      // Em caso de erro, assume Free para n�o travar o app
-      setRole('free');
-      setLoading(false);
-    });
-
-    return () => unsub();
-  }, [user]);
+  const { effectiveTier, loading } = useEntitlement();
 
   return {
-    isPro: role === 'pro' || role === 'premium',
-    isPremium: role === 'premium',
-    loadingSubscription,
-    role
+    isPro: effectiveTier !== 'free',
+    isPremium: effectiveTier === 'premium',
+    loadingSubscription: loading,
+    role: effectiveTier,
   };
 };

@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { useAuth } from '../../../../contexts/AuthContext';
+import { useEntitlement } from '../../../../hooks/useEntitlement';
 import { useCards } from '../../../../hooks/useCards';
 import { useBills } from '../../../../hooks/useBills';
 import { useBudget } from '../../../../hooks/useBudget';
@@ -57,7 +58,8 @@ export const useDashboardState = (props: any) => {
   const isMobile = useIsMobile();
   const location = useLocation();
   const { user } = useAuth();
-  
+  const { isPremium: isPremiumCanonical } = useEntitlement();
+
   const { cards: userCards } = useCards(user?.uid);
   const { bills: recurringBills } = useBills(user?.uid);
   const { budget: currentBudget, isLoading: budgetLoading } = useBudget(user?.uid);
@@ -106,6 +108,16 @@ export const useDashboardState = (props: any) => {
   const historyPlan = hasHistoryAccess ? 'pro' : 'free';
 
   const openHistoryPaywall = () => setShowHistoryPaywall(true);
+
+  /** Busca meses recentes para que aggregateAllTimeFlow tenha dados completos */
+  useEffect(() => {
+    if (!fetchMonth || !user?.uid) return;
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      fetchMonth(d.getFullYear(), d.getMonth() + 1);
+    }
+  }, [fetchMonth, user?.uid]);
 
   const safeTransactions = useMemo(() => Array.isArray(transactions) ? transactions : [], [transactions]);
 
@@ -355,6 +367,9 @@ export const useDashboardState = (props: any) => {
         income: 0,
         expenses: 0,
         balance: 0,
+        accumulatedBalance: 0,
+        accumulatedIncome: 0,
+        accumulatedExpenses: 0,
         projectedBalance: 0,
         freeBalance: 0,
         sovereignFreeBalance: 0,
@@ -423,6 +438,9 @@ export const useDashboardState = (props: any) => {
       income,
       expenses,
       balance: realBalance,
+      accumulatedBalance: allTimeFlow.realBalance,
+      accumulatedIncome: allTimeFlow.income,
+      accumulatedExpenses: allTimeFlow.expenses,
       projectedBalance: sovereign.projectedBalance,
       freeBalance: sovereign.sovereignFreeBalance,
       sovereignFreeBalance: sovereign.sovereignFreeBalance,
@@ -492,7 +510,7 @@ export const useDashboardState = (props: any) => {
         monthBalance: stats.balance,
         monthIncome: stats.income,
         monthExpenses: stats.expenses,
-        isPremium,
+        isPremium: isPremiumCanonical,
         isFirstSession: userMeta?.isFirstSession,
         financialProfile: userMeta?.financialProfile,
         marcoZero: userMeta?.financialProfile?.marcoZero,
@@ -522,7 +540,7 @@ export const useDashboardState = (props: any) => {
     }
   }, [
     transactions.length,
-    isPremium,
+    isPremiumCanonical,
     userMeta?.isFirstSession,
     userMeta?.persona,
     stats.balance,

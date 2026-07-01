@@ -124,19 +124,20 @@ async function handleDeleted(subscription, eventId) {
     const batch = db.batch();
     batch.set(userRef.collection('billing').doc('main'), {
         ...billingData,
-        entitlements: (0, computeEntitlements_1.computeEntitlements)('free', 'canceled'),
+        entitlements: (0, computeEntitlements_1.computeEntitlements)(billingData.tier, billingData.status),
     }, { merge: true });
+    const legacyPlanId = getLegacyPlanId(billingData.tier, billingData.billingCycle);
     batch.set(userRef, {
         subscription: {
             status: 'canceled',
-            planId: 'free',
-            currentPeriodEnd: null,
+            planId: legacyPlanId,
+            currentPeriodEnd: billingData.currentPeriodEnd,
         },
     }, { merge: true });
     await batch.commit();
     await markEventProcessed(eventId, 'customer.subscription.deleted', userId);
 }
-async function handleInvoiceEvent(invoice, eventType) {
+async function handleInvoiceEvent(invoice, eventType, eventId) {
     const sub = invoice.parent?.subscription_details?.subscription;
     if (!sub)
         return;
@@ -161,6 +162,7 @@ async function handleInvoiceEvent(invoice, eventType) {
         providerStatusRaw: status,
         updatedAt: firestore_1.Timestamp.now(),
     }, { merge: true });
+    await markEventProcessed(eventId, eventType, userId);
 }
 exports.handleStripeWebhook = (0, https_1.onRequest)(async (req, res) => {
     const sig = req.headers['stripe-signature'];
@@ -199,7 +201,7 @@ exports.handleStripeWebhook = (0, https_1.onRequest)(async (req, res) => {
                 break;
             case 'invoice.paid':
             case 'invoice.payment_failed':
-                await handleInvoiceEvent(event.data.object, event.type);
+                await handleInvoiceEvent(event.data.object, event.type, event.id);
                 break;
             default:
                 logger.info(`Unhandled Stripe event type: ${event.type}`);

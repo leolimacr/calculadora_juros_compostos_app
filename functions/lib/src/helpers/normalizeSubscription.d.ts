@@ -15,5 +15,5 @@ export interface NormalizedBillingData {
     providerStatusRaw: string | null;
     updatedAt: Timestamp;
 }
-export declare function normalizeSubscription(subscription: Stripe.Subscription, userId: string): NormalizedBillingData;
-export declare function normalizeDeletedSubscription(subscription: Stripe.Subscription): Pick<NormalizedBillingData, 'tier' | 'status' | 'billingCycle' | 'updatedAt' | 'providerStatusRaw'>;
+export declare function normalizeSubscription(subscription: Stripe.Subscription, _userId: string): NormalizedBillingData;
+export declare function normalizeDeletedSubscription(subscription: Stripe.Subscription): NormalizedBillingData;

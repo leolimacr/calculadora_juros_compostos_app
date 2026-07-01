@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bell, X, Sparkles, ChevronRight, CheckCheck, Inbox, History, RefreshCcw } from 'lucide-react';
+import { Bell, X, Sparkles, ChevronRight, CheckCheck, Inbox, History, RefreshCcw, CalendarCheck2 } from 'lucide-react';
 import type { NexusEvent } from '../contexts/NotificationContext';
 import { useNotifications } from '../contexts/NotificationContext';
 
@@ -7,16 +7,33 @@ interface NotificationHubProps {
   isOpen: boolean;
   onClose: () => void;
   onNavigate: (route: string) => void;
+  onMarkBillAsPaid?: (billId: string) => Promise<void>;
 }
 
-const NotificationHub: React.FC<NotificationHubProps> = ({ isOpen, onClose, onNavigate }) => {
+const NotificationHub: React.FC<NotificationHubProps> = ({ isOpen, onClose, onNavigate, onMarkBillAsPaid }) => {
   const { unreadEvents, historyEvents, dismiss, markAllAsRead, loadMoreHistory, hasMoreHistory, loading } = useNotifications();
   const [activeTab, setActiveTab] = useState<'unread' | 'history'>('unread');
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
+  const isRecurringBillEvent = (event: NexusEvent) => event.eventType === 'finance.recurring_bill_due_today';
+
   if (!isOpen) return null;
 
-  const handleAction = (event: NexusEvent) => {
+  const handleAction = async (event: NexusEvent) => {
+    if (isRecurringBillEvent(event)) {
+      const confirmed = window.confirm('Você tem certeza que este lançamento pode ser registrado como pago? Se confirmar, você pode alterar a qualquer momento.');
+      if (!confirmed) return;
+
+      if (onMarkBillAsPaid && event.resourceId) {
+        await onMarkBillAsPaid(event.resourceId);
+        if (!event.read) {
+          await dismiss(event.id);
+        }
+        onClose();
+        return;
+      }
+    }
+
     if (event.deepLink) {
         onNavigate(event.deepLink);
     }
@@ -35,7 +52,11 @@ const NotificationHub: React.FC<NotificationHubProps> = ({ isOpen, onClose, onNa
   const renderEventCard = (event: NexusEvent) => (
     <div 
       key={event.id}
-      className={`group relative bg-white border border-slate-200 rounded-[2rem] p-6 shadow-sm hover:shadow-md transition-all active:scale-[0.99] overflow-hidden ${
+      className={`group relative bg-white border rounded-[2rem] p-6 shadow-sm hover:shadow-md transition-all active:scale-[0.99] overflow-hidden ${
+        isRecurringBillEvent(event)
+          ? 'border-amber-200 bg-amber-50/60 ring-1 ring-amber-100'
+          : 'border-slate-200'
+      } ${
         !event.read && event.urgency === 'high' ? 'border-l-4 border-l-rose-500' : 
         !event.read && event.urgency === 'medium' ? 'border-l-4 border-l-amber-500' : 
         !event.read ? 'border-l-4 border-l-sky-500' : 'opacity-80'
@@ -53,25 +74,38 @@ const NotificationHub: React.FC<NotificationHubProps> = ({ isOpen, onClose, onNa
 
       <div className="flex items-start gap-4">
         <div className={`mt-1 p-2.5 rounded-xl text-white ${
-             event.read ? 'bg-slate-300' :
-             event.urgency === 'high' ? 'bg-rose-500' : 
-             event.urgency === 'medium' ? 'bg-amber-500' : 
-             'bg-sky-500'
+             isRecurringBillEvent(event)
+               ? 'bg-amber-500'
+               : event.read ? 'bg-slate-300' :
+               event.urgency === 'high' ? 'bg-rose-500' : 
+               event.urgency === 'medium' ? 'bg-amber-500' : 
+               'bg-sky-500'
         }`}>
-          <Sparkles size={18} />
+          {isRecurringBillEvent(event) ? <CalendarCheck2 size={18} /> : <Sparkles size={18} />}
         </div>
         <div className="flex-1">
-          <h4 className={`text-sm font-black text-slate-900 leading-tight mb-1 uppercase tracking-tight ${event.read ? 'text-slate-500' : ''}`}>
-            {event.message.title}
-          </h4>
-          <p className="text-xs text-slate-500 font-medium leading-relaxed mb-4">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <h4 className={`text-sm font-black leading-tight uppercase tracking-tight ${event.read ? 'text-slate-500' : 'text-slate-900'}`}>
+              {event.message.title}
+            </h4>
+            {isRecurringBillEvent(event) && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.2em] text-amber-700">
+                <CalendarCheck2 size={10} /> Pendente
+              </span>
+            )}
+          </div>
+          <p className={`text-xs font-medium leading-relaxed mb-4 ${isRecurringBillEvent(event) ? 'text-amber-900/80' : 'text-slate-500'}`}>
             {event.message.body}
           </p>
           
           {event.message.ctaLabel && (
             <button
               onClick={() => handleAction(event)}
-              className="flex items-center gap-2 text-[10px] font-black text-sky-600 uppercase tracking-widest hover:text-sky-700 transition-colors"
+              className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-colors ${
+                isRecurringBillEvent(event)
+                  ? 'text-amber-700 hover:text-amber-800'
+                  : 'text-sky-600 hover:text-sky-700'
+              }`}
             >
               {event.message.ctaLabel}
               <ChevronRight size={14} />

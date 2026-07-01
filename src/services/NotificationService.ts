@@ -1,6 +1,7 @@
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
 import type { NexusInsight } from './nexusInsightEngine';
+import type { RecurringBill } from '../types'; // Adicionado
 
 // IDs reservados por categoria para evitar duplicatas
 const NOTIFICATION_IDS = {
@@ -12,7 +13,42 @@ const NOTIFICATION_IDS = {
   nexus_insight: 206,
   reengagement: 207,
   daily_reminder: 208,
+  recurring_bill_due: 209, // NOVO: ID para notificações de contas recorrentes
 } as const;
+
+const buildRecurringBillNotificationId = (billId: string): number => {
+  let hash = 0;
+  for (let i = 0; i < billId.length; i += 1) {
+    hash = (hash * 31 + billId.charCodeAt(i)) | 0;
+  }
+  return NOTIFICATION_IDS.recurring_bill_due + Math.abs(hash % 1000000);
+};
+
+const getLastDayOfMonth = (year: number, monthIndex: number): number => new Date(year, monthIndex + 1, 0).getDate();
+
+const buildNextRecurringBillDueDate = (bill: RecurringBill, now = new Date()): Date => {
+  const buildForMonth = (year: number, monthIndex: number) => {
+    const day = Math.min(Math.max(1, bill.dueDay), getLastDayOfMonth(year, monthIndex));
+    return new Date(year, monthIndex, day, 6, 0, 0, 0);
+  };
+
+  let scheduled = buildForMonth(now.getFullYear(), now.getMonth());
+  if (scheduled.getTime() <= now.getTime()) {
+    scheduled = buildForMonth(now.getFullYear(), now.getMonth() + 1);
+  }
+
+  if (bill.lastPaidDate) {
+    const lastPaid = new Date(bill.lastPaidDate);
+    if (
+      lastPaid.getFullYear() === scheduled.getFullYear() &&
+      lastPaid.getMonth() === scheduled.getMonth()
+    ) {
+      scheduled = buildForMonth(scheduled.getFullYear(), scheduled.getMonth() + 1);
+    }
+  }
+
+  return scheduled;
+};
 
 export type NotificationCategory = keyof typeof NOTIFICATION_IDS;
 
@@ -125,6 +161,36 @@ export const NotificationService = {
       });
     } catch (error) {
       console.error('[NotificationService] Erro ao agendar reengajamento:', error);
+    }
+  },
+
+  async scheduleRecurringBillDueNotification(bill: RecurringBill, userId: string): Promise<void> {
+    if (!Capacitor.isNativePlatform()) return;
+
+    try {
+      const notificationTime = buildNextRecurringBillDueDate(bill);
+      const id = buildRecurringBillNotificationId(bill.id);
+
+      await LocalNotifications.cancel({ notifications: [{ id }] }); // Cancelar anterior se existir
+
+      await LocalNotifications.schedule({
+        notifications: [
+          {
+            id,
+            title: `💸 Sua conta ${bill.name} vence hoje!`,
+            body: 'Você já pode marcar esta despesa como paga ou revisar no Controla.',
+            schedule: { at: notificationTime },
+            sound: 'default',
+            extra: {
+              deepLink: `app://mark-bill-paid/${bill.id}`,
+              billId: bill.id, // Passar o ID da conta para o deepLink
+              userId,
+            },
+          },
+        ],
+      });
+    } catch (error) {
+      console.error(`[NotificationService] Erro ao agendar notificação para conta ${bill.name}:`, error);
     }
   },
 

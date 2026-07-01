@@ -1,4 +1,3 @@
-import { useSubscriptionAccess } from '../../../hooks/useSubscriptionAccess';
 import FeatureGate from '../../FeatureGate';
 import { LineChart as LineChartIcon, ShieldCheck, AlertCircle, TrendingUp, Building2, Target } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
@@ -31,7 +30,6 @@ const CockpitAnalytics: React.FC<CockpitAnalyticsProps> = ({
   onNavigate,
   formatCurrency,
 }) => {
-  const { isPremium } = useSubscriptionAccess();
   return (
     <div className="space-y-6">
       {/* EVOLUÇÃO PATRIMONIAL */}
@@ -147,7 +145,7 @@ const CockpitAnalytics: React.FC<CockpitAnalyticsProps> = ({
             )}
           </div>
         </div>
-        <FeatureGate requiredPlan="pro">
+        <FeatureGate featureKey="historical_evolution">
             <div className="mt-6 p-4 bg-slate-50 border border-slate-100 rounded-2xl text-center">
               <p className="text-xs text-slate-600 font-medium">A evolução histórica é exclusiva Pro.</p>
               <button onClick={() => onNavigate('pricing')} className="mt-2 text-xs font-black text-brand-primary uppercase tracking-widest hover:underline">Fazer Upgrade →</button>
