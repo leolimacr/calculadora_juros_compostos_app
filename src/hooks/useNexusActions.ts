@@ -61,6 +61,8 @@ export const useNexusActions = () => {
           cardId: action.payload.cardId,
           cardName: action.payload.cardName || 'Cartão',
           amount: action.payload.amount || 0,
+          invoiceId: action.payload.invoiceId,
+          periodEnd: action.payload.periodEnd,
           queryClient,
         });
 

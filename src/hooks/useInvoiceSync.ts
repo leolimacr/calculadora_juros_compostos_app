@@ -58,6 +58,16 @@ export function useInvoiceSync(transactions: any[]) {
 
     publishOverdueEvents();
 
+    // Initial reconciliation: sync invoices on mount to correct legacy
+    // billPayments that were previously misassigned by date-window matching.
+    if (cards.length > 0 && Array.isArray(transactions)) {
+      const safeTx = transactions;
+      for (const card of cards) {
+        syncCardInvoices(user.uid, card, safeTx).catch(() => {});
+      }
+      queryClient.invalidateQueries({ queryKey: queryKeys.invoices.byUser(user.uid) });
+    }
+
     const unsubCardUsage = eventBus.subscribe<CardUsageUpdatedEvent['payload']>(
       EVENT_TYPES.card.usageUpdated,
       () => debouncedSync(),

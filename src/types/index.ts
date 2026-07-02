@@ -80,6 +80,8 @@ export interface Transaction {
   isBillPayment?: boolean; // [NEXUS] Identifica pagamento de fatura
   linkedRecurringBillId?: string; // [NEXUS] Vínculo para conta recorrente paga
   linkedCardId?: string;  // [NEXUS] ID do cartão para liberação de limite
+  linkedInvoicePeriodEnd?: string; // [NEXUS] periodEnd da fatura alvo para matching explícito
+  linkedInvoiceId?: string;        // [NEXUS] ID da fatura alvo para matching explícito
   installments?: number;        // Total de parcelas (ex: 12)
   currentInstallment?: number; // Parcela atual (ex: 1)
   installmentId?: string;      // ID único para agrupar as parcelas de uma mesma compra

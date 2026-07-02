@@ -5,10 +5,9 @@ import type { QueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../core/query/queryKeys';
 import { eventBus } from '../core/orchestration/event-bus';
 import { EVENT_TYPES } from '../core/orchestration/domainEvents';
-import { syncInvoiceAfterPayment, getInvoice } from './invoiceService';
+import { buildInvoiceId, getInvoice, syncInvoiceAfterPayment, updateInvoiceAfterPayment } from './invoiceService';
 import { updateDebt } from './debt/debtService';
 import type { DebtItem } from './debt/debt.types';
-import { getInvoiceBillingMonth } from '../utils/invoiceUtils';
 
 export interface PayInvoiceParams {
   userId: string;
@@ -16,6 +15,8 @@ export interface PayInvoiceParams {
   cardName: string;
   amount: number;
   date?: string;
+  invoiceId?: string;
+  periodEnd?: string;
   queryClient: QueryClient;
 }
 
@@ -32,7 +33,7 @@ export interface PayInvoiceParams {
  * comportamento idêntico independentemente do ponto de entrada.
  */
 export async function payInvoice(params: PayInvoiceParams): Promise<{ success: boolean; error?: string }> {
-  const { userId, cardId, cardName, amount, date: rawDate, queryClient } = params;
+  const { userId, cardId, cardName, amount, date: rawDate, invoiceId, periodEnd, queryClient } = params;
   const date = rawDate || new Date().toISOString().split('T')[0];
 
   if (!userId || !cardId || amount <= 0) {
@@ -54,7 +55,7 @@ export async function payInvoice(params: PayInvoiceParams): Promise<{ success: b
 
     const transactionsRef = ref(db, `transactions/${userId}`);
     const txRef = push(transactionsRef);
-    const savedTransaction = {
+    const savedTransaction: Record<string, unknown> = {
       id: txRef.key!,
       userId,
       type: 'expense' as const,
@@ -67,6 +68,13 @@ export async function payInvoice(params: PayInvoiceParams): Promise<{ success: b
       linkedCardId: cardId,
       createdAt: new Date().toISOString(),
     };
+
+    if (periodEnd) {
+      savedTransaction.linkedInvoicePeriodEnd = periodEnd;
+    }
+    if (invoiceId) {
+      savedTransaction.linkedInvoiceId = invoiceId;
+    }
     await set(txRef, savedTransaction);
 
     eventBus.publish({
@@ -92,14 +100,8 @@ export async function payInvoice(params: PayInvoiceParams): Promise<{ success: b
     queryClient.invalidateQueries({ queryKey: queryKeys.transactions.byUser(userId) });
     queryClient.invalidateQueries({ queryKey: queryKeys.cards.byUser(userId) });
 
-    const periodEnd = cardData.closingDay
-      ? (() => {
-          const billing = getInvoiceBillingMonth({ id: cardId, closingDay: cardData.closingDay, dueDay: cardData.dueDay || 10 } as any, date);
-          return `${billing.year}-${String(billing.month + 1).padStart(2, '0')}-${String(cardData.closingDay).padStart(2, '0')}`;
-        })()
-      : null;
-    const invoiceId = periodEnd ? `${cardId}_${periodEnd}` : null;
-    const invoice = invoiceId ? await getInvoice(userId, invoiceId).catch(() => null) : null;
+    const targetInvoiceId = invoiceId || (periodEnd ? buildInvoiceId(cardId, periodEnd) : null);
+    const invoice = targetInvoiceId ? await getInvoice(userId, targetInvoiceId).catch(() => null) : null;
 
     if (invoice?.rotativoConverted && invoice.rotativoDebtId) {
       const debtRef = doc(firestore, `users/${userId}/dividas`, invoice.rotativoDebtId);
@@ -114,7 +116,22 @@ export async function payInvoice(params: PayInvoiceParams): Promise<{ success: b
         }
       }
     } else {
-      syncInvoiceAfterPayment(userId, cardId, amount, date, { id: cardId, ...cardData } as any).catch(() => {});
+      if (invoice) {
+        const newPaidAmount = Math.max(0, (invoice.paidAmount || 0) + amount);
+        const total = invoice.total || 0;
+        const newRemaining = Math.max(0, total - newPaidAmount);
+        const newStatus = newPaidAmount >= total ? 'paid' : 'partial';
+
+        await updateInvoiceAfterPayment(userId, invoice.cardId || cardId, invoice.periodEnd, {
+          paidAmount: newPaidAmount,
+          status: newStatus,
+          remainingAmount: newRemaining,
+          total,
+          updatedAt: new Date().toISOString(),
+        });
+      } else if (!invoiceId && !periodEnd) {
+        syncInvoiceAfterPayment(userId, cardId, amount, date, { id: cardId, ...cardData } as any).catch(() => {});
+      }
     }
 
     return { success: true };

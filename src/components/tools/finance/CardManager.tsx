@@ -73,6 +73,8 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
       cardName: pendingInvoice.cardName,
       amount: pendingInvoice.total,
       date: selectedPaymentDate,
+      periodEnd: pendingInvoice.periodEnd,
+      invoiceId: pendingInvoice.invoiceId,
       queryClient,
     });
 
@@ -623,7 +625,7 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
                                           <p className="text-xs font-black text-text-primary">R$ {group.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                                           {group.isCurrent && (
                                             <button
-                                              onClick={() => handleStartPaymentFlow({ total: group.total, dueDate: group.dueDate, cardName: card.name, cardId: card.id })}
+                                              onClick={() => handleStartPaymentFlow({ total: group.total, dueDate: group.dueDate, periodEnd: group.periodEnd, invoiceId: `${card.id}_${group.periodEnd}`, cardName: card.name, cardId: card.id })}
                                               className="text-[8px] font-black text-brand-primary uppercase tracking-widest mt-1 hover:underline"
                                             >
                                               Pagar Agora

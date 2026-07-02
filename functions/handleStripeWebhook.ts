@@ -67,6 +67,7 @@ async function writeBillingAndLegacy(
     billingData.status === 'canceled' ? 'canceled' : 'active';
 
   batch.set(userRef, {
+    plan: billingData.tier,
     subscription: {
       status: legacyStatus,
       planId: legacyPlanId,

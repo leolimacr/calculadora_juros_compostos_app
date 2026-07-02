@@ -83,6 +83,31 @@ export function hasFeature(
   return TIER_ORDER[effective] >= TIER_ORDER[requiredTier];
 }
 
+/* ───────── LEGACY PLAN ID MAPPING ───────── */
+/* Espelha functions/backfillBilling.ts — LEGACY_PLAN_TABLE */
+
+const LEGACY_PLAN_TABLE: Record<string, { tier: BillingTier; billingCycle: BillingCycle }> = {
+  free:             { tier: 'free',    billingCycle: null },
+  pro:              { tier: 'pro',     billingCycle: 'monthly' },
+  pro_monthly:      { tier: 'pro',     billingCycle: 'monthly' },
+  premium:          { tier: 'premium', billingCycle: 'monthly' },
+  premium_monthly:  { tier: 'premium', billingCycle: 'monthly' },
+  premium_annual:   { tier: 'premium', billingCycle: 'annual' },
+  premium_anual:    { tier: 'premium', billingCycle: 'annual' },
+};
+
+export function resolveLegacyPlanId(planId: string): { tier: BillingTier; billingCycle: BillingCycle } | null {
+  const mapped = LEGACY_PLAN_TABLE[planId];
+  if (mapped) return mapped;
+
+  const match = planId.match(/^(pro|premium)/);
+  if (match) {
+    return { tier: match[1] as BillingTier, billingCycle: 'monthly' };
+  }
+
+  return null;
+}
+
 /* ───────── USAGE LIMITS ───────── */
 
 export function getUsageLimit(

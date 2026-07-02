@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { useAuth } from '../../../../contexts/AuthContext';
@@ -10,8 +10,6 @@ import { useIsMobile } from '../../../../hooks/useIsMobile';
 import { getCurrentInvoice, isBillPaid } from '../../../../utils/invoiceUtils';
 import { useInvoicesByUser } from '../../../../hooks/useCardInvoices';
 import { getConsecutiveDays, getMonthlyConsistency } from '../../../../utils/streakUtils';
-import type { NexusInsight } from '../../../../services/nexusInsightEngine';
-import { buildUserContext, getOperationalInsight } from '../../../../services/nexusInsightEngine';
 import { generateFinancialReport } from '../../../../utils/reportGenerator';
 import { aggregateAllTimeFlow, buildSovereignSnapshot } from '../../../../utils/calculations';
 import {
@@ -78,10 +76,6 @@ export const useDashboardState = (props: any) => {
     () => !isCommandMode(userMeta)
   );
   const [localCommandMode, setLocalCommandMode] = useState(() => isCommandMode(userMeta));
-
-  const [inlineInsight, setInlineInsight] = useState<NexusInsight | null>(null);
-  const [showInsight, setShowInsight] = useState(false);
-  const lastToastRef = useRef<{ id: string; time: number } | null>(null);
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
@@ -257,6 +251,9 @@ export const useDashboardState = (props: any) => {
       .map(card => {
         const invoice = getCurrentInvoice(card, safeTransactions);
         if (!invoice) return null;
+        const cardTransactions = safeTransactions.filter(
+          t => t.cardId === card.id && t.type === 'expense' && t.date >= invoice.periodStart && t.date <= invoice.periodEnd
+        );
         const storedInvoice = storedInvoices.find(
           si => si.cardId === card.id && si.periodEnd === invoice.periodEnd
         );
@@ -269,6 +266,7 @@ export const useDashboardState = (props: any) => {
           storedRemaining: storedInvoice?.remainingAmount || 0,
           storedTransactionCount: storedInvoice?.transactionCount || 0,
           storedInvoiceId: storedInvoice?.id || null,
+          transactions: cardTransactions,
         };
       })
       .filter((inv): inv is NonNullable<typeof inv> => inv !== null && inv.total > 0);
@@ -304,18 +302,23 @@ export const useDashboardState = (props: any) => {
 
     const query = normalize(searchQuery.trim());
     
-    // Injeção de Faturas Virtuais
-    const virtualInvoices = activeInvoices.map(inv => ({
-      id: `virtual-inv-${inv.cardId}`,
-      description: `Fatura - ${inv.cardName}`,
-      amount: inv.total,
-      date: inv.dueDate || new Date().toISOString().split('T')[0],
-      category: `Fatura - Cartão ${inv.cardName}`,
-      type: 'expense',
-      paymentMethod: 'money',
-      isVirtual: true,
-      cardId: inv.cardId
-    }));
+    // Injeção de Faturas Virtuais como lançamentos futuros
+    const todayIso = new Date().toISOString().split('T')[0];
+    const virtualInvoices = activeInvoices
+      .filter((inv) => (inv.storedStatus || 'open') !== 'paid' && Math.max(0, inv.storedRemaining || inv.total || 0) > 0)
+      .map(inv => ({
+        id: `virtual-inv-${inv.cardId}`,
+        description: `Lançamento futuro - Fatura ${inv.cardName}`,
+        amount: inv.storedRemaining || inv.total,
+        date: todayIso,
+        dueDate: inv.dueDate,
+        category: `Lançamento futuro - Cartão ${inv.cardName}`,
+        type: 'expense',
+        paymentMethod: 'money',
+        isVirtual: true,
+        isFutureLaunch: true,
+        cardId: inv.cardId,
+      }));
 
     const base = [...safeTransactions, ...virtualInvoices].filter((t: any) => {
       const categoryMatch = selectedCategories.length === 0 || selectedCategories.includes(t?.category);
@@ -325,8 +328,6 @@ export const useDashboardState = (props: any) => {
       if (!isTransactionVisible(t.date, historyPlan)) return false;
 
       if (filterCardId && t.cardId !== filterCardId) return false;
-
-      if (filterCardId && t.isVirtual) return false;
 
       if (filterPeriodStart && filterPeriodEnd && (t.date < filterPeriodStart || t.date > filterPeriodEnd)) return false;
 
@@ -500,57 +501,6 @@ export const useDashboardState = (props: any) => {
     setShowCalibrationModal(false);
     setCalibrationInviteVisible(false);
   };
-
-  // Efeito para monitorar novos lançamentos e disparar insight
-  useEffect(() => {
-    if (transactions.length > 0) {
-      const ctx = buildUserContext({
-        launchCount: transactions.length,
-        transactionsToday: transactions.filter((t: any) => t.date === new Date().toISOString().split('T')[0]).length,
-        monthBalance: stats.balance,
-        monthIncome: stats.income,
-        monthExpenses: stats.expenses,
-        isPremium: isPremiumCanonical,
-        isFirstSession: userMeta?.isFirstSession,
-        financialProfile: userMeta?.financialProfile,
-        marcoZero: userMeta?.financialProfile?.marcoZero,
-        reserveCurrent: userMeta?.financialProfile?.emergencyReserveCurrent,
-        reserveTarget: userMeta?.financialProfile?.emergencyReserveTarget,
-        sovereignFreeBalance: stats.sovereignFreeBalance,
-        freedomDeficit: stats.freedomDeficit,
-        obligationsDeduction: stats.sovereignSnapshot?.obligationsDeduction,
-        commandMode,
-        persona: userMeta?.persona,
-        cards: userCards,
-        transactions: transactions,
-      });
-
-      const insight = getOperationalInsight(ctx);
-      if (insight) {
-        const now = Date.now();
-        if (lastToastRef.current?.id === insight.id && now - lastToastRef.current.time < 60_000) {
-          return;
-        }
-        lastToastRef.current = { id: insight.id, time: now };
-        setInlineInsight(insight);
-        setShowInsight(true);
-        const timer = setTimeout(() => setShowInsight(false), 5000);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [
-    transactions.length,
-    isPremiumCanonical,
-    userMeta?.isFirstSession,
-    userMeta?.persona,
-    stats.balance,
-    stats.sovereignFreeBalance,
-    stats.freedomDeficit,
-    commandMode,
-    userMeta?.financialProfile,
-    userCards,
-    transactions,
-  ]);
 
   const categoryStats = useMemo(() => {
     if (!isReady) return { data: [], gradient: '' };
@@ -744,9 +694,6 @@ export const useDashboardState = (props: any) => {
     setShowIntro,
     dontShowFor15Days,
     setDontShowFor15Days,
-    inlineInsight,
-    showInsight,
-    setShowInsight,
     currentBudget,
     budgetLoading,
     isBudgetSetupOpen,

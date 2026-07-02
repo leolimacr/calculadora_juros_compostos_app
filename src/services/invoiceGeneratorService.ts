@@ -70,10 +70,12 @@ function groupTransactionsByPeriod(card: CreditCard, transactions: Transaction[]
 
   const billPayments = transactions.filter(t => t.isBillPayment && t.linkedCardId === card.id);
   for (const bp of billPayments) {
-    for (const [, group] of groups) {
-      if (bp.date >= group.periodStart && bp.date <= group.periodEnd) {
-        group.billPayments.push(bp);
-        break;
+    if (bp.linkedInvoicePeriodEnd) {
+      for (const [, group] of groups) {
+        if (group.periodEnd === bp.linkedInvoicePeriodEnd) {
+          group.billPayments.push(bp);
+          break;
+        }
       }
     }
   }

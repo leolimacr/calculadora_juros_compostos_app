@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { DISPONIBILIDADE_REAL } from '../../../../theme/fpiVoiceGuide';
 
 interface BalanceCardsProps {
@@ -18,6 +18,22 @@ interface BalanceCardsProps {
   totalOutstandingCredit: number;
   projectedBalance: number;
   freeBalance: number;
+  activeInvoices?: Array<{
+    cardId: string;
+    cardName: string;
+    total: number;
+    periodStart: string;
+    periodEnd: string;
+    dueDate: string;
+    transactions?: Array<{
+      id: string;
+      description?: string;
+      amount?: number | string;
+      date: string;
+      installments?: number;
+      currentInstallment?: number;
+    }>;
+  }>;
   freedomDeficit?: number;
   protectionBuffer?: number;
   leewayDays?: number;
@@ -31,8 +47,10 @@ const BalanceCards: React.FC<BalanceCardsProps> = ({
   totalPendingBills,
   totalOutstandingCredit,
   projectedBalance,
+  activeInvoices = [],
 }) => {
   const [showComposition, setShowComposition] = useState(false);
+  const [showCreditDetails, setShowCreditDetails] = useState(false);
   const showAllTime = hasHistoryAccess;
 
   const displayBalance = showAllTime ? stats.accumulatedBalance : stats.balance;
@@ -60,17 +78,86 @@ const BalanceCards: React.FC<BalanceCardsProps> = ({
 
         {/* Outstanding credit deduction — imediatamente abaixo do Saldo atual */}
         {totalOutstandingCredit > 0 && (
-          <div className="mt-3 rounded-2xl bg-amber-50 border border-amber-100 p-4 space-y-2">
-            <div className="flex justify-between text-[12px]">
-              <span className="text-amber-800 font-bold leading-snug">{DISPONIBILIDADE_REAL.saldoAtualCreditCard}</span>
-              <span className="font-black text-amber-700 shrink-0">−{isPrivacyMode ? '••••' : fmt(totalOutstandingCredit)}</span>
-            </div>
-            <div className="border-t border-amber-200 pt-2 flex justify-between text-[12px] font-black">
-              <span className="text-amber-900">{DISPONIBILIDADE_REAL.saldoAtualAfterCredit}</span>
-              <span className={afterCreditNegative ? 'text-status-danger' : 'text-amber-900'}>
-                {isPrivacyMode ? '••••' : fmt(Math.max(0, afterCredit))}
-              </span>
-            </div>
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={() => setShowCreditDetails((prev) => !prev)}
+              className="w-full text-left rounded-2xl bg-amber-50 border border-amber-100 p-4 space-y-2 hover:border-amber-200 hover:bg-amber-100/60 transition-colors"
+              aria-label="Ver composição das compras no cartão"
+              aria-expanded={showCreditDetails}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-700 flex items-center gap-2">
+                    {showCreditDetails ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    {DISPONIBILIDADE_REAL.saldoAtualCreditCard}
+                  </p>
+                  <p className="text-[10px] text-amber-800/80 font-medium mt-1 leading-snug">
+                    Clique para ver os lançamentos que compõem este valor.
+                  </p>
+                </div>
+                <span className="font-black text-amber-700 shrink-0">−{isPrivacyMode ? '••••' : fmt(totalOutstandingCredit)}</span>
+              </div>
+              <div className="border-t border-amber-200 pt-2 flex justify-between text-[12px] font-black">
+                <span className="text-amber-900">{DISPONIBILIDADE_REAL.saldoAtualAfterCredit}</span>
+                <span className={afterCreditNegative ? 'text-status-danger' : 'text-amber-900'}>
+                  {isPrivacyMode ? '••••' : fmt(Math.max(0, afterCredit))}
+                </span>
+              </div>
+            </button>
+
+            {showCreditDetails && (
+              <div className="mt-3 rounded-3xl border border-surface-elevated bg-surface-secondary p-4 md:p-5 space-y-5 animate-in fade-in slide-in-from-top-1 duration-200">
+                {activeInvoices.length === 0 ? (
+                  <div className="rounded-2xl border border-surface-elevated bg-surface-primary p-4 text-sm text-text-secondary">
+                    Nenhuma fatura ativa encontrada.
+                  </div>
+                ) : (
+                  activeInvoices.map((invoice) => (
+                    <section key={`${invoice.cardId}-${invoice.periodEnd}`} className="rounded-3xl border border-surface-elevated bg-surface-primary p-4 md:p-5 space-y-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-text-muted">{invoice.cardName}</p>
+                          <h4 className="text-sm md:text-base font-black text-text-primary mt-1">R$ {invoice.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h4>
+                          <p className="text-[10px] text-text-muted mt-1">
+                            Período {new Date(invoice.periodStart.replace(/-/g, '/')).toLocaleDateString('pt-BR')} a {new Date(invoice.periodEnd.replace(/-/g, '/')).toLocaleDateString('pt-BR')}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-text-muted">Vencimento</p>
+                          <p className="text-xs font-black text-text-primary mt-1">{new Date(invoice.dueDate.replace(/-/g, '/')).toLocaleDateString('pt-BR')}</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        {(invoice.transactions || []).length > 0 ? (
+                          invoice.transactions!.map((t) => (
+                            <div key={t.id} className="flex items-start justify-between gap-4 rounded-2xl border border-white bg-white p-3 shadow-sm">
+                              <div className="min-w-0">
+                                <p className="text-sm font-bold text-text-primary truncate">{t.description || 'Sem descrição'}</p>
+                                <p className="text-[10px] text-text-muted mt-0.5">{new Date(t.date.replace(/-/g, '/')).toLocaleDateString('pt-BR')}</p>
+                                {t.installments && t.installments > 1 && (
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-brand-primary mt-1">
+                                    {t.currentInstallment}/{t.installments} parcelas
+                                  </p>
+                                )}
+                              </div>
+                              <p className="text-sm font-black text-text-primary shrink-0">
+                                {isPrivacyMode ? '••••' : `R$ ${Number(t.amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                              </p>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="rounded-2xl border border-dashed border-surface-elevated bg-white p-4 text-sm text-text-muted">
+                            Nenhum lançamento encontrado neste período.
+                          </div>
+                        )}
+                      </div>
+                    </section>
+                  ))
+                )}
+              </div>
+            )}
           </div>
         )}
 

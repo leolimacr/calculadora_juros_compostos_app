@@ -9,6 +9,7 @@ import {
   hasFeature as checkFeatureFn,
   getUsageLimit as getUsageLimitFn,
   getDisplayLabel,
+  resolveLegacyPlanId,
 } from '../config/featureAccessMatrix';
 
 export function useEntitlement() {
@@ -39,8 +40,7 @@ export function useEntitlement() {
           setBillingStatus(data.status);
         } else {
           // Fallback: ler campos legados do documento do usuário
-          // O sistema antigo escrevia plan (top-level) e subscription.status
-          // (handleCheckoutCompleted em functions/lib/index.js)
+          // Ordem de prioridade: billing/main > userData.plan > userData.subscription.planId > 'free'
           const userDocRef = doc(firestore, 'users', user.uid);
           const userSnap = await getDoc(userDocRef);
           if (userSnap.exists()) {
@@ -49,10 +49,27 @@ export function useEntitlement() {
             const subStatus = (userData?.subscription as Record<string, unknown> | undefined)?.status as string | undefined;
             const subActive = subStatus === 'active' || subStatus === 'trialing';
 
+            let resolvedTier: BillingTier | null = null;
+
+            // Fallback 1: userData.plan (deprecated, escrito por versões antigas)
             if (legacyPlan && legacyPlan !== 'free' && subActive) {
-              const legacyTier = legacyPlan === 'premium' ? 'premium' : 'pro';
-              setBilling({ tier: legacyTier, status: subStatus as BillingStatus });
-              setEffectiveTier(legacyTier);
+              resolvedTier = legacyPlan === 'premium' ? 'premium' : 'pro';
+            }
+
+            // Fallback 2: subscription.planId (escrito pelo webhook Stripe atual)
+            if (!resolvedTier || resolvedTier === 'free') {
+              const subPlanId = (userData?.subscription as Record<string, unknown> | undefined)?.planId as string | undefined;
+              if (subPlanId && subPlanId !== 'free' && subActive) {
+                const resolved = resolveLegacyPlanId(subPlanId);
+                if (resolved && resolved.tier !== 'free') {
+                  resolvedTier = resolved.tier;
+                }
+              }
+            }
+
+            if (resolvedTier && resolvedTier !== 'free') {
+              setBilling({ tier: resolvedTier, status: subStatus as BillingStatus });
+              setEffectiveTier(resolvedTier);
               setBillingStatus(subStatus as BillingStatus);
             } else {
               setEffectiveTier('free');

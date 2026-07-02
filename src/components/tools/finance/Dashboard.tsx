@@ -21,7 +21,6 @@ import PendingObligations from './dashboard/PendingObligations';
 import DashboardCharts from './dashboard/DashboardCharts';
 import CategorySummaryPanel from './dashboard/CategorySummaryPanel';
 import AveragesAnalysisPanel from './dashboard/AveragesAnalysisPanel';
-import NexusInsightToast from './dashboard/NexusInsightToast';
 import RecurringIntroModal from './dashboard/RecurringIntroModal';
 import CalibrationInviteBanner from './dashboard/CalibrationInviteBanner';
 import CommandCalibration from '../nexus/CommandCalibration';
@@ -113,6 +112,7 @@ const Dashboard: React.FC<any> = (props) => {
           totalOutstandingCredit={totalOutstandingCredit}
           projectedBalance={state.projectedBalance}
           freeBalance={state.stats.freeBalance}
+          activeInvoices={state.activeInvoices}
         />
 
         {/* Obrigações pendentes (Contas fixas e faturas ativas) */}
@@ -419,14 +419,6 @@ const Dashboard: React.FC<any> = (props) => {
         onEditTransaction={state.onEditTransaction}
         focusedCardId={state.focusedCardId}
         contextualReason={state.cardManagerReason ?? undefined}
-      />
-
-      {/* Toast de Insights Rápidos */}
-      <NexusInsightToast
-        isOpen={state.showInsight}
-        insight={state.inlineInsight}
-        onClose={() => state.setShowInsight(false)}
-        onOpenForm={state.onOpenForm}
       />
 
       {/* Modal Educativo Mobile */}
