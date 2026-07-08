@@ -1,5 +1,9 @@
 import React from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { getDocs, collection, query as fsQuery, where, orderBy, limit } from 'firebase/firestore';
+import { ref, get, orderByChild, startAt, endAt, query as rtdbQuery } from 'firebase/database';
+import { firestore, db } from '../firebase';
 import AppHeader from '../components/AppHeader';
 import AppMobileDrawer from '../components/AppMobileDrawer';
 import MobileBottomNav from '../components/MobileBottomNav';
@@ -20,9 +24,13 @@ import { useNexusEventBridge } from '../hooks/useNexusEventBridge';
 import { useInvoiceSync } from '../hooks/useInvoiceSync';
 import { clearEventInsightStore } from '../services/eventInsightStore';
 import type { NexusAdvisoryContext } from '../services/nexusInsightEngine';
-import { useBills } from '../hooks/useBills';
 import { addPaidRecurringBillTransaction } from '../services/transactionService';
 import { PresenceEventService } from '../services/PresenceEventService';
+import { queryKeys } from '../core/query/queryKeys';
+import { loadControla } from '../services/routePreload';
+import { useBills } from '../hooks/useBills';
+import { PrefetchProvider, usePrefetchReady } from '../contexts/PrefetchContext';
+import type { CreditCard, RecurringBill, CardInvoice } from '../types';
 
 import AppOnlyBlock from '../components/AppOnlyBlock';
 import AppDesktopNav from '../components/AppDesktopNav';
@@ -66,6 +74,108 @@ const AppLayoutInner: React.FC<AppLayoutProps> = ({ state }) => {
   useEventSubscriptions(user?.uid);
   useNexusEventBridge(user?.uid, userMeta?.persona?.archetype);
   useInvoiceSync(lancamentos);
+
+  const { setReady } = usePrefetchReady();
+
+  // Prefetch queries + preload Controla bundle — UMA ÚNICA VEZ por uid
+  const queryClient = useQueryClient();
+  const prefetchedUid = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!user?.uid) return;
+    if (prefetchedUid.current === user.uid) return;
+    prefetchedUid.current = user.uid;
+
+    // Libera a UI imediatamente; o prefetch fica em segundo plano.
+    setReady();
+
+    const preload = async () => {
+      const uid = user.uid;
+
+      try {
+        // Preload do bundle do Controla (aquece cache do navegador)
+        loadControla();
+
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+        const [cardsSnap, billsSnap, invoicesSnap] = await Promise.all([
+          getDocs(collection(firestore, `users/${uid}/cartoes`)),
+          getDocs(collection(firestore, `users/${uid}/contas_fixas`)),
+          getDocs(fsQuery(collection(firestore, `users/${uid}/faturas`), where('periodEnd', '>=', sixMonthsAgo.toISOString()), orderBy('periodEnd', 'desc'), limit(50))),
+        ]);
+
+        const cards = cardsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CreditCard));
+        const bills = billsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as RecurringBill));
+        const invoices = invoicesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CardInvoice));
+
+        queryClient.setQueryData(queryKeys.cards.byUser(uid), cards);
+        queryClient.setQueryData(queryKeys.bills.byUser(uid), bills);
+        queryClient.setQueryData(queryKeys.invoices.byUser(uid), invoices);
+
+        // Prefetch dos últimos 6 meses via RTDB (mesma queryKey que useTransactions.fetchMonth usa)
+        const extraKey = ['transactions_extra', uid];
+        const registryKey = ['transactions_fetched_months', uid];
+        const allTxs: import('../types').Transaction[] = [];
+        const months: string[] = [];
+        const today = new Date();
+        const MONTHS_TO_PREFETCH = 6;
+
+        for (let i = 0; i < MONTHS_TO_PREFETCH; i++) {
+          const targetDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
+          const y = targetDate.getFullYear();
+          const m = String(targetDate.getMonth() + 1).padStart(2, '0');
+          months.push(`${y}-${m}`);
+        }
+
+        const results = await Promise.allSettled(
+          months.map((monthKey) => {
+            const transactionsRef = ref(db, `transactions/${uid}`);
+            const q = rtdbQuery(transactionsRef, orderByChild('date'), startAt(`${monthKey}-01`), endAt(`${monthKey}-31`));
+            return get(q).then((snap) => ({ monthKey, snap }));
+          })
+        );
+
+        for (const result of results) {
+          if (result.status === 'rejected') continue;
+          const { monthKey, snap } = result.value;
+          if (!snap.exists()) continue;
+          snap.forEach((child) => {
+            const val = child.val();
+            if (val?.date?.startsWith(monthKey)) {
+              allTxs.push({ id: child.key, ...val } as import('../types').Transaction);
+            }
+          });
+        }
+
+        if (allTxs.length > 0) {
+          const existing = queryClient.getQueryData<import('../types').Transaction[]>(extraKey) || [];
+          const merged = Array.from(new Map([...existing, ...allTxs].map(t => [t.id, t])).values());
+          queryClient.setQueryData(extraKey, merged);
+        }
+        queryClient.setQueryData(registryKey, new Set(months));
+      } catch {
+        // Prefetch é otimização — falha silenciosa
+      }
+    };
+
+    const schedule =
+      typeof window !== 'undefined' && 'requestIdleCallback' in window
+        ? window.requestIdleCallback.bind(window)
+        : (cb: () => void) => window.setTimeout(cb, 0);
+
+    const cancel =
+      typeof window !== 'undefined' && 'cancelIdleCallback' in window
+        ? window.cancelIdleCallback.bind(window)
+        : window.clearTimeout.bind(window);
+
+    const handle = schedule(() => {
+      void preload();
+    });
+
+    return () => {
+      cancel(handle);
+    };
+  }, [user?.uid, queryClient, setReady]);
+
   const { bills: recurringBills } = useBills(user?.uid);
 
   // Clean event insight store when session is lost (logout, token expiry, account switch)
@@ -101,6 +211,7 @@ const AppLayoutInner: React.FC<AppLayoutProps> = ({ state }) => {
   }, [lancamentos, userMeta, sovereign, isPremium]);
 
   const location = useLocation();
+
   const filterCardId = (location.state as Record<string, unknown> | null)?.filterCardId as string | undefined;
 
   const handleBackToCards = React.useCallback(() => {
@@ -222,33 +333,35 @@ const AppLayoutInner: React.FC<AppLayoutProps> = ({ state }) => {
             if (id) cleanData.id = id;
 
             const wasFirstTransaction = lancamentos.length === 0;
-
-            await saveLancamento(cleanData);
-            handleCloseModal();
-
             const freeBalance = sovereign.sovereignFreeBalance;
 
-            if (wasFirstTransaction && !t.type?.includes('expense') && amount > 0) {
-              addToast(
-                'Pronto. Agora você vê quanto sobra de verdade no seu mês.',
-                'success'
-              );
-            } else if (t.type === 'expense' && freeBalance < 0) {
-              addToast(
-                `Suas despesas consumiram a liberdade. Seu saldo livre é ${maskCurrency(freeBalance)}.`,
-                'warning'
-              );
-            } else if (t.type === 'expense' && freeBalance >= 0 && freeBalance < 500) {
-              addToast(
-                `Atenção: sua liberdade real é de ${maskCurrency(freeBalance)}.`,
-                'info'
-              );
-            } else if (!t.type?.includes('expense') && amount > 0) {
-              addToast(
-                `Receita registrada. Sua liberdade real agora é ${maskCurrency(freeBalance)}.`,
-                'success'
-              );
-            }
+            handleCloseModal();
+
+            saveLancamento(cleanData).then(() => {
+              if (wasFirstTransaction && !t.type?.includes('expense') && amount > 0) {
+                addToast(
+                  'Pronto. Agora você vê quanto sobra de verdade no seu mês.',
+                  'success'
+                );
+              } else if (t.type === 'expense' && freeBalance < 0) {
+                addToast(
+                  `Suas despesas consumiram a liberdade. Seu saldo livre é ${maskCurrency(freeBalance)}.`,
+                  'warning'
+                );
+              } else if (t.type === 'expense' && freeBalance >= 0 && freeBalance < 500) {
+                addToast(
+                  `Atenção: sua liberdade real é de ${maskCurrency(freeBalance)}.`,
+                  'info'
+                );
+              } else if (!t.type?.includes('expense') && amount > 0) {
+                addToast(
+                  `Receita registrada. Sua liberdade real agora é ${maskCurrency(freeBalance)}.`,
+                  'success'
+                );
+              }
+            }).catch(() => {
+              addToast('Erro ao salvar lançamento. Sua transação foi removida.', 'error');
+            });
           }}
           onCancel={handleCloseModal}
           categories={categories}
@@ -276,7 +389,9 @@ const AppLayoutInner: React.FC<AppLayoutProps> = ({ state }) => {
 
 const AppLayout: React.FC<AppLayoutProps> = (props) => (
   <ToastProvider>
-    <AppLayoutInner {...props} />
+    <PrefetchProvider>
+      <AppLayoutInner {...props} />
+    </PrefetchProvider>
   </ToastProvider>
 );
 
