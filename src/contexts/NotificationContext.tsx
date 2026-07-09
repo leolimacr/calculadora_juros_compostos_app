@@ -84,7 +84,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       setLoading(false);
     }, (error) => {
-      console.error('Erro no listener de notificações:', error);
+      console.error('Erro no listener de notificações:', error?.code, error?.message);
       setLoading(false);
     });
 

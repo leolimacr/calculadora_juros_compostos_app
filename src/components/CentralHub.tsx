@@ -13,6 +13,7 @@ import {
   Target,
 } from 'lucide-react';
 import type { Transaction, UserMeta } from '../types';
+import { getLocalDateString } from '../utils/dateHelpers';
 import { useDebts } from '../services/debt/debt.hooks';
 import { buildUserContext, getCentralInsights } from '../services/nexusInsightEngine';
 import NexusActionButton from './Home/NexusActionButton';
@@ -177,7 +178,7 @@ const CentralHub: React.FC<CentralHubProps> = ({
   const protectionMonths = userMeta?.financialProfile?.protectionMonths || 6;
 
   const nexusInsights = useMemo(() => {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateString();
     const txToday = lancamentos.filter((t) => t.date === todayStr).length;
     const hasRealEstate = passives.some((p) => p.category === 'Imóveis');
     const hasVehicles = passives.some((p) => p.category === 'Veículos');

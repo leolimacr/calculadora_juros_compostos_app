@@ -3,6 +3,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useAiAgent } from '../../../hooks/useAiAgent';
 import { useEntitlement } from '../../../hooks/useEntitlement';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { getLocalDateString } from '../../../utils/dateHelpers';
 import {
   Send,
   PlusCircle,
@@ -333,7 +334,7 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
   useEffect(() => {
     const checkLimit = async () => {
       if (!user?.uid) return;
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalDateString();
       const { value } = await Preferences.get({
         key: `nexus_count_${user.uid}_${today}`
       });
@@ -345,7 +346,7 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
 
   const incrementDailyCount = async () => {
     if (isPro || isPremium) return;
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString();
     const newCount = dailyCount + 1;
     setDailyCount(newCount);
     await Preferences.set({

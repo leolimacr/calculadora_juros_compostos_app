@@ -6,6 +6,7 @@ import { addCard, getCards, updateCard, deleteCard } from '../../../services/car
 import { payInvoice } from '../../../services/payInvoiceService';
 import type { CreditCard, Transaction } from '../../../types';
 import { getCurrentInvoice, getInvoiceBillingMonth } from '../../../utils/invoiceUtils';
+import { getLocalDateString } from '../../../utils/dateHelpers';
 
 interface CardManagerProps {
   isOpen: boolean;
@@ -39,7 +40,7 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
   const [pendingInvoice, setPendingInvoice] = useState<any>(null);
   const [showEarlyPaymentWarning, setShowEarlyPaymentWarning] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [selectedPaymentDate, setSelectedPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedPaymentDate, setSelectedPaymentDate] = useState(getLocalDateString());
   const queryClient = useQueryClient();
 
   const handleStartPaymentFlow = (inv: any) => {
@@ -49,7 +50,7 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
     dueDate.setHours(0, 0, 0, 0);
 
     setPendingInvoice(inv);
-    setSelectedPaymentDate(new Date().toISOString().split('T')[0]);
+    setSelectedPaymentDate(getLocalDateString());
 
     if (today < dueDate) {
       setShowEarlyPaymentWarning(true);
@@ -749,7 +750,7 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
               <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Data de Pagamento</label>
               <input
                 type="date"
-                max={new Date().toISOString().split('T')[0]}
+                max={getLocalDateString()}
                 value={selectedPaymentDate}
                 onChange={(e) => setSelectedPaymentDate(e.target.value)}
                 className="w-full bg-surface-secondary p-4 rounded-2xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary text-sm transition-all"

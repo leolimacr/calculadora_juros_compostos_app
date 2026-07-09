@@ -1,6 +1,7 @@
 import React from 'react';
 import { Zap, X } from 'lucide-react';
 import type { NexusInsight } from '../../../../services/nexusInsightEngine';
+import { getLocalDateString } from '../../../../utils/dateHelpers';
 
 interface NexusInsightToastProps {
   isOpen: boolean;
@@ -24,7 +25,7 @@ const NexusInsightToast: React.FC<NexusInsightToastProps> = ({
         category: 'Pagamento de Fatura',
         amount: insight.action.payload.amount,
         description: `Fatura ${insight.action.payload.cardName}`,
-        date: new Date().toISOString().split('T')[0]
+        date: getLocalDateString()
       });
       onClose();
     }

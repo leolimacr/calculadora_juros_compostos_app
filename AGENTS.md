@@ -20,11 +20,37 @@
 
 - **Phase 8 — retention by continuity** (implemented 2026-06-29): Added metric-level session bridge in `CommandRitual.tsx`. Stores `{ freeBalance, shortfall, launchCount, date }` in localStorage key `fpi-comando-prev-metrics`. Shows "Histórico" line on return with days since last visit + most relevant metric changes (folio delta, protection progress, new transactions). Continuity displayed as: `"Desde 3d: +R$ 800 na folga · proteção avançou R$ 500"` or `"Sessão retomada hoje"`.
 
+- **Invoice period-end link + optimistic cache** (implemented 2026-07-01):
+  - Added `linkedInvoicePeriodEnd` / `linkedInvoiceId` to Transaction type and saved in `payInvoiceService.ts:72-77`
+  - Changed `invoiceGeneratorService.ts:73-80` to match billPayments by explicit `linkedInvoicePeriodEnd` instead of date window, eliminating boundary misassignment
+  - Added initial sync on mount in `useInvoiceSync.ts:61-69` to reconcile legacy stored invoices
+  - Added `queryClient.setQueryData` in `useTransactions.ts` after save (line ~536), edit (~353), and delete (~667) — makes new items appear in the list instantly without waiting for the RTDB bridge (fixes 20-50s save delay)
+  
+- **Optimistic UI — save/delete instantâneo** (implemented 2026-07-01):
+  - Moved `setQueryData` to **antes de qualquer await** em `saveLancamento` e `deleteLancamento`
+  - Card/debt reactions movidos para background (`async` fire-and-forget dentro de `backgroundOp`)
+  - Save: `setQueryData` executado imediatamente após `push()`, antes de `updateCard`/`updateDebt`/`set()`
+  - Delete: `setQueryData` executado imediatamente, antes das reversões e do `remove()`
+  - Rollback: se `set()`/`remove()` falhar, o cache é desfeito (remove ou restaura o item)
+  - Installments: todas as keys geradas no topo, `setQueryData` com array completo, `Promise.all` em background
+  
+- **Caller do save — modal fecha imediatamente** (implementado 2026-07-01):
+  - `AppLayout.tsx:226`: `await saveLancamento()` → `handleCloseModal()` + `saveLancamento().then(...).catch(...)`
+  - Modal fecha antes do Firebase write, toasts de sucesso no `.then()`, toast de erro no `.catch()`
+  - `sovereignFreeBalance` capturado antes do close (mesmo valor que antes, bridge já era pré-save)
+
 ### In Progress
 - (none)
 
 ### Blocked
-- (none)
+- **useDashboardState return statement broken** (inherited from prior refactor): hook's `return {...}` references ~20 variables that were deleted (`guardedSetViewMode`, `commandMode`, `showCalibrationOffer`, `calibrationInviteCopy`, `handleDeferCalibration`, `handleDismissCalibrationInvite`, `handleStartCalibration`, `handleCalibrationComplete`, `categoryStats`, `categorySummary`, `categoryTransactionsMap`, `categoryNames`, `guardedChangeDate`, `guardedDateSelect`, `handleExportPDF`, `handleClearCardFilter`, `handleFilterByCard`, `setRecurringBills`, `setUserCards`). These are all TS2304/TS18004 errors — code unreachable until fixed. Not caused by console.time instrumentation.
+
+### Done
+- **console.time instrumentation** (2026-07-07):
+  - `useDashboardState.ts`: added `console.time`/`console.timeEnd('uds-filtered-calc')` and `('uds-stats-calc')` inside `filtered` and `stats` useMemos; moved stray `performance.mark/measure` inside the `filtered` useMemo (they were dead code after the closing `]);`); added `console.time('uds-activeInvoices-calc')`
+  - `calculations.ts`: added `console.time('calc-aggregateAllTimeFlow')` and `('calc-buildSovereignSnapshot')` to `aggregateAllTimeFlow` and `buildSovereignSnapshot`; refactored `aggregateAllTimeFlow` from `forEach` to `for` loop
+  - Fixed stats useMemo closing (`}, [deps]);` was replaced by the hook's `return {` when adding console.timeEnd)
+  - Removed unused `getCurrentInvoice` import
 
 ## Key Findings (All Audits)
 

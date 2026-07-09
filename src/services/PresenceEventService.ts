@@ -1,7 +1,7 @@
 import { firestore } from '../firebase';
 import {
   collection, addDoc, doc, getDoc, setDoc, updateDoc,
-  query, where, getDocs, Timestamp, increment,
+  query, where, getDocs, Timestamp, increment, limit,
 } from 'firebase/firestore';
 import type { RecurringBill } from '../types';
 import type { PresenceNotificationPayload, NotificationCategory } from './NotificationService';
@@ -91,6 +91,7 @@ export const PresenceEventService = {
         eventsRef,
         where('eventType', '==', RECURRING_BILL_DUE_EVENT),
         where('resourceId', '==', billId),
+        limit(5),
       );
       const snap = await getDocs(q);
       await Promise.all(
@@ -215,6 +216,7 @@ export const PresenceEventService = {
         where('eventType', '==', eventType),
         where('resourceId', '==', resourceId),
         where('status', '==', 'pending'),
+        limit(1),
       );
       const existingSnap = await getDocs(existingQ);
       if (!existingSnap.empty) {

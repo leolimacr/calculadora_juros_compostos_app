@@ -6,6 +6,7 @@ import { queryKeys } from '../core/query/queryKeys';
 import { eventBus } from '../core/orchestration/event-bus';
 import { EVENT_TYPES } from '../core/orchestration/domainEvents';
 import { buildInvoiceId, getInvoice, syncInvoiceAfterPayment, updateInvoiceAfterPayment } from './invoiceService';
+import { getLocalDateString } from '../utils/dateHelpers';
 import { updateDebt } from './debt/debtService';
 import type { DebtItem } from './debt/debt.types';
 
@@ -34,7 +35,7 @@ export interface PayInvoiceParams {
  */
 export async function payInvoice(params: PayInvoiceParams): Promise<{ success: boolean; error?: string }> {
   const { userId, cardId, cardName, amount, date: rawDate, invoiceId, periodEnd, queryClient } = params;
-  const date = rawDate || new Date().toISOString().split('T')[0];
+  const date = rawDate || getLocalDateString();
 
   if (!userId || !cardId || amount <= 0) {
     return { success: false, error: 'Parâmetros inválidos' };

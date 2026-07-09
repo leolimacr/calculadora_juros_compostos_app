@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import { RefreshCw, Plus, ChevronUp, ChevronDown, PiggyBank, X, CreditCard } from 'lucide-react';
 
 // Hooks e Componentes Originais Reutilizados
-import TransactionHistory from './TransactionHistory';
 import FilterBar from './FilterBar';
 import CategoryManager from './CategoryManager';
 import RecurringBillManager from './RecurringBillManager';
@@ -19,6 +18,7 @@ import DashboardHeader from './dashboard/DashboardHeader';
 import BalanceCards from './dashboard/BalanceCards';
 import PendingObligations from './dashboard/PendingObligations';
 import DashboardCharts from './dashboard/DashboardCharts';
+import TransactionList from './dashboard/TransactionList';
 import CategorySummaryPanel from './dashboard/CategorySummaryPanel';
 import AveragesAnalysisPanel from './dashboard/AveragesAnalysisPanel';
 import RecurringIntroModal from './dashboard/RecurringIntroModal';
@@ -32,6 +32,10 @@ const Dashboard: React.FC<any> = (props) => {
   const state = useDashboardState(props);
   const voice = getFlowLabels(state.commandMode);
 
+  if (state.showSkeleton) {
+    return <DashboardSkeleton />;
+  }
+
   const budgetProgress = useMemo(
     () => (state.currentBudget ? calcBudgetProgress(state.currentBudget, state.safeTransactions) : null),
     [state.currentBudget, state.safeTransactions],
@@ -43,6 +47,9 @@ const Dashboard: React.FC<any> = (props) => {
       return sum + Math.max(0, inv.storedRemaining || inv.total || 0);
     }, 0
   );
+
+  // BalanceCards, DashboardCharts, CategorySummaryPanel são usados diretamente
+  // sem memo-aninhado — o React.memo na exportação do Dashboard já protege a subárvore
 
   if (state.showSkeleton) {
     return <DashboardSkeleton />;
@@ -113,12 +120,15 @@ const Dashboard: React.FC<any> = (props) => {
           projectedBalance={state.projectedBalance}
           freeBalance={state.stats.freeBalance}
           activeInvoices={state.activeInvoices}
+          periodLabel={state.periodLabel}
         />
 
         {/* Obrigações pendentes (Contas fixas e faturas ativas) */}
         <PendingObligations
           activeInvoices={state.activeInvoices}
           pendingBills={state.pendingBills}
+          recurringBills={state.recurringBills}
+          safeTransactions={state.safeTransactions}
           isPrivacyMode={state.isPrivacyMode}
           onOpenForm={state.onOpenForm}
           onNavigate={state.onNavigate}
@@ -165,23 +175,33 @@ const Dashboard: React.FC<any> = (props) => {
 
         {/* Painel educativo ou Estado de primeiro acesso */}
         {state.isFirstAccess ? (
-          <div className="py-16 px-6 bg-surface-primary border border-dashed border-brand-primary/30 rounded-4xl text-center">
-            <div className="w-16 h-16 bg-surface-secondary rounded-3xl border border-surface-elevated flex items-center justify-center mx-auto mb-5">
-              <Plus size={28} className="text-brand-primary" />
+          state.userMetaLoading && state.userMeta == null ? (
+            <div className="py-16 px-6 bg-surface-primary border border-dashed border-brand-primary/30 rounded-4xl text-center animate-pulse">
+              <div className="w-16 h-16 bg-surface-secondary rounded-3xl border border-surface-elevated mx-auto mb-5" />
+              <div className="h-5 w-56 bg-surface-secondary rounded-full mx-auto mb-3" />
+              <div className="h-4 w-72 max-w-full bg-surface-secondary rounded-full mx-auto mb-2" />
+              <div className="h-4 w-64 max-w-full bg-surface-secondary rounded-full mx-auto mb-6" />
+              <div className="h-12 w-40 bg-surface-secondary rounded-3xl mx-auto" />
             </div>
-            <p className="text-text-primary font-black text-lg mb-2">
-              {state.userMeta?.isFirstSession ? 'Aqui você não olha só o saldo da conta.' : 'Seu painel está em branco'}
-            </p>
-            <p className="text-text-secondary text-sm max-w-sm mx-auto leading-relaxed mb-6">
-              {state.userMeta?.isFirstSession ? voice.firstLaunchHint : voice.emptyLaunchHint}
-            </p>
-            <button
-              onClick={state.onOpenForm}
-              className="inline-flex items-center gap-2 bg-brand-primary hover:bg-brand-primary/90 text-text-onBrand font-black text-xxs uppercase tracking-ultra-wide px-6 py-3 rounded-3xl transition-all active:scale-95 shadow-brand-glow"
-            >
-              <Plus size={14} /> {voice.registerCta}
-            </button>
-          </div>
+          ) : (
+            <div className="py-16 px-6 bg-surface-primary border border-dashed border-brand-primary/30 rounded-4xl text-center">
+              <div className="w-16 h-16 bg-surface-secondary rounded-3xl border border-surface-elevated flex items-center justify-center mx-auto mb-5">
+                <Plus size={28} className="text-brand-primary" />
+              </div>
+              <p className="text-text-primary font-black text-lg mb-2">
+                {state.userMeta?.isFirstSession ? 'Aqui você não olha só o saldo da conta.' : 'Seu painel está em branco'}
+              </p>
+              <p className="text-text-secondary text-sm max-w-sm mx-auto leading-relaxed mb-6">
+                {state.userMeta?.isFirstSession ? voice.firstLaunchHint : voice.emptyLaunchHint}
+              </p>
+              <button
+                onClick={state.onOpenForm}
+                className="inline-flex items-center gap-2 bg-brand-primary hover:bg-brand-primary/90 text-text-onBrand font-black text-xxs uppercase tracking-ultra-wide px-6 py-3 rounded-3xl transition-all active:scale-95 shadow-brand-glow"
+              >
+                <Plus size={14} /> {voice.registerCta}
+              </button>
+            </div>
+          )
         ) : (
           /* Seção de Gráficos */
           <DashboardCharts
@@ -273,58 +293,17 @@ const Dashboard: React.FC<any> = (props) => {
                 </div>
               </div>
 
-              {state.showTransactions ? (
-                <>
-                  <TransactionHistory
-                    transactions={state.filtered.slice(0, state.visibleCount)}
-                    onDelete={state.onDeleteTransaction}
-                    onEdit={state.onEditTransaction}
-                    isPrivacyMode={state.isPrivacyMode}
-                    isDisabled={state.isStale}
-                  />
-                  
-                  <div className="space-y-3 mt-4">
-                    {state.filtered.length > state.visibleCount && (
-                      <div className="grid grid-cols-2 gap-3">
-                        <button
-                          type="button"
-                          onClick={() => state.setVisibleCount(state.visibleCount + 5)}
-                          className="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all active:scale-95 shadow-sm"
-                        >
-                          + 5 Lançamentos
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => state.setVisibleCount(state.filtered.length)}
-                          className="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all active:scale-95 shadow-sm"
-                        >
-                          Mostrar Todos
-                        </button>
-                      </div>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        state.setShowTransactions(false);
-                        state.setVisibleCount(10);
-                      }}
-                      className="flex items-center justify-center gap-2 px-5 py-3 rounded-3xl text-xxs font-black uppercase tracking-ultra-wide border transition-all active:scale-95 w-full bg-surface-elevated border-surface-elevated text-text-secondary hover:bg-surface-secondary"
-                    >
-                      Recolher lançamentos <ChevronUp size={16} />
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <div className="bg-surface-primary border border-surface-elevated rounded-4xl px-6 py-8 shadow-soft">
-                  <p className="text-text-muted text-xxs font-bold uppercase tracking-ultra-wide">
-                    Lançamentos ocultos
-                  </p>
-                  <p className="text-xxs text-text-secondary mt-2">
-                    Use o botão acima para mostrar novamente.
-                  </p>
-                </div>
-              )}
+              <TransactionList
+                transactions={state.filtered}
+                visibleCount={state.visibleCount}
+                setVisibleCount={state.setVisibleCount}
+                showTransactions={state.showTransactions}
+                setShowTransactions={state.setShowTransactions}
+                onDelete={state.onDeleteTransaction}
+                onEdit={state.onEditTransaction}
+                isPrivacyMode={state.isPrivacyMode}
+                isStale={state.isStale}
+              />
             </div>
 
             {/* Painel de Resumo por Categoria */}
@@ -363,7 +342,8 @@ const Dashboard: React.FC<any> = (props) => {
                         else totalExpense += val;
                       });
                       const net = totalIncome - totalExpense;
-                      return (
+
+  return (
                         <>
                           {totalIncome > 0 && (
                             <div className="text-center">
@@ -457,4 +437,4 @@ const Dashboard: React.FC<any> = (props) => {
   );
 };
 
-export default Dashboard;
+export default React.memo(Dashboard);

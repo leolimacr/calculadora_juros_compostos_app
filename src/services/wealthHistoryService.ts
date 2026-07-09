@@ -13,6 +13,7 @@ import {
   updateDoc
 } from 'firebase/firestore';
 import { firestore } from '../firebase';
+import { getLocalDateString } from '../utils/dateHelpers';
 
 export interface WealthSnapshot {
   id?: string;
@@ -43,7 +44,7 @@ export const saveWealthSnapshot = async (userId: string, data: {
   totalDebts: number;
   module?: 'investments' | 'property' | 'debts';
 }) => {
-  const date = new Date().toISOString().split('T')[0];
+  const date = getLocalDateString();
   const snapshotsRef = collection(firestore, `users/${userId}/patrimonio_historico`);
   
   // Verifica se já existe um snapshot para hoje

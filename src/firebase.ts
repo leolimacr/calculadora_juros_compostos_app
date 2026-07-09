@@ -1,9 +1,9 @@
-﻿import { getStorage } from "firebase/storage";
-import { initializeApp } from 'firebase/app';
+﻿import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getDatabase } from 'firebase/database';
 import { getFunctions } from 'firebase/functions';
+import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -31,6 +31,6 @@ export const firestore = getFirestore(app);
 export const db = getDatabase(app);
 export const database = db;
 export const functions = getFunctions(app, "us-central1");
-
 export const storage = getStorage(app);
+
 export default app;

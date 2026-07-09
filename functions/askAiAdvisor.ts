@@ -8,6 +8,14 @@ import { DataIntegrator } from "./nexus-core/data-integrator";
 import { MultiModelRouter } from "./nexus-core/MultiModelRouter";
 import { PromptBuilder } from "./nexus-core/prompt-builder";
 import { ActionManager } from "./nexus-core/action-registry";
+import {
+  GEMINI_API_KEY as GEMINI_API_KEY_SECRET,
+  OPENROUTER_API_KEY as OPENROUTER_API_KEY_SECRET,
+  GROQ_API_KEY as GROQ_API_KEY_SECRET,
+  MISTRAL_API_KEY as MISTRAL_API_KEY_SECRET,
+  BRAPI_TOKEN as BRAPI_TOKEN_SECRET,
+  TAVILY_API_KEY as TAVILY_API_KEY_SECRET,
+} from './secrets';
 
 interface CryptoPriceData { price: number; lastUpdated: string; }
 interface CryptoPriceDataDual { priceUSD: number; priceBRL: number; lastUpdated: string; }
@@ -296,15 +304,25 @@ function extractTickersFallback(prompt: string): { b3: string[], crypto: string[
 }
 
 export const askAiAdvisor = onCall(
-  { memory: "1GiB", timeoutSeconds: 120, region: "us-central1" },
+  {
+    memory: "1GiB",
+    timeoutSeconds: 120,
+    region: "us-central1",
+    secrets: [
+      GEMINI_API_KEY_SECRET,
+      OPENROUTER_API_KEY_SECRET,
+      GROQ_API_KEY_SECRET,
+      MISTRAL_API_KEY_SECRET,
+      BRAPI_TOKEN_SECRET,
+      TAVILY_API_KEY_SECRET,
+    ],
+  },
   async (request) => {
-    const geminiApiKey = process.env.GEMINI_API_KEY as string;
-    const openrouterApiKey = process.env.OPENROUTER_API_KEY as string;
     const groqApiKey = process.env.GROQ_API_KEY as string;
-    const mistralApiKey = process.env.MISTRAL_API_KEY as string;
+    const openrouterApiKey = process.env.OPENROUTER_API_KEY as string;
     const brapiToken = process.env.BRAPI_TOKEN as string;
     const router = MultiModelRouter.getInstance();
-    router.updateApiKeys({ gemini: geminiApiKey, openrouter: openrouterApiKey, groq: groqApiKey, mistral: mistralApiKey });
+    router.updateApiKeys({ groq: groqApiKey, openrouter: openrouterApiKey });
     try {
       if (!request.auth) throw new HttpsError("unauthenticated", "Login necessário.");
       const { prompt, userName, history = [], isFirstInteraction, context: frontendContext = {} } = request.data;
@@ -546,7 +564,11 @@ export const askAiAdvisor = onCall(
 );
 
 export const testMistral = onCall(
-  { timeoutSeconds: 30, region: "us-central1" },
+  {
+    timeoutSeconds: 30,
+    region: "us-central1",
+    secrets: [MISTRAL_API_KEY_SECRET],
+  },
   async (request) => {
     logger.info("🧪 TESTE MISTRAL - Iniciando...");
     const apiKey = process.env.MISTRAL_API_KEY as string;

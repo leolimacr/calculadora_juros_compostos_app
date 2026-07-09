@@ -64,6 +64,9 @@ export interface MonthFlow {
   expenses: number;
   realBalance: number;
   virtualImpact: number;
+  cashExpenses: number;
+  creditExpenses: number;
+  virtualExpenses: number;
 }
 
 type TxLike = {
@@ -82,16 +85,19 @@ export function aggregateMonthFlow(
   const now = new Date();
   const y = year ?? now.getFullYear();
   const m = month ?? now.getMonth() + 1;
+  const prefix = `${y}-${String(m).padStart(2, '0')}-`;
 
   let income = 0;
   let expenses = 0;
   let realBalance = 0;
   let virtualImpact = 0;
+  let cashExpenses = 0;
+  let creditExpenses = 0;
+  let virtualExpenses = 0;
 
-  transactions.forEach((t) => {
-    if (!t.date) return;
-    const [ty, tm] = t.date.split('-').map(Number);
-    if (ty !== y || tm !== m) return;
+  for (let i = 0; i < transactions.length; i++) {
+    const t = transactions[i];
+    if (!t.date || !t.date.startsWith(prefix)) continue;
 
     const val = Number(t.amount) || 0;
     const isCredit = t.paymentMethod === 'credit';
@@ -103,13 +109,17 @@ export function aggregateMonthFlow(
       expenses += val;
       if (t.isVirtual) {
         virtualImpact += val;
-      } else if (!isCredit) {
+        virtualExpenses += val;
+      } else if (isCredit) {
+        creditExpenses += val;
+      } else {
         realBalance -= val;
+        cashExpenses += val;
       }
     }
-  });
+  }
 
-  return { income, expenses, realBalance, virtualImpact };
+  return { income, expenses, realBalance, virtualImpact, cashExpenses, creditExpenses, virtualExpenses };
 }
 
 export function aggregateAllTimeFlow(transactions: TxLike[]): MonthFlow {
@@ -117,8 +127,12 @@ export function aggregateAllTimeFlow(transactions: TxLike[]): MonthFlow {
   let expenses = 0;
   let realBalance = 0;
   let virtualImpact = 0;
+  let cashExpenses = 0;
+  let creditExpenses = 0;
+  let virtualExpenses = 0;
 
-  transactions.forEach((t) => {
+  for (let i = 0; i < transactions.length; i++) {
+    const t = transactions[i];
     const val = Number(t.amount) || 0;
     const isCredit = t.paymentMethod === 'credit';
 
@@ -129,13 +143,17 @@ export function aggregateAllTimeFlow(transactions: TxLike[]): MonthFlow {
       expenses += val;
       if (t.isVirtual) {
         virtualImpact += val;
-      } else if (!isCredit) {
+        virtualExpenses += val;
+      } else if (isCredit) {
+        creditExpenses += val;
+      } else {
         realBalance -= val;
+        cashExpenses += val;
       }
     }
-  });
+  }
 
-  return { income, expenses, realBalance, virtualImpact };
+  return { income, expenses, realBalance, virtualImpact, cashExpenses, creditExpenses, virtualExpenses };
 }
 
 export function getProtectionBuffer(financialProfile?: FinancialProfile): number {

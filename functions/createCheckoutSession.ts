@@ -3,6 +3,7 @@ import * as logger from 'firebase-functions/logger';
 import { getFirestore } from 'firebase-admin/firestore';
 import { resolvePriceId, resolvePriceMapping, PLAN_IDS, type PlanId } from './src/config/prices';
 import { getStripe } from './src/lib/getStripe';
+import { STRIPE_SECRET_KEY } from './secrets';
 
 const db = getFirestore();
 
@@ -30,7 +31,11 @@ async function getOrCreateCustomer(uid: string, email: string | null): Promise<s
   return customer.id;
 }
 
-export const createCheckoutSession = onCall(async (request) => {
+export const createCheckoutSession = onCall(
+  {
+    secrets: [STRIPE_SECRET_KEY],
+  },
+  async (request) => {
   const auth = request.auth;
   if (!auth) {
     throw new HttpsError('unauthenticated', 'User must be authenticated');

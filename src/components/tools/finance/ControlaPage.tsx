@@ -6,6 +6,7 @@ interface ControlaPageProps {
   transactions: Transaction[];
   categories: Category[];
   isLoading: boolean;
+  userMetaLoading?: boolean;
   isSyncing?: boolean;
   isStale?: boolean;
   onDeleteTransaction: (id: string) => void;
@@ -22,24 +23,5 @@ interface ControlaPageProps {
 }
 
 export const ControlaPage: React.FC<ControlaPageProps> = (props) => {
-  return (
-    <Dashboard
-      transactions={props.transactions}
-      isLoading={props.isLoading}
-      isSyncing={props.isSyncing}
-      isStale={props.isStale}
-      categories={props.categories}
-      onDeleteTransaction={props.onDeleteTransaction}
-      onNavigate={props.onNavigate}
-      onOpenForm={props.onOpenForm}
-      onSaveCategory={props.onSaveCategory}
-      onDeleteCategory={props.onDeleteCategory}
-      userMeta={props.userMeta}
-      isPremium={props.isPremium}
-      isPrivacyMode={props.isPrivacyMode}
-      onTogglePrivacy={props.onTogglePrivacy}
-      onEditTransaction={props.onEditTransaction}
-      fetchMonth={props.fetchMonth}
-    />
-  );
+  return <Dashboard {...props} />;
 };

@@ -34,18 +34,24 @@ export const monthlyRotativoInterest = onSchedule(
 
     logger.info(`[monthlyRotativoInterest] Iniciando competência ${competence}`);
 
-    const usersSnap = await db.collection('users').get();
+    const rotativoSnap = await db.collectionGroup('dividas')
+      .where('originType', '==', 'rotativo_cartao')
+      .get();
 
-    for (const userDoc of usersSnap.docs) {
-      const uid = userDoc.id;
+    const userDebtsMap = new Map<string, typeof rotativoSnap.docs>();
+    rotativoSnap.forEach(doc => {
+      const uid = doc.ref.path.split('/')[1];
+      if (!userDebtsMap.has(uid)) userDebtsMap.set(uid, []);
+      userDebtsMap.get(uid)!.push(doc);
+    });
+
+    for (const [uid, debtDocs] of userDebtsMap) {
       let userInterestTotal = 0;
       let userDebtCount = 0;
       let userDebtNames: string[] = [];
 
       try {
-        const debtsSnap = await db.collection('users').doc(uid).collection('dividas').get();
-
-        for (const debtDoc of debtsSnap.docs) {
+        for (const debtDoc of debtDocs) {
           const data = debtDoc.data();
           const debtId = debtDoc.id;
 

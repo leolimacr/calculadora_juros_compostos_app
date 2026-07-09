@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 import { createCardsRealtimeBridge } from '../services/card.realtime';
 import { createBillsRealtimeBridge } from '../services/bill.realtime';
@@ -106,7 +106,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   }, [user?.uid]);
 
   return (
-    <FinanceContext.Provider value={{ financeBridgeReady, hasConnectedAtLeastOnce }}>
+    <FinanceContext.Provider value={useMemo(() => ({ financeBridgeReady, hasConnectedAtLeastOnce }), [financeBridgeReady, hasConnectedAtLeastOnce])}>
       {children}
     </FinanceContext.Provider>
   );

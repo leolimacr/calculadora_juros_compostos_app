@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -13,6 +13,7 @@ import { useNavigation } from './useNavigation';
 import { useReengagementTrigger } from './useReengagementTrigger';
 import { NotificationService } from '../services/NotificationService';
 import { addPaidRecurringBillTransaction } from '../services/transactionService';
+import { getLocalDateString } from '../utils/dateHelpers';
 import { PresenceEventService } from '../services/PresenceEventService';
 import type { UserContext, NexusInsight } from '../services/nexusInsightEngine';
 import { getPrioritizedInsight } from '../services/nexusInsightEngine';
@@ -27,6 +28,7 @@ export interface AppState {
   user: ReturnType<typeof useAuth>['user'];
   isAuthenticated: boolean;
   authLoading: boolean;
+  userMetaLoading: boolean;
   lancamentos: Transaction[];
   categories: Category[];
   debts: DebtItem[];
@@ -72,7 +74,7 @@ export interface AppState {
 }
 
 export function useAppState(): AppState {
-  const { user, isAuthenticated, loading: authLoading, logout, userMeta } = useAuth();
+  const { user, isAuthenticated, loading: authLoading, logout, userMeta, userMetaLoading } = useAuth();
 
   useEffect(() => {
     if (isAuthenticated && user?.uid) {
@@ -80,7 +82,7 @@ export function useAppState(): AppState {
         try {
           const STORAGE_KEY = `financas-pro-invest_last_heartbeat_${user.uid}`;
           const LEGACY_KEY = `fpi_last_heartbeat_${user.uid}`;
-          const today = new Date().toISOString().split('T')[0];
+          const today = getLocalDateString();
           const stored = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_KEY);
           if (stored !== today) {
             const userRef = doc(firestore, 'users', user.uid);
@@ -98,22 +100,6 @@ export function useAppState(): AppState {
       updateHeartbeat();
     }
   }, [isAuthenticated, user?.uid]);
-
-  // PRÉ-CARGA CIRÚRGICA: Busca mês atual + 2 anteriores logo após autenticar.
-  // O Set interno do fetchMonth garante que cada mês é buscado no máximo 1x por sessão.
-  useEffect(() => {
-    if (!isAuthenticated || !user?.uid) return;
-    const today = new Date();
-    // Pequeno delay para garantir que o bridge realtime já iniciou
-    const timer = setTimeout(() => {
-      [0, 1, 2].forEach(offset => {
-        const d = new Date(today.getFullYear(), today.getMonth() - offset, 1);
-        fetchMonth(d.getFullYear(), d.getMonth() + 1);
-      });
-    }, 1500);
-    return () => clearTimeout(timer);
-   
-  }, [isAuthenticated, user?.uid]); // Intencional: roda apenas quando o usuário autentica
 
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const {
@@ -133,7 +119,7 @@ export function useAppState(): AppState {
   const { debts } = useDebts(user?.uid);
   const { bills: recurringBills } = useBills(user?.uid);
 
-  const userMetaLoaded = !authLoading;
+  const userMetaLoaded = !userMetaLoading;
   const { effectiveTier } = useEntitlement();
   const isPro = effectiveTier !== 'free';
   const isPremium = effectiveTier === 'premium';
@@ -169,7 +155,7 @@ export function useAppState(): AppState {
         const granted = await NotificationService.requestPermission();
         if (granted) {
           // 1. Prepara contexto para o motor de insights
-          const todayStr = new Date().toISOString().split('T')[0];
+          const todayStr = getLocalDateString();
           const txToday = lancamentos.filter((t: any) => t.date === todayStr).length;
 
           let daysSince = 0;
@@ -335,10 +321,11 @@ export function useAppState(): AppState {
 
   const isLoading = authLoading;
 
-  return {
+  const value = useMemo(() => ({
     user,
     isAuthenticated,
     authLoading,
+    userMetaLoading,
     lancamentos,
     categories,
     debts,
@@ -381,5 +368,21 @@ export function useAppState(): AppState {
     routerNavigate,
     location,
     scheduleDailyReminder: NotificationService.scheduleDailyReminder
-  };
+  }), [
+    user, isAuthenticated, authLoading, userMetaLoading,
+    lancamentos, categories, debts,
+    saveLancamento, deleteLancamento, fetchHistory, fetchMonth,
+    saveCategory, deleteCategory,
+    userMeta, userMetaLoaded, usagePercentage, isLimitReached,
+    isPro, isPremium, isAppLocked, storedPin,
+    handleUnlockSuccess, isNative, isMobileBrowser, isLoading,
+    isPrivacyMode, isNotificationsOpen, isSyncing,
+    activeModal, mobileMenuOpen,
+    editingTransaction, onboardingDismissed,
+    handleLogout, handleEditTransaction, handleCloseModal,
+    getAiContextTransactions, openTransactionForm,
+    routerNavigate, location
+  ]);
+
+  return value;
 }

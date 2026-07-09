@@ -8,7 +8,8 @@ import {
   where, 
   getDocs,
   Timestamp,
-  orderBy
+  orderBy,
+  limit,
 } from 'firebase/firestore';
 import { firestore } from '../firebase';
 
@@ -98,7 +99,7 @@ export const deleteGoal = async (userId: string, goalId: string) => {
 export const fetchGoals = async (userId: string): Promise<Goal[]> => {
   try {
     const goalsRef = collection(firestore, `users/${userId}/metas`);
-    const q = query(goalsRef, orderBy('createdAt', 'desc'));
+    const q = query(goalsRef, orderBy('createdAt', 'desc'), limit(100));
     const querySnapshot = await getDocs(q);
     const goals: Goal[] = [];
     querySnapshot.forEach((doc) => {
@@ -115,7 +116,7 @@ export const fetchGoals = async (userId: string): Promise<Goal[]> => {
 export const fetchActiveGoals = async (userId: string): Promise<Goal[]> => {
   try {
     const goalsRef = collection(firestore, `users/${userId}/metas`);
-    const q = query(goalsRef, where('ativa', '==', true), orderBy('createdAt', 'desc'));
+    const q = query(goalsRef, where('ativa', '==', true), orderBy('createdAt', 'desc'), limit(100));
     const querySnapshot = await getDocs(q);
     const goals: Goal[] = [];
     querySnapshot.forEach((doc) => {

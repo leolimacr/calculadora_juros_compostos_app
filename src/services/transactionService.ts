@@ -2,6 +2,7 @@ import { push, ref, set } from 'firebase/database';
 import { db } from '../firebase';
 import type { RecurringBill, Transaction } from '../types';
 import { updateRecurringBill } from './billService';
+import { getLocalDateString } from '../utils/dateHelpers';
 
 /**
  * Adiciona uma nova transação ao Realtime Database.
@@ -29,7 +30,7 @@ export const addPaidRecurringBillTransaction = async (userId: string, bill: Recu
     amount: bill.amount,
     type: 'expense',
     category: bill.category,
-    date: new Date().toISOString().split('T')[0],
+    date: getLocalDateString(),
     paymentMethod: 'money', // Assumindo pagamento em dinheiro
     isBillPayment: true,
     linkedRecurringBillId: bill.id, // Linkar à conta recorrente

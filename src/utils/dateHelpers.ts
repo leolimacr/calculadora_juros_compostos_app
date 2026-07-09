@@ -60,6 +60,15 @@ export function calcularProximoAporte({
  * Calcula quantos dias faltam para o próximo aporte.
  * Retorna um número (pode ser negativo se já passou).
  */
+/**
+ * Retorna a data local como string YYYY-MM-DD,
+ * evitando o bug de fuso horário do toISOString() que usa UTC.
+ */
+export function getLocalDateString(date?: Date): string {
+  const d = date ?? new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export function diasAteProximoAporte(proximoAporte: Date | null): number | null {
   if (!proximoAporte) return null;
   const hoje = new Date();

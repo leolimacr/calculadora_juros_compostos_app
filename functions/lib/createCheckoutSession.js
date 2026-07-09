@@ -39,6 +39,7 @@ const logger = __importStar(require("firebase-functions/logger"));
 const firestore_1 = require("firebase-admin/firestore");
 const prices_1 = require("./src/config/prices");
 const getStripe_1 = require("./src/lib/getStripe");
+const secrets_1 = require("./secrets");
 const db = (0, firestore_1.getFirestore)();
 async function getOrCreateCustomer(uid, email) {
     const snapshot = await db.collection('stripeCustomers')
@@ -59,7 +60,9 @@ async function getOrCreateCustomer(uid, email) {
     });
     return customer.id;
 }
-exports.createCheckoutSession = (0, https_1.onCall)(async (request) => {
+exports.createCheckoutSession = (0, https_1.onCall)({
+    secrets: [secrets_1.STRIPE_SECRET_KEY],
+}, async (request) => {
     const auth = request.auth;
     if (!auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');

@@ -40,6 +40,7 @@ const firestore_1 = require("firebase-admin/firestore");
 const normalizeSubscription_1 = require("./src/helpers/normalizeSubscription");
 const computeEntitlements_1 = require("./src/helpers/computeEntitlements");
 const getStripe_1 = require("./src/lib/getStripe");
+const secrets_1 = require("./secrets");
 const db = (0, firestore_1.getFirestore)();
 async function isEventProcessed(eventId) {
     const doc = await db.collection('_stripeEvents').doc(eventId).get();
@@ -158,7 +159,7 @@ async function handleInvoiceEvent(invoice, eventType, eventId) {
     }, { merge: true });
     await markEventProcessed(eventId, eventType, userId);
 }
-exports.handleStripeWebhook = (0, https_1.onRequest)(async (req, res) => {
+exports.handleStripeWebhook = (0, https_1.onRequest)({ secrets: [secrets_1.STRIPE_WEBHOOK_SECRET, secrets_1.STRIPE_SECRET_KEY] }, async (req, res) => {
     const sig = req.headers['stripe-signature'];
     if (!sig) {
         res.status(400).send('Missing stripe-signature header');

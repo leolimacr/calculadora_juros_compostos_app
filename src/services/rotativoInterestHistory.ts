@@ -1,5 +1,5 @@
 import { firestore } from '../firebase';
-import { collection, doc, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, doc, getDocs, query, where, orderBy, limit, Timestamp } from 'firebase/firestore';
 
 export type JurosRotativoSource = 'conversion' | 'manual_interest' | 'scheduled_interest';
 
@@ -136,7 +136,7 @@ export async function getInterestHistory(
   constraints.push(orderBy('competence', 'asc'), orderBy('appliedAt', 'asc'));
 
   const ref = collection(firestore, 'users', userId, COLLECTION);
-  const q = query(ref, ...constraints);
+  const q = query(ref, ...constraints, limit(24));
   const snap = await getDocs(q);
   const all = snap.docs.map((d) => ({ ...d.data(), id: d.id } as JurosRotativoRecord & { id: string }));
 

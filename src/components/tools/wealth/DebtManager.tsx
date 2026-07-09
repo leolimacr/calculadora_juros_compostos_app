@@ -134,7 +134,8 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, onNa
     if (!userId) return;
     const q = query(
       collection(firestore, 'users', userId, 'nexusDebtPlans'),
-      orderBy('createdAt', 'desc')
+      orderBy('createdAt', 'desc'),
+      limit(10)
     );
     return onSnapshot(q, (snap) => {
       const plans = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SavedDebtPlan));

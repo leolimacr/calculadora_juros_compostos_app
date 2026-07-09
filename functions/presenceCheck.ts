@@ -1,6 +1,7 @@
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getFirestore } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
+import { RESEND_API_KEY as RESEND_API_KEY_SECRET } from './secrets';
 import {
   sendWeeklySummary,
   sendInactivityAlert,
@@ -290,6 +291,7 @@ export const dailyPresenceCheck = onSchedule(
     timeZone: 'America/Sao_Paulo',
     timeoutSeconds: 300,
     memory: '256MiB',
+    secrets: [RESEND_API_KEY_SECRET],
   },
   async () => {
     const db = getFirestore();

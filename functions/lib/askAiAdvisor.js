@@ -43,6 +43,7 @@ const data_integrator_1 = require("./nexus-core/data-integrator");
 const MultiModelRouter_1 = require("./nexus-core/MultiModelRouter");
 const prompt_builder_1 = require("./nexus-core/prompt-builder");
 const action_registry_1 = require("./nexus-core/action-registry");
+const secrets_1 = require("./secrets");
 async function getUserPlan(userId) {
     try {
         const db = (0, firestore_1.getFirestore)();
@@ -359,14 +360,24 @@ function extractTickersFallback(prompt) {
     result.crypto = [...new Set(result.crypto)];
     return result;
 }
-exports.askAiAdvisor = (0, https_1.onCall)({ memory: "1GiB", timeoutSeconds: 120, region: "us-central1" }, async (request) => {
-    const geminiApiKey = process.env.GEMINI_API_KEY;
-    const openrouterApiKey = process.env.OPENROUTER_API_KEY;
+exports.askAiAdvisor = (0, https_1.onCall)({
+    memory: "1GiB",
+    timeoutSeconds: 120,
+    region: "us-central1",
+    secrets: [
+        secrets_1.GEMINI_API_KEY,
+        secrets_1.OPENROUTER_API_KEY,
+        secrets_1.GROQ_API_KEY,
+        secrets_1.MISTRAL_API_KEY,
+        secrets_1.BRAPI_TOKEN,
+        secrets_1.TAVILY_API_KEY,
+    ],
+}, async (request) => {
     const groqApiKey = process.env.GROQ_API_KEY;
-    const mistralApiKey = process.env.MISTRAL_API_KEY;
+    const openrouterApiKey = process.env.OPENROUTER_API_KEY;
     const brapiToken = process.env.BRAPI_TOKEN;
     const router = MultiModelRouter_1.MultiModelRouter.getInstance();
-    router.updateApiKeys({ gemini: geminiApiKey, openrouter: openrouterApiKey, groq: groqApiKey, mistral: mistralApiKey });
+    router.updateApiKeys({ groq: groqApiKey, openrouter: openrouterApiKey });
     try {
         if (!request.auth)
             throw new https_1.HttpsError("unauthenticated", "Login necessário.");
@@ -583,7 +594,11 @@ exports.askAiAdvisor = (0, https_1.onCall)({ memory: "1GiB", timeoutSeconds: 120
         return { success: false, answer: "Desculpe, ocorreu um erro temporário. Por favor, tente novamente.", error: error.message };
     }
 });
-exports.testMistral = (0, https_1.onCall)({ timeoutSeconds: 30, region: "us-central1" }, async (request) => {
+exports.testMistral = (0, https_1.onCall)({
+    timeoutSeconds: 30,
+    region: "us-central1",
+    secrets: [secrets_1.MISTRAL_API_KEY],
+}, async (request) => {
     logger.info("🧪 TESTE MISTRAL - Iniciando...");
     const apiKey = process.env.MISTRAL_API_KEY;
     if (!apiKey) {

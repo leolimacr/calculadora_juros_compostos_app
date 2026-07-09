@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRef } from 'react';
 import { queryKeys } from '../core/query/queryKeys';
-import { getInvoicesByCard } from '../services/invoiceService';
 import type { CardInvoice } from '../types';
 import { useFinanceContext } from '../contexts/FinanceContext';
 
@@ -9,15 +9,17 @@ export const useCardInvoices = (userId: string | undefined, cardId: string | und
   const { financeBridgeReady } = useFinanceContext();
   const key = queryKeys.invoices.byCard(userId || 'anonymous', cardId || 'none');
 
-  const { data: invoices = [], isLoading, error } = useQuery<CardInvoice[], Error>({
+  const fallbackRef = useRef<CardInvoice[]>([]);
+  const { data: rawData, isLoading, error } = useQuery<CardInvoice[], Error>({
     queryKey: key,
     queryFn: () => {
-      if (!userId || !cardId) return Promise.resolve([]);
-      return getInvoicesByCard(userId, cardId);
+      const currentData = queryClient.getQueryData<CardInvoice[]>(key);
+      return Promise.resolve(currentData ?? []);
     },
     enabled: !!userId && !!cardId,
     staleTime: 30_000,
   });
+  const invoices = rawData ?? fallbackRef.current;
 
   return {
     invoices,
@@ -29,8 +31,9 @@ export const useCardInvoices = (userId: string | undefined, cardId: string | und
 export const useInvoicesByUser = (userId: string | undefined) => {
   const queryClient = useQueryClient();
   const key = queryKeys.invoices.byUser(userId || 'anonymous');
+  const fallbackRef = useRef<CardInvoice[]>([]);
 
-  const { data: invoices = [], isLoading } = useQuery<CardInvoice[], Error>({
+  const { data: rawData, isLoading } = useQuery<CardInvoice[], Error>({
     queryKey: key,
     queryFn: () => {
       const currentData = queryClient.getQueryData<CardInvoice[]>(key);
@@ -39,6 +42,7 @@ export const useInvoicesByUser = (userId: string | undefined) => {
     enabled: !!userId,
     staleTime: Infinity,
   });
+  const invoices = rawData ?? fallbackRef.current;
 
   return {
     invoices,

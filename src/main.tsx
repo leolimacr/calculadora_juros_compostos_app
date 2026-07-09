@@ -6,6 +6,7 @@ import { queryClient } from './core/query/queryClient';
 import App from './App';
 import './index.css';
 import { AuthProvider } from './contexts/AuthContext';
+import { EntitlementProvider } from './contexts/EntitlementContext';
 import { TransactionsProvider } from './contexts/TransactionsContext';
 import { DebtProvider } from './contexts/DebtContext';
 import { FinanceProvider } from './contexts/FinanceContext';
@@ -18,6 +19,7 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
       <BrowserRouter>
         <ErrorBoundary>
           <AuthProvider>
+            <EntitlementProvider>
             <NotificationProvider>
               <TransactionsProvider>
                 <DebtProvider>
@@ -27,6 +29,7 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
                 </DebtProvider>
               </TransactionsProvider>
             </NotificationProvider>
+            </EntitlementProvider>
           </AuthProvider>
         </ErrorBoundary>
       </BrowserRouter>

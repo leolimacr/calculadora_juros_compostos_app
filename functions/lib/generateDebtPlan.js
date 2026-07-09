@@ -41,10 +41,17 @@ const identity_1 = require("./nexus-core/identity");
 const data_integrator_1 = require("./nexus-core/data-integrator");
 const MultiModelRouter_1 = require("./nexus-core/MultiModelRouter");
 const debtPlan_types_1 = require("./src/debtPlan.types");
+const secrets_1 = require("./secrets");
 exports.generateDebtPlan = (0, https_1.onCall)({
     memory: "512MiB",
     timeoutSeconds: 300,
     region: "us-central1",
+    secrets: [
+        secrets_1.GEMINI_API_KEY,
+        secrets_1.OPENROUTER_API_KEY,
+        secrets_1.GROQ_API_KEY,
+        secrets_1.MISTRAL_API_KEY,
+    ],
 }, async (request) => {
     if (request.rawRequest && request.rawRequest.method === 'OPTIONS') {
         const res = request.rawRequest.res;
@@ -66,16 +73,12 @@ exports.generateDebtPlan = (0, https_1.onCall)({
             throw new https_1.HttpsError("invalid-argument", "Dados inválidos: " + JSON.stringify(parseResult.error.flatten()));
         }
         const userId = request.auth.uid;
-        const geminiApiKey = process.env.GEMINI_API_KEY;
-        const openrouterApiKey = process.env.OPENROUTER_API_KEY;
         const groqApiKey = process.env.GROQ_API_KEY;
-        const mistralApiKey = process.env.MISTRAL_API_KEY;
+        const openrouterApiKey = process.env.OPENROUTER_API_KEY;
         const router = MultiModelRouter_1.MultiModelRouter.getInstance();
         router.updateApiKeys({
-            gemini: geminiApiKey,
-            openrouter: openrouterApiKey,
             groq: groqApiKey,
-            mistral: mistralApiKey,
+            openrouter: openrouterApiKey,
         });
         const dados = parseResult.data;
         const ctx = dados.perfilContexto;

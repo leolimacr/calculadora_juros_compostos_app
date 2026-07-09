@@ -1,33 +1,13 @@
-import React from 'react';
+import React, { useCallback, Suspense } from 'react';
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import OnboardingWizard from '../components/OnboardingWizard';
-import {
-  FireCalculatorTool,
-  CompoundInterestTool,
-  InflationTool,
-  RentVsFinanceTool,
-  DebtOptimizerTool,
-  DividendsTool,
-  BuyCashOrInstallInvestTool,
-} from '../components/tools';
 import AuthLogin from '../components/Auth/AuthLogin';
 import AuthRegister from '../components/Auth/AuthRegister';
-import PricingPage from '../components/PricingPage';
-import SettingsPage from '../components/SettingsPage';
 import PublicHome from '../components/PublicHome';
 import SecurityLock from '../components/SecurityLock';
 import { getArticleById } from '../components/Public/Articles';
-import ActiveWealthManager from '../components/tools/wealth/ActiveWealthManager';
-import { PassiveWealthManager } from '../components/tools/wealth/PassiveWealthManager';
-import { DebtManager } from '../components/tools/wealth/DebtManager';
-import GoalManager from '../components/tools/goals/GoalManager';
-import { TermsPage } from '../components/TermsPage';
-import { PrivacyPage } from '../components/PrivacyPage';
-import CentralHub from '../components/CentralHub';
-import LoggedInHomePanel from '../components/Home/LoggedInHomePanel';
-import AppCockpit from '../components/Home/AppCockpit';
-import { ExplorarHub } from '../components/ExplorarHub';
-import AppLayout from '../layouts/AppLayout';
+import AppLoadingScreen from '../components/AppLoadingScreen';
+import DashboardSkeleton from '../components/tools/finance/dashboard/DashboardSkeleton';
 import PublicLayout from '../layouts/PublicLayout';
 import FeatureGate from '../components/FeatureGate';
 import PremiumUpgradePrompt from '../components/PremiumUpgradePrompt';
@@ -38,9 +18,29 @@ import { useTransactionsContext } from '../contexts/TransactionsContext';
 import { useDebtContext } from '../contexts/DebtContext';
 import { useFinanceContext } from '../contexts/FinanceContext';
 import { useWealthData } from '../hooks/useWealthData';
-import { ControlaPage } from '../components/tools/finance/ControlaPage';
-import AppLoadingScreen from '../components/AppLoadingScreen';
-import AiAdvisor from '../components/tools/nexus/AiAdvisor';
+import { lazy } from 'react';
+
+const AppLayout = lazy(() => import('../layouts/AppLayout'));
+const AppCockpit = lazy(() => import('../components/Home/AppCockpit'));
+const CentralHub = lazy(() => import('../components/CentralHub'));
+const ExplorarHub = lazy(() => import('../components/ExplorarHub').then((mod) => ({ default: mod.ExplorarHub })));
+const ControlaPage = lazy(() => import('../components/tools/finance/ControlaPage').then((mod) => ({ default: mod.ControlaPage })));
+const AiAdvisor = lazy(() => import('../components/tools/nexus/AiAdvisor'));
+const PricingPage = lazy(() => import('../components/PricingPage'));
+const SettingsPage = lazy(() => import('../components/SettingsPage'));
+const ActiveWealthManager = lazy(() => import('../components/tools/wealth/ActiveWealthManager').then((mod) => ({ default: mod.ActiveWealthManager })));
+const PassiveWealthManager = lazy(() => import('../components/tools/wealth/PassiveWealthManager').then((mod) => ({ default: mod.PassiveWealthManager })));
+const DebtManager = lazy(() => import('../components/tools/wealth/DebtManager').then((mod) => ({ default: mod.DebtManager })));
+const GoalManager = lazy(() => import('../components/tools/goals/GoalManager'));
+const FireCalculatorTool = lazy(() => import('../components/tools/FireCalculatorTool').then((mod) => ({ default: mod.FireCalculatorTool })));
+const CompoundInterestTool = lazy(() => import('../components/tools/CompoundInterestTool').then((mod) => ({ default: mod.CompoundInterestTool })));
+const InflationTool = lazy(() => import('../components/tools/InflationTool').then((mod) => ({ default: mod.InflationTool })));
+const RentVsFinanceTool = lazy(() => import('../components/tools/RentVsFinanceTool').then((mod) => ({ default: mod.RentVsFinanceTool })));
+const DebtOptimizerTool = lazy(() => import('../components/tools/DebtOptimizerTool').then((mod) => ({ default: mod.DebtOptimizerTool })));
+const DividendsTool = lazy(() => import('../components/tools/DividendsTool').then((mod) => ({ default: mod.DividendsTool })));
+const BuyCashOrInstallInvestTool = lazy(() => import('../components/tools/buy-cash-or-installments/BuyCashOrInstallInvestTool'));
+const TermsPage = lazy(() => import('../components/TermsPage').then((mod) => ({ default: mod.TermsPage })));
+const PrivacyPage = lazy(() => import('../components/PrivacyPage').then((mod) => ({ default: mod.PrivacyPage })));
 
 interface AppRoutesProps {
   state: ReturnType<typeof useAppState>;
@@ -66,24 +66,43 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
   const wealthData = useWealthData();
 
   const [loadingTime, setLoadingTime] = React.useState(0);
-
-  React.useEffect(() => {
-    const timer = setInterval(() => setLoadingTime(prev => prev + 100), 100);
-    return () => clearInterval(timer);
-  }, []);
-
   const allReady = bridgeReady && debtBridgeReady && financeBridgeReady;
+
+  // Para de incrementar quando allReady ou após 1s — evita re-renders perpétuos
+  React.useEffect(() => {
+    if (allReady) return;
+
+    const timer = setInterval(() => {
+      setLoadingTime(prev => {
+        if (prev >= 1000) {
+          clearInterval(timer);
+          return prev;
+        }
+        return prev + 100;
+      });
+    }, 100);
+
+    return () => {
+      clearInterval(timer);
+    };
+  }, [allReady]);
   const anyConnected = txConnected || debtConnected || financeConnected;
 
-  // ESCALONAMENTO DE CARREGAMENTO (Ponto 4 do refinamento)
-  // T0-T3s: AppLoadingScreen (ideal)
-  // T3s-T7s: Se tiver cache, libera. Se nío, continua loading.
-  // T > 7s: Timeout / Erro (ou libera com o que tiver)
+  // Debounce de 2s para o banner "Modo Offline" — evita flicker em atrasos transitórios
+  const [showStale, setShowStale] = React.useState(false);
+  React.useEffect(() => {
+    if (allReady || !anyConnected) {
+      setShowStale(false);
+      return;
+    }
+    const id = setTimeout(() => setShowStale(true), 2000);
+    return () => clearTimeout(id);
+  }, [allReady, anyConnected]);
+
+  // CARREGAMENTO MÍNIMO (Correção #1)
+  // Libera assim que as bridges conectarem ou após 1s (timeout de segurança)
   
-  const showFullLoading = !allReady && (
-    loadingTime < 3000 || 
-    (!anyConnected && loadingTime < 7000)
-  );
+  const showFullLoading = !allReady && loadingTime < 1000;
 
   const { effectiveTier } = useEntitlement();
   const isPro = effectiveTier !== 'free';
@@ -95,6 +114,10 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
     homeKey,
     currentTool
   } = useNavigation();
+
+  const handleTogglePrivacy = useCallback(() => {
+    state.setIsPrivacyMode((prev: boolean) => !prev);
+  }, [state.setIsPrivacyMode]);
 
   if (state.isAuthenticated && showFullLoading) {
     return <AppLoadingScreen loadingTime={loadingTime} />;
@@ -114,7 +137,6 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
     storedPin,
     handleUnlockSuccess,
     isPrivacyMode,
-    setIsPrivacyMode,
     setActiveModal,
     setOnboardingDismissed,
     routerNavigate,
@@ -143,15 +165,17 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
             isAuthenticated ? (
               <Navigate to="/app/home" replace />
             ) : (
-              <PublicHome
-                key={homeKey}
-                onNavigate={handleNavigate}
-                onStartNow={() => handleNavigate('register')}
-                isAuthenticated={isAuthenticated}
-                userEmail={user?.email}
-                userMeta={userMeta}
-                isPrivacyMode={isPrivacyMode}
-              />
+              <React.Suspense fallback={<AppLoadingScreen />}>
+                <PublicHome
+                  key={homeKey}
+                  onNavigate={handleNavigate}
+                  onStartNow={() => handleNavigate('register')}
+                  isAuthenticated={isAuthenticated}
+                  userEmail={user?.email}
+                  userMeta={userMeta}
+                  isPrivacyMode={isPrivacyMode}
+                />
+              </React.Suspense>
             )
           } 
         />
@@ -172,8 +196,8 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
             />} 
         />
 
-        <Route path="/termos" element={<TermsPage />} />
-        <Route path="/privacidade" element={<PrivacyPage />} />
+        <Route path="/termos" element={<React.Suspense fallback={<AppLoadingScreen />}><TermsPage /></React.Suspense>} />
+        <Route path="/privacidade" element={<React.Suspense fallback={<AppLoadingScreen />}><PrivacyPage /></React.Suspense>} />
 
         {/* ARTIGOS */}
         <Route path="/artigos/investir-2026" element={(() => {
@@ -201,9 +225,11 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
         path="/app" 
         element={
           <ProtectedRoute isAuthenticated={isAuthenticated}>
-            <AppLayout state={state}>
-              <Outlet />
-            </AppLayout>
+            <React.Suspense fallback={<AppLoadingScreen />}>
+              <AppLayout state={state}>
+                <Outlet />
+              </AppLayout>
+            </React.Suspense>
           </ProtectedRoute>
         }
       >
@@ -215,6 +241,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
                 <OnboardingWizard userId={user!.uid} onComplete={() => setOnboardingDismissed(true)} />
               </div>
             ) : (
+              <React.Suspense fallback={<DashboardSkeleton />}>
                 <AppCockpit
                   transactions={state.lancamentos}
                   isPrivacyMode={state.isPrivacyMode}
@@ -223,6 +250,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
                   userMeta={userMeta}
                   isSyncing={state.isSyncing}
                 />
+              </React.Suspense>
             )
           } 
         />
@@ -230,61 +258,65 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
         <Route
           path="controla"
           element={
-            <ControlaPage
-              transactions={lancamentos}
-              isLoading={state.isLoading || (lancamentos.length === 0 && !txConnected)}
-              isSyncing={state.isSyncing}
-              isStale={!allReady && anyConnected}
-              categories={categories}
-              onDeleteTransaction={deleteLancamento}
-              onNavigate={handleNavigate}
-              onOpenForm={state.openTransactionForm}
-              onSaveCategory={saveCategory}
-              onDeleteCategory={deleteCategory}
-              userMeta={userMeta}
-              isPremium={isPro || isPremium}
-              isPrivacyMode={isPrivacyMode}
-              onTogglePrivacy={() => setIsPrivacyMode((prev) => !prev)}
-              onEditTransaction={handleEditTransaction}
-              fetchMonth={state.fetchMonth}
-            />
+            <Suspense fallback={<DashboardSkeleton />}>
+              <ControlaPage
+                transactions={lancamentos}
+                isLoading={state.isLoading || (lancamentos.length === 0 && !txConnected)}
+                userMetaLoading={state.userMetaLoading}
+                isSyncing={state.isSyncing}
+                isStale={showStale}
+                categories={categories}
+                onDeleteTransaction={deleteLancamento}
+                onNavigate={handleNavigate}
+                onOpenForm={state.openTransactionForm}
+                onSaveCategory={saveCategory}
+                onDeleteCategory={deleteCategory}
+                userMeta={userMeta}
+                isPremium={isPro || isPremium}
+                isPrivacyMode={isPrivacyMode}
+                onTogglePrivacy={handleTogglePrivacy}
+                onEditTransaction={handleEditTransaction}
+                fetchMonth={state.fetchMonth}
+              />
+            </Suspense>
           }
         />
 
         <Route 
           path="central" 
           element={
-            <CentralHub
-              lancamentos={lancamentos}
-              userMeta={userMeta}
-              onNavigate={handleNavigate}
-            />
+            <React.Suspense fallback={<DashboardSkeleton />}>
+              <CentralHub
+                lancamentos={lancamentos}
+                userMeta={userMeta}
+                onNavigate={handleNavigate}
+              />
+            </React.Suspense>
           } 
         />
 
-        <Route path="explorar" element={<ExplorarHub onNavigate={handleNavigate} routerNavigate={routerNavigate} />} />
+        <Route path="explorar" element={<React.Suspense fallback={<DashboardSkeleton />}><ExplorarHub onNavigate={handleNavigate} routerNavigate={routerNavigate} /></React.Suspense>} />
 
         <Route 
           path="ia" 
           element={
-            <AiAdvisor
-              transactions={state.getAiContextTransactions()}
-              currentCalcResult={[]}
-              goals={wealthData.goals}
-              assets={wealthData.assets}
-              passives={wealthData.passives}
-              debts={wealthData.debts}
-              currentTool={currentTool}
-            />
+            <React.Suspense fallback={<DashboardSkeleton />}>
+              <AiAdvisor
+                transactions={state.getAiContextTransactions()}
+                currentCalcResult={[]}
+                goals={wealthData.goals}
+                assets={wealthData.assets}
+                passives={wealthData.passives}
+                debts={wealthData.debts}
+                currentTool={currentTool}
+              />
+            </React.Suspense>
           } 
         />
 
-        <Route path="mais" element={<SettingsPage onBack={() => handleNavigate('home')} />} />
+        <Route path="mais" element={<React.Suspense fallback={<DashboardSkeleton />}><SettingsPage onBack={() => handleNavigate('home')} /></React.Suspense>} />
         
-        <Route 
-          path="mais/pricing" 
-          element={<PricingPage />} 
-        />
+        <Route path="mais/pricing" element={<React.Suspense fallback={<DashboardSkeleton />}><PricingPage /></React.Suspense>} />
 
         <Route 
           path="investimentos" 
@@ -346,19 +378,19 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
             </FeatureGate>
           } 
         />
-        <Route path="metas" element={<GoalManager userId={user?.uid} userMeta={userMeta} />} />
+        <Route path="metas" element={<React.Suspense fallback={<DashboardSkeleton />}><GoalManager userId={user?.uid} userMeta={userMeta} /></React.Suspense>} />
 
         {/* FERRAMENTAS */}
-        <Route path="ferramentas/fire" element={<FireCalculatorTool onNavigate={handleNavigate} isAuthenticated={isAuthenticated} />} />
-        <Route path="ferramentas/juros" element={<CompoundInterestTool onNavigate={handleNavigate} isAuthenticated={isAuthenticated} />} />
-        <Route path="ferramentas/inflacao" element={<InflationTool onNavigate={handleNavigate} isAuthenticated={isAuthenticated} />} />
-        <Route path="ferramentas/alugar" element={<RentVsFinanceTool onNavigate={handleNavigate} isAuthenticated={isAuthenticated} />} />
-        <Route path="ferramentas/dividas" element={<DebtOptimizerTool onNavigate={handleNavigate} isAuthenticated={isAuthenticated} />} />
-        <Route path="ferramentas/dividendos" element={<DividendsTool onNavigate={handleNavigate} isAuthenticated={isAuthenticated} />} />
+        <Route path="ferramentas/fire" element={<React.Suspense fallback={<DashboardSkeleton />}><FireCalculatorTool onNavigate={handleNavigate} isAuthenticated={isAuthenticated} /></React.Suspense>} />
+        <Route path="ferramentas/juros" element={<React.Suspense fallback={<DashboardSkeleton />}><CompoundInterestTool onNavigate={handleNavigate} isAuthenticated={isAuthenticated} /></React.Suspense>} />
+        <Route path="ferramentas/inflacao" element={<React.Suspense fallback={<DashboardSkeleton />}><InflationTool onNavigate={handleNavigate} isAuthenticated={isAuthenticated} /></React.Suspense>} />
+        <Route path="ferramentas/alugar" element={<React.Suspense fallback={<DashboardSkeleton />}><RentVsFinanceTool onNavigate={handleNavigate} isAuthenticated={isAuthenticated} /></React.Suspense>} />
+        <Route path="ferramentas/dividas" element={<React.Suspense fallback={<DashboardSkeleton />}><DebtOptimizerTool onNavigate={handleNavigate} isAuthenticated={isAuthenticated} /></React.Suspense>} />
+        <Route path="ferramentas/dividendos" element={<React.Suspense fallback={<DashboardSkeleton />}><DividendsTool onNavigate={handleNavigate} isAuthenticated={isAuthenticated} /></React.Suspense>} />
         <Route 
           path="ferramentas/compra-avista-parcelado" 
           element={
-            <BuyCashOrInstallInvestTool onNavigate={handleNavigate} />
+            <React.Suspense fallback={<DashboardSkeleton />}><BuyCashOrInstallInvestTool onNavigate={handleNavigate} /></React.Suspense>
           } 
         />
       </Route>
@@ -369,4 +401,4 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
   );
 };
 
-export default AppRoutes;
+export default React.memo(AppRoutes);

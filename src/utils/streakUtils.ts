@@ -1,4 +1,5 @@
 import type { Transaction } from '../types';
+import { getLocalDateString } from './dateHelpers';
 
 /**
  * Calcula quantos dias consecutivos (incluindo hoje) o usuário registrou ao menos uma movimentação.
@@ -9,14 +10,14 @@ export function getConsecutiveDays(transactions: Transaction[]): number {
   const dates = new Set(transactions.map((t) => t.date.split('T')[0]));
 
   const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = getLocalDateString(today);
 
   if (!dates.has(todayStr)) return 0;
 
   let streak = 0;
   const current = new Date(today);
 
-  while (dates.has(current.toISOString().split('T')[0])) {
+  while (dates.has(getLocalDateString(current))) {
     streak++;
     current.setDate(current.getDate() - 1);
   }

@@ -6,6 +6,12 @@ import type { UserDataResult } from './nexus-core/data-integrator';
 import { DataIntegrator } from './nexus-core/data-integrator';
 import { MultiModelRouter } from './nexus-core/MultiModelRouter';
 import { NexusDebtPlanRequestSchema } from './src/debtPlan.types';
+import {
+  GEMINI_API_KEY as GEMINI_API_KEY_SECRET,
+  OPENROUTER_API_KEY as OPENROUTER_API_KEY_SECRET,
+  GROQ_API_KEY as GROQ_API_KEY_SECRET,
+  MISTRAL_API_KEY as MISTRAL_API_KEY_SECRET,
+} from './secrets';
 
 // ============================================
 // FUNÇÃO: generateDebtPlan (Simulador ? Nexus)
@@ -16,6 +22,12 @@ export const generateDebtPlan = onCall(
     memory: "512MiB",
     timeoutSeconds: 300,
     region: "us-central1",
+    secrets: [
+      GEMINI_API_KEY_SECRET,
+      OPENROUTER_API_KEY_SECRET,
+      GROQ_API_KEY_SECRET,
+      MISTRAL_API_KEY_SECRET,
+    ],
   },
   
   async (request) => {
@@ -50,17 +62,13 @@ export const generateDebtPlan = onCall(
       const userId = request.auth.uid;
 
       // 2) Preparar router e chaves
-      const geminiApiKey = process.env.GEMINI_API_KEY as string;
-      const openrouterApiKey = process.env.OPENROUTER_API_KEY as string;
       const groqApiKey = process.env.GROQ_API_KEY as string;
-      const mistralApiKey = process.env.MISTRAL_API_KEY as string;
+      const openrouterApiKey = process.env.OPENROUTER_API_KEY as string;
 
       const router = MultiModelRouter.getInstance();
       router.updateApiKeys({
-        gemini: geminiApiKey,
-        openrouter: openrouterApiKey,
         groq: groqApiKey,
-        mistral: mistralApiKey,
+        openrouter: openrouterApiKey,
       });
 
       // 3) Montar system prompt específico para plano de dívidas

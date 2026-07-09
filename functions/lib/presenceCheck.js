@@ -37,6 +37,7 @@ exports.dailyPresenceCheck = void 0;
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const firestore_1 = require("firebase-admin/firestore");
 const logger = __importStar(require("firebase-functions/logger"));
+const secrets_1 = require("./secrets");
 const mailService_1 = require("./mailService");
 const presenceHelpers_1 = require("./presenceHelpers");
 async function processUserPresence(db, uid, nowMs) {
@@ -275,6 +276,7 @@ exports.dailyPresenceCheck = (0, scheduler_1.onSchedule)({
     timeZone: 'America/Sao_Paulo',
     timeoutSeconds: 300,
     memory: '256MiB',
+    secrets: [secrets_1.RESEND_API_KEY],
 }, async () => {
     const db = (0, firestore_1.getFirestore)();
     const now = new Date();

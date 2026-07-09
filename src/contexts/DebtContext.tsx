@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import React, { createContext, useContext, useEffect, useRef, useState, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './AuthContext';
-import { createDebtRealtimeBridge } from '../services/debt/debt.realtime';
+import { queryKeys } from '../core/query/queryKeys';
 
 interface DebtContextValue {
   debtBridgeReady: boolean;
@@ -13,60 +13,80 @@ const DebtContext = createContext<DebtContextValue>({
   hasConnectedAtLeastOnce: false,
 });
 
+let debtProviderInstanceCount = 0;
+
 export function DebtProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const unsubscribeRef = useRef<(() => void) | null>(null);
   const [debtBridgeReady, setDebtBridgeReady] = useState(false);
   const [hasConnectedAtLeastOnce, setHasConnectedAtLeastOnce] = useState(false);
+  const providerId = React.useRef(++debtProviderInstanceCount);
+
+  const key = queryKeys.debts.byUser(user?.uid || 'anonymous');
+
+  // Watch the React Query cache for debt data (populated by FinanceContext's bridge)
+  const { data } = useQuery({
+    queryKey: key,
+    queryFn: () => queryClient.getQueryData(key) ?? undefined,
+    enabled: !!user?.uid,
+    staleTime: Infinity,
+  });
+
+  // Also seed from localStorage for instant readiness on cold start
+  const storageKey = useMemo(() => {
+    if (!user?.uid) return null;
+    const legacyKey = `fpi_debts_${user.uid}`;
+    const currentKey = `financas-pro-invest_debts_${user.uid}`;
+    try {
+      const current = localStorage.getItem(currentKey);
+      if (current) return currentKey;
+      const legacy = localStorage.getItem(legacyKey);
+      if (legacy) {
+        localStorage.setItem(currentKey, legacy);
+        localStorage.removeItem(legacyKey);
+        return currentKey;
+      }
+    } catch {}
+    return currentKey;
+  }, [user?.uid]);
 
   useEffect(() => {
     if (!user?.uid) {
-      if (unsubscribeRef.current) {
-        unsubscribeRef.current();
-        unsubscribeRef.current = null;
-      }
       setDebtBridgeReady(false);
       return;
     }
 
-    const storageKey = (() => {
-      const legacyKey = `fpi_debts_${user.uid}`;
-      const currentKey = `financas-pro-invest_debts_${user.uid}`;
+    // Try to hydrate from localStorage cache for instant readiness
+    if (storageKey) {
       try {
-        const current = localStorage.getItem(currentKey);
-        if (current) return currentKey;
-        const legacy = localStorage.getItem(legacyKey);
-        if (legacy) {
-          localStorage.setItem(currentKey, legacy);
-          localStorage.removeItem(legacyKey);
+        const raw = localStorage.getItem(storageKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed.data && Date.now() - parsed.ts < 600_000) {
+            queryClient.setQueryData(key, parsed.data);
+            setDebtBridgeReady(true);
+            setHasConnectedAtLeastOnce(true);
+          }
         }
       } catch {}
-      return currentKey;
-    })();
+    }
+  }, [user?.uid, storageKey, queryClient, key]);
 
-    const bridge = createDebtRealtimeBridge(user.uid);
-    unsubscribeRef.current = bridge.subscribe((data: any) => {
+  // React when cache is populated by FinanceContext's bridge
+  useEffect(() => {
+    if (data !== undefined) {
       setDebtBridgeReady(true);
       setHasConnectedAtLeastOnce(true);
-      try {
-        localStorage.setItem(
-          storageKey,
-          JSON.stringify({ data, ts: Date.now() })
-        );
-      } catch {}
-    });
+    }
+  }, [data]);
 
-    return () => {
-      if (unsubscribeRef.current) {
-        unsubscribeRef.current();
-        unsubscribeRef.current = null;
-      }
-    };
-  }, [user?.uid, queryClient]);
+  const value = useMemo<DebtContextValue>(
+    () => ({ debtBridgeReady, hasConnectedAtLeastOnce }),
+    [debtBridgeReady, hasConnectedAtLeastOnce],
+  );
 
   return (
-    <DebtContext.Provider value={{ debtBridgeReady, hasConnectedAtLeastOnce }}>
+    <DebtContext.Provider value={value}>
       {children}
     </DebtContext.Provider>
   );

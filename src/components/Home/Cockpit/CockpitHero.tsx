@@ -6,6 +6,7 @@ import type { Transaction, UserMeta, RecurringBill } from '../../../types';
 import { useEntitlement } from '../../../hooks/useEntitlement';
 import { getHeroHelperText, DISPONIBILIDADE_REAL } from '../../../theme/fpiVoiceGuide';
 import ExpandableSection from '../../ui/ExpandableSection';
+import { getLocalDateString } from '../../../utils/dateHelpers';
 
 interface CockpitHeroProps {
   urgentBills: RecurringBill[];
@@ -85,7 +86,7 @@ const CockpitHero: React.FC<CockpitHeroProps> = ({
                     category: bill.category,
                     amount: bill.amount,
                     description: bill.name,
-                    date: new Date().toISOString().split('T')[0],
+                    date: getLocalDateString(),
                     autoFocusAmount: true,
                   });
                 } else {
@@ -102,7 +103,7 @@ const CockpitHero: React.FC<CockpitHeroProps> = ({
                       category: bill.category,
                       amount: bill.amount,
                       description: bill.name,
-                      date: new Date().toISOString().split('T')[0],
+                      date: getLocalDateString(),
                       autoFocusAmount: true,
                     });
                   } else {

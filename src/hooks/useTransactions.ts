@@ -4,7 +4,7 @@ import { db } from '../firebase';
 import { queryKeys } from '../core/query/queryKeys';
 import type { Transaction } from '../types';
 import { useTransactionsContext } from '../contexts/TransactionsContext';
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useRef } from 'react';
 import { useDebts } from './useDebts';
 import { useCards } from './useCards';
 import { updateDebt } from '../services/debt/debtService';
@@ -12,6 +12,7 @@ import { updateCard } from '../services/cardService';
 import { useEntitlement } from './useEntitlement';
 import { isMonthFetchAllowed } from '../utils/historyTimeGate';
 import { eventBus } from '../core/orchestration/event-bus';
+import { getLocalDateString } from '../utils/dateHelpers';
 import { 
   createDomainEvent, 
   EVENT_TYPES,
@@ -29,8 +30,14 @@ export const useTransactions = (userId?: string) => {
   const currentPlan = effectiveTier;
   const { bridgeReady } = useTransactionsContext();
   const key = queryKeys.transactions.byUser(userId || 'anonymous');
-  const extraKey = ['transactions_extra', userId || 'anonymous'];
-  const registryKey = ['transactions_fetched_months', userId || 'anonymous'];
+  const extraKey = useMemo(
+    () => ['transactions_extra', userId || 'anonymous'],
+    [userId]
+  );
+  const registryKey = useMemo(
+    () => ['transactions_fetched_months', userId || 'anonymous'],
+    [userId]
+  );
 
   const cachedRaw = typeof window !== 'undefined' 
     ? (() => {
@@ -71,6 +78,7 @@ export const useTransactions = (userId?: string) => {
   });
 
   // 3. Mesclagem Inteligente (Realtime + Histórico + Deduplicação)
+  const transactionsRef = useRef<Transaction[]>([]);
   const transactions = useMemo(() => {
     const base = realtimeData || [];
     const extra = extraData || [];
@@ -82,18 +90,81 @@ export const useTransactions = (userId?: string) => {
       if (t?.id) uniqueMap.set(t.id, t);
     });
     
-    return Array.from(uniqueMap.values()).sort((a, b) => {
+    const result = Array.from(uniqueMap.values()).sort((a, b) => {
       const dateA = a.date || '';
       const dateB = b.date || '';
       return dateB.localeCompare(dateA);
     });
+
+    // Estabiliza referência: retorna o mesmo array se IDs e datas forem idênticos
+    const prev = transactionsRef.current;
+    if (result.length === prev.length) {
+      let identical = true;
+      for (let i = 0; i < result.length; i++) {
+        if (result[i].id !== prev[i].id || result[i].date !== prev[i].date || result[i].amount !== prev[i].amount) {
+          identical = false;
+          break;
+        }
+      }
+      if (identical) return prev;
+    }
+    transactionsRef.current = result;
+    return result;
   }, [realtimeData, extraData]);
 
-  // NOVO: Busca mês específico sob demanda (Cirúrgico para custo baixo)
-  const fetchMonth = useCallback(async (year: number, month: number) => {
+  // Cache local para fetchMonth (localStorage)
+  const MONTH_CACHE_PREFIX = 'fpi_month_cache_';
+  const MONTH_CACHE_TTL_MS = 3600_000; // 1 hora para meses passados
+
+  function getMonthCacheKey(userId: string, monthKey: string): string {
+    return `${MONTH_CACHE_PREFIX}${userId}_${monthKey}`;
+  }
+
+  function readMonthFromCache(userId: string, monthKey: string): Transaction[] | null {
+    try {
+      const raw = localStorage.getItem(getMonthCacheKey(userId, monthKey));
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (Date.now() - parsed.ts < MONTH_CACHE_TTL_MS) {
+        return parsed.data as Transaction[];
+      }
+      // Cache expirado — remove para liberar espaço
+      localStorage.removeItem(getMonthCacheKey(userId, monthKey));
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  function writeMonthToCache(userId: string, monthKey: string, data: Transaction[]): void {
+    try {
+      localStorage.setItem(
+        getMonthCacheKey(userId, monthKey),
+        JSON.stringify({ data, ts: Date.now() })
+      );
+    } catch {
+      // localStorage cheio ou indisponível — ignora silenciosamente
+    }
+  }
+
+  // Busca mês específico sob demanda (Cirúrgico para custo baixo)
+  const pendingFetchRef = useRef(new Set<string>());
+  const fetchMonthCallCount = useRef(0);
+  const saveLancamentoRef = useRef<(transaction: Omit<Transaction, 'id' | 'userId'> & { id?: string }) => Promise<void>>(async () => {});
+  const deleteLancamentoRef = useRef<(id: string) => Promise<void>>(async () => {});
+  const fetchMonthRef = useRef<(year: number, month: number) => Promise<void>>(async () => {});
+  const fetchHistoryRef = useRef<(lastSortKey: string | null, limitCount?: number) => Promise<Transaction[]>>(async () => []);
+  fetchMonthRef.current = async (year: number, month: number) => {
     if (!userId) return;
     const monthKey = `${year}-${String(month).padStart(2, '0')}`;
-    
+
+    fetchMonthCallCount.current++;
+
+    // Synchronous dedup — previne chamadas concorrentes para o mesmo mês
+    if (pendingFetchRef.current.has(monthKey)) {
+      return;
+    }
+
     const fetchedSet = queryClient.getQueryData<Set<string>>(registryKey) || new Set<string>();
     if (fetchedSet.has(monthKey)) return;
 
@@ -104,6 +175,25 @@ export const useTransactions = (userId?: string) => {
       return;
     }
 
+    // Cache-first para meses anteriores ao corrente
+    const now = new Date();
+    const isCurrentMonth = year === now.getFullYear() && month === (now.getMonth() + 1);
+    const isPastMonth = !isCurrentMonth;
+
+    if (!isCurrentMonth) {
+      const cached = readMonthFromCache(userId, monthKey);
+      if (cached) {
+        const currentExtra = queryClient.getQueryData<Transaction[]>(extraKey) || [];
+        const merged = Array.from(new Map([...currentExtra, ...cached].map(t => [t.id, t])).values());
+        queryClient.setQueryData(extraKey, merged);
+        const updatedSet = new Set(fetchedSet);
+        updatedSet.add(monthKey);
+        queryClient.setQueryData(registryKey, updatedSet);
+        return;
+      }
+    }
+
+    pendingFetchRef.current.add(monthKey);
     try {
       const transactionsRef = ref(db, `transactions/${userId}`);
       
@@ -124,26 +214,30 @@ export const useTransactions = (userId?: string) => {
           }
         });
 
-        // Atualiza o cache de extras
         const currentExtra = queryClient.getQueryData<Transaction[]>(extraKey) || [];
         const updatedExtra = [...currentExtra, ...newTx];
         
-        // Mantém apenas IDs únicos no extra
         const uniqueExtra = Array.from(new Map(updatedExtra.map(t => [t.id, t])).values());
         queryClient.setQueryData(extraKey, uniqueExtra);
+
+        // Atualiza cache local para meses anteriores
+        if (isPastMonth) {
+          writeMonthToCache(userId, monthKey, newTx);
+        }
       }
 
-      // Registra que o mês foi carregado com sucesso (criando novo Set para garantir imutabilidade)
       const updatedSet = new Set(fetchedSet);
       updatedSet.add(monthKey);
       queryClient.setQueryData(registryKey, updatedSet);
     } catch (err) {
       console.error(`[FinOps] Erro ao carregar mês ${monthKey}:`, err);
+    } finally {
+      pendingFetchRef.current.delete(monthKey);
     }
-  }, [userId, queryClient, extraKey, registryKey, currentPlan]);
+  };
 
   // NOVO: Busca histórico antigo (paginação robusta via sortKey)
-  const fetchHistory = async (lastSortKey: string | null, limitCount = 50): Promise<Transaction[]> => {
+  fetchHistoryRef.current = async (lastSortKey: string | null, limitCount = 50): Promise<Transaction[]> => {
     if (!userId) return [];
     try {
       const transactionsRef = ref(db, `transactions/${userId}`);
@@ -186,20 +280,28 @@ export const useTransactions = (userId?: string) => {
       console.error("Erro ao buscar histórico:", err);
       return [];
     }
-  };
+    };
 
   const { debts } = useDebts(userId);
   const { cards } = useCards(userId);
 
-  const saveLancamento = async (transaction: Omit<Transaction, 'id' | 'userId'> & { id?: string }) => {
+  // Refs para dados mutáveis — estabilizam referência das funções
+  const debtsRef = useRef(debts);
+  debtsRef.current = debts;
+  const cardsRef = useRef(cards);
+  cardsRef.current = cards;
+  // transactionsRef já declarado na linha 81 para dedup — ref.current já atualizado no useMemo
+
+  saveLancamentoRef.current = async (transaction: Omit<Transaction, 'id' | 'userId'> & { id?: string }) => {
     if (!userId) return;
     
     const now = Date.now();
     const dateClean = transaction.date.replace(/-/g, '');
+    const latestTransactions = transactionsRef.current;
 
     if (transaction.id) {
         // [Reactive Core] Reação Reversa: Edição
-        const oldTx = transactions.find(t => t.id === transaction.id);
+        const oldTx = latestTransactions.find(t => t.id === transaction.id);
         if (oldTx && userId) {
             const oldDebtId = oldTx.linkedDebtId;
             const newDebtId = transaction.linkedDebtId;
@@ -208,7 +310,7 @@ export const useTransactions = (userId?: string) => {
             if (oldDebtId !== newDebtId || oldTx.amount !== Number(transaction.amount)) {
                 // 1. Estorno do vínculo antigo (se existia)
                 if (oldDebtId) {
-                    const oldDebt = debts.find(d => d.id === oldDebtId);
+                    const oldDebt = debtsRef.current.find(d => d.id === oldDebtId);
                     if (oldDebt) {
                         let finalSaldo = oldDebt.saldoDevedor + oldTx.amount;
                         let finalParcelas = oldDebt.parcelasRestantes + 1;
@@ -244,7 +346,7 @@ export const useTransactions = (userId?: string) => {
 
                 // 2. Aplicação do novo vínculo (se for uma dívida diferente e nova)
                 if (newDebtId && newDebtId !== oldDebtId) {
-                    const newDebt = debts.find(d => d.id === newDebtId);
+                    const newDebt = debtsRef.current.find(d => d.id === newDebtId);
                     if (newDebt) {
                         try {
                             await updateDebt(userId, newDebtId, {
@@ -282,7 +384,7 @@ export const useTransactions = (userId?: string) => {
             if (oldCardId !== newCardId || oldTx.amount !== Number(transaction.amount) || wasBill !== isBill) {
                 // Estorna o efeito do lançamento antigo
                 if (oldCardId) {
-                    const card = cards.find(c => c.id === oldCardId);
+                    const card = cardsRef.current.find(c => c.id === oldCardId);
                     if (card) {
                         try {
                             // Se era pagamento, estornar = voltar a consumir. Se era compra, estornar = liberar.
@@ -318,7 +420,7 @@ export const useTransactions = (userId?: string) => {
 
                 // Aplica o efeito no novo cartão (se for diferente)
                 if (newCardId && newCardId !== oldCardId) {
-                    const card = cards.find(c => c.id === newCardId);
+                    const card = cardsRef.current.find(c => c.id === newCardId);
                     if (card) {
                         try {
                             const factor = isBill ? -1 : 1;
@@ -349,6 +451,12 @@ export const useTransactions = (userId?: string) => {
         const transactionRef = ref(db, `transactions/${userId}/${transaction.id}`);
         const { id, ...dataToUpdate } = transaction;
         await update(transactionRef, dataToUpdate);
+
+        // Cache local imediato para edição
+        queryClient.setQueryData<Transaction[]>(key, (old) => {
+          if (!old) return old;
+          return old.map(t => t.id === transaction.id ? { ...t, ...dataToUpdate, id: transaction.id } as Transaction : t);
+        });
         
         if (oldTx) {
           const changedFields = Object.keys(dataToUpdate).filter(k => 
@@ -370,124 +478,31 @@ export const useTransactions = (userId?: string) => {
         return;
     }
 
-    // [Reactive Core] Reações em Cartões (Consumo de Limite / Pagamento de Fatura)
-    if (userId) {
-      if (transaction.isBillPayment && transaction.linkedCardId) {
-        // Liberação de Limite por Pagamento de Fatura
-        const card = cards.find(c => c.id === transaction.linkedCardId);
-        if (card) {
-          try {
-            const previousSaldo = card.saldoUtilizadoTotal || 0;
-            const newUsed = Math.max(0, previousSaldo - Number(transaction.amount));
-            await updateCard(userId, card.id, { saldoUtilizadoTotal: newUsed });
-            console.log(`[Reactive Core] Limite do cartão ${card.name} liberado por pagamento de fatura.`);
-            await eventBus.publish(createDomainEvent<CardUsageUpdatedEvent['payload']>(
-              'card',
-              EVENT_TYPES.card.usageUpdated,
-              {
-                cardId: card.id,
-                userId,
-                previousSaldoUtilizado: previousSaldo,
-                newSaldoUtilizado: newUsed,
-                reason: 'bill_payment',
-                transactionId: transaction.id,
-              },
-              'useTransactions.saveLancamento'
-            ));
-          } catch (error) {
-            console.error("[Reactive Core] Erro ao liberar limite do cartão:", error);
-          }
-        }
-      } else if (transaction.paymentMethod === 'credit' && transaction.cardId) {
-        // Consumo de Limite por Compra (Total)
-        const card = cards.find(c => c.id === transaction.cardId);
-        if (card) {
-          try {
-            const previousSaldo = card.saldoUtilizadoTotal || 0;
-            const newUsed = previousSaldo + Number(transaction.amount);
-            await updateCard(userId, card.id, { saldoUtilizadoTotal: newUsed });
-            console.log(`[Reactive Core] Limite do cartão ${card.name} consumido por nova compra.`);
-            await eventBus.publish(createDomainEvent<CardUsageUpdatedEvent['payload']>(
-              'card',
-              EVENT_TYPES.card.usageUpdated,
-              {
-                cardId: card.id,
-                userId,
-                previousSaldoUtilizado: previousSaldo,
-                newSaldoUtilizado: newUsed,
-                reason: 'purchase',
-                transactionId: transaction.id,
-              },
-              'useTransactions.saveLancamento'
-            ));
-          } catch (error) {
-            console.error("[Reactive Core] Erro ao consumir limite do cartão:", error);
-          }
-        }
-      }
-    }
-
-    // [Reactive Core] Amortização Assistida
-    const linkedDebtId = transaction.linkedDebtId;
-    if (linkedDebtId && userId) {
-      const debt = debts.find(d => d.id === linkedDebtId);
-      if (debt) {
-        const amount = Number(transaction.amount);
-        const previousSaldo = debt.saldoDevedor;
-        const previousParcelas = debt.parcelasRestantes;
-        const newSaldo = Math.max(0, previousSaldo - amount);
-        const newParcelas = Math.max(0, previousParcelas - 1);
-        
-        try {
-          await updateDebt(userId, linkedDebtId, {
-            saldoDevedor: newSaldo,
-            parcelasRestantes: newParcelas
-          });
-          console.log(`[Reactive Core] Dívida ${debt.nome} amortizada.`);
-          await eventBus.publish(createDomainEvent<DebtAmortizedEvent['payload']>(
-            'debt',
-            EVENT_TYPES.debt.amortized,
-            {
-              debtId: linkedDebtId,
-              userId,
-              amount,
-              previousSaldo,
-              newSaldo,
-              previousParcelas,
-              newParcelas,
-            },
-            'useTransactions.saveLancamento'
-          ));
-        } catch (error) {
-          console.error("[Reactive Core] Erro na amortização:", error);
-        }
-      }
-    }
-
+    // === Cache local imediato (antes de qualquer await) ===
     const transactionsRef = ref(db, `transactions/${userId}`);
 
     if (transaction.paymentMethod === 'credit' && transaction.installments && transaction.installments > 1) {
+      // --- Parcelas: gera todas as keys e atualiza cache antes de escrever ---
       const installmentId = `inst_${now}_${Math.random().toString(36).substr(2, 5)}`;
       const totalAmount = transaction.amount;
       const installmentAmount = totalAmount / transaction.installments;
       const baseDate = new Date(transaction.date.replace(/-/g, '/'));
 
-      const promises = [];
+      type InstallmentItem = { ref: ReturnType<typeof push>; data: Record<string, unknown>; id: string };
+      const items: InstallmentItem[] = [];
+
       for (let i = 1; i <= transaction.installments; i++) {
         const installmentDate = new Date(baseDate);
         installmentDate.setMonth(baseDate.getMonth() + (i - 1));
-        
         if (installmentDate.getDate() !== baseDate.getDate() && i > 1) {
             const lastDayOfIntendedMonth = new Date(baseDate.getFullYear(), baseDate.getMonth() + i, 0);
             installmentDate.setDate(lastDayOfIntendedMonth.getDate());
             installmentDate.setMonth(lastDayOfIntendedMonth.getMonth());
             installmentDate.setFullYear(lastDayOfIntendedMonth.getFullYear());
         }
-
         const newRef = push(transactionsRef);
-        const instDateStr = installmentDate.toISOString().split('T')[0];
+        const instDateStr = getLocalDateString(installmentDate);
         const instDateClean = instDateStr.replace(/-/g, '');
-        
         const data = {
           ...transaction,
           userId,
@@ -499,20 +514,63 @@ export const useTransactions = (userId?: string) => {
           createdAtMs: now + i,
           sortKey: `${instDateClean}_${now + i}_${newRef.key}`
         };
-        promises.push(set(newRef, data));
+        items.push({ ref: newRef, data, id: newRef.key! });
       }
-      await Promise.all(promises);
-      
+
+      // Cache imediato — todas as parcelas aparecem instantaneamente
+      const createdInstallments = items.map(item => ({ id: item.id, ...item.data } as Transaction));
+      queryClient.setQueryData<Transaction[]>(key, (old) => {
+        if (!old) return createdInstallments;
+        return [...createdInstallments, ...old];
+      });
+
+      // [Background] Card reactions + debt amortization + writes
+      const backgroundOp = (async () => {
+        if (userId) {
+          if (transaction.isBillPayment && transaction.linkedCardId) {
+            const card = cardsRef.current.find(c => c.id === transaction.linkedCardId);
+            if (card) {
+              try {
+                const previousSaldo = card.saldoUtilizadoTotal || 0;
+                const newUsed = Math.max(0, previousSaldo - Number(transaction.amount));
+                await updateCard(userId, card.id, { saldoUtilizadoTotal: newUsed });
+                await eventBus.publish(createDomainEvent<CardUsageUpdatedEvent['payload']>('card', EVENT_TYPES.card.usageUpdated, { cardId: card.id, userId, previousSaldoUtilizado: previousSaldo, newSaldoUtilizado: newUsed, reason: 'bill_payment' }, 'useTransactions.saveLancamento'));
+              } catch (e) { console.error("[Reactive Core] Erro ao liberar limite do cartão:", e); }
+            }
+          } else if (transaction.paymentMethod === 'credit' && transaction.cardId) {
+            const card = cardsRef.current.find(c => c.id === transaction.cardId);
+            if (card) {
+              try {
+                const previousSaldo = card.saldoUtilizadoTotal || 0;
+                const newUsed = previousSaldo + Number(transaction.amount);
+                await updateCard(userId, card.id, { saldoUtilizadoTotal: newUsed });
+                await eventBus.publish(createDomainEvent<CardUsageUpdatedEvent['payload']>('card', EVENT_TYPES.card.usageUpdated, { cardId: card.id, userId, previousSaldoUtilizado: previousSaldo, newSaldoUtilizado: newUsed, reason: 'purchase' }, 'useTransactions.saveLancamento'));
+              } catch (e) { console.error("[Reactive Core] Erro ao consumir limite do cartão:", e); }
+            }
+          }
+        }
+
+        const linkedDebtId = transaction.linkedDebtId;
+        if (linkedDebtId && userId) {
+          const debt = debtsRef.current.find(d => d.id === linkedDebtId);
+          if (debt) {
+            try {
+              await updateDebt(userId, linkedDebtId, { saldoDevedor: Math.max(0, (debt.saldoDevedor || 0) - Number(transaction.amount)), parcelasRestantes: Math.max(0, (debt.parcelasRestantes || 0) - 1) });
+              await eventBus.publish(createDomainEvent<DebtAmortizedEvent['payload']>('debt', EVENT_TYPES.debt.amortized, { debtId: linkedDebtId, userId, amount: Number(transaction.amount), previousSaldo: debt.saldoDevedor || 0, newSaldo: Math.max(0, (debt.saldoDevedor || 0) - Number(transaction.amount)), previousParcelas: debt.parcelasRestantes || 0, newParcelas: Math.max(0, (debt.parcelasRestantes || 0) - 1) }, 'useTransactions.saveLancamento'));
+            } catch (e) { console.error("[Reactive Core] Erro na amortização:", e); }
+          }
+        }
+
+        await Promise.all(items.map(item => set(item.ref, item.data)));
+      })();
+
+      await backgroundOp;
+
       await eventBus.publish(createDomainEvent<TransactionCreatedEvent['payload']>(
         'transaction',
         EVENT_TYPES.transaction.created,
         {
-          transaction: {
-            ...transaction,
-            userId,
-            id: installmentId,
-            createdAtMs: now,
-          } as Transaction,
+          transaction: { ...transaction, userId, id: installmentId, createdAtMs: now } as Transaction,
           isNew: true,
           userId,
         },
@@ -526,18 +584,61 @@ export const useTransactions = (userId?: string) => {
         createdAtMs: now,
         sortKey: `${dateClean}_${now}_${newRef.key}`
       };
-      await set(newRef, data);
-      
+      const newTx: Transaction = { id: newRef.key!, ...data } as Transaction;
+
+      // Cache imediato — item aparece instantaneamente na lista
+      queryClient.setQueryData<Transaction[]>(key, (old) => {
+        if (!old) return [newTx];
+        return [newTx, ...old];
+      });
+
+      // [Background] Card reactions + debt amortization + write
+      const backgroundOp = (async () => {
+        if (userId) {
+          if (transaction.isBillPayment && transaction.linkedCardId) {
+            const card = cardsRef.current.find(c => c.id === transaction.linkedCardId);
+            if (card) {
+              try {
+                const previousSaldo = card.saldoUtilizadoTotal || 0;
+                const newUsed = Math.max(0, previousSaldo - Number(transaction.amount));
+                await updateCard(userId, card.id, { saldoUtilizadoTotal: newUsed });
+                await eventBus.publish(createDomainEvent<CardUsageUpdatedEvent['payload']>('card', EVENT_TYPES.card.usageUpdated, { cardId: card.id, userId, previousSaldoUtilizado: previousSaldo, newSaldoUtilizado: newUsed, reason: 'bill_payment' }, 'useTransactions.saveLancamento'));
+              } catch (e) { console.error("[Reactive Core] Erro ao liberar limite do cartão:", e); }
+            }
+          } else if (transaction.paymentMethod === 'credit' && transaction.cardId) {
+            const card = cardsRef.current.find(c => c.id === transaction.cardId);
+            if (card) {
+              try {
+                const previousSaldo = card.saldoUtilizadoTotal || 0;
+                const newUsed = previousSaldo + Number(transaction.amount);
+                await updateCard(userId, card.id, { saldoUtilizadoTotal: newUsed });
+                await eventBus.publish(createDomainEvent<CardUsageUpdatedEvent['payload']>('card', EVENT_TYPES.card.usageUpdated, { cardId: card.id, userId, previousSaldoUtilizado: previousSaldo, newSaldoUtilizado: newUsed, reason: 'purchase' }, 'useTransactions.saveLancamento'));
+              } catch (e) { console.error("[Reactive Core] Erro ao consumir limite do cartão:", e); }
+            }
+          }
+        }
+
+        const linkedDebtId = transaction.linkedDebtId;
+        if (linkedDebtId && userId) {
+          const debt = debtsRef.current.find(d => d.id === linkedDebtId);
+          if (debt) {
+            try {
+              await updateDebt(userId, linkedDebtId, { saldoDevedor: Math.max(0, (debt.saldoDevedor || 0) - Number(transaction.amount)), parcelasRestantes: Math.max(0, (debt.parcelasRestantes || 0) - 1) });
+              await eventBus.publish(createDomainEvent<DebtAmortizedEvent['payload']>('debt', EVENT_TYPES.debt.amortized, { debtId: linkedDebtId, userId, amount: Number(transaction.amount), previousSaldo: debt.saldoDevedor || 0, newSaldo: Math.max(0, (debt.saldoDevedor || 0) - Number(transaction.amount)), previousParcelas: debt.parcelasRestantes || 0, newParcelas: Math.max(0, (debt.parcelasRestantes || 0) - 1) }, 'useTransactions.saveLancamento'));
+            } catch (e) { console.error("[Reactive Core] Erro na amortização:", e); }
+          }
+        }
+
+        await set(newRef, data);
+      })();
+
+      await backgroundOp;
+
       await eventBus.publish(createDomainEvent<TransactionCreatedEvent['payload']>(
         'transaction',
         EVENT_TYPES.transaction.created,
         {
-          transaction: {
-            ...transaction,
-            userId,
-            id: newRef.key!,
-            createdAtMs: now,
-          } as Transaction,
+          transaction: { ...transaction, userId, id: newRef.key!, createdAtMs: now } as Transaction,
           isNew: true,
           userId,
         },
@@ -546,103 +647,61 @@ export const useTransactions = (userId?: string) => {
     }
   };
 
-  const deleteLancamento = async (id: string) => {
+  deleteLancamentoRef.current = async (id: string) => {
     if (!userId) return;
 
-    // [Reactive Core] Reação Reversa: Exclusão
-    const txToDelete = transactions.find(t => t.id === id);
-    if (txToDelete && userId) {
-      // 1. Estorno de Dívida
-      if (txToDelete.linkedDebtId) {
-        const debt = debts.find(d => d.id === txToDelete.linkedDebtId);
-        if (debt) {
-          try {
-            const newSaldo = debt.saldoDevedor + txToDelete.amount;
-            const newParcelas = debt.parcelasRestantes + 1;
-            await updateDebt(userId, txToDelete.linkedDebtId, {
-              saldoDevedor: newSaldo,
-              parcelasRestantes: newParcelas
-            });
-            console.log(`[Reactive Core] Estorno de dívida ${debt.nome} por exclusão.`);
-            await eventBus.publish(createDomainEvent<DebtUpdatedEvent['payload']>(
-              'debt',
-              EVENT_TYPES.debt.updated,
-              {
-                debtId: txToDelete.linkedDebtId,
-                userId,
-                previousDebt: debt,
-                changes: { saldoDevedor: newSaldo, parcelasRestantes: newParcelas },
-              },
-              'useTransactions.deleteLancamento'
-            ));
-          } catch (error) {
-            console.error("[Reactive Core] Erro no estorno (dívida):", error);
+    const latestTransactions = transactionsRef.current;
+    const txToDelete = latestTransactions.find(t => t.id === id);
+
+    // Cache imediato — item some da lista antes de qualquer await
+    queryClient.setQueryData<Transaction[]>(key, (old) => {
+      if (!old) return old;
+      return old.filter(t => t.id !== id);
+    });
+
+    // [Background] Reversões (card + debt) + remove
+    const backgroundOp = (async () => {
+      if (txToDelete && userId) {
+        if (txToDelete.linkedDebtId) {
+          const debt = debtsRef.current.find(d => d.id === txToDelete.linkedDebtId);
+          if (debt) {
+            try {
+              const newSaldo = debt.saldoDevedor + txToDelete.amount;
+              const newParcelas = debt.parcelasRestantes + 1;
+              await updateDebt(userId, txToDelete.linkedDebtId, { saldoDevedor: newSaldo, parcelasRestantes: newParcelas });
+              await eventBus.publish(createDomainEvent<DebtUpdatedEvent['payload']>('debt', EVENT_TYPES.debt.updated, { debtId: txToDelete.linkedDebtId, userId, previousDebt: debt, changes: { saldoDevedor: newSaldo, parcelasRestantes: newParcelas } }, 'useTransactions.deleteLancamento'));
+            } catch (e) { console.error("[Reactive Core] Erro no estorno (dívida):", e); }
+          }
+        }
+
+        if (txToDelete.isBillPayment && txToDelete.linkedCardId) {
+          const card = cardsRef.current.find(c => c.id === txToDelete.linkedCardId);
+          if (card) {
+            try {
+              const previousSaldo = card.saldoUtilizadoTotal || 0;
+              const newUsed = previousSaldo + txToDelete.amount;
+              await updateCard(userId, card.id, { saldoUtilizadoTotal: newUsed });
+              await eventBus.publish(createDomainEvent<CardUsageUpdatedEvent['payload']>('card', EVENT_TYPES.card.usageUpdated, { cardId: card.id, userId, previousSaldoUtilizado: previousSaldo, newSaldoUtilizado: newUsed, reason: 'rollback', transactionId: id }, 'useTransactions.deleteLancamento'));
+            } catch (e) { console.error("[Reactive Core] Erro no estorno (pagamento fatura):", e); }
+          }
+        } else if (txToDelete.paymentMethod === 'credit' && txToDelete.cardId) {
+          const card = cardsRef.current.find(c => c.id === txToDelete.cardId);
+          if (card) {
+            try {
+              const previousSaldo = card.saldoUtilizadoTotal || 0;
+              const newUsed = Math.max(0, previousSaldo - txToDelete.amount);
+              await updateCard(userId, card.id, { saldoUtilizadoTotal: newUsed });
+              await eventBus.publish(createDomainEvent<CardUsageUpdatedEvent['payload']>('card', EVENT_TYPES.card.usageUpdated, { cardId: card.id, userId, previousSaldoUtilizado: previousSaldo, newSaldoUtilizado: newUsed, reason: 'rollback', transactionId: id }, 'useTransactions.deleteLancamento'));
+            } catch (e) { console.error("[Reactive Core] Erro no estorno (compra crédito):", e); }
           }
         }
       }
 
-      // 2. Estorno de Cartão (Consumo de Limite ou Pagamento de Fatura)
-      if (txToDelete.isBillPayment && txToDelete.linkedCardId) {
-        // Estorno de Pagamento de Fatura: Volta a consumir o limite
-        const card = cards.find(c => c.id === txToDelete.linkedCardId);
-        if (card) {
-          try {
-            const previousSaldo = card.saldoUtilizadoTotal || 0;
-            const newUsed = previousSaldo + txToDelete.amount;
-            await updateCard(userId, card.id, { saldoUtilizadoTotal: newUsed });
-            console.log(`[Reactive Core] Estorno de pagamento de fatura: Limite do cartão ${card.name} re-consumido.`);
-            await eventBus.publish(createDomainEvent<CardUsageUpdatedEvent['payload']>(
-              'card',
-              EVENT_TYPES.card.usageUpdated,
-              {
-                cardId: card.id,
-                userId,
-                previousSaldoUtilizado: previousSaldo,
-                newSaldoUtilizado: newUsed,
-                reason: 'rollback',
-                transactionId: id,
-              },
-              'useTransactions.deleteLancamento'
-            ));
-          } catch (error) {
-            console.error("[Reactive Core] Erro no estorno (pagamento fatura):", error);
-          }
-        }
-      } else if (txToDelete.paymentMethod === 'credit' && txToDelete.cardId) {
-        // Estorno de Compra: Libera o limite
-        const card = cards.find(c => c.id === txToDelete.cardId);
-        if (card) {
-          try {
-            // Restore only the individual transaction amount. 
-            // If it's a series of installments, each deletion will release its part.
-            const previousSaldo = card.saldoUtilizadoTotal || 0;
-            const amountToRestore = txToDelete.amount;
-               
-            const newUsed = Math.max(0, previousSaldo - amountToRestore);
-            await updateCard(userId, card.id, { saldoUtilizadoTotal: newUsed });
-            console.log(`[Reactive Core] Estorno de compra: Limite do cartão ${card.name} liberado.`);
-            await eventBus.publish(createDomainEvent<CardUsageUpdatedEvent['payload']>(
-              'card',
-              EVENT_TYPES.card.usageUpdated,
-              {
-                cardId: card.id,
-                userId,
-                previousSaldoUtilizado: previousSaldo,
-                newSaldoUtilizado: newUsed,
-                reason: 'rollback',
-                transactionId: id,
-              },
-              'useTransactions.deleteLancamento'
-            ));
-          } catch (error) {
-            console.error("[Reactive Core] Erro no estorno (compra crédito):", error);
-          }
-        }
-      }
-    }
+      const transactionRef = ref(db, `transactions/${userId}/${id}`);
+      await remove(transactionRef);
+    })();
 
-    const transactionRef = ref(db, `transactions/${userId}/${id}`);
-    await remove(transactionRef);
+    await backgroundOp;
 
     await eventBus.publish(createDomainEvent<TransactionDeletedEvent['payload']>(
       'transaction',
@@ -654,7 +713,26 @@ export const useTransactions = (userId?: string) => {
       },
       'useTransactions.deleteLancamento'
     ));
-  };
+    };
+
+  const saveLancamento = useCallback(
+    async (transaction: Omit<Transaction, 'id' | 'userId'> & { id?: string }) =>
+      saveLancamentoRef.current(transaction),
+    []
+  );
+  const deleteLancamento = useCallback(
+    async (id: string) => deleteLancamentoRef.current(id),
+    []
+  );
+  const fetchMonth = useCallback(
+    async (year: number, month: number) => fetchMonthRef.current(year, month),
+    []
+  );
+  const fetchHistory = useCallback(
+    async (lastSortKey: string | null, limitCount?: number) =>
+      fetchHistoryRef.current(lastSortKey, limitCount),
+    []
+  );
 
   const isSyncing = isFetching && !loading;
 

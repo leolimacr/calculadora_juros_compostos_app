@@ -36,6 +36,8 @@ const AppCockpit: React.FC<AppCockpitProps> = ({
   const cockpit = useCockpitData(user, transactions, userMeta);
   const [showUrgentBills, setShowUrgentBills] = useState(false);
 
+  const showSyncBanner = !!isSyncing;
+
   const hasTransactions = transactions.length > 0;
 
   const formatCurrency = (val: number) => 
@@ -45,7 +47,7 @@ const AppCockpit: React.FC<AppCockpitProps> = ({
   if (!hasTransactions) {
     return (
       <div className="max-w-7xl mx-auto px-4 pt-14 md:pt-6 pb-28 space-y-8 animate-in fade-in duration-500">
-        {isSyncing && (
+        {showSyncBanner && (
           <div className="flex items-center justify-center gap-3 px-6 py-2 bg-sky-500/10 border border-sky-500/20 rounded-2xl animate-in slide-in-from-top-4">
             <RefreshCw size={12} className="text-sky-500 animate-spin" />
             <span className="text-[9px] font-black text-sky-600 uppercase tracking-widest">
@@ -62,7 +64,7 @@ const AppCockpit: React.FC<AppCockpitProps> = ({
     <div className="max-w-7xl mx-auto px-4 pt-14 md:pt-6 pb-28 space-y-8 animate-in fade-in duration-500">
       
       {/* SYNC BANNER */}
-      {isSyncing && (
+      {showSyncBanner && (
         <div className="flex items-center justify-center gap-3 px-6 py-2 bg-sky-500/10 border border-sky-500/20 rounded-2xl animate-in slide-in-from-top-4">
           <RefreshCw size={12} className="text-sky-500 animate-spin" />
           <span className="text-[9px] font-black text-sky-600 uppercase tracking-widest">

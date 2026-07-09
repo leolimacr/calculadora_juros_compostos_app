@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, CalendarCheck2, DollarSign } from 'lucide-react';
 import type { RecurringBill, Transaction } from '../../types';
+import { getLocalDateString } from '../../utils/dateHelpers';
 
 interface UrgentBillsSheetProps {
   bills: RecurringBill[];
@@ -61,7 +62,7 @@ const UrgentBillsSheet: React.FC<UrgentBillsSheetProps> = ({ bills, isOpen, onCl
                       category: bill.category,
                       amount: bill.amount,
                       description: bill.name,
-                      date: new Date().toISOString().split('T')[0],
+                      date: getLocalDateString(),
                       autoFocusAmount: true,
                     })}
                     className="shrink-0 px-5 py-2.5 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all active:scale-95 shadow-sm"

@@ -1,5 +1,5 @@
 import type { QuerySnapshot, DocumentSnapshot, DocumentData} from 'firebase/firestore';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, limit } from 'firebase/firestore';
 import { firestore } from '../firebase';
 import { createRealtimeBridge } from '../core/realtime';
 import { queryKeys } from '../core/query/queryKeys';
@@ -15,7 +15,7 @@ export interface PresenceEvent {
 export const createPresenceEventsRealtimeBridge = (userId: string) => {
   return createRealtimeBridge<PresenceEvent[]>({
     queryKey: queryKeys.presence.byUser(userId),
-    query: query(collection(firestore, 'users', userId, 'presenceEvents'), where('status', '==', 'pending')),
+    query: query(collection(firestore, 'users', userId, 'presenceEvents'), where('status', '==', 'pending'), limit(20)),
     type: 'firestore',
     mapSnapshot: (snapshot: QuerySnapshot<DocumentData> | DocumentSnapshot<DocumentData>) => {
       if ('docs' in snapshot) {

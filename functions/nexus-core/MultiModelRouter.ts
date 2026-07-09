@@ -1,6 +1,7 @@
 /**
- * MULTI-MODEL ROUTER - Cascata Otimizada
- * 1º OpenRouter (DeepSeek/MiMo/Llama) → 2º Mistral → 3º Gemini
+ * MULTI-MODEL ROUTER - Fail-fast controlado
+ * 1º Groq → 2º OpenRouter (único fallback)
+ * Máximo 2 tentativas por request. Sem cascata explosiva.
  */
 
 import * as logger from "firebase-functions/logger";
@@ -48,8 +49,6 @@ export class MultiModelRouter {
   }
 
   private initializeProviders(): void {
-    
-      // 1º TIER: Groq - INFERÊNCIA ULTRARRÁPIDA (prioridade máxima)
       this.providers.set('groq', {
         name: 'groq',
         apiKey: '',
@@ -58,13 +57,12 @@ export class MultiModelRouter {
           primary: 'llama-3.3-70b-versatile',
           fallbacks: ['llama-3.1-8b-instant']
         },
-        priority: 1,  // ← PRIMEIRA TENTATIVA
+        priority: 1,
         isAvailable: true,
         errorCount: 0,
         maxTokens: 8000
       });
 
-      // 2º TIER: OpenRouter - BACKUP (caso Groq falhe)
       this.providers.set('openrouter', {
         name: 'openrouter',
         apiKey: '',
@@ -82,59 +80,19 @@ export class MultiModelRouter {
           'X-Title': 'Nexus Financial'
         }
       });
-
-      // 3Âº TIER: Mistral - SEGUNDO BACKUP
-      this.providers.set('mistral', {
-        name: 'mistral',
-        apiKey: '',
-        baseURL: 'https://api.mistral.ai/v1',
-        models: {
-          primary: 'mistral-small-latest'
-        },
-        priority: 3,
-        isAvailable: true,
-        errorCount: 0,
-        maxTokens: 8000
-      });
-
-      // 4Âº TIER: Gemini (Google) - CASO VOLTE A FUNCIONAR
-      this.providers.set('gemini', {
-        name: 'gemini',
-        apiKey: '',
-        baseURL: 'https://generativelanguage.googleapis.com/v1beta',
-        models: {
-          primary: 'gemini-2.0-flash-exp'
-        },
-        priority: 4,  // â† ÚLTIMA TENTATIVA (atualmente com erro 404)
-        isAvailable: true,
-        errorCount: 0,
-        maxTokens: 8000
-      });
     }
 
   public updateApiKeys(keys: {
-      gemini?: string;
-      openrouter?: string;
-      mistral?: string;
-      // Manter compatibilidade
       groq?: string;
-      deepseek?: string;
+      openrouter?: string;
     }): void {
-      if (keys.gemini) {
-        const p = this.providers.get('gemini');
-        if (p) p.apiKey = keys.gemini;
-      }
-      if (keys.openrouter) {
-        const p = this.providers.get('openrouter');
-        if (p) p.apiKey = keys.openrouter;
-      }
       if (keys.groq) {
         const p = this.providers.get('groq');
         if (p) p.apiKey = keys.groq;
       }
-      if (keys.mistral) {
-        const p = this.providers.get('mistral');
-        if (p) p.apiKey = keys.mistral;
+      if (keys.openrouter) {
+        const p = this.providers.get('openrouter');
+        if (p) p.apiKey = keys.openrouter;
       }
     }
 
@@ -157,16 +115,25 @@ export class MultiModelRouter {
 
     const sortedProviders = this.getAvailableProviders();
 
+    // Máximo 2 tentativas: 1 primary + 1 fallback
+    let attempts = 0;
+
     for (const provider of sortedProviders) {
+      if (attempts >= 2) {
+        logger.warn(`[Router] Limite de ${attempts} tentativas atingido`);
+        break;
+      }
+
       if (!provider.apiKey) {
         logger.warn(`[Router] ${provider.name} sem API key - pulando`);
         continue;
       }
 
       try {
-        logger.info(`[Router] Tentando: ${provider.name} (prioridade ${provider.priority})`);
+        attempts++;
+        logger.info(`[Router] Tentativa ${attempts}/2: ${provider.name} (${provider.models.primary})`);
         const response = await this.tryProvider(provider, messages, systemPrompt, options);
-        
+
         if (response.success) {
           this.resetProviderErrors(provider.name);
           this.cacheResponse(cacheKey, response);
@@ -176,32 +143,10 @@ export class MultiModelRouter {
       } catch (error: any) {
         logger.error(`[Router] ${provider.name} falhou: ${error.message}`);
         this.markProviderError(provider.name);
-
-        // Se for OpenRouter, tentar modelos fallback
-        if (provider.name === 'openrouter' && provider.models.fallbacks) {
-          for (const fallbackModel of provider.models.fallbacks) {
-            try {
-              logger.info(`[Router] Tentando fallback: ${fallbackModel}`);
-              const fallbackRes = await this.tryProviderWithModel(
-                provider,
-                fallbackModel,
-                messages,
-                systemPrompt,
-                options
-              );
-              if (fallbackRes.success) {
-                logger.info(`[Router] ✓ OpenRouter fallback: ${fallbackModel}`);
-                return fallbackRes;
-              }
-            } catch (fbError) {
-              logger.warn(`[Router] Fallback ${fallbackModel} falhou`);
-            }
-          }
-        }
       }
     }
 
-    logger.error("[Router] ⚠️ Todos providers falharam - modo contingência");
+    logger.error("[Router] ⚠️ Providers falharam após 2 tentativas - modo contingência");
     return this.getContingencyResponse(options?.fallbackContext);
   }
 
@@ -211,114 +156,10 @@ export class MultiModelRouter {
     systemPrompt?: string,
     options?: any
   ): Promise<RouterResponse> {
-    return this.tryProviderWithModel(
-      provider,
-      provider.models.primary,
-      messages,
-      systemPrompt,
-      options
-    );
-  }
-
-  private async tryProviderWithModel(
-    provider: ModelProvider,
-    modelName: string,
-    messages: any[],
-    systemPrompt?: string,
-    options?: any
-  ): Promise<RouterResponse> {
     if (!provider.isAvailable) {
       throw new Error('Provider indisponível');
     }
-
-    // Gemini tem formato especial
-    if (provider.name === 'gemini') {
-      return this.callGemini(provider, modelName, messages, systemPrompt, options);
-    }
-
-    // OpenRouter e Mistral usam formato OpenAI
-    return this.callOpenAIFormat(provider, modelName, messages, systemPrompt, options);
-  }
-
-  private async callGemini(
-    provider: ModelProvider,
-    modelName: string,
-    messages: any[],
-    systemPrompt?: string,
-    options?: any
-  ): Promise<RouterResponse> {
-    const contents = [];
-
-    // System prompt como primeira mensagem
-    if (systemPrompt) {
-      contents.push({
-        role: 'user',
-        parts: [{ text: `[INSTRUÇÕES DO SISTEMA]\n${systemPrompt}\n\n[FIM DAS INSTRUÇÕES]` }]
-      });
-      contents.push({
-        role: 'model',
-        parts: [{ text: 'Entendido. Vou seguir essas diretrizes.' }]
-      });
-    }
-
-    // Converter mensagens
-    messages.forEach(msg => {
-      if (msg.role === 'system') return;
-      contents.push({
-        role: msg.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: msg.content }]
-      });
-    });
-
-    const requestBody = {
-      contents,
-      generationConfig: {
-        temperature: options?.temperature || 0.6,
-        maxOutputTokens: options?.maxTokens || provider.maxTokens
-      }
-    };
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
-
-    try {
-      const response = await fetch(
-        `${provider.baseURL}/models/${modelName}:generateContent?key=${provider.apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody),
-          signal: controller.signal
-        }
-      );
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        logger.error(`[Gemini] HTTP ${response.status}: ${errorText.substring(0, 150)}`);
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data: any = await response.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-      if (!text) {
-        throw new Error('Resposta inválida do Gemini');
-      }
-
-      return {
-        success: true,
-        content: text,
-        provider: provider.name,
-        model: modelName,
-        tokensUsed: data.usageMetadata?.totalTokenCount || 0,
-        cached: false
-      };
-    } catch (error: any) {
-      clearTimeout(timeoutId);
-      throw error;
-    }
+    return this.callOpenAIFormat(provider, provider.models.primary, messages, systemPrompt, options);
   }
 
   private async callOpenAIFormat(
@@ -448,7 +289,10 @@ export class MultiModelRouter {
   }
 
   private cacheResponse(key: string, response: RouterResponse): void {
-    if (this.cache.size > 500) this.cache.clear();
+    if (this.cache.size > 500) {
+      const oldest = [...this.cache.entries()].sort((a, b) => a[1].timestamp - b[1].timestamp)[0];
+      if (oldest) this.cache.delete(oldest[0]);
+    }
     this.cache.set(key, { response, timestamp: Date.now() });
   }
 }

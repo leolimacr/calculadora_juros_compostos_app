@@ -6,6 +6,7 @@ import Stripe from 'stripe';
 import { normalizeSubscription, normalizeDeletedSubscription, type NormalizedBillingData } from './src/helpers/normalizeSubscription';
 import { computeEntitlements } from './src/helpers/computeEntitlements';
 import { getStripe } from './src/lib/getStripe';
+import { STRIPE_WEBHOOK_SECRET as STRIPE_WEBHOOK_SECRET_SECRET, STRIPE_SECRET_KEY } from './secrets';
 
 const db = getFirestore();
 
@@ -167,7 +168,9 @@ async function handleInvoiceEvent(
 
 /* ───────── Exported endpoint ───────── */
 
-export const handleStripeWebhook = onRequest(async (req, res) => {
+export const handleStripeWebhook = onRequest(
+  { secrets: [STRIPE_WEBHOOK_SECRET_SECRET, STRIPE_SECRET_KEY] },
+  async (req, res) => {
   const sig = req.headers['stripe-signature'] as string;
   if (!sig) {
     res.status(400).send('Missing stripe-signature header');

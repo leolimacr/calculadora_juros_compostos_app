@@ -10,7 +10,10 @@ export function useBudget(userId?: string) {
 
   const { data: budget, isLoading, isFetching } = useQuery<Budget | null>({
     queryKey: key,
-    queryFn: () => (userId ? budgetService.getBudget(userId, budgetId) : null),
+    queryFn: () => {
+      const currentData = queryClient.getQueryData<Budget | null>(key);
+      return Promise.resolve(currentData ?? null);
+    },
     enabled: !!userId,
     staleTime: 60_000,
   });

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './AuthContext';
 import { createTransactionsRealtimeBridge } from '../services/transaction.realtime';
@@ -32,7 +32,18 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const unsubscribeRef = useRef<(() => void) | null>(null);
-  const [bridgeReady, setBridgeReady] = useState(false);
+
+  const hasCachedData = (() => {
+    if (!user?.uid) return false;
+    try {
+      const raw = localStorage.getItem(`financas-pro-invest_tx_${user.uid}`);
+      if (!raw) return false;
+      const parsed = JSON.parse(raw);
+      return Date.now() - parsed.ts < 600_000;
+    } catch { return false; }
+  })();
+
+  const [bridgeReady, setBridgeReady] = useState(hasCachedData);
   const [hasConnectedAtLeastOnce, setHasConnectedAtLeastOnce] = useState(false);
 
   useEffect(() => {
@@ -68,7 +79,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
   }, [user?.uid, queryClient]);
 
   return (
-    <TransactionsContext.Provider value={{ bridgeReady, hasConnectedAtLeastOnce }}>
+    <TransactionsContext.Provider value={useMemo(() => ({ bridgeReady, hasConnectedAtLeastOnce }), [bridgeReady, hasConnectedAtLeastOnce])}>
       {children}
     </TransactionsContext.Provider>
   );

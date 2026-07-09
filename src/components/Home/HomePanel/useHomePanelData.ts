@@ -8,6 +8,7 @@ import { isCommandMode } from '../../services/personaCalibrationService';
 import { useSovereignSnapshot } from '../../hooks/useSovereignSnapshot';
 import { useEntitlement } from '../../../hooks/useEntitlement';
 import type { Transaction } from '../../types';
+import { getLocalDateString } from '../../../utils/dateHelpers';
 
 export const useHomePanelData = (
   transactions: Transaction[],
@@ -30,7 +31,7 @@ export const useHomePanelData = (
   const nexusReserves = useMemo(() => goals.filter(g => g.type === 'nexus_reserve' && g.ativa), [goals]);
 
   const contextualEvent = useMemo(() => {
-    const todayStr = now.toISOString().split('T')[0];
+    const todayStr = getLocalDateString(now);
     const txToday = safeTx.filter((t) => t.date === todayStr).length;
     const validDates = safeTx
       .map((t) => new Date(t.date))

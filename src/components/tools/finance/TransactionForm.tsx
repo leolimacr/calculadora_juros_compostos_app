@@ -9,6 +9,7 @@ import NexusInlineAdvisor from './NexusInlineAdvisor';
 import { getCards } from '../../../services/cardService';
 import { addRecurringBill } from '../../../services/billService';
 import { useAuth } from '../../../contexts/AuthContext';
+import { getLocalDateString } from '../../../utils/dateHelpers';
 
 interface TransactionFormProps {
   onSave: (data: any) => Promise<void>;
@@ -42,7 +43,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const [amount, setAmount] = useState(initialData?.amount || '');
   const [type, setType] = useState<'income' | 'expense'>(initialData?.type || 'expense');
   const [category, setCategory] = useState(initialData?.category || '');
-  const [date, setDate] = useState(initialData?.date || new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(initialData?.date || getLocalDateString());
   const [paymentMethod, setPaymentMethod] = useState<'money' | 'credit'>(initialData?.paymentMethod || 'money');
   const [cardId, setCardId] = useState<string>(initialData?.cardId || '');
   const [installments, setInstallments] = useState<number>(initialData?.installments || 1);
@@ -88,7 +89,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     setAmount(initialData?.amount || '');
     setType(initialData?.type || 'expense');
     setCategory(initialData?.category || '');
-    setDate(initialData?.date || new Date().toISOString().split('T')[0]);
+    setDate(initialData?.date || getLocalDateString());
     setPaymentMethod(initialData?.paymentMethod || 'money');
     setCardId(initialData?.cardId || '');
     setInstallments(initialData?.installments || 1);

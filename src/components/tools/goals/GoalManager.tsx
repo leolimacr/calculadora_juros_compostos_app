@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useGoals } from '../../../hooks/useGoals';
 import type { Goal } from '../../../services/goalService';
 import { Timestamp } from 'firebase/firestore';
+import { getLocalDateString } from '../../../utils/dateHelpers';
 import { useToast } from '../../../contexts/ToastContext';
 import { 
   TrendingUp, 
@@ -296,7 +297,7 @@ const GoalManager: React.FC<GoalManagerProps> = ({ userId }) => {
               <input
                 type="date"
                 name="dataInicio"
-                value={formData.dataInicio ? new Date(formData.dataInicio.seconds * 1000).toISOString().split('T')[0] : ''}
+                value={formData.dataInicio ? getLocalDateString(new Date(formData.dataInicio.seconds * 1000)) : ''}
                 onChange={(e) => {
                   const date = new Date(e.target.value);
                   setFormData(prev => ({ ...prev, dataInicio: Timestamp.fromDate(date) }));

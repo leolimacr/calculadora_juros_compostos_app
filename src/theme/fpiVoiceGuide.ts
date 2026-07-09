@@ -236,8 +236,13 @@ export const DISPONIBILIDADE_REAL = {
     'Suas entradas menos suas saídas deste mês. Cartão e contas futuras não entram aqui.',
   saldoAtualLabel: 'Saldo atual',
   saldoAtualHelp: 'Todas as receitas menos todas as despesas desde o início dos lançamentos.',
-  saldoAtualCreditCard: 'Considerando todas as compras feitas no cartão de crédito com fatura ainda não paga',
-  saldoAtualAfterCredit: 'Saldo desconsiderando compras no cartão',
+  saldoAtualCreditCard: 'Faturas do cartão em aberto',
+  saldoAtualAfterCredit: 'Saldo já com as faturas descontadas',
+  comprasCreditoMes: 'Compras no crédito',
+  comprasCreditoHelp: 'Pela data da compra, não o valor da próxima fatura',
+  saldoMaisConservador: 'Saldo mais seguro para gastar',
+  saldoConsideraApenas:
+    'As compras no crédito aparecem na movimentação do período, mas só impactam o saldo quando a fatura é paga.',
   cartaoLabel: 'Cartão de crédito',
   cartaoHelp: 'Total das faturas a vencer no período.',
   contasLabel: 'Contas a pagar',
@@ -250,6 +255,13 @@ export const DISPONIBILIDADE_REAL = {
   totalFaltasHelp: 'Soma do que ainda falta para completar o Colchão Inicial e a Reserva de Emergência.',
   composicaoDisponibilidadeReal:
     'Dívidas não entram neste cálculo. São tratadas separadamente no módulo de Gestão de Dívidas.',
+  composicaoTitle: 'Composição desde o início dos lançamentos',
+  totalEmAberto: 'Total em aberto',
+  entradasLabel: 'Entradas',
+  saidasDinheiroLabel: 'Saídas em dinheiro',
+  saldoMesLabel: 'Saldo do mês',
+  movimentacaoPeriodoHelp: 'Valores deste período, pela data dos lançamentos',
+  comprasCreditoDisclosureTotal: 'Total',
 } as const;
 
 export function getHeroHelpTextDisponibilidade(heroValue: number): string {

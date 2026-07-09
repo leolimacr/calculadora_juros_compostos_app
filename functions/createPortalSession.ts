@@ -2,10 +2,15 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getStripe } from './src/lib/getStripe';
+import { STRIPE_SECRET_KEY } from './secrets';
 
 const db = getFirestore();
 
-export const createPortalSession = onCall(async (request) => {
+export const createPortalSession = onCall(
+  {
+    secrets: [STRIPE_SECRET_KEY],
+  },
+  async (request) => {
   const auth = request.auth;
   if (!auth) {
     throw new HttpsError('unauthenticated', 'User must be authenticated');

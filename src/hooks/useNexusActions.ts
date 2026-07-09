@@ -6,6 +6,7 @@ import { convertToDebt } from '../services/rotativoService';
 import type { NexusInsightAction } from '../services/nexusInsightEngine';
 import { NotificationService } from '../services/NotificationService';
 import { trackActionCompleted, trackActionFailed } from '../services/nexusAnalyticsService';
+import { getLocalDateString } from '../utils/dateHelpers';
 
 export const useNexusActions = () => {
   const [isExecuting, setIsExecuting] = useState(false);
@@ -23,7 +24,7 @@ export const useNexusActions = () => {
           userId,
           action.payload.title || 'Reserva Nexus',
           action.payload.value || 0,
-          action.payload.targetDate || new Date().toISOString().split('T')[0]
+          action.payload.targetDate || getLocalDateString()
         );
 
         // Feedback de notificação contextual
