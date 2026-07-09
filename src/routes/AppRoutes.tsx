@@ -24,7 +24,7 @@ const AppLayout = lazy(() => import('../layouts/AppLayout'));
 const AppCockpit = lazy(() => import('../components/Home/AppCockpit'));
 const CentralHub = lazy(() => import('../components/CentralHub'));
 const ExplorarHub = lazy(() => import('../components/ExplorarHub').then((mod) => ({ default: mod.ExplorarHub })));
-const ControlaPage = lazy(() => import('../components/tools/finance/ControlaPage').then((mod) => ({ default: mod.ControlaPage })));
+import { ControlaPage } from '../components/tools/finance/ControlaPage';
 const AiAdvisor = lazy(() => import('../components/tools/nexus/AiAdvisor'));
 const PricingPage = lazy(() => import('../components/PricingPage'));
 const SettingsPage = lazy(() => import('../components/SettingsPage'));
@@ -65,27 +65,8 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
   const { financeBridgeReady, hasConnectedAtLeastOnce: financeConnected } = useFinanceContext();
   const wealthData = useWealthData();
 
-  const [loadingTime, setLoadingTime] = React.useState(0);
   const allReady = bridgeReady && debtBridgeReady && financeBridgeReady;
 
-  // Para de incrementar quando allReady ou após 1s — evita re-renders perpétuos
-  React.useEffect(() => {
-    if (allReady) return;
-
-    const timer = setInterval(() => {
-      setLoadingTime(prev => {
-        if (prev >= 1000) {
-          clearInterval(timer);
-          return prev;
-        }
-        return prev + 100;
-      });
-    }, 100);
-
-    return () => {
-      clearInterval(timer);
-    };
-  }, [allReady]);
   const anyConnected = txConnected || debtConnected || financeConnected;
 
   // Debounce de 2s para o banner "Modo Offline" — evita flicker em atrasos transitórios
@@ -99,10 +80,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
     return () => clearTimeout(id);
   }, [allReady, anyConnected]);
 
-  // CARREGAMENTO MÍNIMO (Correção #1)
-  // Libera assim que as bridges conectarem ou após 1s (timeout de segurança)
-  
-  const showFullLoading = !allReady && loadingTime < 1000;
+  const showFullLoading = false;
 
   const { effectiveTier } = useEntitlement();
   const isPro = effectiveTier !== 'free';
@@ -118,10 +96,6 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
   const handleTogglePrivacy = useCallback(() => {
     state.setIsPrivacyMode((prev: boolean) => !prev);
   }, [state.setIsPrivacyMode]);
-
-  if (state.isAuthenticated && showFullLoading) {
-    return <AppLoadingScreen loadingTime={loadingTime} />;
-  }
 
   const {
     user,
@@ -258,27 +232,25 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
         <Route
           path="controla"
           element={
-            <Suspense fallback={<DashboardSkeleton />}>
-              <ControlaPage
-                transactions={lancamentos}
-                isLoading={state.isLoading || (lancamentos.length === 0 && !txConnected)}
-                userMetaLoading={state.userMetaLoading}
-                isSyncing={state.isSyncing}
-                isStale={showStale}
-                categories={categories}
-                onDeleteTransaction={deleteLancamento}
-                onNavigate={handleNavigate}
-                onOpenForm={state.openTransactionForm}
-                onSaveCategory={saveCategory}
-                onDeleteCategory={deleteCategory}
-                userMeta={userMeta}
-                isPremium={isPro || isPremium}
-                isPrivacyMode={isPrivacyMode}
-                onTogglePrivacy={handleTogglePrivacy}
-                onEditTransaction={handleEditTransaction}
-                fetchMonth={state.fetchMonth}
-              />
-            </Suspense>
+            <ControlaPage
+              transactions={lancamentos}
+              isLoading={state.isLoading || (lancamentos.length === 0 && !txConnected)}
+              userMetaLoading={state.userMetaLoading}
+              isSyncing={state.isSyncing}
+              isStale={showStale}
+              categories={categories}
+              onDeleteTransaction={deleteLancamento}
+              onNavigate={handleNavigate}
+              onOpenForm={state.openTransactionForm}
+              onSaveCategory={saveCategory}
+              onDeleteCategory={deleteCategory}
+              userMeta={userMeta}
+              isPremium={isPro || isPremium}
+              isPrivacyMode={isPrivacyMode}
+              onTogglePrivacy={handleTogglePrivacy}
+              onEditTransaction={handleEditTransaction}
+              fetchMonth={state.fetchMonth}
+            />
           }
         />
 

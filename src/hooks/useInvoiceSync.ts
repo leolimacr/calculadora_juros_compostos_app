@@ -20,6 +20,13 @@ export function useInvoiceSync(transactions: any[]) {
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSyncRef = useRef<number>(0);
 
+  const cardsRef = useRef(cards);
+  cardsRef.current = cards;
+  const transactionsRef = useRef(transactions);
+  transactionsRef.current = transactions;
+  const invoicesRef = useRef(storedInvoices);
+  invoicesRef.current = storedInvoices;
+
   useEffect(() => {
     if (!user?.uid) return;
 
@@ -32,7 +39,8 @@ export function useInvoiceSync(transactions: any[]) {
       }
 
       lastSyncRef.current = now;
-      const safeTx = Array.isArray(transactions) ? transactions : [];
+      const cards = cardsRef.current;
+      const safeTx = Array.isArray(transactionsRef.current) ? transactionsRef.current : [];
       for (const card of cards) {
         syncCardInvoices(user.uid, card, safeTx).catch(() => {});
       }
@@ -40,7 +48,9 @@ export function useInvoiceSync(transactions: any[]) {
     };
 
     const publishOverdueEvents = () => {
-      const overdueInvoices = checkOverdueInvoices(cards, storedInvoices);
+      const cards = cardsRef.current;
+      const invoices = invoicesRef.current;
+      const overdueInvoices = checkOverdueInvoices(cards, invoices);
       for (const info of overdueInvoices) {
         const dedupKey = `${info.cardId}|${info.periodEnd}`;
         if (publishedOverdue.has(dedupKey)) continue;
@@ -60,10 +70,11 @@ export function useInvoiceSync(transactions: any[]) {
 
     // Initial reconciliation: sync invoices on mount to correct legacy
     // billPayments that were previously misassigned by date-window matching.
-    if (cards.length > 0 && Array.isArray(transactions)) {
-      const safeTx = transactions;
-      for (const card of cards) {
-        syncCardInvoices(user.uid, card, safeTx).catch(() => {});
+    const initialCards = cardsRef.current;
+    const initialTx = transactionsRef.current;
+    if (initialCards.length > 0 && Array.isArray(initialTx)) {
+      for (const card of initialCards) {
+        syncCardInvoices(user.uid, card, initialTx).catch(() => {});
       }
       queryClient.invalidateQueries({ queryKey: queryKeys.invoices.byUser(user.uid) });
     }
@@ -89,5 +100,5 @@ export function useInvoiceSync(transactions: any[]) {
       unsubTxDeleted();
       if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     };
-  }, [user?.uid, cards, transactions, storedInvoices, queryClient]);
+  }, [user?.uid]);
 }

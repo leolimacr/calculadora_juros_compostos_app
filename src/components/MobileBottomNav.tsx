@@ -1,7 +1,6 @@
 import React from 'react';
 import { Plus, Menu, House, LayoutDashboard, Sparkles, Compass } from 'lucide-react';
 import { useNavigation } from '../hooks/useNavigation';
-import { loadControla } from '../services/routePreload';
 import type { Transaction } from '../types';
 
 interface MobileBottomNavProps {
@@ -49,8 +48,6 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 
           <button
             onClick={() => handleNavigate('manager')}
-            onMouseEnter={loadControla}
-            onFocus={loadControla}
             className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-1.5 py-2 transition-all active:scale-95 group ${
               isControlaActive ? 'text-emerald-600' : 'text-slate-500 hover:text-slate-700'
             }`}

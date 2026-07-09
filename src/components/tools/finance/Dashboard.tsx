@@ -32,14 +32,14 @@ const Dashboard: React.FC<any> = (props) => {
   const state = useDashboardState(props);
   const voice = getFlowLabels(state.commandMode);
 
-  if (state.showSkeleton) {
-    return <DashboardSkeleton />;
-  }
-
   const budgetProgress = useMemo(
     () => (state.currentBudget ? calcBudgetProgress(state.currentBudget, state.safeTransactions) : null),
     [state.currentBudget, state.safeTransactions],
   );
+
+  if (state.showSkeleton) {
+    return <DashboardSkeleton />;
+  }
 
   const totalOutstandingCredit = state.activeInvoices.reduce(
     (sum, inv: any) => {
@@ -47,13 +47,6 @@ const Dashboard: React.FC<any> = (props) => {
       return sum + Math.max(0, inv.storedRemaining || inv.total || 0);
     }, 0
   );
-
-  // BalanceCards, DashboardCharts, CategorySummaryPanel são usados diretamente
-  // sem memo-aninhado — o React.memo na exportação do Dashboard já protege a subárvore
-
-  if (state.showSkeleton) {
-    return <DashboardSkeleton />;
-  }
 
   return (
     <div className="dashboard-root">

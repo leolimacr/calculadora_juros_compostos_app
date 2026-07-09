@@ -1,7 +1,6 @@
 import React from 'react';
 import { X, LayoutDashboard, User, CreditCard, PiggyBank, Target, BookOpen, Compass, Menu, TrendingUp, TrendingDown, Shield, Zap, Sparkles, HelpCircle, LogOut, ChevronRight, ChartNoAxesColumn, DollarSign, Bell, BarChart3, RotateCw, Globe, Gem, LucideGlobe, NotepadText, Coins, ArrowRightLeft, ScanLine, FileText, Trophy, BadgePercent, BriefcaseBusiness, Wallet } from 'lucide-react';
 import { useNavigation } from '../hooks/useNavigation';
-import { loadControla } from '../services/routePreload';
 import { useEntitlement } from '../hooks/useEntitlement';
 
 interface AppMobileDrawerProps {
@@ -71,8 +70,6 @@ const AppMobileDrawer: React.FC<AppMobileDrawerProps> = ({
         <div className="flex-1 px-4 py-6 flex flex-col gap-4 overflow-y-auto">
           <button
             onClick={() => go('manager')}
-            onMouseEnter={loadControla}
-            onFocus={loadControla}
             className="w-full group relative p-px rounded-2xl bg-gradient-to-b from-amber-500/40 to-transparent transition-all active:scale-95 shadow-lg shadow-amber-950/20"
           >
             <div className="bg-surface-primary rounded-[15px] p-4 flex items-center gap-3">

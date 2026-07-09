@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, useRef, useDeferredValue } from 'react';
+import { useState, useMemo, useEffect, useRef, useDeferredValue } from 'react';
 import pLimit from 'p-limit';
 
 const limit = pLimit(5); // Concurrency limit of 5
@@ -104,6 +104,7 @@ export const useDashboardState = (props: any) => {
   const [filterPeriodEnd, setFilterPeriodEnd] = useState('');
   const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
   const [cardManagerReason, setCardManagerReason] = useState<string | null>(null);
+  const [deferredHeavyStats, setDeferredHeavyStats] = useState<any>(null);
 
   /** AppRoutes passa isPro||isPremium como isPremium — equivale a acesso ao histórico. */
   const hasHistoryAccess = !!isPremium;
@@ -421,12 +422,7 @@ export const useDashboardState = (props: any) => {
 
   const deferredFiltered = useDeferredValue(filtered);
 
-  // Extrai aggregateAllTimeFlow para useMemo separado (evita recalcular dentro de stats)
-  const allTimeFlowResult = useMemo(() => {
-    if (!hasHydrated) return null;
-    return aggregateAllTimeFlow(deferredTransactions);
-  }, [deferredTransactions, hasHydrated]);
-
+  // Lightweight stats: single-pass, sem aggregateAllTimeFlow ou buildSovereignSnapshot
   const stats = useMemo(() => {
     if (!hasHydrated) {
       return {
@@ -452,13 +448,12 @@ export const useDashboardState = (props: any) => {
         colchaoShortfall: 0,
         reserveShortfall: 0,
         sovereignSnapshot: null,
+        creditTransactions: [],
       };
     }
 
-    let income = 0; 
+    let income = 0;
     let expenses = 0;
-    let realBalance = 0;
-    let virtualImpact = 0;
     let cashExpenses = 0;
     let creditExpenses = 0;
     let virtualExpenses = 0;
@@ -476,7 +471,6 @@ export const useDashboardState = (props: any) => {
           return false;
         });
 
-    // Single-pass: computa todas as métricas em uma única iteração
     for (let i = 0; i < statsTransactions.length; i++) {
       const t = statsTransactions[i] as any;
       const val = Number(t?.amount) || 0;
@@ -484,53 +478,17 @@ export const useDashboardState = (props: any) => {
 
       if (t?.type === 'income') {
         income += val;
-        realBalance += val;
       } else {
         expenses += val;
         if (t.isVirtual) {
-          virtualImpact += val;
           virtualExpenses += val;
         } else if (isCredit) {
           creditExpenses += val;
         } else {
-          realBalance -= val;
           cashExpenses += val;
         }
       }
     }
-    
-    // creditTransactions: filtro único em uma passada (não modifica os acumuladores acima)
-    const creditTransactions: any[] = [];
-    for (let i = 0; i < statsTransactions.length; i++) {
-      const t = statsTransactions[i] as any;
-      if (t.type === 'expense' && (t.paymentMethod === 'credit' || t.isVirtual)) {
-        creditTransactions.push({
-          id: t.id,
-          description: t.description || '',
-          amount: Number(t.amount) || 0,
-          date: t.date,
-          paymentMethod: t.paymentMethod,
-          isVirtual: t.isVirtual,
-          cardName: ((userCards || []).find((c: any) => c.id === t.cardId))?.name || '',
-        });
-      }
-    }
-
-    const allTimeFlow = allTimeFlowResult || { realBalance: 0, income: 0, expenses: 0, cashExpenses: 0, creditExpenses: 0, virtualExpenses: 0 };
-    const commandModeActive = isCommandMode(userMeta) || localCommandMode;
-    const sovereign = buildSovereignSnapshot({
-      monthBalance: realBalance,
-      accumulatedBalance: allTimeFlow.realBalance,
-      accumulatedIncome: allTimeFlow.income,
-      accumulatedExpenses: allTimeFlow.expenses,
-      virtualImpact,
-      pendingBills: totalPendingBills,
-      financialProfile: userMeta?.financialProfile,
-      commandMode: commandModeActive,
-      income,
-      expenses,
-      monthlyAport: Math.max(0, income - expenses),
-    });
 
     return {
       income,
@@ -538,28 +496,141 @@ export const useDashboardState = (props: any) => {
       cashExpenses,
       creditExpenses,
       virtualExpenses,
-      balance: realBalance,
-      accumulatedBalance: allTimeFlow.realBalance,
-      accumulatedIncome: allTimeFlow.income,
-      accumulatedExpenses: allTimeFlow.expenses,
-      accumulatedCashExpenses: allTimeFlow.cashExpenses,
-      accumulatedCreditExpenses: allTimeFlow.creditExpenses,
-      accumulatedVirtualExpenses: allTimeFlow.virtualExpenses,
-      projectedBalance: sovereign.projectedBalance,
-      freeBalance: sovereign.sovereignFreeBalance,
-      sovereignFreeBalance: sovereign.sovereignFreeBalance,
-      freedomDeficit: sovereign.freedomDeficit,
-      protectionBuffer: sovereign.protectionBuffer,
-      leewayDays: sovereign.leewayDays,
-      freedomVelocity: sovereign.freedomVelocity,
-      colchaoShortfall: sovereign.colchaoShortfall,
-      reserveShortfall: sovereign.reserveShortfall,
-      sovereignSnapshot: sovereign,
-      creditTransactions,
+      balance: income - expenses,
+      accumulatedBalance: 0,
+      accumulatedIncome: 0,
+      accumulatedExpenses: 0,
+      accumulatedCashExpenses: 0,
+      accumulatedCreditExpenses: 0,
+      accumulatedVirtualExpenses: 0,
+      projectedBalance: 0,
+      freeBalance: 0,
+      sovereignFreeBalance: 0,
+      freedomDeficit: 0,
+      protectionBuffer: 0,
+      leewayDays: 0,
+      freedomVelocity: 0,
+      colchaoShortfall: 0,
+      reserveShortfall: 0,
+      sovereignSnapshot: null,
+      creditTransactions: [],
     };
-  }, [deferredTransactions, isLoading, viewMode, currentDate, startDate, endDate, totalPendingBills, userMeta, localCommandMode, userCards, hasHydrated, allTimeFlowResult]);
+  }, [deferredTransactions, isLoading, viewMode, currentDate, startDate, endDate, hasHydrated]);
 
-  const deferredStats = useDeferredValue(stats);
+  // Heavy calculations (aggregateAllTimeFlow, buildSovereignSnapshot) em background via requestIdleCallback
+  useEffect(() => {
+    setDeferredHeavyStats(null);
+    if (!hasHydrated) return;
+
+    const calculateHeavy = () => {
+      const allTimeFlow = aggregateAllTimeFlow(safeTransactions);
+
+      const statsTransactions = viewMode === 'all'
+        ? safeTransactions
+        : safeTransactions.filter((t: any) => {
+            if (!t.date) return false;
+            const [year, month, day] = t.date.split('-').map(Number);
+            if (!year) return false;
+            if (viewMode === 'year') return year === currentDate.getFullYear();
+            if (viewMode === 'month') return year === currentDate.getFullYear() && month === (currentDate.getMonth() + 1);
+            if (viewMode === 'day') return year === currentDate.getFullYear() && month === (currentDate.getMonth() + 1) && day === currentDate.getDate();
+            if (viewMode === 'period') return t.date >= startDate && t.date <= endDate;
+            return false;
+          });
+
+      let income = 0;
+      let expenses = 0;
+      let realBalance = 0;
+      let virtualImpact = 0;
+      let cashExpenses = 0;
+      let creditExpenses = 0;
+      let virtualExpenses = 0;
+
+      for (let i = 0; i < statsTransactions.length; i++) {
+        const t = statsTransactions[i] as any;
+        const val = Number(t?.amount) || 0;
+        const isCredit = t?.paymentMethod === 'credit';
+
+        if (t?.type === 'income') {
+          income += val;
+          realBalance += val;
+        } else {
+          expenses += val;
+          if (t.isVirtual) {
+            virtualImpact += val;
+            virtualExpenses += val;
+          } else if (isCredit) {
+            creditExpenses += val;
+          } else {
+            realBalance -= val;
+            cashExpenses += val;
+          }
+        }
+      }
+
+      const creditTransactions: any[] = [];
+      for (let i = 0; i < statsTransactions.length; i++) {
+        const t = statsTransactions[i] as any;
+        if (t.type === 'expense' && (t.paymentMethod === 'credit' || t.isVirtual)) {
+          creditTransactions.push({
+            id: t.id,
+            description: t.description || '',
+            amount: Number(t.amount) || 0,
+            date: t.date,
+            paymentMethod: t.paymentMethod,
+            isVirtual: t.isVirtual,
+            cardName: ((userCards || []).find((c: any) => c.id === t.cardId))?.name || '',
+          });
+        }
+      }
+
+      const commandModeActive = isCommandMode(userMeta) || localCommandMode;
+      const sovereign = buildSovereignSnapshot({
+        monthBalance: realBalance,
+        accumulatedBalance: allTimeFlow.realBalance,
+        accumulatedIncome: allTimeFlow.income,
+        accumulatedExpenses: allTimeFlow.expenses,
+        virtualImpact,
+        pendingBills: totalPendingBills,
+        financialProfile: userMeta?.financialProfile,
+        commandMode: commandModeActive,
+        income,
+        expenses,
+        monthlyAport: Math.max(0, income - expenses),
+      });
+
+      setDeferredHeavyStats({
+        income,
+        expenses,
+        cashExpenses,
+        creditExpenses,
+        virtualExpenses,
+        balance: realBalance,
+        accumulatedBalance: allTimeFlow.realBalance,
+        accumulatedIncome: allTimeFlow.income,
+        accumulatedExpenses: allTimeFlow.expenses,
+        accumulatedCashExpenses: allTimeFlow.cashExpenses,
+        accumulatedCreditExpenses: allTimeFlow.creditExpenses,
+        accumulatedVirtualExpenses: allTimeFlow.virtualExpenses,
+        projectedBalance: sovereign.projectedBalance,
+        freeBalance: sovereign.sovereignFreeBalance,
+        sovereignFreeBalance: sovereign.sovereignFreeBalance,
+        freedomDeficit: sovereign.freedomDeficit,
+        protectionBuffer: sovereign.protectionBuffer,
+        leewayDays: sovereign.leewayDays,
+        freedomVelocity: sovereign.freedomVelocity,
+        colchaoShortfall: sovereign.colchaoShortfall,
+        reserveShortfall: sovereign.reserveShortfall,
+        sovereignSnapshot: sovereign,
+        creditTransactions,
+      });
+    };
+
+    const handle = requestIdleCallback(calculateHeavy, { timeout: 3000 });
+    return () => cancelIdleCallback(handle);
+  }, [safeTransactions, hasHydrated, viewMode, currentDate, startDate, endDate, totalPendingBills, userMeta, localCommandMode, userCards]);
+
+  const finalStats = deferredHeavyStats ?? stats;
 
   // Restored definitions for return properties that were deleted in prior refactor
   const commandMode = isCommandMode(userMeta) || localCommandMode;
@@ -663,8 +734,8 @@ export const useDashboardState = (props: any) => {
     monthlyConsistency,
     periodLabel,
     filtered: deferredFiltered,
-    stats: deferredStats,
-    projectedBalance: deferredStats.projectedBalance,
+    stats: finalStats,
+    projectedBalance: finalStats.projectedBalance,
     commandMode,
     showCalibrationOffer,
     calibrationInviteCopy,

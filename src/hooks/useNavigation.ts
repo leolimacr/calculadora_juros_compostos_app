@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo, useTransition } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -35,8 +35,6 @@ export const useNavigation = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [, startTransition] = useTransition();
-
   const [homeKey, setHomeKey] = useState(0);
   const [navigationReady, setNavigationReady] = useState(!isNative);
   const [postAuthRedirect, setPostAuthRedirect] = useState<string | null>(null);
@@ -70,16 +68,14 @@ export const useNavigation = () => {
     const path = TOOL_ROUTES[tool] || (tool === 'home' ? '/' : `/${tool}`);
     
     window.scrollTo(0, 0);
-    startTransition(() => {
-      navigate(path, { state });
-    });
+    navigate(path, { state });
 
     // Persistência no Capacitor
     if (isNative && user?.uid) {
         const key = `app_home_${user.uid}`;
         Preferences.set({ key, value: tool === 'central' ? 'central' : 'home' });
     }
-  }, [navigate, isNative, user?.uid, startTransition]);
+  }, [navigate, isNative, user?.uid]);
 
   const resetNavigation = useCallback(() => {
     setPostAuthRedirect(null);

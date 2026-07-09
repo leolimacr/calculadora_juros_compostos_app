@@ -3,8 +3,6 @@ import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useNavigation } from '../hooks/useNavigation';
 import { PRIMARY_NAV_ITEMS } from '../config/appPrimaryNav';
 import type { PrimaryNavItem } from '../config/appPrimaryNav';
-import { loadControla } from '../services/routePreload';
-
 const SESSION_KEY = 'financas-pro-invest-desktop-nav-expanded';
 
 function readExpandedPreference(): boolean {
@@ -40,8 +38,6 @@ const NavItem: React.FC<NavItemProps> = ({ item, isActive, showLabels, onNavigat
     <button
       type="button"
       onClick={() => onNavigate(item.toolId)}
-      onMouseEnter={item.toolId === 'manager' ? loadControla : undefined}
-      onFocus={item.toolId === 'manager' ? loadControla : undefined}
       title={!showLabels ? item.label : undefined}
       className={`w-full flex items-center rounded-xl text-left transition-all active:scale-[0.98] ${
         showLabels ? 'items-start gap-3 px-3 py-3' : 'justify-center p-2.5'
