@@ -1,22 +1,19 @@
-import { useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { queryKeys } from '../core/query/queryKeys';
+import { useMemo } from 'react';
+import { useNotifications } from '../contexts/NotificationContext';
 import type { PresenceEvent } from '../services/presence.realtime';
-import { createPresenceEventsRealtimeBridge } from '../services/presence.realtime';
 
-export const usePresenceEvents = (userId?: string) => {
-  const key = queryKeys.presence.byUser(userId || 'anonymous');
+export const usePresenceEvents = (_userId?: string) => {
+  const { unreadEvents } = useNotifications();
 
-  useEffect(() => {
-    if (!userId) return;
-    const bridge = createPresenceEventsRealtimeBridge(userId);
-    const unsubscribe = bridge.subscribe(() => {});
-    return unsubscribe;
-  }, [userId, key]);
+  const data = useMemo<PresenceEvent[]>(() => {
+    return unreadEvents.map((ev) => ({
+      eventId: ev.id,
+      eventType: ev.eventType ?? '',
+      urgency: ev.urgency ?? 'low',
+      message: { title: ev.message.title, body: ev.message.body, ctaLabel: ev.message.ctaLabel ?? '' },
+      deepLink: ev.deepLink ?? '',
+    }));
+  }, [unreadEvents]);
 
-  return useQuery<PresenceEvent[], Error>({
-    queryKey: key,
-    queryFn: () => Promise.resolve([]),
-    enabled: !!userId,
-  });
+  return { data, isLoading: false, error: null };
 };

@@ -1,13 +1,14 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
+import { getDocs, collection } from 'firebase/firestore';
+import { firestore } from '../../firebase';
 import { queryKeys } from '../../core/query/queryKeys';
 import { saveDebt, updateDebt, deleteDebt } from './debtService';
 import type { DebtItem } from './debt.types';
 import { createMutationHook } from '../../core/query/patterns/createMutationHook';
-import { invalidateDomain } from '../../core/query/patterns/invalidateDomain';
 import { useDebtContext } from '../../contexts/DebtContext';
+import { mapDebtFromFirestore } from './debt.mapper';
 
 export const useDebts = (userId?: string) => {
-  const queryClient = useQueryClient();
   const { debtBridgeReady } = useDebtContext();
   const key = queryKeys.debts.byUser(userId || 'anonymous');
 
@@ -38,9 +39,14 @@ export const useDebts = (userId?: string) => {
 
   const { data, isLoading, error, isFetching } = useQuery<DebtItem[], Error>({
     queryKey: key,
-    queryFn: () => {
-      const currentData = queryClient.getQueryData<DebtItem[]>(key);
-      return Promise.resolve(currentData ?? cachedData ?? []);
+    queryFn: async () => {
+      if (!userId) return [];
+      const snapshot = await getDocs(collection(firestore, 'users', userId, 'dividas'));
+      const debts = snapshot.docs.map(doc => mapDebtFromFirestore(doc.id, doc.data()));
+      try {
+        localStorage.setItem(`financas-pro-invest_debts_${userId}`, JSON.stringify({ data: debts, ts: Date.now() }));
+      } catch {}
+      return debts;
     },
     placeholderData: cachedData,
     enabled: !!userId,

@@ -60,10 +60,10 @@ const FilterBar: React.FC<FilterBarProps> = ({
   setSortMode,
   searchQuery,
   setSearchQuery,
-  commandMode = false,
-  historyLocked = false,
+  commandMode,
+  historyLocked,
   currentMonthStartIso,
-}) => {  
+}) => {
   const voice = getFlowLabels(commandMode);
   const dateInputRef = useRef<HTMLInputElement>(null);
   const [showCategories, setShowCategories] = useState(false);
@@ -85,7 +85,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
   const isAllCategories = selectedCategories.length === 0;
 
   return (
-    <div className="flex flex-col gap-4 bg-surface-primary p-4 rounded-4xl border border-surface-elevated mb-4 shadow-soft">
+    <div className="flex flex-col gap-4 bg-surface-primary p-4 rounded-4xl border border-surface-elevated mb-4 shadow-sm">
       
       {/* BUSCA GLOBAL */}
       <div className="relative">
@@ -120,14 +120,14 @@ const FilterBar: React.FC<FilterBarProps> = ({
           <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
              
              {/* 1.1 Modos de Visualização */}
-             <div className="flex bg-surface-secondary rounded-3xl p-1.5 w-full sm:w-auto justify-between border border-surface-elevated shadow-soft">
+             <div className="flex bg-surface-secondary rounded-full p-1.5 w-full sm:w-auto justify-between border border-surface-elevated shadow-soft">
                 {(['day', 'month', 'year', 'period', 'all'] as HistoryViewMode[]).map((mode) => {
                   const isRestricted = historyLocked && (mode === 'year' || mode === 'period' || mode === 'all');
                   return (
                     <button 
                         key={mode}
                         onClick={() => setViewMode(mode)}
-                        className={`flex-1 sm:flex-none px-3 py-2 rounded-2xl text-xxs font-black uppercase transition-all duration-200 flex items-center justify-center gap-1 ${
+                        className={`flex-1 sm:flex-none px-3 py-2 rounded-full text-xxs font-black uppercase transition-all duration-200 flex items-center justify-center gap-1 ${
                             viewMode === mode 
                             ? 'bg-brand-primary text-text-onBrand shadow-soft scale-105' 
                             : isRestricted
@@ -199,6 +199,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
 
       {/* SEÇÃO 2: FILTRO POR TIPO (TUDO / RECEITAS / DESPESAS) */}
       <div className="w-full border-t border-surface-elevated pt-4 mt-1">
+        <p className="text-[8px] font-bold text-text-muted uppercase tracking-widest mb-2 px-1">Tipo de lançamento</p>
         <div className="flex flex-col gap-3 px-1 mb-3">
             <div className="flex flex-wrap gap-2 justify-start">
                 <button 
@@ -233,6 +234,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
                 </button>
             </div>
 
+            <p className="text-[8px] font-bold text-text-muted uppercase tracking-widest mb-2 px-1">Ordenar por</p>
             <div className="flex flex-wrap gap-2 justify-start">
                 {[
                   { key: 'date-desc', label: 'Mais Recentes' },

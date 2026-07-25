@@ -47,8 +47,11 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({
         type 
       });
       resetForm();
-    } catch (error) {
-      alert("Erro ao processar categoria.");
+    } catch (error: any) {
+      const errorCode = error?.code || 'unknown';
+      const errorMessage = error?.message || String(error);
+      console.error('[CategoryManager] Erro ao salvar categoria:', { code: errorCode, message: errorMessage, stack: error?.stack, full: error });
+      alert(`Erro ao processar categoria. (${errorCode})`);
     } finally {
       setIsSubmitting(false);
     }

@@ -1,4 +1,5 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { RefreshCw, Plus, ChevronUp, ChevronDown, PiggyBank, X, CreditCard } from 'lucide-react';
 
 // Hooks e Componentes Originais Reutilizados
@@ -15,41 +16,140 @@ import { calcBudgetProgress } from '../../../services/budgetMath';
 import { useDashboardState } from './dashboard/useDashboardState';
 import DashboardSkeleton from './dashboard/DashboardSkeleton';
 import DashboardHeader from './dashboard/DashboardHeader';
+import { useRefresh } from '../../../hooks/useRefresh';
 import BalanceCards from './dashboard/BalanceCards';
+import SaldoAjustavelCard from './dashboard/SaldoAjustavelCard';
 import PendingObligations from './dashboard/PendingObligations';
 import DashboardCharts from './dashboard/DashboardCharts';
 import TransactionList from './dashboard/TransactionList';
 import CategorySummaryPanel from './dashboard/CategorySummaryPanel';
 import AveragesAnalysisPanel from './dashboard/AveragesAnalysisPanel';
 import RecurringIntroModal from './dashboard/RecurringIntroModal';
+import FutureExpenseForm from './dashboard/FutureExpenseForm';
 import CalibrationInviteBanner from './dashboard/CalibrationInviteBanner';
 import CommandCalibration from '../nexus/CommandCalibration';
 import { seedPersonaFromIntent } from '../../../services/personaService';
 import { getFlowLabels } from '../../../theme/fpiVoiceGuide';
 import PaywallModal from '../../PaywallModal';
+import CategoryRecoveryDialog from './dashboard/CategoryRecoveryDialog';
 
 const Dashboard: React.FC<any> = (props) => {
   const state = useDashboardState(props);
+  const queryClient = useQueryClient();
+  const { refresh, isRefreshing } = useRefresh(state.user?.uid);
+
   const voice = getFlowLabels(state.commandMode);
+  const [showCategoryRecovery, setShowCategoryRecovery] = useState(true);
+  const LS_RESERVA = 'fpi-dash-excluir-reserva';
+  const LS_COLCHAO = 'fpi-dash-excluir-colchao';
+  const LS_VOUCHER = 'fpi-dash-excluir-voucher';
+  const [excluirReserva, setExcluirReserva] = useState(() => localStorage.getItem(LS_RESERVA) === 'true');
+  const [excluirColchao, setExcluirColchao] = useState(() => localStorage.getItem(LS_COLCHAO) === 'true');
+  const [excluirVoucherMap, setExcluirVoucherMap] = useState<Record<string, boolean>>(() => {
+    try { return JSON.parse(localStorage.getItem(LS_VOUCHER) || '{}'); }
+    catch { return {}; }
+  });
+  const toggleReserva = () => setExcluirReserva((p) => !p);
+  const toggleColchao = () => {
+    const next = !excluirColchao;
+    if (next) setExcluirReserva(true);
+    setExcluirColchao(next);
+  };
+  const toggleVoucherCard = (cardId: string) =>
+    setExcluirVoucherMap((prev) => ({ ...prev, [cardId]: !prev[cardId] }));
+  useEffect(() => { localStorage.setItem(LS_RESERVA, String(excluirReserva)); }, [excluirReserva]);
+  useEffect(() => { localStorage.setItem(LS_COLCHAO, String(excluirColchao)); }, [excluirColchao]);
+  useEffect(() => { localStorage.setItem(LS_VOUCHER, JSON.stringify(excluirVoucherMap)); }, [excluirVoucherMap]);
+
+  const voucherCards = (state.userCards || [])
+    .filter((c: any) => c.type === 'voucher')
+    .map((c: any) => ({ id: c.id, name: c.name, balance: c.voucherBalance || 0 }));
+
+  const saldoComExclusoes = state.realCashData.saldoReal
+    - (excluirReserva ? state.reserveTarget : 0)
+    - (excluirColchao ? state.colchaoTarget : 0)
+    - Object.entries(excluirVoucherMap)
+      .filter(([_, excluir]) => excluir)
+      .reduce((sum, [id]) => sum + (voucherCards.find(c => c.id === id)?.balance || 0), 0);
 
   const budgetProgress = useMemo(
     () => (state.currentBudget ? calcBudgetProgress(state.currentBudget, state.safeTransactions) : null),
     [state.currentBudget, state.safeTransactions],
   );
 
+  const invoiceLookup = useMemo(() => {
+    const map = new Map<string, { transacoes: Array<{ id: string; description: string; amount: number; date: string }>; total: number }>();
+    const safeTxs: any[] = state.safeTransactions || [];
+    const userCardsArr: any[] = state.userCards || [];
+
+    const allCards = new Map<string, any>();
+    for (const c of userCardsArr) allCards.set(c.id, c);
+
+    // 1) Current active invoices (already computed with correct periodStart)
+    for (const inv of (state.activeInvoices || [])) {
+      const key = `${inv.cardId}-${inv.periodEnd}`;
+      map.set(key, {
+        transacoes: (inv.transactions || []).map((t: any) => ({
+          id: t.id,
+          description: t.description || 'Sem descrição',
+          amount: Number(t.amount) || 0,
+          date: t.date,
+        })),
+        total: inv.total || 0,
+      });
+    }
+
+    // 2) Past invoices referenced by bill payments but not in activeInvoices
+    for (const t of safeTxs) {
+      if (!t.isBillPayment || !t.linkedCardId || !t.linkedInvoicePeriodEnd) continue;
+      const key = `${t.linkedCardId}-${t.linkedInvoicePeriodEnd}`;
+      if (map.has(key)) continue;
+      const card = allCards.get(t.linkedCardId);
+      if (!card || !card.closingDay) continue;
+
+      // Compute periodStart using same logic as activeInvoices / calculateRealCashBalance
+      const [peY, peM, peD] = t.linkedInvoicePeriodEnd.split('-').map(Number);
+      const peDate = new Date(peY, peM - 1, peD);
+      const psDate = new Date(peDate);
+      psDate.setMonth(psDate.getMonth() - 1);
+      psDate.setDate((card.closingDay) + 1);
+      const periodStart = `${psDate.getFullYear()}-${String(psDate.getMonth() + 1).padStart(2, '0')}-${String(psDate.getDate()).padStart(2, '0')}`;
+
+      const txList = safeTxs.filter(
+        (tx: any) => tx.cardId === t.linkedCardId && tx.date >= periodStart && tx.date <= t.linkedInvoicePeriodEnd && tx.type === 'expense'
+      );
+      map.set(key, {
+        transacoes: txList.map((tx: any) => ({
+          id: tx.id,
+          description: tx.description || 'Sem descrição',
+          amount: Number(tx.amount) || 0,
+          date: tx.date,
+        })),
+        total: txList.reduce((s: number, tx: any) => s + (Number(tx.amount) || 0), 0),
+      });
+    }
+
+    return map;
+  }, [state.activeInvoices, state.safeTransactions, state.userCards]);
+
   if (state.showSkeleton) {
     return <DashboardSkeleton />;
   }
 
-  const totalOutstandingCredit = state.activeInvoices.reduce(
-    (sum, inv: any) => {
-      if (inv.storedStatus === 'paid') return sum;
-      return sum + Math.max(0, inv.storedRemaining || inv.total || 0);
-    }, 0
-  );
-
   return (
     <div className="dashboard-root">
+      {state.user?.uid && (
+        <div style={{ display: showCategoryRecovery ? 'block' : 'none' }}>
+          <CategoryRecoveryDialog
+            userId={state.user?.uid}
+            categories={state.categories}
+            transactions={state.safeTransactions}
+            isReady={state.isReady}
+            onDone={() => setShowCategoryRecovery(false)}
+          />
+        </div>
+      )}
+
       <CategoryManager 
         isOpen={state.isCategoryModalOpen} 
         onClose={() => state.setIsCategoryModalOpen(false)} 
@@ -76,7 +176,7 @@ const Dashboard: React.FC<any> = (props) => {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 md:px-8 pt-14 md:pt-6 pb-32 space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-700 bg-surface-secondary rounded-5xl border border-surface-elevated shadow-card">
+      <div className="max-w-7xl mx-auto px-4 md:px-8 pt-14 md:pt-6 pb-32 space-y-10 animate-in fade-in slide-in-from-bottom-2 duration-700 bg-surface-secondary rounded-5xl border border-surface-elevated shadow-card">
         
         {/* Cabeçalho superior */}
         <DashboardHeader
@@ -90,6 +190,9 @@ const Dashboard: React.FC<any> = (props) => {
           onTogglePrivacy={state.onTogglePrivacy}
           onOpenForm={state.onOpenForm}
           handleRecurringButtonClick={state.handleRecurringButtonClick}
+          onFutureExpenseClick={state.handleFutureExpenseClick}
+          onRefresh={refresh}
+          isRefreshing={isRefreshing}
         />
 
         {/* Cartões de saldo de topo */}
@@ -105,15 +208,30 @@ const Dashboard: React.FC<any> = (props) => {
 
         <BalanceCards
           isPrivacyMode={state.isPrivacyMode}
-          commandMode={state.commandMode}
-          hasHistoryAccess={state.hasHistoryAccess}
-          stats={state.stats}
-          totalPendingBills={state.totalPendingBills}
-          totalOutstandingCredit={totalOutstandingCredit}
-          projectedBalance={state.projectedBalance}
-          freeBalance={state.stats.freeBalance}
-          activeInvoices={state.activeInvoices}
-          periodLabel={state.periodLabel}
+          saldoReal={state.realCashData.saldoReal}
+          receitasMes={state.realCashData.receitasMes}
+          despesasMes={state.realCashData.despesasMes}
+          reserveTarget={state.reserveTarget}
+          colchaoTarget={state.colchaoTarget}
+          excluirReserva={excluirReserva}
+          excluirColchao={excluirColchao}
+          onToggleReserva={toggleReserva}
+          onToggleColchao={toggleColchao}
+          voucherCards={voucherCards}
+          excluirVoucherMap={excluirVoucherMap}
+          onToggleVoucherCard={toggleVoucherCard}
+        />
+
+        <SaldoAjustavelCard
+          isPrivacyMode={state.isPrivacyMode}
+          saldoReal={state.realCashData.saldoReal}
+          saldoComExclusoes={saldoComExclusoes}
+          faturasFechadas={state.realCashData.faturasFechadas}
+          faturasAbertas={state.realCashData.faturasAbertas}
+          gastosFuturosMes={state.realCashData.gastosFuturosMes}
+          contasFuturasMes={state.realCashData.contasFuturasMes}
+          userId={state.user?.uid || ''}
+          queryClient={queryClient}
         />
 
         {/* Obrigações pendentes (Contas fixas e faturas ativas) */}
@@ -286,7 +404,7 @@ const Dashboard: React.FC<any> = (props) => {
                 </div>
               </div>
 
-              <TransactionList
+               <TransactionList
                 transactions={state.filtered}
                 visibleCount={state.visibleCount}
                 setVisibleCount={state.setVisibleCount}
@@ -296,6 +414,9 @@ const Dashboard: React.FC<any> = (props) => {
                 onEdit={state.onEditTransaction}
                 isPrivacyMode={state.isPrivacyMode}
                 isStale={state.isStale}
+                invoiceLookup={invoiceLookup}
+                periodIncome={state.stats.income}
+                periodLabel={state.periodLabel}
               />
             </div>
 
@@ -317,56 +438,7 @@ const Dashboard: React.FC<any> = (props) => {
               onHistoryBlocked={() => state.setShowHistoryPaywall(true)}
             />
 
-            {/* Somatório Final do Resultado do Período */}
-            {state.filtered.length > 0 && (
-              <div className="bg-surface-primary border border-surface-elevated rounded-3xl p-5 mt-4 shadow-soft">
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xxs font-black text-text-muted uppercase tracking-ultra-wide">Resultado dos filtros</span>
-                    <span className="text-xxs text-text-secondary">({state.filtered.length} lançamento{state.filtered.length !== 1 ? 's' : ''})</span>
-                  </div>
-                  <div className="flex items-center gap-6">
-                    {(() => {
-                      let totalIncome = 0;
-                      let totalExpense = 0;
-                      state.filtered.forEach((t: any) => {
-                        const val = Number(t?.amount) || 0;
-                        if (t?.type === 'income') totalIncome += val;
-                        else totalExpense += val;
-                      });
-                      const net = totalIncome - totalExpense;
 
-  return (
-                        <>
-                          {totalIncome > 0 && (
-                            <div className="text-center">
-                              <p className="text-xxs font-black text-text-muted uppercase mb-1">{voice.income}</p>
-                              <p className="text-sm font-black text-brand-primary">  
-                                {state.isPrivacyMode ? '••••' : `R$ ${totalIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                              </p>
-                            </div>
-                          )}
-                          {totalExpense > 0 && (
-                            <div className="text-center">
-                              <p className="text-xxs font-black text-text-muted uppercase mb-1">{voice.expense}</p>
-                              <p className="text-sm font-black text-status-danger">  
-                                {state.isPrivacyMode ? '••••' : `R$ ${totalExpense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                              </p>
-                            </div>
-                          )}
-                          <div className="text-center border-l border-surface-elevated pl-6">
-                            <p className="text-xxs font-black text-text-muted uppercase mb-1">Total</p>
-                            <p className={`text-lg font-black ${net >= 0 ? 'text-brand-primary' : 'text-status-danger'}`}>
-                              {state.isPrivacyMode ? '••••' : `R$ ${net.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                            </p>
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         )}
       </div>
@@ -401,6 +473,23 @@ const Dashboard: React.FC<any> = (props) => {
         setDontShowFor15Days={state.setDontShowFor15Days}
         onConfirm={state.handleConfirmIntro}
       />
+
+      {state.showFutureExpenseForm && state.user?.uid && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => state.setShowFutureExpenseForm(false)}
+          />
+          <div className="relative z-10 w-full max-w-md mx-4 animate-in fade-in zoom-in duration-200">
+            <FutureExpenseForm
+              userId={state.user.uid}
+              categories={state.categories}
+              queryClient={queryClient}
+              onClose={() => state.setShowFutureExpenseForm(false)}
+            />
+          </div>
+        </div>
+      )}
 
       {state.showCalibrationModal && state.user?.uid && (
         <CommandCalibration

@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { collection, query, getDocs, addDoc, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
-import { firestore } from '../../../firebase'; // Ajuste o caminho se necessário
-import { TrendingUp, Plus, Trash2, Wallet, PieChart, Pencil, X, ShieldCheck, HelpCircle, ArrowRight, LayoutGrid, List } from 'lucide-react';
+import { firestore } from '../../../firebase';
+import { queryClient } from '../../../core/query/queryClient';
+import { queryKeys } from '../../../core/query/queryKeys';
+import { TrendingUp, Plus, Trash2, Wallet, PieChart, Pencil, X, ShieldCheck, HelpCircle, ArrowRight, LayoutGrid, List, ChevronDown } from 'lucide-react';
 import { useWealthData } from '../../../hooks/useWealthData';
 import { useWealthHistory } from '../../../hooks/useWealthHistory';
 import type { ActiveAsset } from '../../../types';
@@ -18,8 +20,10 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
   const [isLoading, setIsLoading] = useState(true);
 
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
-    return (localStorage.getItem('invest_view_mode') as 'grid' | 'list') || 'grid';
+    return (localStorage.getItem('invest_view_mode') as 'grid' | 'list') || 'list';
   });
+  const [showForm, setShowForm] = useState(true);
+  const hasInitialized = useRef(false);
   const [showViewTooltip, setShowViewTooltip] = useState(false);
 
   const toggleViewMode = (mode: 'grid' | 'list') => {
@@ -127,6 +131,17 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
     }
   }, [userId]);
 
+  useEffect(() => {
+    if (!isLoading && !hasInitialized.current) {
+      hasInitialized.current = true;
+      if (assets.length > 0) setShowForm(false);
+    }
+  }, [isLoading, assets.length]);
+
+  useEffect(() => {
+    if (editingId) setShowForm(true);
+  }, [editingId]);
+
   // Função Salvar (Criar ou Editar)
   const handleSaveAsset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -172,6 +187,8 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
       // Reseta formulário
       handleCancelEdit();
 
+      queryClient.invalidateQueries({ queryKey: queryKeys.wealth.assetsByUser(userId) });
+
       // NOVO: Auto-salvamento de snapshot para o gráfico de evolução
       // Isso garante que cada mudança gere um ponto no gráfico
       await saveSnapshot({
@@ -202,7 +219,7 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
     // Ao clicar em editar, já formata o valor para a máscara da tela
     setDisplayValue(asset.currentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
     if (asset.id) setEditingId(asset.id);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setTimeout(() => document.getElementById('wealth-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
   };
 
   // Função Cancelar Edição (ou Resetar Form)
@@ -242,6 +259,8 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
       if (editingId === assetId) {
         handleCancelEdit();
       }
+
+      queryClient.invalidateQueries({ queryKey: queryKeys.wealth.assetsByUser(userId) });
 
       // NOVO: Auto-salvamento de snapshot para o gráfico de evolução
       await saveSnapshot({
@@ -307,152 +326,178 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
         </div>
       </div>
 
-      {/* Formulário */}
-      <div
-        className={`bg-white/95 backdrop-blur-md border ${
-          editingId ? 'border-amber-300 shadow-amber-200/40' : 'border-slate-200'
-        } rounded-2xl p-6 mb-8 shadow-sm transition-colors duration-300`}
-      >
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${editingId ? 'bg-amber-100' : 'bg-emerald-100'}`}>
-              {editingId ? <Pencil size={16} className="text-amber-600" /> : <Plus size={16} className="text-emerald-600" />}
+      {/* Formulário — colapsável */}
+      {!showForm && assets.length > 0 ? (
+        <button
+          onClick={() => setShowForm(true)}
+          className="w-full flex items-center justify-between bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl px-6 py-4 mb-8 shadow-sm hover:border-emerald-400 hover:shadow-md transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
+              <Plus size={16} className="text-emerald-600" />
             </div>
-            <h3 className="text-lg font-bold text-slate-900 tracking-tight">
-              {editingId ? 'Editando Investimento' : 'Adicionar Novo Investimento'}
-            </h3>
+            <span className="text-sm font-bold text-slate-500 group-hover:text-slate-700 transition-colors">Cadastrar Investimento</span>
           </div>
-          {editingId && (
-            <button
-              onClick={handleCancelEdit}
-              className="text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1"
-            >
-              <X size={14} /> Cancelar Edição
-            </button>
-          )}
-        </div>
-
-        <form onSubmit={handleSaveAsset} className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
-          <div className="md:col-span-2">
-            <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-2">
-              Nome do Ativo (Ex: Tesouro Selic, HGLG11)
-            </label>
-            <input
-              type="text"
-              required
-              placeholder="Digite o nome..."
-              value={currentAsset.name}
-              onChange={(e) => setCurrentAsset({ ...currentAsset, name: e.target.value })}
-              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-500 focus:outline-none focus:border-brand-primaryCta focus:ring-2 focus:ring-brand-primaryCta/30 transition-colors"
-            />
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
-              Categoria
-            </label>
-            <select
-              value={currentAsset.category}
-              onChange={(e) => setCurrentAsset({ ...currentAsset, category: e.target.value })}
-              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm focus:outline-none focus:border-brand-primaryCta focus:ring-2 focus:ring-brand-primaryCta/30 transition-colors [&>option]:bg-white"
-            >
-              <option value="Renda Fixa">Renda Fixa</option>
-              <option value="Ações">Ações (Brasil)</option>
-              <option value="FIIs">Fundos Imobiliários</option>
-              <option value="Exterior">Exterior (Stocks/REITs)</option>
-              <option value="Cripto">Criptomoedas</option>
-              <option value="Outros">Outros</option>
-            </select>
+          <ChevronDown size={18} className="text-slate-400 group-hover:text-emerald-500 transition-colors" />
+        </button>
+      ) : (
+        <div
+          id="wealth-form"
+          className={`bg-white/95 backdrop-blur-md border ${
+            editingId ? 'border-amber-300 shadow-amber-200/40' : 'border-slate-200'
+          } rounded-2xl p-6 mb-8 shadow-sm transition-colors duration-300`}
+        >
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${editingId ? 'bg-amber-100' : 'bg-emerald-100'}`}>
+                {editingId ? <Pencil size={16} className="text-amber-600" /> : <Plus size={16} className="text-emerald-600" />}
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 tracking-tight">
+                {editingId ? 'Editando Investimento' : 'Adicionar Novo Investimento'}
+              </h3>
+            </div>
+            <div className="flex items-center gap-2">
+              {editingId && (
+                <button
+                  onClick={handleCancelEdit}
+                  className="text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1"
+                >
+                  <X size={14} /> Cancelar
+                </button>
+              )}
+              {!editingId && assets.length > 0 && (
+                <button
+                  onClick={() => setShowForm(false)}
+                  className="text-xs font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1"
+                >
+                  <X size={14} /> Fechar
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-0">
-              Valor Total (R$)
-            </label>
-            <div className="relative w-full">
-              <span className="absolute left-4 top-[14px] text-slate-500 text-sm font-bold">R$</span>
+          <form onSubmit={handleSaveAsset} className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+            <div className="md:col-span-2">
+              <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-2">
+                Nome do Ativo (Ex: Tesouro Selic, HGLG11)
+              </label>
               <input
                 type="text"
-                inputMode="numeric"
                 required
-                placeholder="0,00"
-                value={displayValue}
-                onChange={handleCurrencyChange}
-                className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-slate-900 text-sm placeholder:text-slate-500 focus:outline-none focus:border-brand-primaryCta focus:ring-2 focus:ring-brand-primaryCta/30 transition-colors"
-              />
-            </div>
-          </div>
-
-          {/* CAMPO PROPÓSITO E FLEXIBILIDADE (NEXUS) */}
-          <div className="md:col-span-3 grid grid-cols-1 gap-6">
-            <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100/50">
-              <div className="flex items-center justify-between mb-2">
-                <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-700">
-                  Propósito do Investimento
-                  <div className="group relative">
-                    <HelpCircle size={14} className="text-emerald-400 cursor-help" />
-                    <div className="absolute left-0 bottom-full mb-2 w-64 p-3 bg-slate-900 text-white text-[10px] font-medium leading-relaxed rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl border border-slate-800">
-                      <p className="font-black text-emerald-400 mb-1 uppercase tracking-widest text-left">Por que preencher o Propósito?</p>
-                      <p className="text-left leading-relaxed">Para o Finanças Pro Invest não ser apenas uma calculadora, o Nexus precisa entender sua vida. Se soubermos qual a meta deste investimento (ex: aposentadoria vs reserva), nossas análises de rentabilidade e risco serão muito mais precisas e humanas.</p>
-                      <p className="mt-2 text-slate-500 italic text-left border-t border-slate-800 pt-2">Ex: "Reserva de emergência para segurança da família." ou "Meta: Casa própria em 5 anos."</p>
-                    </div>
-                  </div>
-                </label>
-                <span className="text-[9px] font-black text-emerald-400 uppercase tracking-tighter">Inteligência Nexus</span>
-              </div>
-              <textarea
-                value={currentAsset.proposito || ''}
-                onChange={e => setCurrentAsset({ ...currentAsset, proposito: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-xl border border-emerald-100/50 focus:ring-2 focus:ring-brand-primaryCta/30 focus:border-brand-primaryCta transition-all text-sm font-medium bg-white min-h-[60px] resize-none placeholder:text-slate-300"
-                placeholder="Qual o objetivo deste investimento? O que você planeja conquistar com ele?"
+                placeholder="Digite o nome..."
+                value={currentAsset.name}
+                onChange={(e) => setCurrentAsset({ ...currentAsset, name: e.target.value })}
+                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-500 focus:outline-none focus:border-brand-primaryCta focus:ring-2 focus:ring-brand-primaryCta/30 transition-colors"
               />
             </div>
 
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-              <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3 ml-1">
-                Disponibilidade deste Ativo
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                Categoria
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {[
-                  { id: 'intocavel', label: 'Intocável', desc: 'Aposentadoria / Longo Prazo', icon: '🔴' },
-                  { id: 'negociavel', label: 'Estratégico', desc: 'Posso mover se precisar', icon: '🟡' },
-                  { id: 'liquidez', label: 'Liquidez', desc: 'Reserva / Uso Rápido', icon: '🟢' }
-                ].map(opt => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setCurrentAsset({ ...currentAsset, flexibility: opt.id as any })}
-                    className={`flex flex-col items-start p-3 rounded-xl border-2 transition-all text-left ${
-                      currentAsset.flexibility === opt.id 
-                        ? 'border-emerald-500 bg-white shadow-sm shadow-emerald-100' 
-                        : 'border-transparent bg-slate-100/50 hover:bg-slate-100 text-slate-500'
-                    }`}
-                  >
-                    <span className="text-xs font-black uppercase tracking-tight flex items-center gap-1.5 mb-1">
-                      <span className="text-xs opacity-80">{opt.icon}</span>
-                      <span className={currentAsset.flexibility === opt.id ? 'text-emerald-700' : ''}>{opt.label}</span>
-                    </span>
-                    <span className="text-[9px] leading-tight font-medium opacity-70">{opt.desc}</span>
-                  </button>
-                ))}
+              <select
+                value={currentAsset.category}
+                onChange={(e) => setCurrentAsset({ ...currentAsset, category: e.target.value })}
+                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm focus:outline-none focus:border-brand-primaryCta focus:ring-2 focus:ring-brand-primaryCta/30 transition-colors [&>option]:bg-white"
+              >
+                <option value="Renda Fixa">Renda Fixa</option>
+                <option value="Ações">Ações (Brasil)</option>
+                <option value="FIIs">Fundos Imobiliários</option>
+                <option value="Exterior">Exterior (Stocks/REITs)</option>
+                <option value="Cripto">Criptomoedas</option>
+                <option value="Outros">Outros</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-0">
+                Valor Total (R$)
+              </label>
+              <div className="relative w-full">
+                <span className="absolute left-4 top-[14px] text-slate-500 text-sm font-bold">R$</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  required
+                  placeholder="0,00"
+                  value={displayValue}
+                  onChange={handleCurrencyChange}
+                  className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-slate-900 text-sm placeholder:text-slate-500 focus:outline-none focus:border-brand-primaryCta focus:ring-2 focus:ring-brand-primaryCta/30 transition-colors"
+                />
               </div>
             </div>
-          </div>
 
-          <div className="md:col-span-1">
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className={`w-full text-slate-950 font-black py-3.5 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 ${
-                editingId ? 'bg-amber-600 hover:bg-amber-700' : 'bg-emerald-600 hover:bg-emerald-700'
-              } disabled:bg-slate-700 h-[46px]`}
-              title={editingId ? 'Salvar Alterações' : 'Adicionar Ativo'}
-            >
-              {editingId ? <Pencil size={20} /> : <Plus size={20} />}
-            </button>
-          </div>
-        </form>
-      </div>
+            {/* CAMPO PROPÓSITO E FLEXIBILIDADE (NEXUS) */}
+            <div className="md:col-span-3 grid grid-cols-1 gap-6">
+              <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100/50">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-700">
+                    Propósito do Investimento
+                    <div className="group relative">
+                      <HelpCircle size={14} className="text-emerald-400 cursor-help" />
+                      <div className="absolute left-0 bottom-full mb-2 w-64 p-3 bg-slate-900 text-white text-[10px] font-medium leading-relaxed rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl border border-slate-800">
+                        <p className="font-black text-emerald-400 mb-1 uppercase tracking-widest text-left">Por que preencher o Propósito?</p>
+                        <p className="text-left leading-relaxed">Para o Finanças Pro Invest não ser apenas uma calculadora, o Nexus precisa entender sua vida. Se soubermos qual a meta deste investimento (ex: aposentadoria vs reserva), nossas análises de rentabilidade e risco serão muito mais precisas e humanas.</p>
+                        <p className="mt-2 text-slate-500 italic text-left border-t border-slate-800 pt-2">Ex: "Reserva de emergência para segurança da família." ou "Meta: Casa própria em 5 anos."</p>
+                      </div>
+                    </div>
+                  </label>
+                  <span className="text-[9px] font-black text-emerald-400 uppercase tracking-tighter">Inteligência Nexus</span>
+                </div>
+                <textarea
+                  value={currentAsset.proposito || ''}
+                  onChange={e => setCurrentAsset({ ...currentAsset, proposito: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-xl border border-emerald-100/50 focus:ring-2 focus:ring-brand-primaryCta/30 focus:border-brand-primaryCta transition-all text-sm font-medium bg-white min-h-[60px] resize-none placeholder:text-slate-300"
+                  placeholder="Qual o objetivo deste investimento? O que você planeja conquistar com ele?"
+                />
+              </div>
+
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3 ml-1">
+                  Disponibilidade deste Ativo
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {[
+                    { id: 'intocavel', label: 'Intocável', desc: 'Aposentadoria / Longo Prazo', icon: '🔴' },
+                    { id: 'negociavel', label: 'Estratégico', desc: 'Posso mover se precisar', icon: '🟡' },
+                    { id: 'liquidez', label: 'Liquidez', desc: 'Reserva / Uso Rápido', icon: '🟢' }
+                  ].map(opt => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setCurrentAsset({ ...currentAsset, flexibility: opt.id as any })}
+                      className={`flex flex-col items-start p-3 rounded-xl border-2 transition-all text-left ${
+                        currentAsset.flexibility === opt.id 
+                          ? 'border-emerald-500 bg-white shadow-sm shadow-emerald-100' 
+                          : 'border-transparent bg-slate-100/50 hover:bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      <span className="text-xs font-black uppercase tracking-tight flex items-center gap-1.5 mb-1">
+                        <span className="text-xs opacity-80">{opt.icon}</span>
+                        <span className={currentAsset.flexibility === opt.id ? 'text-emerald-700' : ''}>{opt.label}</span>
+                      </span>
+                      <span className="text-[9px] leading-tight font-medium opacity-70">{opt.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="md:col-span-1">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className={`w-full text-slate-950 font-black py-3.5 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 ${
+                  editingId ? 'bg-amber-600 hover:bg-amber-700' : 'bg-emerald-600 hover:bg-emerald-700'
+                } disabled:bg-slate-700 h-[46px]`}
+                title={editingId ? 'Salvar Alterações' : 'Adicionar Ativo'}
+              >
+                {editingId ? <Pencil size={20} /> : <Plus size={20} />}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Lista de Ativos */}
       <div className="mt-8">

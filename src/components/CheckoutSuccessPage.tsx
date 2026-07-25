@@ -37,7 +37,7 @@ const CheckoutSuccessPage: React.FC<CheckoutSuccessPageProps> = ({ planName = 'P
         {/* Actions */}
         <div className="flex flex-col gap-3">
           <button
-            onClick={() => navigate('/app/home')}
+            onClick={() => navigate('/app/central')}
             className="group flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-emerald-600/20 active:scale-95"
           >
             <LayoutDashboard size={16} />

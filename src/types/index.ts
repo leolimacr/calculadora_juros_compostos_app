@@ -20,16 +20,20 @@ export interface CardInvoice {
   rotativoSettled?: boolean;
 }
 
+export type CardType = 'credit' | 'voucher';
+
 export interface CreditCard {
   id: string;
   name: string;
   isActive?: boolean;
+  type?: CardType;
   closingDay?: number;
   dueDay?: number;
   limit?: number;
   saldoUtilizadoTotal?: number; // [NEXUS] Controle reativo de limite
   proposito?: string; // [NEXUS] Finalidade emocional ou estratégica
   taxaJuros?: number; // Percentual mensal do cartão (ex: 14.9 = 14.9% ao mês)
+  voucherBalance?: number; // Saldo disponível do cartão voucher
 }
 
 export interface RecurringBill {
@@ -74,7 +78,7 @@ export interface Transaction {
   description: string;
   category: string;
   amount: number;
-  paymentMethod?: 'money' | 'credit';
+  paymentMethod?: 'money' | 'credit' | 'voucher';
   cardId?: string;
   linkedDebtId?: string; // [NEXUS] Vínculo para amortização assistida
   isBillPayment?: boolean; // [NEXUS] Identifica pagamento de fatura

@@ -100,6 +100,7 @@ export async function payInvoice(params: PayInvoiceParams): Promise<{ success: b
 
     queryClient.invalidateQueries({ queryKey: queryKeys.transactions.byUser(userId) });
     queryClient.invalidateQueries({ queryKey: queryKeys.cards.byUser(userId) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.invoices.byUser(userId) });
 
     const targetInvoiceId = invoiceId || (periodEnd ? buildInvoiceId(cardId, periodEnd) : null);
     const invoice = targetInvoiceId ? await getInvoice(userId, targetInvoiceId).catch(() => null) : null;
@@ -118,9 +119,9 @@ export async function payInvoice(params: PayInvoiceParams): Promise<{ success: b
       }
     } else {
       if (invoice) {
-        const newPaidAmount = Math.max(0, (invoice.paidAmount || 0) + amount);
-        const total = invoice.total || 0;
-        const newRemaining = Math.max(0, total - newPaidAmount);
+        const newPaidAmount = Math.max(0, Math.round(((invoice.paidAmount || 0) + amount) * 100) / 100);
+        const total = Math.round((invoice.total || 0) * 100) / 100;
+        const newRemaining = Math.max(0, Math.round((total - newPaidAmount) * 100) / 100);
         const newStatus = newPaidAmount >= total ? 'paid' : 'partial';
 
         await updateInvoiceAfterPayment(userId, invoice.cardId || cardId, invoice.periodEnd, {

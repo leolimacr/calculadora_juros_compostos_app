@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useFirebase } from '../../../hooks/useFirebase';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, addDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, addDoc, deleteDoc, limit } from 'firebase/firestore';
 import { firestore } from '../../../firebase';
 import { eventBus } from '../../../core/orchestration/event-bus';
 import { createDomainEvent, EVENT_TYPES } from '../../../core/orchestration/domainEvents';
@@ -10,7 +10,7 @@ import {
   Plus, Trash2, Pencil, X, Check,
   CreditCard, Sparkles, HelpCircle,
   TrendingUp, ShieldCheck, Target,
-  LayoutGrid, List, History, ChevronRight,
+  LayoutGrid, List, History, ChevronRight, ChevronDown,
   ArrowLeft, AlertCircle, Trophy, PartyPopper,
   ArrowRight, BookOpen, Wallet
 } from 'lucide-react';
@@ -119,7 +119,11 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, onNa
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<DebtItem>(EMPTY_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
+    return (localStorage.getItem('debt_view_mode') as 'grid' | 'list') || 'list';
+  });
+  const [showForm, setShowForm] = useState(true);
+  const hasInitialized = useRef(false);
   const [showHistory, setShowHistory] = useState(false);
   const [selectedDebtForProjection, setSelectedDebtForProjection] = useState<DebtItem | null>(null);
   const [savedPlans, setSavedPlans] = useState<SavedDebtPlan[]>([]);
@@ -142,6 +146,17 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, onNa
       setSavedPlans(plans);
     });
   }, [userId]);
+
+  useEffect(() => {
+    if (!isLoading && !hasInitialized.current) {
+      hasInitialized.current = true;
+      if (debts.length > 0) setShowForm(false);
+    }
+  }, [isLoading, debts.length]);
+
+  useEffect(() => {
+    if (editingId) setShowForm(true);
+  }, [editingId]);
 
   const handleCommandAction = (cmd: DebtCommand) => {
     if (cmd.action === 'open_projection' && cmd.metadata?.debtId) {
@@ -235,7 +250,7 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, onNa
   const handleEdit = (debt: DebtItem) => {
     setForm({ ...debt, proposito: debt.proposito || '' });
     setEditingId(debt.id || null);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setTimeout(() => document.getElementById('wealth-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
   };
 
   const handleDelete = async (id: string) => {
@@ -380,29 +395,36 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, onNa
 
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-8 py-6 space-y-8 animate-in fade-in duration-500 pb-32">
+      {/* Breadcrumb + Título da Página (fora do card) */}
+      <div className="flex flex-col gap-3">
+        {onNavigate && (
+          <button
+            onClick={() => onNavigate('home')}
+            className="w-fit flex items-center gap-2 text-slate-500 hover:text-rose-700 transition-all font-black uppercase text-[10px] tracking-[0.2em]"
+          >
+            <ArrowLeft size={14} /> Voltar
+          </button>
+        )}
+        <h1 className="text-2xl md:text-3xl font-black uppercase tracking-[0.15em] text-transparent bg-clip-text bg-gradient-to-r from-rose-600 to-orange-500">
+          Minhas Dívidas
+        </h1>
+      </div>
+
       {/* Header */}
       <div className="relative overflow-hidden rounded-[2.5rem] bg-white border border-slate-200/60 p-8 md:p-12 shadow-floating group">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(244,63,94,0.05),transparent_50%)]" />
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-10">
           <div className="space-y-4 flex-1">
             <div className="flex flex-col gap-4">
-              {onNavigate && (
-                <button
-                  onClick={() => onNavigate('home')}
-                  className="w-fit flex items-center gap-2 text-slate-500 hover:text-rose-700 transition-all font-black uppercase text-[10px] tracking-[0.2em]"
-                >
-                  <ArrowLeft size={14} /> Voltar
-                </button>
-              )}
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 text-[10px] font-black uppercase tracking-[0.2em] shadow-sm w-fit">
                 <ShieldCheck size={14} />
                 Estratégia de Desalavancagem
               </div>
             </div>
-            <h1 className="text-4xl md:text-5xl font-black text-slate-950 tracking-tight leading-[1.1]">
+            <h2 className="text-4xl md:text-5xl font-black text-slate-950 tracking-tight leading-[1.1]">
               Sua rota de <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-600 to-orange-500">liberdade total.</span>
-            </h1>
+            </h2>
             <p className="text-lg text-slate-500 max-w-xl leading-relaxed font-medium">
               Encare suas dívidas com estratégia e não com medo. Mapeie cada juro e deixe o Nexus traçar o caminho mais curto para sua paz financeira.
             </p>
@@ -455,10 +477,14 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, onNa
               <div>
                 <div className="flex items-center gap-2 mb-4">
                   <div className="p-2 bg-rose-600 text-white rounded-xl shadow-lg shadow-rose-200"><AlertCircle size={18} /></div>
-                  <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Dívida mais Crítica</span>
+                  <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest">{debts.length > 1 ? 'Dívida mais Crítica' : 'Dívida Crítica'}</span>
                 </div>
                 <h4 className="text-xl font-black text-slate-900 mb-1">{criticalDebt.nome}</h4>
-                <p className="text-xs text-slate-500 font-medium">Esta dívida possui a maior taxa de juros ({criticalDebt.taxaMensal}%/mês).</p>
+                <p className="text-xs text-slate-500 font-medium">
+                  {debts.length > 1
+                    ? `Esta dívida possui a maior taxa de juros (${criticalDebt.taxaMensal}%/mês).`
+                    : `Taxa de juros: ${criticalDebt.taxaMensal}%/mês.`}
+                </p>
               </div>
               <button onClick={() => setSelectedDebtForProjection(criticalDebt)} className="mt-6 w-full py-4 bg-white border border-rose-200 text-rose-600 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-rose-600 hover:text-white transition-all shadow-sm">
                 Atacar esta dívida
@@ -494,68 +520,90 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, onNa
         </div>
       )}
 
-      {/* Formulário */}
-      <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-sm">
-        <div className="flex items-center justify-between mb-8">
+      {/* Formulário — colapsável */}
+      {!showForm && debts.length > 0 ? (
+        <button
+          onClick={() => setShowForm(true)}
+          className="w-full flex items-center justify-between bg-white border border-slate-200 rounded-[2.5rem] px-6 py-4 shadow-sm hover:border-rose-400 hover:shadow-md transition-all group"
+        >
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-slate-100 rounded-xl text-slate-600">{editingId ? <Pencil size={20} /> : <Plus size={20} />}</div>
-            <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">{editingId ? 'Editar Dívida' : 'Cadastrar Nova Dívida'}</h3>
+            <div className="p-2 bg-slate-100 rounded-xl text-slate-600 group-hover:bg-rose-100 group-hover:text-rose-600 transition-colors">
+              <Plus size={20} />
+            </div>
+            <span className="text-sm font-black text-slate-500 group-hover:text-slate-700 uppercase tracking-tight transition-colors">Cadastrar Dívida</span>
           </div>
-          {editingId && (
-            <button onClick={() => { setForm(EMPTY_FORM); setEditingId(null); }} className="text-xs font-black text-slate-500 hover:text-rose-500 uppercase tracking-widest flex items-center gap-1 transition-colors">
-              <X size={14} /> Cancelar
+          <ChevronDown size={20} className="text-slate-400 group-hover:text-rose-500 transition-colors" />
+        </button>
+      ) : (
+        <div id="wealth-form" className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-sm">
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-slate-100 rounded-xl text-slate-600">{editingId ? <Pencil size={20} /> : <Plus size={20} />}</div>
+              <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">{editingId ? 'Editar Dívida' : 'Cadastrar Nova Dívida'}</h3>
+            </div>
+            <div className="flex items-center gap-2">
+              {editingId && (
+                <button onClick={() => { setForm(EMPTY_FORM); setEditingId(null); }} className="text-xs font-black text-slate-500 hover:text-rose-500 uppercase tracking-widest flex items-center gap-1 transition-colors">
+                  <X size={14} /> Cancelar
+                </button>
+              )}
+              {!editingId && debts.length > 0 && (
+                <button onClick={() => setShowForm(false)} className="text-xs font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest flex items-center gap-1 transition-colors">
+                  <X size={14} /> Fechar
+                </button>
+              )}
+            </div>
+          </div>
+          <form onSubmit={handleSave} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Dívida</label>
+                <input type="text" required value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-rose-500 transition-all text-sm font-bold" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Tipo</label>
+                <select value={form.tipo} onChange={e => setForm({ ...form, tipo: e.target.value as any })} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-rose-500 transition-all text-sm font-bold outline-none">
+                  {MANUAL_DEBT_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Saldo</label>
+                <input type="number" step="0.01" required value={form.saldoDevedor || ''} onChange={e => setForm({ ...form, saldoDevedor: Number(e.target.value) })} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-rose-500 transition-all text-sm font-bold" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Juros (% a.m.)</label>
+                <input type="number" step="0.01" required value={form.taxaMensal || ''} onChange={e => setForm({ ...form, taxaMensal: Number(e.target.value) })} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-rose-500 transition-all text-sm font-bold" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Parcela</label>
+                <input type="number" step="0.01" required value={form.valorParcela || ''} onChange={e => setForm({ ...form, valorParcela: Number(e.target.value) })} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-rose-500 transition-all text-sm font-bold" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Restantes</label>
+                <input type="number" required value={form.parcelasRestantes || ''} onChange={e => setForm({ ...form, parcelasRestantes: Number(e.target.value) })} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-rose-500 transition-all text-sm font-bold" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Dia Vencimento</label>
+                <input type="number" value={form.dataVencimento || ''} onChange={e => setForm({ ...form, dataVencimento: e.target.value })} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-rose-500 transition-all text-sm font-bold" />
+              </div>
+            </div>
+            <textarea value={form.proposito || ''} onChange={e => setForm({ ...form, proposito: e.target.value })} className="w-full px-6 py-4 rounded-2xl border border-slate-200 transition-all text-sm font-medium min-h-[100px] resize-none" placeholder="Propósito..." />
+            <button type="submit" disabled={isSubmitting} className="w-full py-5 rounded-2xl bg-rose-600 text-white font-black uppercase tracking-widest text-xs hover:bg-rose-500 transition-all disabled:opacity-50">
+              {isSubmitting ? 'Salvando...' : editingId ? 'Atualizar Dívida' : 'Salvar Nova Dívida'}
             </button>
-          )}
+          </form>
         </div>
-        <form onSubmit={handleSave} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Dívida</label>
-              <input type="text" required value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-rose-500 transition-all text-sm font-bold" />
-            </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Tipo</label>
-              <select value={form.tipo} onChange={e => setForm({ ...form, tipo: e.target.value as any })} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-rose-500 transition-all text-sm font-bold outline-none">
-                {MANUAL_DEBT_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Saldo</label>
-              <input type="number" step="0.01" required value={form.saldoDevedor || ''} onChange={e => setForm({ ...form, saldoDevedor: Number(e.target.value) })} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-rose-500 transition-all text-sm font-bold" />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Juros (% a.m.)</label>
-              <input type="number" step="0.01" required value={form.taxaMensal || ''} onChange={e => setForm({ ...form, taxaMensal: Number(e.target.value) })} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-rose-500 transition-all text-sm font-bold" />
-            </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Parcela</label>
-              <input type="number" step="0.01" required value={form.valorParcela || ''} onChange={e => setForm({ ...form, valorParcela: Number(e.target.value) })} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-rose-500 transition-all text-sm font-bold" />
-            </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Restantes</label>
-              <input type="number" required value={form.parcelasRestantes || ''} onChange={e => setForm({ ...form, parcelasRestantes: Number(e.target.value) })} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-rose-500 transition-all text-sm font-bold" />
-            </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Dia Vencimento</label>
-              <input type="number" value={form.dataVencimento || ''} onChange={e => setForm({ ...form, dataVencimento: e.target.value })} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-rose-500 transition-all text-sm font-bold" />
-            </div>
-          </div>
-          <textarea value={form.proposito || ''} onChange={e => setForm({ ...form, proposito: e.target.value })} className="w-full px-6 py-4 rounded-2xl border border-slate-200 transition-all text-sm font-medium min-h-[100px] resize-none" placeholder="Propósito..." />
-          <button type="submit" disabled={isSubmitting} className="w-full py-5 rounded-2xl bg-rose-600 text-white font-black uppercase tracking-widest text-xs hover:bg-rose-500 transition-all disabled:opacity-50">
-            {isSubmitting ? 'Salvando...' : editingId ? 'Atualizar Dívida' : 'Salvar Nova Dívida'}
-          </button>
-        </form>
-      </div>
+      )}
 
       {/* Lista */}
       <div className="space-y-6">
         <div className="flex items-center justify-between px-2">
           <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Sua Lista</h3>
           <div className="flex bg-slate-100 p-1 rounded-xl">
-             <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg ${viewMode === 'grid' ? 'bg-white shadow-sm' : 'text-slate-500'}`}><LayoutGrid size={16} /></button>
-             <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg ${viewMode === 'list' ? 'bg-white shadow-sm' : 'text-slate-500'}`}><List size={16} /></button>
+             <button onClick={() => { setViewMode('grid'); localStorage.setItem('debt_view_mode', 'grid'); }} className={`p-2 rounded-lg ${viewMode === 'grid' ? 'bg-white shadow-sm' : 'text-slate-500'}`}><LayoutGrid size={16} /></button>
+             <button onClick={() => { setViewMode('list'); localStorage.setItem('debt_view_mode', 'list'); }} className={`p-2 rounded-lg ${viewMode === 'list' ? 'bg-white shadow-sm' : 'text-slate-500'}`}><List size={16} /></button>
           </div>
         </div>
 

@@ -35,8 +35,14 @@ const BudgetStatusCard: React.FC<BudgetStatusCardProps> = ({ budget, transaction
     : progress.categories.slice(0, MAX_VISIBLE_CATEGORIES);
   const hiddenCount = progress.categories.length - MAX_VISIBLE_CATEGORIES;
 
+  const budgetBorder = progress.totalPercentage > 95
+    ? 'border-l-4 border-l-status-danger/40'
+    : exceededCategories.length > 0
+      ? 'border-l-4 border-l-brand-accent/40'
+      : '';
+
   return (
-    <div className="bg-surface-primary border border-surface-elevated rounded-4xl p-5 shadow-soft">
+    <div className={`bg-surface-primary border border-surface-elevated rounded-4xl p-5 shadow-soft ${budgetBorder}`}>
       <div className="flex items-center justify-between gap-4 mb-3">
         <div className="flex items-center gap-3 min-w-0">
           <div className="p-3 bg-brand-secondary/10 rounded-2xl text-brand-secondary flex-shrink-0">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FolderPlus, RefreshCw } from 'lucide-react';
+import { FolderPlus, RefreshCw, Wallet as WalletIcon } from 'lucide-react';
 import CategoryManager from './CategoryManager';
 import CardManager from './CardManager';
 import type { Transaction, Category, CreditCard } from '../../../types';
@@ -44,7 +44,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const [type, setType] = useState<'income' | 'expense'>(initialData?.type || 'expense');
   const [category, setCategory] = useState(initialData?.category || '');
   const [date, setDate] = useState(initialData?.date || getLocalDateString());
-  const [paymentMethod, setPaymentMethod] = useState<'money' | 'credit'>(initialData?.paymentMethod || 'money');
+  const [paymentMethod, setPaymentMethod] = useState<'money' | 'credit' | 'voucher'>(initialData?.paymentMethod || 'money');
   const [cardId, setCardId] = useState<string>(initialData?.cardId || '');
   const [installments, setInstallments] = useState<number>(initialData?.installments || 1);
   const [userCards, setUserCards] = useState<CreditCard[]>([]);
@@ -104,7 +104,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     }
   }, [initialData, isLocked]);
 
-  // Reset payment method and cardId when type is 'income'
+  // Reset payment method and cardId when type is 'income' (unless using voucher card)
   useEffect(() => {
     if (type === 'income' && !isLocked) {
       setPaymentMethod('money');
@@ -115,6 +115,16 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   // Reset cardId if paymentMethod is changed to 'money'
   useEffect(() => {
     if (paymentMethod === 'money' && !isLocked) {
+      setCardId('');
+    }
+  }, [paymentMethod, isLocked]);
+
+  // Clear cardId when switching from voucher to credit or vice versa
+  const prevPaymentMethodRef = useRef(paymentMethod);
+  useEffect(() => {
+    const prev = prevPaymentMethodRef.current;
+    prevPaymentMethodRef.current = paymentMethod;
+    if (!isLocked && prev && prev !== paymentMethod) {
       setCardId('');
     }
   }, [paymentMethod, isLocked]);
@@ -153,6 +163,18 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         return alert("Este cartão não possui datas de fechamento e vencimento configuradas. Configure-o antes de usá-lo.");
       }
     }
+
+    if (paymentMethod === 'voucher' && !isLocked) {
+      if (!cardId) {
+        return alert("Por favor, selecione o cartão voucher utilizado para este lançamento.");
+      }
+      const selCard = userCards.find(c => c.id === cardId);
+      if (selCard && selCard.voucherBalance !== undefined && numericAmount > selCard.voucherBalance) {
+        if (!window.confirm(`Saldo insuficiente no cartão ${selCard.name}. Disponíveis: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selCard.voucherBalance)}. Deseja continuar mesmo assim?`)) {
+          return;
+        }
+      }
+    }
     
     setIsSaving(true);
     await onSave({ 
@@ -163,7 +185,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       category, 
       date,
       paymentMethod,
-      cardId: paymentMethod === 'credit' ? (cardId || null) : null,
+      cardId: paymentMethod === 'credit' || paymentMethod === 'voucher' || (type === 'income' && cardId) ? (cardId || null) : null,
       installments: paymentMethod === 'credit' ? installments : 1,
       linkedDebtId: showDebtSelector ? linkedDebtId : null
     });
@@ -336,6 +358,13 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                   >
                     Cartão
                   </button>
+                  <button 
+                    type="button"
+                    onClick={() => setPaymentMethod('voucher')} 
+                    className={`flex-1 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all ${paymentMethod === 'voucher' ? 'bg-emerald-50 text-emerald-600 shadow-soft border border-emerald-200' : 'text-text-muted'}`}
+                  >
+                    Voucher (Alimentação/Refeição)
+                  </button>
                 </div>
               </div>
 
@@ -357,12 +386,54 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                     className="w-full bg-surface-primary p-4 rounded-2xl text-text-primary outline-none border border-surface-elevated focus:border-brand-primary appearance-none text-sm"
                   >
                     <option value="">{userCards.length > 1 ? 'Selecione o seu cartão...' : 'Cartão não identificado'}</option>
-                    {userCards.map(card => (
+                    {userCards.filter(c => c.type !== 'voucher').map(card => (
                       <option key={card.id} value={card.id}>
                         {card.name} {(!card.closingDay || !card.dueDay) ? ' (Sem data!)' : ''}
                       </option>
                     ))}
                   </select>
+                </div>
+              )}
+
+              {paymentMethod === 'voucher' && (
+                <div className="space-y-1 animate-in fade-in slide-in-from-left-1 duration-200">
+                  <div className="flex items-center justify-between ml-1">
+                    <label className="text-xxs font-black text-text-muted uppercase">Cartão Voucher</label>
+                    <button 
+                      type="button"
+                      onClick={() => setIsCardModalOpen(true)}
+                      className="text-[9px] font-black text-brand-primary uppercase tracking-widest hover:underline"
+                    >
+                      + Gerenciar
+                    </button>
+                  </div>
+                  <select 
+                    value={cardId} 
+                    onChange={e => setCardId(e.target.value)} 
+                    className="w-full bg-surface-primary p-4 rounded-2xl text-text-primary outline-none border border-surface-elevated focus:border-brand-primary appearance-none text-sm"
+                  >
+                    <option value="">Selecione o cartão voucher...</option>
+                    {userCards.filter(c => c.type === 'voucher').map(card => (
+                      <option key={card.id} value={card.id}>
+                        {card.name} {card.voucherBalance !== undefined ? `(Saldo: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(card.voucherBalance)})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {cardId && (() => {
+                    const selectedCard = userCards.find(c => c.id === cardId);
+                    if (!selectedCard || selectedCard.voucherBalance === undefined) return null;
+                    const numAmount = Number(amount);
+                    if (!numAmount) return null;
+                    const insufficient = numAmount > selectedCard.voucherBalance;
+                    return (
+                      <div className={`text-[10px] font-bold px-1 ${insufficient ? 'text-red-500' : 'text-emerald-600'}`}>
+                        {insufficient
+                          ? `Saldo insuficiente — disponível: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedCard.voucherBalance)}`
+                          : `Saldo disponível: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedCard.voucherBalance)}`
+                        }
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
@@ -419,6 +490,30 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 }`}
               />
             </button>
+          </div>
+        )}
+
+        {type === 'income' && !isLocked && userCards.filter(c => c.type === 'voucher').length > 0 && (
+          <div className="p-4 rounded-2xl border border-emerald-200 bg-emerald-50/40 space-y-2 animate-in fade-in duration-200">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-600">
+                <WalletIcon size={14} />
+              </div>
+              <p className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">Recarregar cartão voucher</p>
+            </div>
+            <p className="text-[9px] text-emerald-600 font-medium">Selecione um cartão voucher para creditar este valor como recarga.</p>
+            <select 
+              value={cardId} 
+              onChange={e => setCardId(e.target.value)} 
+              className="w-full bg-white p-3 rounded-xl text-text-primary outline-none border border-emerald-200 focus:border-emerald-400 appearance-none text-sm font-bold"
+            >
+              <option value="">Apenas receita (sem recarga de voucher)</option>
+              {userCards.filter(c => c.type === 'voucher').map(card => (
+                <option key={card.id} value={card.id}>
+                  {card.name} {card.voucherBalance !== undefined ? `(Saldo atual: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(card.voucherBalance)})` : ''}
+                </option>
+              ))}
+            </select>
           </div>
         )}
 

@@ -1,12 +1,22 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { collection, query, getDocs } from 'firebase/firestore';
+import { firestore } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useGoals } from './useGoals';
 import { useDebts } from '../services/debt/debt.hooks';
-import { createAssetsRealtimeBridge, createPassivesRealtimeBridge } from '../services/wealth.realtime';
 import { queryKeys } from '../core/query/queryKeys';
-import type { ActiveAsset } from '../components/tools/wealth/ActiveWealthManager';
-import type { PassiveAsset } from '../components/tools/wealth/PassiveWealthManager';
+import type { ActiveAsset, PassiveAsset } from '../types';
+
+const fetchAssets = async (userId: string): Promise<ActiveAsset[]> => {
+  const snapshot = await getDocs(query(collection(firestore, `users/${userId}/ativos`)));
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ActiveAsset));
+};
+
+const fetchPassives = async (userId: string): Promise<PassiveAsset[]> => {
+  const snapshot = await getDocs(query(collection(firestore, `users/${userId}/passivos`)));
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PassiveAsset));
+};
 
 export const useWealthData = () => {
   const { user, userMeta } = useAuth();
@@ -17,16 +27,16 @@ export const useWealthData = () => {
 
   const { data: assets = [], isLoading: assetsLoading, isFetching: assetsFetching } = useQuery<ActiveAsset[], Error>({
     queryKey: keyAssets,
-    queryFn: () => Promise.resolve([]),
+    queryFn: () => uid ? fetchAssets(uid) : Promise.resolve([]),
     enabled: !!uid,
-    staleTime: 1000 * 60 * 5, // 5 minutos de cache
+    staleTime: 1000 * 60 * 5,
   });
 
   const { data: passives = [], isLoading: passivesLoading, isFetching: passivesFetching } = useQuery<PassiveAsset[], Error>({
     queryKey: keyPassives,
-    queryFn: () => Promise.resolve([]),
+    queryFn: () => uid ? fetchPassives(uid) : Promise.resolve([]),
     enabled: !!uid,
-    staleTime: 1000 * 60 * 5, // 5 minutos de cache
+    staleTime: 1000 * 60 * 5,
   });
 
   const { goals, loading: goalsLoading } = useGoals(uid);

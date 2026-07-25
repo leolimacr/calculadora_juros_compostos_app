@@ -28,8 +28,24 @@ const PendingObligations: React.FC<PendingObligationsProps> = ({
 
   const fmt = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 
+  const hasPendencies = activeInvoices.length > 0 || pendingBills.length > 0;
+  const anyOverdue = activeInvoices.some(inv => {
+    if (!inv.dueDate || inv.storedStatus === 'paid') return false;
+    return new Date(inv.dueDate.replace(/-/g, '/')) < new Date();
+  }) || recurringBills.some(b => {
+    if (b.isActive === false) return false;
+    if (isBillPaid(b, safeTransactions)) return false;
+    return (b.dueDay || 31) < new Date().getDate();
+  });
+
+  const sectionBorder = anyOverdue
+    ? 'border-l-4 border-l-status-danger/40'
+    : hasPendencies
+      ? 'border-l-4 border-l-brand-accent/40'
+      : '';
+
   return (
-    <div className="space-y-4">
+    <div className={`bg-surface-primary border border-surface-elevated rounded-4xl p-5 shadow-card space-y-4 ${sectionBorder}`}>
       {/* SEÇÃO DE FATURAS */}
       {activeInvoices.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

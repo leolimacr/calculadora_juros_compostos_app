@@ -80,7 +80,7 @@ const NexusBriefingView: React.FC<{
 
   useEffect(() => {
     if (!initialPrompt) {
-        navigate('/app/home');
+        navigate('/app/central');
         return;
     }
 
@@ -220,9 +220,10 @@ const NexusBriefingView: React.FC<{
                     </button>
                  ))}
                  <button
-                    onClick={() => navigate('/app/home')}
-                    className="w-full p-5 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-600 transition-colors"
-                 >
+onClick={() => navigate('/app/central')}
+
+className="w-full p-5 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-600 transition-colors"
+                  >
                     Encerrar Briefing e Voltar
                  </button>
                </div>

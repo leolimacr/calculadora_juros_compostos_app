@@ -90,6 +90,7 @@ export const NotificationService = {
             id,
             schedule: { at: new Date(Date.now() + 500) }, // imediato
             sound: 'default',
+            smallIcon: 'ic_stat_controla',
             extra: { deepLink: payload.deepLink ?? null },
           },
         ],
@@ -125,6 +126,7 @@ export const NotificationService = {
             body,
             schedule: { at: scheduledTime, repeats: true },
             sound: 'default',
+            smallIcon: 'ic_stat_controla',
             extra: { deepLink },
           }
         ]
@@ -155,6 +157,7 @@ export const NotificationService = {
             body: `Seu saldo atual estimado é de ${formatCurrency(estimatedBalance)}. Mantenha a precisão lançando suas últimas compras.`,
             schedule: { at: threeDaysLater },
             sound: 'default',
+            smallIcon: 'ic_stat_controla',
             extra: { deepLink: 'transaction-form' },
           }
         ]
@@ -181,6 +184,7 @@ export const NotificationService = {
             body: 'Você já pode marcar esta despesa como paga ou revisar no Controla.',
             schedule: { at: notificationTime },
             sound: 'default',
+            smallIcon: 'ic_stat_controla',
             extra: {
               deepLink: `app://mark-bill-paid/${bill.id}`,
               billId: bill.id, // Passar o ID da conta para o deepLink

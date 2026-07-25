@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Menu, House, LayoutDashboard, Sparkles, Compass } from 'lucide-react';
+import { Plus, House, Compass, Menu } from 'lucide-react';
 import { useNavigation } from '../hooks/useNavigation';
 import type { Transaction } from '../types';
 
@@ -14,8 +14,7 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 }) => {
   const { currentTool, handleNavigate } = useNavigation();
 
-  const centralTools = new Set([
-    'central',
+  const centralSubTools = new Set([
     'chat',
     'minhas-dividas',
     'passivos',
@@ -23,9 +22,8 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     'metas',
   ]);
 
-  const isHomeActive = currentTool === 'home';
+  const isCentralActive = currentTool === 'central' || currentTool === 'home' || centralSubTools.has(currentTool);
   const isControlaActive = currentTool === 'manager';
-  const isCentralActive = centralTools.has(currentTool);
   const isExplorarActive = currentTool.startsWith('tool-') || currentTool === 'explorar';
 
   return (
@@ -33,16 +31,16 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       <div className="mx-auto max-w-lg px-6 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
         <div className="flex items-end justify-between">
           <button
-            onClick={() => handleNavigate('home')}
+            onClick={() => handleNavigate('central')}
             className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-1.5 py-2 transition-all active:scale-95 group ${
-              isHomeActive ? 'text-emerald-600' : 'text-slate-500 hover:text-slate-700'
+              isCentralActive ? 'text-emerald-600' : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            <div className={`p-1 rounded-lg transition-all ${isHomeActive ? 'bg-emerald-400/10' : ''}`}>
-              <House size={24} strokeWidth={isHomeActive ? 2.5 : 2} />
+            <div className={`p-1 rounded-lg transition-all ${isCentralActive ? 'bg-emerald-400/10' : ''}`}>
+              <House size={24} strokeWidth={isCentralActive ? 2.5 : 2} />
             </div>
             <span className="text-[9px] font-black uppercase tracking-widest leading-none">
-              Home
+              Central
             </span>
           </button>
 
@@ -53,7 +51,11 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             }`}
           >
             <div className={`p-1 rounded-lg transition-all ${isControlaActive ? 'bg-emerald-400/10' : ''}`}>
-              <LayoutDashboard size={24} strokeWidth={isControlaActive ? 2.5 : 2} />
+              <img
+                src="/assets/images/brand/icone_controla210726.png"
+                alt=""
+                className="w-11 h-11 rounded-xl object-cover block"
+              />
             </div>
             <span className="text-[9px] font-black uppercase tracking-widest leading-none">
               Controla
@@ -69,7 +71,7 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               <div className="w-14 h-14 bg-gradient-to-tr from-emerald-500 to-teal-400 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/25 border-[4px] border-white ring-1 ring-slate-200 relative overflow-hidden">
                 <Plus size={28} strokeWidth={3} className="relative z-10" />
                 <img 
-                  src="/assets/images/brand/controla-icon.png" 
+                  src="/assets/images/brand/icone_controla210726.png" 
                   alt="" 
                   className="absolute inset-0 w-full h-full object-cover opacity-30 group-hover/launch:scale-110 transition-transform duration-500" 
                 />
@@ -81,20 +83,6 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           </div>
 
           <button
-            onClick={() => handleNavigate('central')}
-            className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-1.5 py-2 transition-all active:scale-95 ${
-              isCentralActive ? 'text-emerald-600' : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <div className={`p-1 rounded-lg transition-all ${isCentralActive ? 'bg-emerald-400/10' : ''}`}>
-              <Sparkles size={24} strokeWidth={isCentralActive ? 2.5 : 2} />
-            </div>
-            <span className="text-[9px] font-black uppercase tracking-widest leading-none">
-              Central
-            </span>
-          </button>
-
-          <button
             onClick={() => handleNavigate('explorar')}
             className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-1.5 py-2 transition-all active:scale-95 ${
               isExplorarActive ? 'text-emerald-600' : 'text-slate-500 hover:text-slate-700'
@@ -104,22 +92,22 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               <Compass size={24} strokeWidth={isExplorarActive ? 2.5 : 2} />
             </div>
             <span className="text-[9px] font-black uppercase tracking-widest leading-none">
-              Explorar
-            </span>
-          </button>
+                Explorar
+              </span>
+            </button>
 
           <button
             onClick={onOpenMore}
-            className="flex-1 min-w-0 flex flex-col items-center justify-center gap-1.5 py-2 transition-all active:scale-95 text-slate-500 hover:text-slate-700"
+            className="flex-1 min-w-0 flex flex-col items-center justify-center gap-1.5 py-2 transition-all active:scale-95 group text-slate-500 hover:text-slate-700"
           >
-            <div className="p-1 rounded-lg">
-              <Menu size={24} />
+            <div className="p-1 rounded-lg transition-all">
+              <Menu size={24} strokeWidth={2} />
             </div>
             <span className="text-[9px] font-black uppercase tracking-widest leading-none">
               Mais
             </span>
           </button>
-        </div>
+          </div>
       </div>
     </div>
   );

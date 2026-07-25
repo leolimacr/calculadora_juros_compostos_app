@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { House, LayoutDashboard, Sparkles, Compass } from 'lucide-react';
+import { House, LayoutDashboard, Compass } from 'lucide-react';
 import { TOOL_ROUTES } from '../hooks/useNavigation';
 
 export interface PrimaryNavItem {
@@ -8,13 +8,14 @@ export interface PrimaryNavItem {
   label: string;
   description: string;
   icon: LucideIcon;
+  iconSrc?: string;
 }
 
 export const PRIMARY_NAV_ITEMS: PrimaryNavItem[] = [
   {
-    toolId: 'home',
-    label: 'Home',
-    description: 'Visão geral do mês',
+    toolId: 'central',
+    label: 'Central',
+    description: 'Painel central e estratégia',
     icon: House,
   },
   {
@@ -22,12 +23,7 @@ export const PRIMARY_NAV_ITEMS: PrimaryNavItem[] = [
     label: 'Controla',
     description: 'Lançamentos e fluxo',
     icon: LayoutDashboard,
-  },
-  {
-    toolId: 'central',
-    label: 'Central',
-    description: 'Evolução e estratégia',
-    icon: Sparkles,
+    iconSrc: '/assets/images/brand/icone_controla210726.png',
   },
   {
     toolId: 'explorar',

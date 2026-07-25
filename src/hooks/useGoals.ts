@@ -1,8 +1,6 @@
-import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Goal} from '../services/goalService';
-import { createGoal, updateGoal, deleteGoal } from '../services/goalService';
-import { createGoalRealtimeBridge } from '../services/goal.realtime';
+import { createGoal, updateGoal, deleteGoal, fetchGoals } from '../services/goalService';
 import { queryKeys } from '../core/query/queryKeys';
 
 export const useGoals = (userId: string | undefined) => {
@@ -11,12 +9,9 @@ export const useGoals = (userId: string | undefined) => {
 
   const { data: goals = [], isLoading: loading, error, isFetching } = useQuery<Goal[], Error>({
     queryKey: key,
-    queryFn: () => {
-      const currentData = queryClient.getQueryData<Goal[]>(key);
-      return Promise.resolve(currentData ?? []);
-    },
+    queryFn: () => userId ? fetchGoals(userId) : Promise.resolve([]),
     enabled: !!userId,
-    staleTime: 1000 * 60 * 10, // 10 minutos para metas
+    staleTime: 1000 * 60 * 5,
   });
 
   const isSyncing = isFetching && !loading;

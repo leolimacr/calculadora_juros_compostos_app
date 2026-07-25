@@ -87,14 +87,14 @@ function buildInvoiceFromGroup(
   card: CreditCard,
   group: PeriodGroup
 ): Omit<CardInvoice, 'id'> {
-  const total = group.transactions.reduce((sum, t) => sum + (t.amount || 0), 0);
-  const paidAmount = group.billPayments.reduce((sum, t) => sum + (t.amount || 0), 0);
+  const total = Math.round(group.transactions.reduce((sum, t) => sum + (t.amount || 0), 0) * 100) / 100;
+  const paidAmount = Math.round(group.billPayments.reduce((sum, t) => sum + (t.amount || 0), 0) * 100) / 100;
 
   let status: InvoiceStatus = 'open';
   if (total > 0 && paidAmount >= total) status = 'paid';
   else if (paidAmount > 0) status = 'partial';
 
-  const remainingAmount = Math.max(0, total - paidAmount);
+  const remainingAmount = Math.max(0, Math.round((total - paidAmount) * 100) / 100);
   const now = new Date().toISOString();
   const lastTxDate = group.transactions.length > 0
     ? group.transactions.reduce((latest, t) => t.date > latest ? t.date : latest, group.transactions[0].date)
@@ -159,6 +159,7 @@ export async function syncAllCardsInvoices(
   let cardCount = 0;
 
   for (const card of cards) {
+    if (card.type === 'voucher') continue;
     if (!card.closingDay || !card.dueDay) continue;
     cardCount++;
     const result = await syncCardInvoices(userId, card, transactions);

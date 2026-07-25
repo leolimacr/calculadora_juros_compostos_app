@@ -11,9 +11,9 @@ export interface NavigationItem {
 
 export const navigationItems: NavigationItem[] = [
   {
-    id: 'home',
-    label: 'Home',
-    path: '/app/home',
+    id: 'central',
+    label: 'Central',
+    path: '/app/central',
     mobile: true,
     desktop: true,
   },
@@ -21,13 +21,6 @@ export const navigationItems: NavigationItem[] = [
     id: 'controla',
     label: 'Controla',
     path: '/app/controla',
-    mobile: true,
-    desktop: true,
-  },
-  {
-    id: 'central',
-    label: 'Central',
-    path: '/app/central',
     mobile: true,
     desktop: true,
   },

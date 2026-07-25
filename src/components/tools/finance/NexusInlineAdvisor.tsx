@@ -8,7 +8,7 @@ interface Props {
     amount: number;
     category: string;
     type: 'income' | 'expense';
-    paymentMethod?: 'money' | 'credit';
+    paymentMethod?: 'money' | 'credit' | 'voucher';
   };
   context?: NexusAdvisoryContext;
 }

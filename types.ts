@@ -60,7 +60,7 @@ export interface Transaction {
   description: string;
   category: string;
   amount: number;
-  paymentMethod?: 'money' | 'credit';
+  paymentMethod?: 'money' | 'credit' | 'voucher';
   cardId?: string;
 }
 

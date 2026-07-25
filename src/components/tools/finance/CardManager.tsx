@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Plus, CreditCard as CardIcon, Trash2, EyeOff, Eye, RefreshCw, Calendar, Settings2, Check, ChevronLeft, ChevronDown, ChevronUp, Edit2, TrendingUp } from 'lucide-react';
+import { X, Plus, CreditCard as CardIcon, Trash2, EyeOff, Eye, RefreshCw, Calendar, Settings2, Check, ChevronLeft, ChevronDown, ChevronUp, Edit2, TrendingUp, Wallet as WalletIcon } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { addCard, getCards, updateCard, deleteCard } from '../../../services/cardService';
 import { payInvoice } from '../../../services/payInvoiceService';
@@ -21,14 +21,18 @@ interface CardManagerProps {
 const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, transactions, onEditTransaction, focusedCardId, contextualReason }) => {
   const [cards, setCards] = useState<CreditCard[]>([]);
   const [newCardName, setNewCardName] = useState('');
+  const [newCardType, setNewCardType] = useState<'credit' | 'voucher'>('credit');
   const [newClosingDay, setNewClosingDay] = useState<string>('');
   const [newDueDay, setNewDueDay] = useState<string>('');
   const [newLimit, setNewLimit] = useState<string>('');
   const [newTaxaJuros, setNewTaxaJuros] = useState<string>('');
+  const [newVoucherBalance, setNewVoucherBalance] = useState<string>('');
   const [isAdding, setIsAdding] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(true);
+  const hasInitialized = useRef(false);
   const [editClosingDay, setEditClosingDay] = useState<string>('');
   const [editDueDay, setEditDueDay] = useState<string>('');
   const [editLimit, setEditLimit] = useState<string>('');
@@ -111,6 +115,17 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
     }
   }, [focusedCardId, isOpen, cards]);
 
+  useEffect(() => {
+    if (!isLoading && !hasInitialized.current) {
+      hasInitialized.current = true;
+      if (cards.length > 0) setShowForm(false);
+    }
+  }, [isLoading, cards.length]);
+
+  useEffect(() => {
+    if (editingCardId) setShowForm(true);
+  }, [editingCardId]);
+
   const loadCards = async () => {
     setIsLoading(true);
     try {
@@ -124,10 +139,17 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
   };
 
   const handleAdd = async () => {
-    if (!newCardName.trim() || !newClosingDay || !newDueDay) return;
+    if (!newCardName.trim()) return;
+    if (newCardType === 'credit') {
+      if (!newClosingDay || !newDueDay) return;
+      const closing = Number(newClosingDay);
+      const due = Number(newDueDay);
+      if (closing < 1 || closing > 31 || due < 1 || due > 31) {
+        alert("Os dias devem estar entre 1 e 31.");
+        return;
+      }
+    }
     
-    const closing = Number(newClosingDay);
-    const due = Number(newDueDay);
     const limitVal = Number(newLimit) || 0;
     const taxaJurosVal = newTaxaJuros ? Number(newTaxaJuros) : undefined;
 
@@ -136,26 +158,28 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
       return;
     }
 
-    if (closing < 1 || closing > 31 || due < 1 || due > 31) {
-      alert("Os dias devem estar entre 1 e 31.");
-      return;
-    }
-
     setIsAdding(true);
     try {
+      const closing = newCardType === 'credit' ? Number(newClosingDay) : undefined;
+      const due = newCardType === 'credit' ? Number(newDueDay) : undefined;
+      const voucherBal = newCardType === 'voucher' ? Number(newVoucherBalance) || 0 : undefined;
       await addCard(
         userId, 
         newCardName.trim(), 
         closing, 
         due,
         limitVal,
-        taxaJurosVal
+        taxaJurosVal,
+        newCardType,
+        voucherBal
       );
       setNewCardName('');
+      setNewCardType('credit');
       setNewClosingDay('');
       setNewDueDay('');
       setNewLimit('');
       setNewTaxaJuros('');
+      setNewVoucherBalance('');
 
       await loadCards();
     } catch (error) {
@@ -330,11 +354,32 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Coluna Esquerda: Cadastro */}
           <div className="lg:col-span-5 space-y-6">
-            {!showHidden && (
+            {!showHidden && !showForm && filteredCards.length > 0 && (
+              <button
+                onClick={() => setShowForm(true)}
+                className="w-full bg-surface-primary p-5 rounded-4xl border border-surface-elevated shadow-soft hover:border-brand-primary/40 transition-all group flex items-center justify-between sticky top-8"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-2xl bg-brand-primary/10 flex items-center justify-center group-hover:bg-brand-primary/20 transition-colors">
+                    <Plus size={18} className="text-brand-primary" />
+                  </div>
+                  <span className="text-sm font-black text-text-muted group-hover:text-text-primary uppercase tracking-tight transition-colors">Cadastrar Cartão</span>
+                </div>
+                <ChevronDown size={18} className="text-text-muted group-hover:text-brand-primary transition-colors" />
+              </button>
+            )}
+            {!showHidden && (showForm || filteredCards.length === 0) && (
               <div className="bg-surface-primary p-6 rounded-4xl border border-surface-elevated shadow-soft space-y-6 sticky top-8">
-                <div className="flex items-center gap-2 ml-1">
-                  <div className="w-1.5 h-1.5 rounded-full bg-brand-primary"></div>
-                  <p className="text-[10px] font-black text-text-primary uppercase tracking-widest">Novo Cartão</p>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 ml-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-brand-primary"></div>
+                    <p className="text-[10px] font-black text-text-primary uppercase tracking-widest">Novo Cartão</p>
+                  </div>
+                  {filteredCards.length > 0 && (
+                    <button onClick={() => setShowForm(false)} className="text-[9px] font-black text-text-muted hover:text-text-primary uppercase tracking-widest flex items-center gap-1 transition-colors">
+                      <X size={12} /> Fechar
+                    </button>
+                  )}
                 </div>
 
                 <div className="space-y-4">
@@ -350,56 +395,96 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Limite Total (R$)</label>
-                    <input
-                      type="number"
-                      placeholder="Ex: 5000"
-                      value={newLimit}
-                      onChange={(e) => setNewLimit(e.target.value)}
-                      className="w-full bg-surface-secondary p-4 rounded-2xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary text-sm transition-all"
-                    />
+                    <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Tipo de Cartão</label>
+                    <div className="flex bg-surface-secondary p-1 rounded-2xl border border-surface-elevated">
+                      <button
+                        type="button"
+                        onClick={() => setNewCardType('credit')}
+                        className={`flex-1 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all ${newCardType === 'credit' ? 'bg-surface-primary text-text-primary shadow-soft' : 'text-text-muted'}`}
+                      >
+                        Crédito
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewCardType('voucher')}
+                        className={`flex-1 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all ${newCardType === 'voucher' ? 'bg-surface-primary text-text-primary shadow-soft' : 'text-text-muted'}`}
+                      >
+                        Voucher (Alimentação/Refeição)
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Juros mensais do cartão (%)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="Ex: 14.9"
-                      value={newTaxaJuros}
-                      onChange={(e) => setNewTaxaJuros(e.target.value)}
-                      className="w-full bg-surface-secondary p-4 rounded-2xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary text-sm transition-all"
-                    />
-                    <p className="text-[8px] font-medium text-text-muted ml-1">Usado em novas conversões para rotativo. Opcional.</p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
+                  {newCardType === 'credit' && (
                     <div className="space-y-1.5">
-                      <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Dia Fechamento</label>
+                      <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Limite Total (R$)</label>
                       <input
                         type="number"
-                        min="1"
-                        max="31"
-                        placeholder="Ex: 5"
-                        value={newClosingDay}
-                        onChange={(e) => setNewClosingDay(e.target.value)}
+                        placeholder="Ex: 5000"
+                        value={newLimit}
+                        onChange={(e) => setNewLimit(e.target.value)}
                         className="w-full bg-surface-secondary p-4 rounded-2xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary text-sm transition-all"
                       />
                     </div>
+                  )}
+
+                  {newCardType === 'voucher' && (
                     <div className="space-y-1.5">
-                      <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Dia Vencimento</label>
+                      <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Saldo Inicial (R$)</label>
                       <input
                         type="number"
-                        min="1"
-                        max="31"
-                        placeholder="Ex: 12"
-                        value={newDueDay}
-                        onChange={(e) => setNewDueDay(e.target.value)}
+                        placeholder="Ex: 1000"
+                        value={newVoucherBalance}
+                        onChange={(e) => setNewVoucherBalance(e.target.value)}
                         className="w-full bg-surface-secondary p-4 rounded-2xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary text-sm transition-all"
                       />
+                      <p className="text-[8px] font-medium text-text-muted ml-1">Valor carregado no cartão voucher no momento do cadastro.</p>
                     </div>
-                  </div>
+                  )}
+
+                  {newCardType === 'credit' && (
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Juros mensais do cartão (%)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="Ex: 14.9"
+                        value={newTaxaJuros}
+                        onChange={(e) => setNewTaxaJuros(e.target.value)}
+                        className="w-full bg-surface-secondary p-4 rounded-2xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary text-sm transition-all"
+                      />
+                      <p className="text-[8px] font-medium text-text-muted ml-1">Usado em novas conversões para rotativo. Opcional.</p>
+                    </div>
+                  )}
+
+                  {newCardType === 'credit' && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Dia Fechamento</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="31"
+                          placeholder="Ex: 5"
+                          value={newClosingDay}
+                          onChange={(e) => setNewClosingDay(e.target.value)}
+                          className="w-full bg-surface-secondary p-4 rounded-2xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary text-sm transition-all"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Dia Vencimento</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="31"
+                          placeholder="Ex: 12"
+                          value={newDueDay}
+                          onChange={(e) => setNewDueDay(e.target.value)}
+                          className="w-full bg-surface-secondary p-4 rounded-2xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary text-sm transition-all"
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   <button
                     onClick={handleAdd}
@@ -446,38 +531,54 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
               ) : (
                 <div className="grid grid-cols-1 gap-4">
                   {filteredCards.map((card) => {
-                    const hasHistory = checkCardHistory(card.id);
-                    const isEditing = editingCardId === card.id;
-                    const timelineData = cardInvoicesTimeline.find(inv => inv.cardId === card.id);
-
-                    return (
+                          const hasHistory = checkCardHistory(card.id);
+                          const isEditing = editingCardId === card.id;
+                          const timelineData = cardInvoicesTimeline.find(inv => inv.cardId === card.id);
+                          const isVoucher = card.type === 'voucher';
+                          return (
                       <div key={card.id} className="bg-surface-secondary rounded-3xl border border-surface-elevated overflow-hidden transition-all group hover:border-brand-primary/30 shadow-sm">
                         <div className="p-6 flex items-center justify-between">
                           <div className="flex items-center gap-5">
-                            <div className={`p-3 rounded-2xl transition-colors ${isEditing ? 'bg-brand-primary text-text-onBrand' : 'bg-surface-primary text-text-muted group-hover:text-brand-primary'}`}>
-                              <CardIcon size={24} />
+                            <div className={`p-3 rounded-2xl transition-colors ${isEditing ? 'bg-brand-primary text-text-onBrand' : isVoucher ? 'bg-emerald-50 text-emerald-600' : 'bg-surface-primary text-text-muted group-hover:text-brand-primary'}`}>
+                              {isVoucher ? <WalletIcon size={24} /> : <CardIcon size={24} />}
                             </div>
                             <div className="flex flex-col">
-                              <span className="text-base font-black text-text-primary uppercase tracking-tight">{card.name}</span>
+                              <span className="text-base font-black text-text-primary uppercase tracking-tight">
+                                {card.name}
+                                {isVoucher && (
+                                  <span className="ml-2 inline-block px-1.5 py-0.5 rounded-md bg-emerald-100 text-[8px] font-black uppercase tracking-wider text-emerald-700 leading-none align-middle">
+                                    Voucher
+                                  </span>
+                                )}
+                              </span>
                               {!isEditing && (
                                 <div className="flex flex-wrap items-center gap-4 mt-2">
-                                  {card.limit ? (
-                                    <div className="flex items-center gap-1.5 text-brand-primary">
-                                      <Check size={12} />
-                                      <span className="text-[10px] font-black uppercase tracking-tighter">Limite: R$ {card.limit.toLocaleString()}</span>
+                                  {isVoucher ? (
+                                    <div className="flex items-center gap-1.5 text-emerald-600">
+                                      <WalletIcon size={12} />
+                                      <span className="text-[10px] font-black uppercase tracking-tighter">Saldo: R$ {(card.voucherBalance || 0).toLocaleString()}</span>
                                     </div>
-                                  ) : null}
-                                  {card.taxaJuros ? (
-                                    <div className="flex items-center gap-1.5 text-amber-600">
-                                      <TrendingUp size={12} />
-                                      <span className="text-[10px] font-black uppercase tracking-tighter">{card.taxaJuros}% a.m.</span>
-                                    </div>
-                                  ) : null}
-                                  {card.closingDay && (
-                                    <div className="flex items-center gap-1.5 text-text-muted">
-                                      <Calendar size={12} />
-                                      <span className="text-[10px] font-bold uppercase tracking-tighter">Corte: Dia {card.closingDay}</span>
-                                    </div>
+                                  ) : (
+                                    <>
+                                      {card.limit ? (
+                                        <div className="flex items-center gap-1.5 text-brand-primary">
+                                          <Check size={12} />
+                                          <span className="text-[10px] font-black uppercase tracking-tighter">Limite: R$ {card.limit.toLocaleString()}</span>
+                                        </div>
+                                      ) : null}
+                                      {card.taxaJuros ? (
+                                        <div className="flex items-center gap-1.5 text-amber-600">
+                                          <TrendingUp size={12} />
+                                          <span className="text-[10px] font-black uppercase tracking-tighter">{card.taxaJuros}% a.m.</span>
+                                        </div>
+                                      ) : null}
+                                      {card.closingDay && (
+                                        <div className="flex items-center gap-1.5 text-text-muted">
+                                          <Calendar size={12} />
+                                          <span className="text-[10px] font-bold uppercase tracking-tighter">Corte: Dia {card.closingDay}</span>
+                                        </div>
+                                      )}
+                                    </>
                                   )}
                                 </div>
                               )}
@@ -489,14 +590,16 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
                               <>
                                 {!isEditing ? (
                                   <>
-                                    <button
-                                      onClick={() => onEditTransaction({ paymentMethod: 'credit', cardId: card.id, type: 'expense' } as any)}
-                                      className="p-3 text-brand-primary hover:bg-brand-primary/10 rounded-2xl transition-all flex items-center gap-2 px-4"
-                                      title="Registrar Compra"
-                                    >
-                                      <Plus size={20} />
-                                      <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Registrar</span>
-                                    </button>
+                                    {!isVoucher && (
+                                      <button
+                                        onClick={() => onEditTransaction({ paymentMethod: 'credit', cardId: card.id, type: 'expense' } as any)}
+                                        className="p-3 text-brand-primary hover:bg-brand-primary/10 rounded-2xl transition-all flex items-center gap-2 px-4"
+                                        title="Registrar Compra"
+                                      >
+                                        <Plus size={20} />
+                                        <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Registrar</span>
+                                      </button>
+                                    )}
                                     <button
                                       onClick={() => handleStartEdit(card)}
                                       className="p-3 text-text-muted hover:text-brand-primary hover:bg-brand-primary/10 rounded-2xl transition-all"
@@ -538,50 +641,56 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
                         {isEditing && (
                           <div className="px-6 pb-6 pt-0 animate-in slide-in-from-top-4 duration-300">
                             <div className="bg-surface-primary p-6 rounded-3xl border border-brand-primary/20 space-y-6 shadow-inner">
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div className="space-y-1.5">
-                                  <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Limite Total (R$)</label>
-                                  <input
-                                    type="number"
-                                    value={editLimit}
-                                    onChange={(e) => setEditLimit(e.target.value)}
-                                    className="w-full bg-surface-secondary p-3 rounded-xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary text-sm"
-                                  />
+                              {isVoucher ? (
+                                <p className="text-[10px] text-text-muted font-medium ml-1">
+                                  Cartão voucher não possui configurações editáveis de fatura.
+                                </p>
+                              ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                  <div className="space-y-1.5">
+                                    <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Limite Total (R$)</label>
+                                    <input
+                                      type="number"
+                                      value={editLimit}
+                                      onChange={(e) => setEditLimit(e.target.value)}
+                                      className="w-full bg-surface-secondary p-3 rounded-xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary text-sm"
+                                    />
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Juros mensais (%)</label>
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      value={editTaxaJuros}
+                                      onChange={(e) => setEditTaxaJuros(e.target.value)}
+                                      className="w-full bg-surface-secondary p-3 rounded-xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary text-sm"
+                                    />
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Dia Corte</label>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      max="31"
+                                      value={editClosingDay}
+                                      onChange={(e) => setEditClosingDay(e.target.value)}
+                                      className="w-full bg-surface-secondary p-3 rounded-xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary text-sm"
+                                    />
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Dia Vencimento</label>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      max="31"
+                                      value={editDueDay}
+                                      onChange={(e) => setEditDueDay(e.target.value)}
+                                      className="w-full bg-surface-secondary p-3 rounded-xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary text-sm"
+                                    />
+                                  </div>
                                 </div>
-                                <div className="space-y-1.5">
-                                  <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Juros mensais (%)</label>
-                                  <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={editTaxaJuros}
-                                    onChange={(e) => setEditTaxaJuros(e.target.value)}
-                                    className="w-full bg-surface-secondary p-3 rounded-xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary text-sm"
-                                  />
-                                </div>
-                                <div className="space-y-1.5">
-                                  <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Dia Corte</label>
-                                  <input
-                                    type="number"
-                                    min="1"
-                                    max="31"
-                                    value={editClosingDay}
-                                    onChange={(e) => setEditClosingDay(e.target.value)}
-                                    className="w-full bg-surface-secondary p-3 rounded-xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary text-sm"
-                                  />
-                                </div>
-                                <div className="space-y-1.5">
-                                  <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Dia Vencimento</label>
-                                  <input
-                                    type="number"
-                                    min="1"
-                                    max="31"
-                                    value={editDueDay}
-                                    onChange={(e) => setEditDueDay(e.target.value)}
-                                    className="w-full bg-surface-secondary p-3 rounded-xl text-text-primary font-bold outline-none border border-surface-elevated focus:border-brand-primary text-sm"
-                                  />
-                                </div>
-                              </div>
+                              )}
                               <button
                                 onClick={() => handleSaveEdit(card.id)}
                                 className="w-full py-4 bg-brand-primary text-text-onBrand rounded-2xl font-black uppercase text-xxs tracking-widest flex items-center justify-center gap-2 shadow-brand-glow active:scale-95 transition-all"
@@ -593,7 +702,7 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
                         )}
                         
                         {/* Accordion Timeline */}
-                        {timelineData && (
+                        {timelineData && !isVoucher && (
                           <div className="border-t border-surface-elevated bg-surface-primary/30 p-4">
                             <button 
                               onClick={() => setExpandedCard(expandedCard === card.id ? null : card.id)} 

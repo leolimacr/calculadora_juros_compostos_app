@@ -328,3 +328,281 @@ export const calculateCompoundInterest = () => ({ total: 0 });
 export const maskCurrency = (val: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 };
+
+/* ─── Real Cash Balance (Card 1 — Saldo Atual) ─── */
+
+export interface FaturaDetalhe {
+  cardName: string;
+  cardId: string;
+  periodStart: string;
+  periodEnd: string;
+  dueDate: string;
+  total: number;
+  remainingAmount: number;
+  tipo: 'aberta' | 'fechada';
+  transacoes: Array<{
+    id: string;
+    description: string;
+    amount: number;
+    date: string;
+    installments?: number;
+    currentInstallment?: number;
+    installmentId?: string;
+  }>;
+}
+
+export interface LancamentoFuturoInfo {
+  id: string;
+  description: string;
+  amount: number;
+  date: string;
+}
+
+export interface CashBalanceResult {
+  saldoReal: number;
+  totalReceitas: number;
+  totalDespesasAVista: number;
+  receitasMes: number;
+  despesasMes: number;
+  faturasFechadas: FaturaDetalhe[];
+  faturasAbertas: FaturaDetalhe[];
+  gastosFuturosMes: LancamentoFuturoInfo[];
+  contasFuturasMes: LancamentoFuturoInfo[];
+}
+
+export function calculateRealCashBalance(
+  transactions: TxLike[],
+  storedInvoices: Array<{
+    cardId: string;
+    periodStart: string;
+    periodEnd: string;
+    dueDate: string;
+    total: number;
+    status: string;
+    paidAmount: number;
+    remainingAmount: number;
+    id?: string;
+  }>,
+  userCards: Array<{
+    id: string;
+    name: string;
+    closingDay?: number;
+    dueDay?: number;
+  }>,
+  recurringBills: Array<{
+    id: string;
+    name: string;
+    amount: number;
+    dueDay: number;
+    isActive: boolean;
+    category: string;
+  }>,
+  refDate?: Date
+): CashBalanceResult {
+  const hoje = refDate ?? new Date();
+  const hojeStr = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
+  const currentYear = hoje.getFullYear();
+  const currentMonth = hoje.getMonth() + 1;
+
+  // Último dia do mês atual
+  const ultimoDia = new Date(currentYear, currentMonth, 0).getDate();
+  const mesEnd = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`;
+
+  let saldoReal = 0;
+  let totalReceitas = 0;
+  let totalDespesasAVista = 0;
+  let receitasMes = 0;
+  let despesasMes = 0;
+  const monthPrefix = hojeStr.slice(0, 7);
+
+  // Card 1: Saldo real = receitas - despesas à vista (data <= hoje)
+  for (let i = 0; i < transactions.length; i++) {
+    const t = transactions[i];
+    if (!t.date || t.date > hojeStr) continue;
+    const val = Number(t.amount) || 0;
+    if (t.type === 'income') {
+      saldoReal += val;
+      totalReceitas += val;
+      if (t.date.startsWith(monthPrefix)) receitasMes += val;
+    } else if (t.paymentMethod !== 'credit' && !t.isVirtual) {
+      saldoReal -= val;
+      totalDespesasAVista += val;
+      if (t.date.startsWith(monthPrefix)) despesasMes += val;
+    }
+  }
+
+  /* ─── Faturas ─── */
+  const faturasMap = new Map<string, FaturaDetalhe>();
+
+  // 1. Faturas armazenadas não pagas (Firebase)
+  for (const si of storedInvoices) {
+    if (si.status === 'paid') continue;
+    if (si.remainingAmount <= 0) continue;
+    const cardName = userCards.find(c => c.id === si.cardId)?.name || 'Cartão';
+    const key = `${si.cardId}-${si.periodEnd}`;
+    const fechada = si.periodEnd < hojeStr;
+    faturasMap.set(key, {
+      cardName,
+      cardId: si.cardId,
+      periodStart: si.periodStart,
+      periodEnd: si.periodEnd,
+      dueDate: si.dueDate,
+      total: si.total,
+      remainingAmount: si.remainingAmount,
+      tipo: fechada ? 'fechada' : 'aberta',
+      transacoes: [],
+    });
+  }
+
+  // 2. Período atual de cada cartão (se ainda não estiver no map)
+  for (const card of userCards) {
+    if (!card.closingDay || !card.dueDay) continue;
+
+    const currentDay = hoje.getDate();
+    const m = hoje.getMonth();
+    const y = hoje.getFullYear();
+
+    let y1, m1, d1, y2, m2, d2, dy, dm, dd;
+
+    if (currentDay > card.closingDay) {
+      y1 = y; m1 = m; d1 = card.closingDay + 1;
+      y2 = m === 11 ? y + 1 : y; m2 = (m + 1) % 12; d2 = card.closingDay;
+      dy = y2; dm = m2; dd = card.dueDay;
+      if (dd < d2) { dm = (dm + 1) % 12; if (dm === 0) dy++; }
+    } else {
+      y1 = m === 0 ? y - 1 : y; m1 = (m - 1 + 12) % 12; d1 = card.closingDay + 1;
+      y2 = y; m2 = m; d2 = card.closingDay;
+      dy = y2; dm = m2; dd = card.dueDay;
+      if (dd < d2) { dm = (dm + 1) % 12; if (dm === 0) dy++; }
+    }
+
+    const ps = `${y1}-${String(m1 + 1).padStart(2, '0')}-${String(d1).padStart(2, '0')}`;
+    const pe = `${y2}-${String(m2 + 1).padStart(2, '0')}-${String(d2).padStart(2, '0')}`;
+    const ddStr = `${dy}-${String(dm + 1).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
+    const key = `${card.id}-${pe}`;
+
+    if (!faturasMap.has(key)) {
+      const cardTxs = [];
+      for (let i = 0; i < transactions.length; i++) {
+        const t = transactions[i];
+        if ((t as any).cardId === card.id && t.type === 'expense' && t.date >= ps && t.date <= pe) {
+          cardTxs.push({
+            id: (t as any).id || '',
+            description: (t as any).description || '',
+            amount: Number(t.amount) || 0,
+            date: t.date,
+            installments: (t as any).installments,
+            currentInstallment: (t as any).currentInstallment,
+            installmentId: (t as any).installmentId,
+          });
+        }
+      }
+      const total = Math.round(cardTxs.reduce((s, t) => s + t.amount, 0) * 100) / 100;
+      if (total > 0) {
+        const fechada = pe < hojeStr;
+        faturasMap.set(key, {
+          cardName: card.name,
+          cardId: card.id,
+          periodStart: ps,
+          periodEnd: pe,
+          dueDate: ddStr,
+          total,
+          remainingAmount: total,
+          tipo: fechada ? 'fechada' : 'aberta',
+          transacoes: cardTxs,
+        });
+      }
+    }
+  }
+
+  // Preencher transações das faturas armazenadas que não foram computadas
+  for (const [, fat] of faturasMap) {
+    if (fat.transacoes.length === 0) {
+      const txs = [];
+      for (let i = 0; i < transactions.length; i++) {
+        const t = transactions[i];
+        if ((t as any).cardId === fat.cardId && t.type === 'expense' && t.date >= fat.periodStart && t.date <= fat.periodEnd) {
+          txs.push({
+            id: (t as any).id || '',
+            description: (t as any).description || '',
+            amount: Number(t.amount) || 0,
+            date: t.date,
+            installments: (t as any).installments,
+            currentInstallment: (t as any).currentInstallment,
+            installmentId: (t as any).installmentId,
+          });
+        }
+      }
+      fat.transacoes = txs;
+    }
+  }
+
+  const faturasFechadas: FaturaDetalhe[] = [];
+  const faturasAbertas: FaturaDetalhe[] = [];
+  for (const fat of faturasMap.values()) {
+    if (fat.tipo === 'fechada') faturasFechadas.push(fat);
+    else faturasAbertas.push(fat);
+  }
+
+  /* ─── Gastos futuros no mês (à vista, data > hoje) ─── */
+  const gastosFuturosMes: LancamentoFuturoInfo[] = [];
+  for (let i = 0; i < transactions.length; i++) {
+    const t = transactions[i];
+    if (t.date > hojeStr && t.date <= mesEnd && t.type === 'expense' && t.paymentMethod !== 'credit' && !t.isVirtual) {
+      gastosFuturosMes.push({
+        id: (t as any).id || '',
+        description: (t as any).description || '',
+        amount: Number(t.amount) || 0,
+        date: t.date,
+      });
+    }
+  }
+
+  /* ─── Contas futuras no mês ─── */
+  const contasFuturasMes: LancamentoFuturoInfo[] = [];
+  for (let i = 0; i < recurringBills.length; i++) {
+    const bill = recurringBills[i];
+    if (!bill.isActive) continue;
+
+    // Verifica se já foi paga neste mês
+    let jaPaga = false;
+    for (let j = 0; j < transactions.length; j++) {
+      const t = transactions[j];
+      if (t.type === 'expense' && (t as any).isBillPayment && (t as any).linkedRecurringBillId === bill.id) {
+        if (t.date >= `${currentYear}-${String(currentMonth).padStart(2, '0')}-01` && t.date <= hojeStr) {
+          jaPaga = true;
+          break;
+        }
+      }
+    }
+    if (jaPaga) continue;
+
+    const billDay = bill.dueDay;
+    // Garantir que o dia não ultrapasse o último dia do mês
+    const safeDay = billDay > ultimoDia ? ultimoDia : billDay;
+    const billDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(safeDay).padStart(2, '0')}`;
+    // Mas verificamos com o dia original se é futuro
+    const billDateOrig = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(billDay).padStart(2, '0')}`;
+    // Se o dia original é futuro OU o dia ajustado é futuro
+    if (billDateOrig > hojeStr && billDate <= mesEnd) {
+      contasFuturasMes.push({
+        id: bill.id,
+        description: bill.name,
+        amount: bill.amount,
+        date: billDate,
+      });
+    }
+  }
+
+  return {
+    saldoReal,
+    totalReceitas,
+    totalDespesasAVista,
+    receitasMes,
+    despesasMes,
+    faturasFechadas,
+    faturasAbertas,
+    gastosFuturosMes,
+    contasFuturasMes,
+  };
+}

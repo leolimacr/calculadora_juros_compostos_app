@@ -22,7 +22,6 @@ import { lazy } from 'react';
 
 const AppLayout = lazy(() => import('../layouts/AppLayout'));
 const AppCockpit = lazy(() => import('../components/Home/AppCockpit'));
-const CentralHub = lazy(() => import('../components/CentralHub'));
 const ExplorarHub = lazy(() => import('../components/ExplorarHub').then((mod) => ({ default: mod.ExplorarHub })));
 import { ControlaPage } from '../components/tools/finance/ControlaPage';
 const AiAdvisor = lazy(() => import('../components/tools/nexus/AiAdvisor'));
@@ -137,7 +136,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
           path="/" 
           element={
             isAuthenticated ? (
-              <Navigate to="/app/home" replace />
+              <Navigate to="/app/central" replace />
             ) : (
               <React.Suspense fallback={<AppLoadingScreen />}>
                 <PublicHome
@@ -208,7 +207,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
         }
       >
         <Route 
-          path="home" 
+          path="central" 
           element={
             isAuthenticated && userMetaLoaded && userMeta?.onboardingCompleted === false ? (
               <div className="min-h-screen bg-surface-primary flex items-center justify-center px-4">
@@ -228,6 +227,8 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
             )
           } 
         />
+
+        <Route path="home" element={<Navigate to="/app/central" replace />} />
 
         <Route
           path="controla"
@@ -254,19 +255,6 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
           }
         />
 
-        <Route 
-          path="central" 
-          element={
-            <React.Suspense fallback={<DashboardSkeleton />}>
-              <CentralHub
-                lancamentos={lancamentos}
-                userMeta={userMeta}
-                onNavigate={handleNavigate}
-              />
-            </React.Suspense>
-          } 
-        />
-
         <Route path="explorar" element={<React.Suspense fallback={<DashboardSkeleton />}><ExplorarHub onNavigate={handleNavigate} routerNavigate={routerNavigate} /></React.Suspense>} />
 
         <Route 
@@ -286,7 +274,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
           } 
         />
 
-        <Route path="mais" element={<React.Suspense fallback={<DashboardSkeleton />}><SettingsPage onBack={() => handleNavigate('home')} /></React.Suspense>} />
+        <Route path="mais" element={<React.Suspense fallback={<DashboardSkeleton />}><SettingsPage onBack={() => handleNavigate('central')} /></React.Suspense>} />
         
         <Route path="mais/pricing" element={<React.Suspense fallback={<DashboardSkeleton />}><PricingPage /></React.Suspense>} />
 

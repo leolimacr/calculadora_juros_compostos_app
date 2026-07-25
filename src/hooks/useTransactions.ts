@@ -1,8 +1,9 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ref, push, remove, update, set, query as rtdbQuery, orderByChild, limitToLast, get, endBefore, startAt, endAt } from 'firebase/database';
-import { db } from '../firebase';
+import { doc, getDoc as fsGetDoc, setDoc } from 'firebase/firestore';
+import { db, firestore } from '../firebase';
 import { queryKeys } from '../core/query/queryKeys';
-import type { Transaction } from '../types';
+import type { Transaction, Category, CreditCard } from '../types';
 import { useTransactionsContext } from '../contexts/TransactionsContext';
 import { useMemo, useCallback, useRef } from 'react';
 import { useDebts } from './useDebts';
@@ -23,6 +24,12 @@ import {
   type DebtUpdatedEvent,
   type DebtAmortizedEvent,
 } from '../core/orchestration/domainEvents';
+
+function stripUndefined<T extends Record<string, unknown>>(obj: T): T {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([_, v]) => v !== undefined)
+  ) as T;
+}
 
 export const useTransactions = (userId?: string) => {
   const queryClient = useQueryClient();
@@ -292,6 +299,41 @@ export const useTransactions = (userId?: string) => {
   cardsRef.current = cards;
   // transactionsRef já declarado na linha 81 para dedup — ref.current já atualizado no useMemo
 
+  // Cache local de categorias conhecidas no Firestore (evita leituras repetidas)
+  const knownCategoriesRef = useRef(new Set<string>());
+
+  const syncCategoryToFirestore = useCallback(async (categoryName: string | undefined, transactionType: string | undefined) => {
+    if (!categoryName || !transactionType || !userId) return;
+    const normalized = categoryName.trim().toLowerCase();
+    if (knownCategoriesRef.current.has(normalized)) return;
+
+    try {
+      const catDocRef = doc(firestore, 'categories', userId);
+      const catSnap = await fsGetDoc(catDocRef);
+      const list: Category[] = catSnap.exists()
+        ? ((catSnap.data() as Record<string, unknown>)?.list as Category[] | undefined) ?? []
+        : [];
+
+      const exists = list.some((c) => c.name.trim().toLowerCase() === normalized);
+      if (exists) {
+        knownCategoriesRef.current.add(normalized);
+        return;
+      }
+
+      const newCat: Category = {
+        id: crypto.randomUUID(),
+        name: categoryName.trim(),
+        type: transactionType as 'income' | 'expense',
+        userId,
+      };
+
+      await setDoc(catDocRef, { list: [...list, newCat] }, { merge: true });
+      knownCategoriesRef.current.add(normalized);
+    } catch (e) {
+      console.warn('[AutoSync] Erro ao sincronizar categoria (não bloqueante):', e);
+    }
+  }, [userId]);
+
   saveLancamentoRef.current = async (transaction: Omit<Transaction, 'id' | 'userId'> & { id?: string }) => {
     if (!userId) return;
     
@@ -375,8 +417,8 @@ export const useTransactions = (userId?: string) => {
 
         // [Reactive Core] Reação Reversa: Edição de Cartão
         if (oldTx && userId) {
-            const oldCardId = oldTx.paymentMethod === 'credit' ? oldTx.cardId : oldTx.linkedCardId;
-            const newCardId = transaction.paymentMethod === 'credit' ? transaction.cardId : transaction.linkedCardId;
+            const oldCardId = oldTx.cardId || oldTx.linkedCardId;
+            const newCardId = transaction.cardId || transaction.linkedCardId;
             const wasBill = oldTx.isBillPayment;
             const isBill = transaction.isBillPayment;
 
@@ -387,31 +429,63 @@ export const useTransactions = (userId?: string) => {
                     const card = cardsRef.current.find(c => c.id === oldCardId);
                     if (card) {
                         try {
-                            // Se era pagamento, estornar = voltar a consumir. Se era compra, estornar = liberar.
-                            const factor = wasBill ? 1 : -1;
-                            let newUsed = (card.saldoUtilizadoTotal || 0) + (oldTx.amount * factor);
-                            
-                            // Se o cartão novo for o mesmo, já aplicamos o novo efeito aqui para evitar duas escritas
-                            if (oldCardId === newCardId) {
-                                const newFactor = isBill ? -1 : 1;
-                                newUsed += (Number(transaction.amount) * newFactor);
-                            }
+                            if (card.type === 'voucher') {
+                                // Voucher reversal: income (recharge) added, expense deducted
+                                let newBal = (card.voucherBalance || 0);
+                                if (oldTx.type === 'income') {
+                                    newBal -= oldTx.amount; // Reverse recharge
+                                } else {
+                                    newBal += oldTx.amount; // Reverse expense
+                                }
+                                if (oldCardId === newCardId) {
+                                    if (transaction.type === 'income') {
+                                        newBal += Number(transaction.amount);
+                                    } else {
+                                        newBal -= Number(transaction.amount);
+                                    }
+                                }
+                                await updateCard(userId, oldCardId, { voucherBalance: Math.max(0, newBal) });
+                                console.log(`[Reactive Core] Ajuste de saldo voucher ${card.name} por edição.`);
+                                await eventBus.publish(createDomainEvent<CardUsageUpdatedEvent['payload']>(
+                                  'card',
+                                  EVENT_TYPES.card.usageUpdated,
+                                  {
+                                    cardId: oldCardId,
+                                    userId,
+                                    previousSaldoUtilizado: card.saldoUtilizadoTotal || 0,
+                                    newSaldoUtilizado: 0,
+                                    reason: 'edit_voucher',
+                                    transactionId: transaction.id,
+                                  },
+                                  'useTransactions.saveLancamento'
+                                ));
+                            } else {
+                                // Se era pagamento, estornar = voltar a consumir. Se era compra, estornar = liberar.
+                                const factor = wasBill ? 1 : -1;
+                                let newUsed = (card.saldoUtilizadoTotal || 0) + (oldTx.amount * factor);
+                                
+                                // Se o cartão novo for o mesmo, já aplicamos o novo efeito aqui para evitar duas escritas
+                                if (oldCardId === newCardId) {
+                                    const newFactor = isBill ? -1 : 1;
+                                    newUsed += (Number(transaction.amount) * newFactor);
+                                }
 
-                            await updateCard(userId, oldCardId, { saldoUtilizadoTotal: Math.max(0, newUsed) });
-                            console.log(`[Reactive Core] Ajuste de limite do cartão ${card.name} por edição.`);
-                            await eventBus.publish(createDomainEvent<CardUsageUpdatedEvent['payload']>(
-                              'card',
-                              EVENT_TYPES.card.usageUpdated,
-                              {
-                                cardId: oldCardId,
-                                userId,
-                                previousSaldoUtilizado: card.saldoUtilizadoTotal || 0,
-                                newSaldoUtilizado: Math.max(0, newUsed),
-                                reason: 'edit',
-                                transactionId: transaction.id,
-                              },
-                              'useTransactions.saveLancamento'
-                            ));
+                                await updateCard(userId, oldCardId, { saldoUtilizadoTotal: Math.max(0, newUsed) });
+                                console.log(`[Reactive Core] Ajuste de limite do cartão ${card.name} por edição.`);
+                                await eventBus.publish(createDomainEvent<CardUsageUpdatedEvent['payload']>(
+                                  'card',
+                                  EVENT_TYPES.card.usageUpdated,
+                                  {
+                                    cardId: oldCardId,
+                                    userId,
+                                    previousSaldoUtilizado: card.saldoUtilizadoTotal || 0,
+                                    newSaldoUtilizado: Math.max(0, newUsed),
+                                    reason: 'edit',
+                                    transactionId: transaction.id,
+                                  },
+                                  'useTransactions.saveLancamento'
+                                ));
+                            }
                         } catch (error) {
                             console.error("[Reactive Core] Erro no ajuste de limite (edição - old):", error);
                         }
@@ -423,23 +497,44 @@ export const useTransactions = (userId?: string) => {
                     const card = cardsRef.current.find(c => c.id === newCardId);
                     if (card) {
                         try {
-                            const factor = isBill ? -1 : 1;
-                            const newUsed = (card.saldoUtilizadoTotal || 0) + (Number(transaction.amount) * factor);
-                            await updateCard(userId, newCardId, { saldoUtilizadoTotal: Math.max(0, newUsed) });
-                            console.log(`[Reactive Core] Novo vínculo de limite com cartão ${card.name} por edição.`);
-                            await eventBus.publish(createDomainEvent<CardUsageUpdatedEvent['payload']>(
-                              'card',
-                              EVENT_TYPES.card.usageUpdated,
-                              {
-                                cardId: newCardId,
-                                userId,
-                                previousSaldoUtilizado: card.saldoUtilizadoTotal || 0,
-                                newSaldoUtilizado: newUsed,
-                                reason: 'edit',
-                                transactionId: transaction.id,
-                              },
-                              'useTransactions.saveLancamento'
-                            ));
+                            if (card.type === 'voucher') {
+                                const newBal = transaction.type === 'income'
+                                    ? (card.voucherBalance || 0) + Number(transaction.amount)
+                                    : Math.max(0, (card.voucherBalance || 0) - Number(transaction.amount));
+                                await updateCard(userId, newCardId, { voucherBalance: newBal });
+                                console.log(`[Reactive Core] Novo vínculo de saldo voucher ${card.name} por edição.`);
+                                await eventBus.publish(createDomainEvent<CardUsageUpdatedEvent['payload']>(
+                                  'card',
+                                  EVENT_TYPES.card.usageUpdated,
+                                  {
+                                    cardId: newCardId,
+                                    userId,
+                                    previousSaldoUtilizado: card.saldoUtilizadoTotal || 0,
+                                    newSaldoUtilizado: newBal,
+                                    reason: 'edit_voucher',
+                                    transactionId: transaction.id,
+                                  },
+                                  'useTransactions.saveLancamento'
+                                ));
+                            } else {
+                                const factor = isBill ? -1 : 1;
+                                const newUsed = (card.saldoUtilizadoTotal || 0) + (Number(transaction.amount) * factor);
+                                await updateCard(userId, newCardId, { saldoUtilizadoTotal: Math.max(0, newUsed) });
+                                console.log(`[Reactive Core] Novo vínculo de limite com cartão ${card.name} por edição.`);
+                                await eventBus.publish(createDomainEvent<CardUsageUpdatedEvent['payload']>(
+                                  'card',
+                                  EVENT_TYPES.card.usageUpdated,
+                                  {
+                                    cardId: newCardId,
+                                    userId,
+                                    previousSaldoUtilizado: card.saldoUtilizadoTotal || 0,
+                                    newSaldoUtilizado: newUsed,
+                                    reason: 'edit',
+                                    transactionId: transaction.id,
+                                  },
+                                  'useTransactions.saveLancamento'
+                                ));
+                            }
                         } catch (error) {
                             console.error("[Reactive Core] Erro no ajuste de limite (edição - new):", error);
                         }
@@ -450,7 +545,17 @@ export const useTransactions = (userId?: string) => {
 
         const transactionRef = ref(db, `transactions/${userId}/${transaction.id}`);
         const { id, ...dataToUpdate } = transaction;
-        await update(transactionRef, dataToUpdate);
+
+        // If the old transaction had isBillPayment but the edit doesn't provide it,
+        // explicitly clear it (the edit form builds a fresh object without these fields)
+        if (oldTx?.isBillPayment && transaction.isBillPayment === undefined) {
+          dataToUpdate.isBillPayment = false;
+        }
+
+        await update(transactionRef, stripUndefined(dataToUpdate));
+
+        // Auto-sync de categoria (fire-and-forget)
+        syncCategoryToFirestore(transaction.category, transaction.type);
 
         // Cache local imediato para edição
         queryClient.setQueryData<Transaction[]>(key, (old) => {
@@ -479,7 +584,7 @@ export const useTransactions = (userId?: string) => {
     }
 
     // === Cache local imediato (antes de qualquer await) ===
-    const transactionsRef = ref(db, `transactions/${userId}`);
+    const dbTransactionsRef = ref(db, `transactions/${userId}`);
 
     if (transaction.paymentMethod === 'credit' && transaction.installments && transaction.installments > 1) {
       // --- Parcelas: gera todas as keys e atualiza cache antes de escrever ---
@@ -500,7 +605,7 @@ export const useTransactions = (userId?: string) => {
             installmentDate.setMonth(lastDayOfIntendedMonth.getMonth());
             installmentDate.setFullYear(lastDayOfIntendedMonth.getFullYear());
         }
-        const newRef = push(transactionsRef);
+        const newRef = push(dbTransactionsRef);
         const instDateStr = getLocalDateString(installmentDate);
         const instDateClean = instDateStr.replace(/-/g, '');
         const data = {
@@ -537,6 +642,26 @@ export const useTransactions = (userId?: string) => {
                 await eventBus.publish(createDomainEvent<CardUsageUpdatedEvent['payload']>('card', EVENT_TYPES.card.usageUpdated, { cardId: card.id, userId, previousSaldoUtilizado: previousSaldo, newSaldoUtilizado: newUsed, reason: 'bill_payment' }, 'useTransactions.saveLancamento'));
               } catch (e) { console.error("[Reactive Core] Erro ao liberar limite do cartão:", e); }
             }
+          } else if (transaction.paymentMethod === 'voucher' && transaction.cardId) {
+            let card = cardsRef.current.find(c => c.id === transaction.cardId);
+            if (!card) {
+              try {
+                const cardSnap = await fsGetDoc(doc(firestore, 'users', userId, 'cartoes', transaction.cardId));
+                if (cardSnap.exists()) {
+                  card = { id: cardSnap.id, ...cardSnap.data() } as CreditCard;
+                }
+              } catch (e) { console.warn("[Reactive Core] Erro ao buscar cartão no fallback:", e); }
+            }
+            if (card) {
+              try {
+                const newBal = Math.max(0, (card.voucherBalance || 0) - Number(transaction.amount));
+                await updateCard(userId, card.id, { voucherBalance: newBal });
+                queryClient.setQueryData<CreditCard[]>(queryKeys.cards.byUser(userId), (old) => {
+                  if (!old) return old;
+                  return old.map(c => c.id === card.id ? { ...c, voucherBalance: newBal } : c);
+                });
+              } catch (e) { console.error("[Reactive Core] Erro ao debitar voucher:", e); }
+            }
           } else if (transaction.paymentMethod === 'credit' && transaction.cardId) {
             const card = cardsRef.current.find(c => c.id === transaction.cardId);
             if (card) {
@@ -561,7 +686,9 @@ export const useTransactions = (userId?: string) => {
           }
         }
 
-        await Promise.all(items.map(item => set(item.ref, item.data)));
+        await Promise.all(items.map(item => set(item.ref, stripUndefined(item.data))));
+        // Auto-sync de categoria (fire-and-forget) — apenas uma vez, não por parcela
+        syncCategoryToFirestore(transaction.category, transaction.type);
       })();
 
       await backgroundOp;
@@ -577,7 +704,7 @@ export const useTransactions = (userId?: string) => {
         'useTransactions.saveLancamento'
       ));
     } else {
-      const newRef = push(transactionsRef);
+      const newRef = push(dbTransactionsRef);
       const data = { 
         ...transaction, 
         userId,
@@ -615,6 +742,46 @@ export const useTransactions = (userId?: string) => {
                 await eventBus.publish(createDomainEvent<CardUsageUpdatedEvent['payload']>('card', EVENT_TYPES.card.usageUpdated, { cardId: card.id, userId, previousSaldoUtilizado: previousSaldo, newSaldoUtilizado: newUsed, reason: 'purchase' }, 'useTransactions.saveLancamento'));
               } catch (e) { console.error("[Reactive Core] Erro ao consumir limite do cartão:", e); }
             }
+          } else if (transaction.type === 'income' && transaction.cardId) {
+            let card = cardsRef.current.find(c => c.id === transaction.cardId && c.type === 'voucher');
+            if (!card) {
+              try {
+                const cardSnap = await fsGetDoc(doc(firestore, 'users', userId, 'cartoes', transaction.cardId));
+                if (cardSnap.exists()) {
+                  card = { id: cardSnap.id, ...cardSnap.data() } as CreditCard;
+                }
+              } catch (e) { console.warn("[Reactive Core] Erro ao buscar cartão no fallback:", e); }
+            }
+            if (card) {
+              try {
+                const newBal = (card.voucherBalance || 0) + Number(transaction.amount);
+                await updateCard(userId, card.id, { voucherBalance: newBal });
+                queryClient.setQueryData<CreditCard[]>(queryKeys.cards.byUser(userId), (old) => {
+                  if (!old) return old;
+                  return old.map(c => c.id === card.id ? { ...c, voucherBalance: newBal } : c);
+                });
+              } catch (e) { console.error("[Reactive Core] Erro ao recarregar voucher:", e); }
+            }
+          } else if (transaction.paymentMethod === 'voucher' && transaction.cardId) {
+            let card = cardsRef.current.find(c => c.id === transaction.cardId);
+            if (!card) {
+              try {
+                const cardSnap = await fsGetDoc(doc(firestore, 'users', userId, 'cartoes', transaction.cardId));
+                if (cardSnap.exists()) {
+                  card = { id: cardSnap.id, ...cardSnap.data() } as CreditCard;
+                }
+              } catch (e) { console.warn("[Reactive Core] Erro ao buscar cartão no fallback:", e); }
+            }
+            if (card) {
+              try {
+                const newBal = Math.max(0, (card.voucherBalance || 0) - Number(transaction.amount));
+                await updateCard(userId, card.id, { voucherBalance: newBal });
+                queryClient.setQueryData<CreditCard[]>(queryKeys.cards.byUser(userId), (old) => {
+                  if (!old) return old;
+                  return old.map(c => c.id === card.id ? { ...c, voucherBalance: newBal } : c);
+                });
+              } catch (e) { console.error("[Reactive Core] Erro ao debitar voucher:", e); }
+            }
           }
         }
 
@@ -629,7 +796,9 @@ export const useTransactions = (userId?: string) => {
           }
         }
 
-        await set(newRef, data);
+        await set(newRef, stripUndefined(data));
+        // Auto-sync de categoria (fire-and-forget)
+        syncCategoryToFirestore(transaction.category, transaction.type);
       })();
 
       await backgroundOp;
@@ -693,6 +862,30 @@ export const useTransactions = (userId?: string) => {
               await updateCard(userId, card.id, { saldoUtilizadoTotal: newUsed });
               await eventBus.publish(createDomainEvent<CardUsageUpdatedEvent['payload']>('card', EVENT_TYPES.card.usageUpdated, { cardId: card.id, userId, previousSaldoUtilizado: previousSaldo, newSaldoUtilizado: newUsed, reason: 'rollback', transactionId: id }, 'useTransactions.deleteLancamento'));
             } catch (e) { console.error("[Reactive Core] Erro no estorno (compra crédito):", e); }
+          }
+        } else if (txToDelete.paymentMethod === 'voucher' && txToDelete.cardId) {
+          const card = cardsRef.current.find(c => c.id === txToDelete.cardId);
+          if (card) {
+            try {
+              const newBal = (card.voucherBalance || 0) + txToDelete.amount;
+              await updateCard(userId, card.id, { voucherBalance: newBal });
+              queryClient.setQueryData<CreditCard[]>(queryKeys.cards.byUser(userId), (old) => {
+                if (!old) return old;
+                return old.map(c => c.id === card.id ? { ...c, voucherBalance: newBal } : c);
+              });
+            } catch (e) { console.error("[Reactive Core] Erro no estorno (gasto voucher):", e); }
+          }
+        } else if (txToDelete.type === 'income' && txToDelete.cardId) {
+          const card = cardsRef.current.find(c => c.id === txToDelete.cardId && c.type === 'voucher');
+          if (card) {
+            try {
+              const newBal = Math.max(0, (card.voucherBalance || 0) - txToDelete.amount);
+              await updateCard(userId, card.id, { voucherBalance: newBal });
+              queryClient.setQueryData<CreditCard[]>(queryKeys.cards.byUser(userId), (old) => {
+                if (!old) return old;
+                return old.map(c => c.id === card.id ? { ...c, voucherBalance: newBal } : c);
+              });
+            } catch (e) { console.error("[Reactive Core] Erro no estorno (recarga voucher):", e); }
           }
         }
       }

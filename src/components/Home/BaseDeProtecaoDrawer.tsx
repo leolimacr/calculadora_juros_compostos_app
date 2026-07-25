@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Shield, HelpCircle, ChevronDown } from 'lucide-react';
+import { X, Shield, HelpCircle } from 'lucide-react';
 import { BASE_PROTECAO } from '../../theme/fpiVoiceGuide';
 
 interface BaseDeProtecaoDrawerProps {
@@ -72,7 +72,6 @@ const BaseDeProtecaoDrawer: React.FC<BaseDeProtecaoDrawerProps> = ({
       });
       onClose();
     } catch {
-      // Error handled upstream
     } finally {
       setIsSaving(false);
     }
@@ -104,7 +103,6 @@ const BaseDeProtecaoDrawer: React.FC<BaseDeProtecaoDrawerProps> = ({
         </div>
 
         <div className="space-y-8">
-          {/* Bloco 1 — Colchão Inicial */}
           <section className="space-y-4">
             <div className="border-l-4 border-sky-500 pl-4">
               <h3 className="text-sm font-black text-slate-900 tracking-tight">
@@ -115,7 +113,6 @@ const BaseDeProtecaoDrawer: React.FC<BaseDeProtecaoDrawerProps> = ({
               </p>
             </div>
 
-            {/* Meta do Colchão Inicial */}
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5 ml-1">
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
@@ -152,7 +149,6 @@ const BaseDeProtecaoDrawer: React.FC<BaseDeProtecaoDrawerProps> = ({
               )}
             </div>
 
-            {/* Saldo do Colchão Inicial */}
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5 ml-1">
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
@@ -190,7 +186,6 @@ const BaseDeProtecaoDrawer: React.FC<BaseDeProtecaoDrawerProps> = ({
             </div>
           </section>
 
-          {/* Bloco 2 — Reserva de Emergência */}
           <section className="space-y-4">
             <div className="border-l-4 border-emerald-500 pl-4">
               <h3 className="text-sm font-black text-slate-900 tracking-tight">
@@ -201,7 +196,6 @@ const BaseDeProtecaoDrawer: React.FC<BaseDeProtecaoDrawerProps> = ({
               </p>
             </div>
 
-            {/* Meta da Reserva */}
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5 ml-1">
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
@@ -238,7 +232,6 @@ const BaseDeProtecaoDrawer: React.FC<BaseDeProtecaoDrawerProps> = ({
               )}
             </div>
 
-            {/* Saldo da Reserva */}
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5 ml-1">
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
@@ -276,7 +269,6 @@ const BaseDeProtecaoDrawer: React.FC<BaseDeProtecaoDrawerProps> = ({
             </div>
           </section>
 
-          {/* Disclaimer */}
           <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4">
             <div className="flex items-start gap-2.5">
               <Shield size={14} className="text-amber-600 shrink-0 mt-0.5" />

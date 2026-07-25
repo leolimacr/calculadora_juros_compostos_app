@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { PanelLeftClose, PanelLeftOpen, Plus } from 'lucide-react';
 import { useNavigation } from '../hooks/useNavigation';
 import { PRIMARY_NAV_ITEMS } from '../config/appPrimaryNav';
 import type { PrimaryNavItem } from '../config/appPrimaryNav';
+import type { Transaction } from '../types';
 const SESSION_KEY = 'financas-pro-invest-desktop-nav-expanded';
 
 function readExpandedPreference(): boolean {
@@ -58,7 +59,15 @@ const NavItem: React.FC<NavItemProps> = ({ item, isActive, showLabels, onNavigat
             : 'bg-slate-50 border-slate-100 text-slate-500'
         }`}
       >
-        <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
+        {item.iconSrc ? (
+          <img
+            src={item.iconSrc}
+            alt=""
+            className="w-full h-full rounded-lg object-cover block"
+          />
+        ) : (
+          <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
+        )}
       </div>
       {showLabels && (
         <div className="min-w-0 flex-1">
@@ -76,7 +85,11 @@ const NavItem: React.FC<NavItemProps> = ({ item, isActive, showLabels, onNavigat
   );
 };
 
-const AppDesktopNav: React.FC = () => {
+interface AppDesktopNavProps {
+  onAdd?: (initialData?: Partial<Transaction>) => void;
+}
+
+const AppDesktopNav: React.FC<AppDesktopNavProps> = ({ onAdd }) => {
   const { currentTool, handleNavigate } = useNavigation();
   const [expanded, setExpanded] = useState(readExpandedPreference);
   const [isPeeking, setIsPeeking] = useState(false);
@@ -94,7 +107,7 @@ const AppDesktopNav: React.FC = () => {
 
   function isNavItemActive(toolId: string): boolean {
     if (toolId === currentTool) return true;
-    if (toolId === 'central' && centralTools.has(currentTool)) return true;
+    if (toolId === 'central' && (currentTool === 'home' || centralTools.has(currentTool))) return true;
     if (toolId === 'explorar' && currentTool.startsWith('tool-')) return true;
     return false;
   }
@@ -124,15 +137,47 @@ const AppDesktopNav: React.FC = () => {
         </p>
       )}
       <div className={`flex flex-col gap-1 flex-1 ${showLabels ? 'px-3' : 'px-2'}`}>
-        {PRIMARY_NAV_ITEMS.map((item) => (
-          <NavItem
-            key={item.toolId}
-            item={item}
-            isActive={isNavItemActive(item.toolId)}
-            showLabels={showLabels}
-            onNavigate={handleNavigate}
-          />
-        ))}
+        <NavItem
+          item={PRIMARY_NAV_ITEMS[0]}
+          isActive={isNavItemActive(PRIMARY_NAV_ITEMS[0].toolId)}
+          showLabels={showLabels}
+          onNavigate={handleNavigate}
+        />
+        <button
+          type="button"
+          onClick={() => onAdd?.()}
+          title={!showLabels ? 'Lançar' : undefined}
+          className={`w-full flex items-center rounded-xl text-left transition-all active:scale-[0.98] ${
+            showLabels ? 'items-start gap-3 px-3 py-3' : 'justify-center p-2.5'
+          } border border-transparent hover:bg-slate-50 hover:border-slate-100`}
+          aria-label={!showLabels ? 'Lançar' : undefined}
+        >
+          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+            showLabels ? 'mt-0.5' : ''
+          } bg-gradient-to-br from-emerald-500 to-teal-400 text-white shadow-sm shadow-emerald-500/20`}>
+            <Plus size={18} strokeWidth={2.5} />
+          </div>
+          {showLabels && (
+            <div className="min-w-0 flex-1">
+              <span className="block text-sm font-black tracking-tight text-emerald-700">
+                Lançar
+              </span>
+              <span className="block text-[11px] text-slate-500 leading-snug mt-0.5">Novo lançamento</span>
+            </div>
+          )}
+        </button>
+        <NavItem
+          item={PRIMARY_NAV_ITEMS[1]}
+          isActive={isNavItemActive(PRIMARY_NAV_ITEMS[1].toolId)}
+          showLabels={showLabels}
+          onNavigate={handleNavigate}
+        />
+        <NavItem
+          item={PRIMARY_NAV_ITEMS[2]}
+          isActive={isNavItemActive(PRIMARY_NAV_ITEMS[2].toolId)}
+          showLabels={showLabels}
+          onNavigate={handleNavigate}
+        />
       </div>
     </nav>
   );
@@ -152,15 +197,35 @@ const AppDesktopNav: React.FC = () => {
         <div className="flex flex-col flex-1 min-h-0 py-3">
           {expanded ? navList : (
             <nav className="flex flex-col gap-1 flex-1 px-2">
-              {PRIMARY_NAV_ITEMS.map((item) => (
-                <NavItem
-                  key={item.toolId}
-                  item={item}
-                  isActive={isNavItemActive(item.toolId)}
-                  showLabels={false}
-                  onNavigate={handleNavigate}
-                />
-              ))}
+              <NavItem
+                item={PRIMARY_NAV_ITEMS[0]}
+                isActive={isNavItemActive(PRIMARY_NAV_ITEMS[0].toolId)}
+                showLabels={false}
+                onNavigate={handleNavigate}
+              />
+              <button
+                type="button"
+                onClick={() => onAdd?.()}
+                title="Lançar"
+                className="w-full flex items-center justify-center p-2.5 rounded-xl border border-transparent transition-all active:scale-[0.98] hover:bg-slate-50 hover:border-slate-100"
+                aria-label="Lançar"
+              >
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-400 text-white shadow-sm shadow-emerald-500/20">
+                  <Plus size={18} strokeWidth={2.5} />
+                </div>
+              </button>
+              <NavItem
+                item={PRIMARY_NAV_ITEMS[1]}
+                isActive={isNavItemActive(PRIMARY_NAV_ITEMS[1].toolId)}
+                showLabels={false}
+                onNavigate={handleNavigate}
+              />
+              <NavItem
+                item={PRIMARY_NAV_ITEMS[2]}
+                isActive={isNavItemActive(PRIMARY_NAV_ITEMS[2].toolId)}
+                showLabels={false}
+                onNavigate={handleNavigate}
+              />
             </nav>
           )}
 

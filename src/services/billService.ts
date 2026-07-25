@@ -7,11 +7,11 @@ import {
   getDocs,
   updateDoc,
   deleteDoc,
-  doc,
-  query,
-  where
+  doc
 } from 'firebase/firestore';
 import { firestore } from '../firebase';
+import { queryClient } from '../core/query/queryClient';
+import { queryKeys } from '../core/query/queryKeys';
 import type { RecurringBill } from '../types';
 
 const getBillsCollection = (userId: string): CollectionReference<DocumentData> => {
@@ -27,6 +27,7 @@ export const addRecurringBill = async (userId: string, bill: Omit<RecurringBill,
     userId,
     isActive: true,
   });
+  queryClient.invalidateQueries({ queryKey: queryKeys.bills.byUser(userId) });
   return docRef.id;
 };
 
@@ -47,6 +48,7 @@ export const getRecurringBills = async (userId: string): Promise<RecurringBill[]
 export const updateRecurringBill = async (userId: string, billId: string, data: Partial<RecurringBill>): Promise<void> => {
   const billRef = doc(firestore, `users/${userId}/contas_fixas`, billId);
   await updateDoc(billRef, data);
+  queryClient.invalidateQueries({ queryKey: queryKeys.bills.byUser(userId) });
 };
 
 /**
@@ -55,4 +57,5 @@ export const updateRecurringBill = async (userId: string, billId: string, data: 
 export const deleteRecurringBill = async (userId: string, billId: string): Promise<void> => {
   const billRef = doc(firestore, `users/${userId}/contas_fixas`, billId);
   await deleteDoc(billRef);
+  queryClient.invalidateQueries({ queryKey: queryKeys.bills.byUser(userId) });
 };

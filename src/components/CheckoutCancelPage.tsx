@@ -27,7 +27,7 @@ const CheckoutCancelPage: React.FC = () => {
         {/* Actions */}
         <div className="flex flex-col gap-3">
           <button
-            onClick={() => navigate('/app/home')}
+            onClick={() => navigate('/app/central')}
             className="flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 border border-slate-200"
           >
             <ArrowLeft size={16} />

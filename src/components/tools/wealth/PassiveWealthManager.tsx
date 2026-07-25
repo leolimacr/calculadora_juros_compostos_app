@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { collection, query, getDocs, addDoc, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
-import { firestore } from '../../../firebase'; // Mantido o seu caminho exato
-import { Building2, Plus, Trash2, Landmark, Pencil, X, Car, LayoutGrid, List, ShieldCheck, HelpCircle, ArrowRight, Banknote, Sparkles } from 'lucide-react';
+import { firestore } from '../../../firebase';
+import { queryClient } from '../../../core/query/queryClient';
+import { queryKeys } from '../../../core/query/queryKeys';
+import { Building2, Plus, Trash2, Landmark, Pencil, X, Car, LayoutGrid, List, ShieldCheck, HelpCircle, ArrowRight, Banknote, Sparkles, ChevronDown } from 'lucide-react';
 import { useWealthData } from '../../../hooks/useWealthData';
 import { useWealthHistory } from '../../../hooks/useWealthHistory';
 import type { PassiveAsset } from '../../../types';
@@ -64,11 +66,13 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
   };
 
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
-    return (localStorage.getItem('passive_wealth_view_mode') as 'grid' | 'list') || 'grid';
+    return (localStorage.getItem('passive_wealth_view_mode') as 'grid' | 'list') || 'list';
   });
 
   // Tooltip state
   const [showViewTooltip, setShowViewTooltip] = useState(false);
+  const [showForm, setShowForm] = useState(true);
+  const hasInitialized = useRef(false);
 
   // Estados do Formulário
   const [currentAsset, setCurrentAsset] = useState<PassiveAsset>({ 
@@ -132,6 +136,17 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
     loadPassives();
   }, [userId]);
 
+  useEffect(() => {
+    if (!isLoading && !hasInitialized.current) {
+      hasInitialized.current = true;
+      if (assets.length > 0) setShowForm(false);
+    }
+  }, [isLoading, assets.length]);
+
+  useEffect(() => {
+    if (editingId) setShowForm(true);
+  }, [editingId]);
+
   // Função Salvar (Criar ou Editar)
   const handleSaveAsset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -177,6 +192,8 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
 
       handleCancelEdit();
 
+      queryClient.invalidateQueries({ queryKey: queryKeys.wealth.passivesByUser(userId) });
+
       // NOVO: Auto-salvamento de snapshot para o gráfico de evolução
       await saveSnapshot({
         totalNetWorth: patrimonioLiquido,
@@ -206,7 +223,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
     });
     setDisplayValue(asset.currentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
     if (asset.id) setEditingId(asset.id);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setTimeout(() => document.getElementById('wealth-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
   };
 
   // Função Cancelar Edição (ou Resetar Form)
@@ -253,6 +270,8 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
         handleCancelEdit();
       }
 
+      queryClient.invalidateQueries({ queryKey: queryKeys.wealth.passivesByUser(userId) });
+
       // NOVO: Auto-salvamento de snapshot para o gráfico de evolução
       await saveSnapshot({
         totalNetWorth: patrimonioLiquido,
@@ -287,153 +306,175 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
         </p>
       </header>
 
-      {/* Formulário */}
-      <div className={`bg-white border ${editingId ? 'border-emerald-500/40 shadow-emerald-500/10' : 'border-slate-200'} rounded-2xl p-6 mb-8 shadow-sm transition-colors duration-300`}>        
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center bg-emerald-100`}>
-              {editingId ? <Pencil size={16} className="text-emerald-600" /> : <Plus size={16} className="text-emerald-600" />}
+      {/* Formulário — colapsável */}
+      {!showForm && assets.length > 0 ? (
+        <button
+          onClick={() => setShowForm(true)}
+          className="w-full flex items-center justify-between bg-white border border-slate-200 rounded-2xl px-6 py-4 mb-8 shadow-sm hover:border-emerald-400 hover:shadow-md transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
+              <Plus size={16} className="text-emerald-600" />
             </div>
-            <h3 className="text-lg font-bold text-slate-900 tracking-tight">
-              {editingId ? 'Editando Bem' : 'Adicionar Novo Bem'}
-            </h3>
+            <span className="text-sm font-bold text-slate-500 group-hover:text-slate-700 transition-colors">Cadastrar Bem</span>
           </div>
-          {editingId && (
-            <button type="button" onClick={handleCancelEdit} className="text-xs font-bold text-slate-500 hover:text-slate-900 flex items-center gap-1">
-              <X size={14} /> Cancelar Edição
-            </button>
-          )}
-        </div>
-
-        <form onSubmit={handleSaveAsset} className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
-          
-          <div className="md:col-span-4">
-            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
-              Descrição do Bem (Ex: Casa na Praia, Honda Civic) <span className="text-rose-500">*</span>
-            </label>
-            <input
-              type="text"
-              required
-              placeholder="Digite a descrição..."
-              value={currentAsset.description}
-              onChange={(e) => setCurrentAsset({ ...currentAsset, description: e.target.value })}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-500 focus:outline-none focus:border-brand-primaryCta focus:ring-2 focus:ring-brand-primaryCta/30 transition-colors"
-            />
-          </div>
-
-          <div className="md:col-span-4">
-            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
-              Categoria <span className="text-rose-500">*</span>
-            </label>
-            <select
-              value={currentAsset.category}
-              onChange={(e) => setCurrentAsset({ ...currentAsset, category: e.target.value })}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-500 focus:outline-none focus:border-brand-primaryCta focus:ring-2 focus:ring-brand-primaryCta/30 transition-colors [&>option]:bg-white"
-            >
-              {PASSIVE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-            </select>
-          </div>
-
-          <div className="md:col-span-4">
-            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
-              Valor de Mercado (R$) <span className="text-rose-500">*</span>
-            </label>
-            <div className="relative w-full">
-              <span className="absolute left-4 top-[14px] text-slate-500 text-sm font-bold">R$</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                required
-                placeholder="0,00"
-                value={displayValue}
-                onChange={handleCurrencyChange}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-slate-900 text-sm placeholder:text-slate-500 focus:outline-none focus:border-brand-primaryCta focus:ring-2 focus:ring-brand-primaryCta/30 transition-colors"
-              />
-            </div>
-          </div>
-
-          {/* CAMPO PROPÓSITO E FLEXIBILIDADE (NEXUS) */}
-          <div className="md:col-span-8 grid grid-cols-1 gap-6">
-            <div className="p-4 bg-emerald-50/30 rounded-2xl border border-emerald-100/50">
-              <div className="flex items-center justify-between mb-2">
-                <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-700">
-                  Propósito do Bem
-                  <div className="group relative">
-                    <HelpCircle size={14} className="text-emerald-400 cursor-help" />
-                    <div className="absolute left-0 bottom-full mb-2 w-64 p-3 bg-slate-900 text-white text-[10px] font-medium leading-relaxed rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl border border-slate-800">
-                      <p className="font-black text-emerald-400 mb-1 uppercase tracking-widest text-left">Por que preencher o Propósito?</p>
-                      <p className="text-left leading-relaxed">Para o Finanças Pro Invest não ser apenas uma calculadora, o Nexus precisa entender sua vida. Se soubermos que sua casa é seu 'Lar Inegociável', nunca sugeriremos nada que a coloque em risco. Se soubermos que seu carro é 'Apenas para Trabalho', saberemos como otimizar seus custos.</p>
-                      <p className="mt-2 text-slate-500 italic text-left border-t border-slate-800 pt-2">Ex: "Este imóvel é para minha aposentadoria, quero viver do aluguel dele futuramente."</p>
-                    </div>
-                  </div>
-                </label>
-                <span className="text-[9px] font-black text-emerald-400 uppercase tracking-tighter">Inteligência Nexus</span>
+          <ChevronDown size={18} className="text-slate-400 group-hover:text-emerald-500 transition-colors" />
+        </button>
+      ) : (
+        <div id="wealth-form" className={`bg-white border ${editingId ? 'border-emerald-500/40 shadow-emerald-500/10' : 'border-slate-200'} rounded-2xl p-6 mb-8 shadow-sm transition-colors duration-300`}>        
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center bg-emerald-100`}>
+                {editingId ? <Pencil size={16} className="text-emerald-600" /> : <Plus size={16} className="text-emerald-600" />}
               </div>
-              <textarea
-                value={currentAsset.proposito || ''}
-                onChange={e => setCurrentAsset({ ...currentAsset, proposito: e.target.value })}
-                className="w-full px-4 py-3 rounded-xl border border-emerald-100 focus:ring-2 focus:ring-brand-primaryCta/30 focus:border-brand-primaryCta transition-all text-sm font-medium bg-white min-h-[80px] resize-none placeholder:text-slate-300"
-                placeholder="O que este bem representa para você? Qual a finalidade dele na sua vida?"
-              />
+              <h3 className="text-lg font-bold text-slate-900 tracking-tight">
+                {editingId ? 'Editando Bem' : 'Adicionar Novo Bem'}
+              </h3>
             </div>
-
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-              <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3 ml-1">
-                Flexibilidade deste Bem (Negociação)
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {[
-                  { id: 'intocavel', label: 'Intocável', desc: 'Meu Lar / Essencial', icon: '🔴' },
-                  { id: 'negociavel', label: 'Negociável', desc: 'Topo vender se estratégico', icon: '🟡' },
-                  { id: 'liquidez', label: 'Patrimônio', desc: 'Foco em liquidez futura', icon: '🟢' }
-                ].map(opt => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setCurrentAsset({ ...currentAsset, flexibility: opt.id as any })}
-                    className={`flex flex-col items-start p-3 rounded-xl border-2 transition-all text-left ${
-                      currentAsset.flexibility === opt.id 
-                        ? 'border-emerald-500 bg-white shadow-sm shadow-emerald-100' 
-                        : 'border-transparent bg-slate-100/50 hover:bg-slate-100 text-slate-500'
-                    }`}
-                  >
-                    <span className="text-xs font-black uppercase tracking-tight flex items-center gap-1.5 mb-1">
-                      <span className="text-xs opacity-80">{opt.icon}</span>
-                      <span className={currentAsset.flexibility === opt.id ? 'text-emerald-700' : ''}>{opt.label}</span>
-                    </span>
-                    <span className="text-[9px] leading-tight font-medium opacity-70">{opt.desc}</span>
-                  </button>
-                ))}
-              </div>
+            <div className="flex items-center gap-2">
+              {editingId && (
+                <button type="button" onClick={handleCancelEdit} className="text-xs font-bold text-slate-500 hover:text-slate-900 flex items-center gap-1">
+                  <X size={14} /> Cancelar
+                </button>
+              )}
+              {!editingId && assets.length > 0 && (
+                <button onClick={() => setShowForm(false)} className="text-xs font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1">
+                  <X size={14} /> Fechar
+                </button>
+              )}
             </div>
           </div>
 
-          <div className="md:col-span-4 space-y-4">
-            <div>
+          <form onSubmit={handleSaveAsset} className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
+            
+            <div className="md:col-span-4">
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
-                Observações <span className="text-slate-500 font-normal lowercase">(opcional)</span>
+                Descrição do Bem (Ex: Casa na Praia, Honda Civic) <span className="text-rose-500">*</span>
               </label>
               <input
                 type="text"
-                placeholder="Ano, placa, endereço..."
-                value={currentAsset.observations}
-                onChange={(e) => setCurrentAsset({ ...currentAsset, observations: e.target.value })}
+                required
+                placeholder="Digite a descrição..."
+                value={currentAsset.description}
+                onChange={(e) => setCurrentAsset({ ...currentAsset, description: e.target.value })}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-500 focus:outline-none focus:border-brand-primaryCta focus:ring-2 focus:ring-brand-primaryCta/30 transition-colors"
               />
             </div>
-            
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className={`w-full text-slate-950 font-black py-3.5 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 ${
-                editingId ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-emerald-600 hover:bg-emerald-700'
-              } disabled:bg-slate-700`}
-            >
-              {editingId ? <><Pencil size={18} /> Salvar Alterações</> : <><Plus size={18} /> Adicionar Bem</>}
-            </button>
-          </div>
-        </form>
-      </div>
+
+            <div className="md:col-span-4">
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                Categoria <span className="text-rose-500">*</span>
+              </label>
+              <select
+                value={currentAsset.category}
+                onChange={(e) => setCurrentAsset({ ...currentAsset, category: e.target.value })}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-500 focus:outline-none focus:border-brand-primaryCta focus:ring-2 focus:ring-brand-primaryCta/30 transition-colors [&>option]:bg-white"
+              >
+                {PASSIVE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+              </select>
+            </div>
+
+            <div className="md:col-span-4">
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                Valor de Mercado (R$) <span className="text-rose-500">*</span>
+              </label>
+              <div className="relative w-full">
+                <span className="absolute left-4 top-[14px] text-slate-500 text-sm font-bold">R$</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  required
+                  placeholder="0,00"
+                  value={displayValue}
+                  onChange={handleCurrencyChange}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-slate-900 text-sm placeholder:text-slate-500 focus:outline-none focus:border-brand-primaryCta focus:ring-2 focus:ring-brand-primaryCta/30 transition-colors"
+                />
+              </div>
+            </div>
+
+            {/* CAMPO PROPÓSITO E FLEXIBILIDADE (NEXUS) */}
+            <div className="md:col-span-8 grid grid-cols-1 gap-6">
+              <div className="p-4 bg-emerald-50/30 rounded-2xl border border-emerald-100/50">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-700">
+                    Propósito do Bem
+                    <div className="group relative">
+                      <HelpCircle size={14} className="text-emerald-400 cursor-help" />
+                      <div className="absolute left-0 bottom-full mb-2 w-64 p-3 bg-slate-900 text-white text-[10px] font-medium leading-relaxed rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl border border-slate-800">
+                        <p className="font-black text-emerald-400 mb-1 uppercase tracking-widest text-left">Por que preencher o Propósito?</p>
+                        <p className="text-left leading-relaxed">Para o Finanças Pro Invest não ser apenas uma calculadora, o Nexus precisa entender sua vida. Se soubermos que sua casa é seu 'Lar Inegociável', nunca sugeriremos nada que a coloque em risco. Se soubermos que seu carro é 'Apenas para Trabalho', saberemos como otimizar seus custos.</p>
+                        <p className="mt-2 text-slate-500 italic text-left border-t border-slate-800 pt-2">Ex: "Este imóvel é para minha aposentadoria, quero viver do aluguel dele futuramente."</p>
+                      </div>
+                    </div>
+                  </label>
+                  <span className="text-[9px] font-black text-emerald-400 uppercase tracking-tighter">Inteligência Nexus</span>
+                </div>
+                <textarea
+                  value={currentAsset.proposito || ''}
+                  onChange={e => setCurrentAsset({ ...currentAsset, proposito: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-emerald-100 focus:ring-2 focus:ring-brand-primaryCta/30 focus:border-brand-primaryCta transition-all text-sm font-medium bg-white min-h-[80px] resize-none placeholder:text-slate-300"
+                  placeholder="O que este bem representa para você? Qual a finalidade dele na sua vida?"
+                />
+              </div>
+
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3 ml-1">
+                  Flexibilidade deste Bem (Negociação)
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {[
+                    { id: 'intocavel', label: 'Intocável', desc: 'Meu Lar / Essencial', icon: '🔴' },
+                    { id: 'negociavel', label: 'Negociável', desc: 'Topo vender se estratégico', icon: '🟡' },
+                    { id: 'liquidez', label: 'Patrimônio', desc: 'Foco em liquidez futura', icon: '🟢' }
+                  ].map(opt => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setCurrentAsset({ ...currentAsset, flexibility: opt.id as any })}
+                      className={`flex flex-col items-start p-3 rounded-xl border-2 transition-all text-left ${
+                        currentAsset.flexibility === opt.id 
+                          ? 'border-emerald-500 bg-white shadow-sm shadow-emerald-100' 
+                          : 'border-transparent bg-slate-100/50 hover:bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      <span className="text-xs font-black uppercase tracking-tight flex items-center gap-1.5 mb-1">
+                        <span className="text-xs opacity-80">{opt.icon}</span>
+                        <span className={currentAsset.flexibility === opt.id ? 'text-emerald-700' : ''}>{opt.label}</span>
+                      </span>
+                      <span className="text-[9px] leading-tight font-medium opacity-70">{opt.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="md:col-span-4 space-y-4">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                  Observações <span className="text-slate-500 font-normal lowercase">(opcional)</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ano, placa, endereço..."
+                  value={currentAsset.observations}
+                  onChange={(e) => setCurrentAsset({ ...currentAsset, observations: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm placeholder:text-slate-500 focus:outline-none focus:border-brand-primaryCta focus:ring-2 focus:ring-brand-primaryCta/30 transition-colors"
+                />
+              </div>
+              
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className={`w-full text-slate-950 font-black py-3.5 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 ${
+                  editingId ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-emerald-600 hover:bg-emerald-700'
+                } disabled:bg-slate-700`}
+              >
+                {editingId ? <><Pencil size={18} /> Salvar Alterações</> : <><Plus size={18} /> Adicionar Bem</>}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Lista de Passivos */}
       <div className="mt-8">

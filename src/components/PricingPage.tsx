@@ -213,7 +213,7 @@ const PricingPage: React.FC = () => {
     <div className="min-h-screen bg-white animate-in fade-in duration-500">
       <div className="max-w-3xl mx-auto px-4 pt-12 pb-4 text-center">
         <button
-          onClick={() => handleNavigate('home')}
+          onClick={() => handleNavigate('central')}
           className="mb-10 text-slate-500 hover:text-slate-700 transition-colors flex items-center gap-2 font-bold uppercase text-[10px] tracking-widest mx-auto"
         >
           ← Voltar

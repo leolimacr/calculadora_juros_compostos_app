@@ -269,8 +269,8 @@ const AppLayoutInner: React.FC<AppLayoutProps> = ({ state }) => {
         showDesktopNav={showDesktopNav}
       />
 
-      <div className="flex flex-1 min-h-0 pt-16">
-        {showDesktopNav && <AppDesktopNav />}
+      <div className="flex flex-1 min-h-0 pt-[calc(4rem+env(safe-area-inset-top))]">
+        {showDesktopNav && <AppDesktopNav onAdd={openTransactionForm} />}
 
         <main className="flex-1 min-w-0 overflow-y-auto">
           <PageShell
@@ -338,28 +338,33 @@ const AppLayoutInner: React.FC<AppLayoutProps> = ({ state }) => {
             handleCloseModal();
 
             saveLancamento(cleanData).then(() => {
-              if (wasFirstTransaction && !t.type?.includes('expense') && amount > 0) {
-                addToast(
-                  'Pronto. Agora você vê quanto sobra de verdade no seu mês.',
-                  'success'
-                );
-              } else if (t.type === 'expense' && freeBalance < 0) {
-                addToast(
-                  `Suas despesas consumiram a liberdade. Seu saldo livre é ${maskCurrency(freeBalance)}.`,
-                  'warning'
-                );
-              } else if (t.type === 'expense' && freeBalance >= 0 && freeBalance < 500) {
-                addToast(
-                  `Atenção: sua liberdade real é de ${maskCurrency(freeBalance)}.`,
-                  'info'
-                );
-              } else if (!t.type?.includes('expense') && amount > 0) {
-                addToast(
-                  `Receita registrada. Sua liberdade real agora é ${maskCurrency(freeBalance)}.`,
-                  'success'
-                );
+              try {
+                if (wasFirstTransaction && !t.type?.includes('expense') && amount > 0) {
+                  addToast(
+                    'Pronto. Agora você vê quanto sobra de verdade no seu mês.',
+                    'success'
+                  );
+                } else if (t.type === 'expense' && freeBalance < 0) {
+                  addToast(
+                    `Suas despesas consumiram a liberdade. Seu saldo livre é ${maskCurrency(freeBalance)}.`,
+                    'warning'
+                  );
+                } else if (t.type === 'expense' && freeBalance >= 0 && freeBalance < 500) {
+                  addToast(
+                    `Atenção: sua liberdade real é de ${maskCurrency(freeBalance)}.`,
+                    'info'
+                  );
+                } else if (!t.type?.includes('expense') && amount > 0) {
+                  addToast(
+                    `Receita registrada. Sua liberdade real agora é ${maskCurrency(freeBalance)}.`,
+                    'success'
+                  );
+                }
+              } catch (e) {
+                console.error('[AppLayout] Erro no toast de sucesso:', e);
               }
-            }).catch(() => {
+            }).catch((err) => {
+              console.error('[AppLayout] Erro ao salvar lançamento:', err);
               addToast('Erro ao salvar lançamento. Sua transação foi removida.', 'error');
             });
           }}

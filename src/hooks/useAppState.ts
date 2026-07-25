@@ -15,6 +15,7 @@ import { NotificationService } from '../services/NotificationService';
 import { addPaidRecurringBillTransaction } from '../services/transactionService';
 import { getLocalDateString } from '../utils/dateHelpers';
 import { PresenceEventService } from '../services/PresenceEventService';
+import { reconcileVoucherBalances } from '../services/voucherReconciliation';
 import type { UserContext, NexusInsight } from '../services/nexusInsightEngine';
 import { getPrioritizedInsight } from '../services/nexusInsightEngine';
 import { clearEventInsightStore } from '../services/eventInsightStore';
@@ -98,6 +99,7 @@ export function useAppState(): AppState {
         }
       };
       updateHeartbeat();
+      reconcileVoucherBalances(user.uid).catch(console.warn);
     }
   }, [isAuthenticated, user?.uid]);
 

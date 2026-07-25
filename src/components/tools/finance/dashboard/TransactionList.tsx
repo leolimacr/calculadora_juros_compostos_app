@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { ChevronUp } from 'lucide-react';
 import TransactionHistory from '../TransactionHistory';
 
@@ -12,6 +12,9 @@ interface TransactionListProps {
   onEdit: (t: any) => void;
   isPrivacyMode: boolean;
   isStale: boolean;
+  invoiceLookup?: Map<string, { transacoes: Array<{ id: string; description: string; amount: number; date: string }>; total: number }>;
+  periodIncome?: number;
+  periodLabel?: string;
 }
 
 const TransactionList: React.FC<TransactionListProps> = ({
@@ -24,7 +27,17 @@ const TransactionList: React.FC<TransactionListProps> = ({
   onEdit,
   isPrivacyMode,
   isStale,
+  invoiceLookup,
+  periodIncome,
+  periodLabel,
 }) => {
+  const expenseTransactions = useMemo(
+    () => transactions.filter(t => t.type === 'expense' && !t.isBillPayment && !t.isVirtual),
+    [transactions],
+  );
+  const expenseCount = expenseTransactions.length;
+  const expenseSum = expenseTransactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+
   return (
     <>
       {showTransactions ? (
@@ -35,7 +48,44 @@ const TransactionList: React.FC<TransactionListProps> = ({
             onEdit={onEdit}
             isPrivacyMode={isPrivacyMode}
             isDisabled={isStale}
+            invoiceLookup={invoiceLookup}
           />
+
+          {periodIncome !== undefined && transactions.length > 0 && (
+            <div className="flex flex-col gap-1 bg-surface-primary p-4 rounded-4xl border border-surface-elevated mt-4">
+              <div className="flex items-start justify-between gap-4 px-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-status-success/80">
+                    Entradas
+                  </span>
+                  <span className="text-sm font-black text-status-success tabular-nums">
+                    R$ {periodIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="flex flex-col items-end gap-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-status-danger/80">
+                      Saídas
+                    </span>
+                    <span className="text-base font-black text-status-danger tabular-nums">
+                      R$ {expenseSum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  {expenseCount > 0 && (
+                    <span className="text-[9px] font-bold text-text-muted/70 tabular-nums">
+                      {expenseCount} lançamento{expenseCount !== 1 ? 's' : ''} de despesas
+                    </span>
+                  )}
+                  <span className="text-[9px] font-medium text-text-muted/70 leading-relaxed text-right">
+                    Todas as compras que você fez neste período, independentemente de terem sido à vista ou à prazo.
+                  </span>
+                  <span className="text-[9px] font-bold text-text-muted/50 text-right">
+                    Faturas pagas não entram no total.
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="space-y-3 mt-4">
             {transactions.length > visibleCount && (

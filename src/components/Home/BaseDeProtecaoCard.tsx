@@ -76,7 +76,6 @@ const BaseDeProtecaoCard: React.FC<BaseDeProtecaoCardProps> = ({
               </p>
             </div>
 
-            {/* Bloco Colchão Inicial */}
             <div className="rounded-2xl bg-white border border-sky-100 p-4 space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">
@@ -106,7 +105,6 @@ const BaseDeProtecaoCard: React.FC<BaseDeProtecaoCardProps> = ({
               </div>
             </div>
 
-            {/* Bloco Reserva de Emergência */}
             <div className="rounded-2xl bg-white border border-emerald-100 p-4 space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">
@@ -136,7 +134,6 @@ const BaseDeProtecaoCard: React.FC<BaseDeProtecaoCardProps> = ({
               </div>
             </div>
 
-            {/* Tempo de Segurança */}
             <div className="text-center">
               <p className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">
                 {BASE_PROTECAO.safetyTimeLabel}: {tempoSeguranca !== null
@@ -144,7 +141,7 @@ const BaseDeProtecaoCard: React.FC<BaseDeProtecaoCardProps> = ({
                   : '—'}
               </p>
               <p className="text-[10px] text-slate-500 font-medium mt-2">
-                Usado para calcular sua Disponibilidade Real na Home.
+                Usado para calcular sua Disponibilidade Real.
               </p>
             </div>
           </>

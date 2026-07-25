@@ -5,9 +5,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export const TOOL_ROUTES: Record<string, string> = {
-  home: '/app/home',
-  manager: '/app/controla',
   central: '/app/central',
+  home: '/app/central',
+  manager: '/app/controla',
   chat: '/app/ia',
   explorar: '/app/explorar',
   settings: '/app/mais',
@@ -45,8 +45,8 @@ export const useNavigation = () => {
 
     const path = location.pathname;
     
-    // Atalho para home
-    if (path === '/' || path === '/app/home') return 'home';
+    // Atalho para central (antes home)
+    if (path === '/' || path === '/app/home' || path === '/app/central') return 'central';
     
     // Inverte o mapeamento TOOL_ROUTES para encontrar a chave a partir do path
     // Ordenamos por tamanho de string decrescente para evitar que '/app/mais' 
@@ -57,15 +57,16 @@ export const useNavigation = () => {
     if (entry) return entry[0];
 
     // Fallback para rotas de curso
-    if (path.includes('/curso')) return 'home';
+    if (path.includes('/curso')) return 'central';
 
-    return 'home';
+    return 'central';
   }, [location.pathname, navigationReady, isNative]);
 
   const navigateTo = useCallback((tool: string, state?: any) => {
-    if (tool === 'home') setHomeKey(prev => prev + 1);
+    const normalizedTool = tool === 'home' ? 'central' : tool;
+    if (normalizedTool === 'central') setHomeKey(prev => prev + 1);
     
-    const path = TOOL_ROUTES[tool] || (tool === 'home' ? '/' : `/${tool}`);
+    const path = TOOL_ROUTES[normalizedTool] || (normalizedTool === 'central' ? '/app/central' : `/${normalizedTool}`);
     
     window.scrollTo(0, 0);
     navigate(path, { state });
@@ -73,7 +74,7 @@ export const useNavigation = () => {
     // Persistência no Capacitor
     if (isNative && user?.uid) {
         const key = `app_home_${user.uid}`;
-        Preferences.set({ key, value: tool === 'central' ? 'central' : 'home' });
+        Preferences.set({ key, value: 'central' });
     }
   }, [navigate, isNative, user?.uid]);
 
@@ -118,13 +119,12 @@ export const useNavigation = () => {
     const loadInitialTool = async () => {
       try {
         const key = user?.uid ? `app_home_${user.uid}` : 'app_home_guest';
-        const { value } = await Preferences.get({ key });
+        await Preferences.get({ key });
 
         if (!cancelled) {
-          const initialTool = value === 'central' ? 'central' : 'home';
-          const initialPath = TOOL_ROUTES[initialTool] || '/app/home';
+          const initialTool = 'central';
+          const initialPath = '/app/central';
           
-          // Se estiver na raiz no native, navega para a ferramenta salva
           if (location.pathname === '/' || location.pathname === '/index.html') {
               navigate(initialPath, { replace: true });
           }

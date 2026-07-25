@@ -15,7 +15,7 @@ interface RitualMetrics {
 interface CommandRitualProps {
   stage: StageInfo;
   event: HasTitle | null;
-  onNavigate: (route: string) => void;
+  onNavigate: (route: string, state?: Record<string, unknown>) => void;
   freeBalance: number;
   shortfall: number;
   launchCount: number;
@@ -155,7 +155,13 @@ const CommandRitual: React.FC<CommandRitualProps> = ({ stage, event, onNavigate,
       {action && (
         <button
           type="button"
-          onClick={() => onNavigate(action.route)}
+          onClick={() => {
+            if (action.route === 'central') {
+              onNavigate('central', { focusSection: 'base-protecao' });
+            } else {
+              onNavigate(action.route);
+            }
+          }}
           className="mt-4 w-full text-sm font-bold py-2.5 px-4 rounded-xl bg-slate-800 text-white hover:bg-slate-700 transition-colors"
         >
           {action.label}

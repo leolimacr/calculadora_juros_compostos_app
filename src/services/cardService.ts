@@ -10,6 +10,8 @@ import {
     doc
   } from 'firebase/firestore';
   import { firestore } from '../firebase';
+  import { queryClient } from '../core/query/queryClient';
+  import { queryKeys } from '../core/query/queryKeys';
   import type { CreditCard } from '../types';
   
   const getCardsCollection = (userId: string): CollectionReference<DocumentData> => {
@@ -19,15 +21,20 @@ import {
   /**
    * Adiciona um novo cartão nominal para o usuário.
    */
-  export const addCard = async (userId: string, name: string, closingDay: number, dueDay: number, limit?: number, taxaJuros?: number): Promise<string> => {
-    const docRef = await addDoc(getCardsCollection(userId), { 
+  export const addCard = async (userId: string, name: string, closingDay?: number, dueDay?: number, limit?: number, taxaJuros?: number, cardType?: string, voucherBalance?: number): Promise<string> => {
+    const data: Record<string, any> = { 
       name, 
       isActive: true,
-      closingDay,
-      dueDay,
-      limit: limit || 0,
-      ...(taxaJuros !== undefined && { taxaJuros }),
-    });
+      type: cardType || 'credit',
+    };
+    if (closingDay !== undefined) data.closingDay = closingDay;
+    if (dueDay !== undefined) data.dueDay = dueDay;
+    if (limit !== undefined) data.limit = limit || 0;
+    if (taxaJuros !== undefined) data.taxaJuros = taxaJuros;
+    if (voucherBalance !== undefined) data.voucherBalance = voucherBalance;
+    if (cardType === 'voucher' && voucherBalance !== undefined) data.saldoUtilizadoTotal = 0;
+    const docRef = await addDoc(getCardsCollection(userId), data);
+    queryClient.invalidateQueries({ queryKey: queryKeys.cards.byUser(userId) });
     return docRef.id;
   };
   
@@ -48,6 +55,7 @@ import {
   export const updateCard = async (userId: string, cardId: string, data: Partial<CreditCard>): Promise<void> => {
     const cardRef = doc(firestore, `users/${userId}/cartoes`, cardId);
     await updateDoc(cardRef, data);
+    queryClient.invalidateQueries({ queryKey: queryKeys.cards.byUser(userId) });
   };
 
   /**
@@ -56,4 +64,5 @@ import {
   export const deleteCard = async (userId: string, cardId: string): Promise<void> => {
     const cardRef = doc(firestore, `users/${userId}/cartoes`, cardId);
     await deleteDoc(cardRef);
+    queryClient.invalidateQueries({ queryKey: queryKeys.cards.byUser(userId) });
   };

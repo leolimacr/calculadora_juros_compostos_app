@@ -3,16 +3,15 @@ import type {
   CollectionReference} from 'firebase/firestore';
 import {
   collection,
-  query,
-  onSnapshot,
   getDocs,
   addDoc,
   doc,
   updateDoc,
-  deleteDoc,
-  QuerySnapshot
+  deleteDoc
 } from 'firebase/firestore';
 import { firestore } from '../../firebase';
+import { queryClient } from '../../core/query/queryClient';
+import { queryKeys } from '../../core/query/queryKeys';
 import type { DebtItem } from './debt.types';
 import { mapDebtFromFirestore, mapDebtToFirestore } from './debt.mapper';
 
@@ -22,17 +21,20 @@ const getDebtsCollection = (userId: string): CollectionReference<DocumentData> =
 
 export const saveDebt = async (userId: string, debt: DebtItem): Promise<string> => {
   const docRef = await addDoc(getDebtsCollection(userId), mapDebtToFirestore(debt));
+  queryClient.invalidateQueries({ queryKey: queryKeys.debts.byUser(userId) });
   return docRef.id;
 };
 
 export const updateDebt = async (userId: string, debtId: string, debt: Partial<DebtItem>): Promise<void> => {
   const debtRef = doc(getDebtsCollection(userId), debtId);
   await updateDoc(debtRef, debt);
+  queryClient.invalidateQueries({ queryKey: queryKeys.debts.byUser(userId) });
 };
 
 export const deleteDebt = async (userId: string, debtId: string): Promise<void> => {
   const debtRef = doc(getDebtsCollection(userId), debtId);
   await deleteDoc(debtRef);
+  queryClient.invalidateQueries({ queryKey: queryKeys.debts.byUser(userId) });
 };
 
 /**

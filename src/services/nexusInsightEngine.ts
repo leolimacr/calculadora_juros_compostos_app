@@ -469,6 +469,15 @@ export function buildUserContext(params: Partial<UserContext>): UserContext {
       .reduce((max, t) => Math.max(max, t.amount || 0), 0);
   }
 
+  // Patrimônio Total = Bens Patrimoniais + Investimentos + Reserva de Emergência + Saldo em Conta (colchão + corrente) - Dívidas
+  if (ctx.totalAssetsValue === undefined) {
+    const totalInvestments = (ctx.assets || []).reduce((s, a) => s + (a.currentValue || 0), 0);
+    const totalProperty = (ctx.passives || []).reduce((s, p) => s + (p.currentValue || 0), 0);
+    const totalDebts = (ctx.debts || []).reduce((s, d) => s + (d.saldoDevedor || 0), 0);
+    const cashInBank = ctx.accumulatedBalance || 0;
+    ctx.totalAssetsValue = totalInvestments + totalProperty + cashInBank + (ctx.reserveCurrent || 0) - totalDebts;
+  }
+
   return ctx;
 }
 

@@ -17,10 +17,10 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Coleções globais de configuração
-    match /categories/{document} {
+    // Categorias por usuário — apenas o próprio dono pode escrever
+    match /categories/{userId} {
       allow read: if true;
-      allow write: if false;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
 
     // Negar todo o resto por segurança

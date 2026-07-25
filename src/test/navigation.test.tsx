@@ -10,7 +10,7 @@ const NavigationTester = () => {
     <div>
       <button onClick={() => handleNavigate('manager')}>Ir para Controla</button>
       <Routes>
-        <Route path="/app/home" element={<div>Home Page</div>} />
+        <Route path="/app/central" element={<div>Central Page</div>} />
         <Route path="/app/controla" element={<div>Controla Dashboard</div>} />
       </Routes>
     </div>
@@ -20,12 +20,12 @@ const NavigationTester = () => {
 describe('Navegação (T6)', () => {
   it('navega para a rota correta ao chamar handleNavigate', () => {
     render(
-      <MemoryRouter initialEntries={['/app/home']}>
+      <MemoryRouter initialEntries={['/app/central']}>
         <NavigationTester />
       </MemoryRouter>
     );
 
-    expect(screen.getByText('Home Page')).toBeInTheDocument();
+    expect(screen.getByText('Central Page')).toBeInTheDocument();
     
     fireEvent.click(screen.getByText('Ir para Controla'));
     

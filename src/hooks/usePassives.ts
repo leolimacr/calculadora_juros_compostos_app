@@ -1,19 +1,22 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
+import { collection, query, getDocs } from 'firebase/firestore';
+import { firestore } from '../firebase';
 import { queryKeys } from '../core/query/queryKeys';
-import type { PassiveAsset } from '../components/tools/wealth/PassiveWealthManager';
+import type { PassiveAsset } from '../types';
+
+const fetchPassives = async (userId: string): Promise<PassiveAsset[]> => {
+  const snapshot = await getDocs(query(collection(firestore, `users/${userId}/passivos`)));
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PassiveAsset));
+};
 
 export const usePassives = (userId: string | undefined) => {
-  const queryClient = useQueryClient();
   const key = queryKeys.wealth.passivesByUser(userId || 'anonymous');
 
   const { data: passives = [], isLoading: loading, error, isFetching } = useQuery<PassiveAsset[], Error>({
     queryKey: key,
-    queryFn: () => {
-      const currentData = queryClient.getQueryData<PassiveAsset[]>(key);
-      return Promise.resolve(currentData ?? []);
-    },
+    queryFn: () => userId ? fetchPassives(userId) : Promise.resolve([]),
     enabled: !!userId,
-    staleTime: 1000 * 60 * 5, // 5 minutos de cache
+    staleTime: 1000 * 60 * 5,
   });
 
   return { 

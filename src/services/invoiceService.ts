@@ -1,6 +1,8 @@
 import type { DocumentData, CollectionReference } from 'firebase/firestore';
 import { collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where, orderBy, limit } from 'firebase/firestore';
 import { firestore } from '../firebase';
+import { queryClient } from '../core/query/queryClient';
+import { queryKeys } from '../core/query/queryKeys';
 import type { CardInvoice, CreditCard, InvoiceStatus } from '../types';
 import { getInvoiceBillingMonth } from '../utils/invoiceUtils';
 
@@ -26,6 +28,12 @@ export const getInvoicesByCard = async (userId: string, cardId: string): Promise
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as CardInvoice));
 };
 
+export const getAllInvoices = async (userId: string): Promise<CardInvoice[]> => {
+  const q = query(getInvoicesCollection(userId), orderBy('periodEnd', 'desc'), limit(50));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as CardInvoice));
+};
+
 export const getCurrentStoredInvoice = async (userId: string, cardId: string, periodEnd: string): Promise<CardInvoice | null> => {
   const invoiceId = buildInvoiceId(cardId, periodEnd);
   return getInvoice(userId, invoiceId);
@@ -35,11 +43,14 @@ export const saveInvoice = async (userId: string, invoice: Omit<CardInvoice, 'id
   const invoiceId = buildInvoiceId(invoice.cardId, invoice.periodEnd);
   const ref = doc(firestore, `users/${userId}/faturas`, invoiceId);
   await setDoc(ref, invoice, { merge: true });
+  queryClient.invalidateQueries({ queryKey: queryKeys.invoices.byUser(userId) });
+  queryClient.invalidateQueries({ queryKey: queryKeys.invoices.byCard(userId, invoice.cardId) });
 };
 
 export const deleteInvoice = async (userId: string, invoiceId: string): Promise<void> => {
   const ref = doc(firestore, `users/${userId}/faturas`, invoiceId);
   await deleteDoc(ref);
+  queryClient.invalidateQueries({ queryKey: queryKeys.invoices.byUser(userId) });
 };
 
 export interface InvoiceUpdateData {
@@ -91,14 +102,15 @@ export async function syncInvoiceAfterPayment(
 
   const now = new Date().toISOString();
   if (existing) {
-    const newPaidAmount = (existing.paidAmount || 0) + paymentAmount;
-    const newRemaining = Math.max(0, existing.total - newPaidAmount);
-    const newStatus: InvoiceStatus = newPaidAmount >= existing.total ? 'paid' : 'partial';
+    const newPaidAmount = Math.max(0, Math.round(((existing.paidAmount || 0) + paymentAmount) * 100) / 100);
+    const existingTotal = Math.round((existing.total || 0) * 100) / 100;
+    const newRemaining = Math.max(0, Math.round((existingTotal - newPaidAmount) * 100) / 100);
+    const newStatus: InvoiceStatus = newPaidAmount >= existingTotal ? 'paid' : 'partial';
     await updateInvoiceAfterPayment(userId, cardId, period.periodEnd, {
       paidAmount: newPaidAmount,
       status: newStatus,
       remainingAmount: newRemaining,
-      total: existing.total,
+      total: existingTotal,
       updatedAt: now,
     });
   } else {

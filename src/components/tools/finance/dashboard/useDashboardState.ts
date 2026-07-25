@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, useDeferredValue } from 'react';
+import { useState, useMemo, useEffect, useRef, useDeferredValue, useCallback } from 'react';
 import pLimit from 'p-limit';
 
 const limit = pLimit(5); // Concurrency limit of 5
@@ -14,7 +14,7 @@ import { isBillPaid } from '../../../../utils/invoiceUtils';
 import { useInvoicesByUser } from '../../../../hooks/useCardInvoices';
 import { getConsecutiveDays, getMonthlyConsistency } from '../../../../utils/streakUtils';
 import { generateFinancialReport } from '../../../../utils/reportGenerator';
-import { aggregateAllTimeFlow, buildSovereignSnapshot } from '../../../../utils/calculations';
+import { aggregateAllTimeFlow, buildSovereignSnapshot, calculateRealCashBalance } from '../../../../utils/calculations';
 import { getLocalDateString } from '../../../../utils/dateHelpers';
 import {
   isCommandMode,
@@ -233,6 +233,11 @@ export const useDashboardState = (props: any) => {
     }
   };
 
+  const [showFutureExpenseForm, setShowFutureExpenseForm] = useState(false);
+  const handleFutureExpenseClick = useCallback(() => {
+    setShowFutureExpenseForm(true);
+  }, []);
+
   const handleConfirmIntro = () => {
     if (dontShowFor15Days) {
       const skipUntil = new Date();
@@ -328,6 +333,15 @@ export const useDashboardState = (props: any) => {
   const totalPendingBills = useMemo(() => {
     return pendingBills.reduce((acc, bill) => acc + bill.amount, 0);
   }, [pendingBills]);
+
+  const realCashData = useMemo(() => {
+    return calculateRealCashBalance(
+      safeTransactions,
+      storedInvoices,
+      userCards,
+      recurringBills,
+    );
+  }, [safeTransactions, storedInvoices, userCards, recurringBills]);
 
   const streak = useMemo(() => getConsecutiveDays(safeTransactions), [safeTransactions]);
   const monthlyConsistency = useMemo(() => getMonthlyConsistency(safeTransactions), [safeTransactions]);
@@ -647,9 +661,85 @@ export const useDashboardState = (props: any) => {
     setShowCalibrationModal(false);
     setCalibrationInviteVisible(false);
   };
-  const categoryStats = { data: [], gradient: '' };
-  const categorySummary: any[] = [];
-  const categoryTransactionsMap = new Map<string, any[]>();
+  const categoryStats = useMemo(() => {
+    if (!isReady) return { data: [], gradient: '' };
+
+    const totalsByCategory = new Map<string, number>();
+    let totalExpenses = 0;
+
+    for (const transaction of filtered) {
+      if (transaction?.type !== 'expense') continue;
+
+      const amount = Number(transaction.amount) || 0;
+      const category = (transaction.category || 'Sem categoria').toString();
+      totalsByCategory.set(category, (totalsByCategory.get(category) || 0) + amount);
+      totalExpenses += amount;
+    }
+
+    const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
+    const data = Array.from(totalsByCategory.entries())
+      .sort(([, amountA], [, amountB]) => amountB - amountA)
+      .slice(0, 5)
+      .map(([name, amount], index) => ({
+        name,
+        percent: totalExpenses > 0 ? (amount / totalExpenses) * 100 : 0,
+        color: colors[index % colors.length],
+      }));
+
+    let accumulatedPercent = 0;
+    const gradient = `conic-gradient(${data.length > 0
+      ? data.map((item) => {
+          const start = accumulatedPercent;
+          accumulatedPercent += item.percent;
+          return `${item.color} ${(start / 100) * 360}deg ${(accumulatedPercent / 100) * 360}deg`;
+        }).join(', ')
+      : '#334155 0deg 360deg'})`;
+
+    return { data, gradient };
+  }, [filtered, isReady]);
+
+  const categorySummary = useMemo(() => {
+    if (!isReady) return [];
+
+    const summaryByCategory = new Map<string, { income: number; expense: number; total: number; count: number }>();
+
+    for (const transaction of filtered) {
+      const category = (transaction?.category || 'Sem categoria').toString();
+      const amount = Number(transaction?.amount) || 0;
+      const current = summaryByCategory.get(category) || { income: 0, expense: 0, total: 0, count: 0 };
+
+      if (transaction?.type === 'income') {
+        current.income += amount;
+        current.total += amount;
+      } else {
+        current.expense += amount;
+        current.total -= amount;
+      }
+
+      current.count += 1;
+      summaryByCategory.set(category, current);
+    }
+
+    const data = Array.from(summaryByCategory.entries()).map(([name, values]) => ({ name, ...values }));
+    return data.sort((a, b) => {
+      const direction = sortMode === 'category-desc' ? -1 : 1;
+      return direction * a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' });
+    });
+  }, [filtered, isReady, sortMode]);
+
+  const categoryTransactionsMap = useMemo(() => {
+    if (!isReady) return new Map<string, any[]>();
+
+    const transactionsByCategory = new Map<string, any[]>();
+    for (const transaction of filtered) {
+      const category = (transaction?.category || 'Sem categoria').toString();
+      const entries = transactionsByCategory.get(category) || [];
+      entries.push(transaction);
+      transactionsByCategory.set(category, entries);
+    }
+
+    return transactionsByCategory;
+  }, [filtered, isReady]);
   const categoryNames = useMemo(() => {
     const fromDb = (categories || []).map((c: any) => c.name).filter(Boolean);
     const fromTx = safeTransactions.map((t: any) => t?.category).filter(Boolean);
@@ -727,6 +817,7 @@ export const useDashboardState = (props: any) => {
     setVisibleCount,
     // Memos
     safeTransactions,
+    realCashData,
     activeInvoices,
     pendingBills,
     totalPendingBills,
@@ -736,6 +827,10 @@ export const useDashboardState = (props: any) => {
     filtered: deferredFiltered,
     stats: finalStats,
     projectedBalance: finalStats.projectedBalance,
+    accumulatedBalance: finalStats.accumulatedBalance || finalStats.balance || 0,
+    colchaoTarget: userMeta?.financialProfile?.colchaoInicialTarget || 0,
+
+    reserveTarget: userMeta?.financialProfile?.emergencyReserveTarget || 0,
     commandMode,
     showCalibrationOffer,
     calibrationInviteCopy,
@@ -753,9 +848,12 @@ export const useDashboardState = (props: any) => {
     showSkeleton,
     isFirstAccess,
     showBackToTools,
+    showFutureExpenseForm,
+    setShowFutureExpenseForm,
 
     // Handlers
     handleRecurringButtonClick,
+    handleFutureExpenseClick,
     handleConfirmIntro,
     changeDate: guardedChangeDate,
     handleDateSelect: guardedDateSelect,

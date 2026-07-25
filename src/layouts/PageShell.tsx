@@ -36,7 +36,7 @@ const PageShell: React.FC<PageShellProps> = ({
         : withMobileNav
           ? 'pb-28'
           : 'pb-24'
-    } min-h-full h-full bg-slate-50`}
+    } min-h-full bg-slate-50`}
   >
     {children}
   </div>

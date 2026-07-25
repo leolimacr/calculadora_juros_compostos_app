@@ -1,19 +1,22 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
+import { collection, query, getDocs } from 'firebase/firestore';
+import { firestore } from '../firebase';
 import { queryKeys } from '../core/query/queryKeys';
-import type { ActiveAsset } from '../components/tools/wealth/ActiveWealthManager';
+import type { ActiveAsset } from '../types';
+
+const fetchAssets = async (userId: string): Promise<ActiveAsset[]> => {
+  const snapshot = await getDocs(query(collection(firestore, `users/${userId}/ativos`)));
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ActiveAsset));
+};
 
 export const useAssets = (userId: string | undefined) => {
-  const queryClient = useQueryClient();
   const key = queryKeys.wealth.assetsByUser(userId || 'anonymous');
 
   const { data: assets = [], isLoading: loading, error, isFetching } = useQuery<ActiveAsset[], Error>({
     queryKey: key,
-    queryFn: () => {
-      const currentData = queryClient.getQueryData<ActiveAsset[]>(key);
-      return Promise.resolve(currentData ?? []);
-    },
+    queryFn: () => userId ? fetchAssets(userId) : Promise.resolve([]),
     enabled: !!userId,
-    staleTime: 1000 * 60 * 5, // 5 minutos de cache
+    staleTime: 1000 * 60 * 5,
   });
 
   return { 
