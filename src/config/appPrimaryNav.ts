@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { House, LayoutDashboard, Compass } from 'lucide-react';
+import { House, LayoutDashboard, Compass, CalendarDays } from 'lucide-react';
 import { TOOL_ROUTES } from '../hooks/useNavigation';
 
 export interface PrimaryNavItem {
@@ -30,6 +30,12 @@ export const PRIMARY_NAV_ITEMS: PrimaryNavItem[] = [
     label: 'Explorar',
     description: 'Ferramentas e conteúdo',
     icon: Compass,
+  },
+  {
+    toolId: 'agenda',
+    label: 'Agenda',
+    description: 'Compromissos e alarmes',
+    icon: CalendarDays,
   },
 ];
 

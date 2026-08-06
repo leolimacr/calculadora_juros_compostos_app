@@ -178,6 +178,12 @@ const AppDesktopNav: React.FC<AppDesktopNavProps> = ({ onAdd }) => {
           showLabels={showLabels}
           onNavigate={handleNavigate}
         />
+        <NavItem
+          item={PRIMARY_NAV_ITEMS[3]}
+          isActive={isNavItemActive(PRIMARY_NAV_ITEMS[3].toolId)}
+          showLabels={showLabels}
+          onNavigate={handleNavigate}
+        />
       </div>
     </nav>
   );
@@ -223,6 +229,12 @@ const AppDesktopNav: React.FC<AppDesktopNavProps> = ({ onAdd }) => {
               <NavItem
                 item={PRIMARY_NAV_ITEMS[2]}
                 isActive={isNavItemActive(PRIMARY_NAV_ITEMS[2].toolId)}
+                showLabels={false}
+                onNavigate={handleNavigate}
+              />
+              <NavItem
+                item={PRIMARY_NAV_ITEMS[3]}
+                isActive={isNavItemActive(PRIMARY_NAV_ITEMS[3].toolId)}
                 showLabels={false}
                 onNavigate={handleNavigate}
               />
