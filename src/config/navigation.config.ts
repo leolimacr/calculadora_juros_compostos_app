@@ -25,6 +25,13 @@ export const navigationItems: NavigationItem[] = [
     desktop: true,
   },
   {
+    id: 'agenda',
+    label: 'Agenda',
+    path: '/app/agenda',
+    mobile: true,
+    desktop: true,
+  },
+  {
     id: 'explorar',
     label: 'Explorar',
     path: '/app/explorar',

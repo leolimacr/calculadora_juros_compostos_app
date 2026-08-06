@@ -23,6 +23,7 @@ import { lazy } from 'react';
 const AppLayout = lazy(() => import('../layouts/AppLayout'));
 const AppCockpit = lazy(() => import('../components/Home/AppCockpit'));
 const ExplorarHub = lazy(() => import('../components/ExplorarHub').then((mod) => ({ default: mod.ExplorarHub })));
+const AgendaHub = lazy(() => import('../components/AgendaHub').then((mod) => ({ default: mod.AgendaHub })));
 import { ControlaPage } from '../components/tools/finance/ControlaPage';
 const AiAdvisor = lazy(() => import('../components/tools/nexus/AiAdvisor'));
 const PricingPage = lazy(() => import('../components/PricingPage'));
@@ -254,6 +255,8 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
             />
           }
         />
+
+        <Route path="agenda" element={<React.Suspense fallback={<DashboardSkeleton />}><AgendaHub onNavigate={handleNavigate} /></React.Suspense>} />
 
         <Route path="explorar" element={<React.Suspense fallback={<DashboardSkeleton />}><ExplorarHub onNavigate={handleNavigate} routerNavigate={routerNavigate} /></React.Suspense>} />
 
