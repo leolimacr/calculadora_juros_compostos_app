@@ -18,6 +18,7 @@ export interface CardInvoice {
   rotativoDebtId?: string;
   rotativoConvertedAt?: string;
   rotativoSettled?: boolean;
+  _fingerprint?: string;
 }
 
 export type CardType = 'credit' | 'voucher';

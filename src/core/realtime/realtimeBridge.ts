@@ -22,6 +22,17 @@ interface RTDBBridgeOptions<T> {
 export type RealtimeBridgeOptions<T> = FirestoreBridgeOptions<T> | RTDBBridgeOptions<T>;
 
 const prevDataCache = new Map<string, unknown>();
+const PREV_DATA_CACHE_MAX_ENTRIES = 256;
+
+function cacheSetValue(key: string, value: unknown): void {
+  prevDataCache.delete(key);
+  prevDataCache.set(key, value);
+  while (prevDataCache.size > PREV_DATA_CACHE_MAX_ENTRIES) {
+    const oldestKey = prevDataCache.keys().next().value;
+    if (oldestKey === undefined) break;
+    prevDataCache.delete(oldestKey);
+  }
+}
 
 function arraysEqualById(a: unknown[], b: unknown[]): boolean {
   if (a.length !== b.length) return false;
@@ -48,7 +59,7 @@ function shouldSkipSetQueryData<T>(queryKey: QueryKey, data: T): boolean {
   const key = JSON.stringify(queryKey);
   const prev = prevDataCache.get(key);
   if (isDataEqual(prev, data as unknown)) return true;
-  prevDataCache.set(key, data as unknown);
+  cacheSetValue(key, data as unknown);
   return false;
 }
 

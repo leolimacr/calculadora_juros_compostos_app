@@ -1,5 +1,5 @@
 import type { CardInvoice, CreditCard, Transaction, InvoiceStatus } from '../types';
-import { saveInvoice } from './invoiceService';
+import { saveInvoiceIfChanged, type InvoiceDerivedFields } from './invoiceService';
 import { getInvoiceBillingMonth } from '../utils/invoiceUtils';
 
 interface PeriodGroup {
@@ -86,7 +86,7 @@ function groupTransactionsByPeriod(card: CreditCard, transactions: Transaction[]
 function buildInvoiceFromGroup(
   card: CreditCard,
   group: PeriodGroup
-): Omit<CardInvoice, 'id'> {
+): InvoiceDerivedFields {
   const total = Math.round(group.transactions.reduce((sum, t) => sum + (t.amount || 0), 0) * 100) / 100;
   const paidAmount = Math.round(group.billPayments.reduce((sum, t) => sum + (t.amount || 0), 0) * 100) / 100;
 
@@ -95,7 +95,6 @@ function buildInvoiceFromGroup(
   else if (paidAmount > 0) status = 'partial';
 
   const remainingAmount = Math.max(0, Math.round((total - paidAmount) * 100) / 100);
-  const now = new Date().toISOString();
   const lastTxDate = group.transactions.length > 0
     ? group.transactions.reduce((latest, t) => t.date > latest ? t.date : latest, group.transactions[0].date)
     : undefined;
@@ -110,25 +109,34 @@ function buildInvoiceFromGroup(
     paidAmount,
     remainingAmount,
     transactionCount: group.transactions.length,
-    createdAt: now,
-    updatedAt: now,
     lastTransactionDate: lastTxDate,
   };
+}
+
+export interface SyncCardsInvoicesResult {
+  synced: number;
+  changed: number;
+  skipped: number;
+  errors: number;
 }
 
 export async function syncCardInvoices(
   userId: string,
   card: CreditCard,
-  transactions: Transaction[]
-): Promise<{ synced: number; errors: number }> {
+  transactions: Transaction[],
+  existingInvoices: CardInvoice[] = [],
+): Promise<SyncCardsInvoicesResult> {
   let synced = 0;
+  let changed = 0;
+  let skipped = 0;
   let errors = 0;
 
   if (!card.closingDay || !card.dueDay) {
-    return { synced, errors };
+    return { synced, changed, skipped, errors };
   }
 
   try {
+    const existingById = new Map(existingInvoices.map((invoice) => [invoice.id, invoice]));
     const groups = groupTransactionsByPeriod(card, transactions);
 
     for (const [, group] of groups) {
@@ -136,8 +144,13 @@ export async function syncCardInvoices(
 
       try {
         const invoice = buildInvoiceFromGroup(card, group);
-        await saveInvoice(userId, invoice);
+        const result = await saveInvoiceIfChanged(userId, invoice, existingById);
         synced++;
+        if (result.written) {
+          changed++;
+        } else {
+          skipped++;
+        }
       } catch {
         errors++;
       }
@@ -146,15 +159,16 @@ export async function syncCardInvoices(
     errors++;
   }
 
-  return { synced, errors };
+  return { synced, changed, skipped, errors };
 }
 
 export async function syncAllCardsInvoices(
   userId: string,
   cards: CreditCard[],
-  transactions: Transaction[]
+  transactions: Transaction[],
+  existingInvoices: CardInvoice[] = [],
 ): Promise<{ synced: number; errors: number; cardCount: number }> {
-  let totalSynced = 0;
+  let totalChanged = 0;
   let totalErrors = 0;
   let cardCount = 0;
 
@@ -162,10 +176,10 @@ export async function syncAllCardsInvoices(
     if (card.type === 'voucher') continue;
     if (!card.closingDay || !card.dueDay) continue;
     cardCount++;
-    const result = await syncCardInvoices(userId, card, transactions);
-    totalSynced += result.synced;
+    const result = await syncCardInvoices(userId, card, transactions, existingInvoices);
+    totalChanged += result.changed;
     totalErrors += result.errors;
   }
 
-  return { synced: totalSynced, errors: totalErrors, cardCount };
+  return { synced: totalChanged, errors: totalErrors, cardCount };
 }
