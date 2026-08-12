@@ -427,9 +427,18 @@ export const useDashboardState = (props: any) => {
     const result = [...base].sort((a: any, b: any) => {
       const dateA = a?.date || '';
       const dateB = b?.date || '';
-      if (sortMode === 'date-asc') return dateA.localeCompare(dateB);
-      if (sortMode === 'date-desc') return dateB.localeCompare(dateA);
-      return 0;
+      const dateCmp = dateA.localeCompare(dateB);
+      if (sortMode === 'date-asc') {
+        if (dateCmp !== 0) return dateCmp;
+      } else if (sortMode === 'date-desc') {
+        if (dateCmp !== 0) return -dateCmp;
+      } else {
+        return 0;
+      }
+      // Empatou na data: desempata pela criação, o mais recente primeiro
+      const sortKeyCmp = (b?.sortKey || '').localeCompare(a?.sortKey || '');
+      if (sortKeyCmp !== 0) return sortKeyCmp;
+      return (b?.createdAtMs ?? 0) - (a?.createdAtMs ?? 0);
     });
     return result;
   }, [combinedTransactions, selectedCategories, typeFilter, currentDate, viewMode, startDate, endDate, sortMode, searchQuery, isLoading, historyPlan, filterCardId, filterPeriodStart, filterPeriodEnd, hasHydrated]);

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, House, Compass, Menu } from 'lucide-react';
+import { Plus, House, Compass, Menu, CalendarDays } from 'lucide-react';
 import { useNavigation } from '../hooks/useNavigation';
 import type { Transaction } from '../types';
 
@@ -24,6 +24,7 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 
   const isCentralActive = currentTool === 'central' || currentTool === 'home' || centralSubTools.has(currentTool);
   const isControlaActive = currentTool === 'manager';
+  const isAgendaActive = currentTool === 'agenda';
   const isExplorarActive = currentTool.startsWith('tool-') || currentTool === 'explorar';
 
   return (
@@ -81,6 +82,20 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               </span>
             </button>
           </div>
+
+          <button
+            onClick={() => handleNavigate('agenda')}
+            className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-1.5 py-2 transition-all active:scale-95 group ${
+              isAgendaActive ? 'text-emerald-600' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <div className={`p-1 rounded-lg transition-all ${isAgendaActive ? 'bg-emerald-400/10' : ''}`}>
+              <CalendarDays size={24} strokeWidth={isAgendaActive ? 2.5 : 2} />
+            </div>
+            <span className="text-[9px] font-black uppercase tracking-widest leading-none">
+              Agenda
+            </span>
+          </button>
 
           <button
             onClick={() => handleNavigate('explorar')}

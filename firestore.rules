@@ -8,8 +8,15 @@ service cloud.firestore {
     }
 
     // Dados do usuário — apenas o próprio dono
+    match /users/{userId}/agenda/_nexus/{document=**} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false;
+    }
+
     match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if request.auth != null
+        && request.auth.uid == userId
+        && !document.startsWith('agenda/_nexus');
     }
 
     // Coleção legacy de transações (RTDB mirror) — apenas dono

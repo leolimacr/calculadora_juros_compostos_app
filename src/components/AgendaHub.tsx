@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
-import { Bell, BellOff, CalendarDays, ChevronLeft, ChevronRight, X, Check, Trash2 } from 'lucide-react';
+import { Bell, BellOff, CalendarDays, ChevronLeft, ChevronRight, X, Check, Trash2, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -17,12 +17,16 @@ import {
   scheduleAlarm, cancelAlarm, requestNotificationPermission,
   startAlarmChecker, stopAlarmChecker, setAlarmCallback, type AlarmInfo,
 } from '../services/alarmService';
+import { extendMonthStream, monthKey, monthsBetween, shiftMonth, type ScrollDirection } from '../agenda/monthMath';
+import { resolveScrollContainer, scrollContainerBy } from '../agenda/scrollContainer';
+import { useInfiniteMonthScroll, type YearMonth } from '../agenda/useInfiniteMonthScroll';
+import AgendaNexusAssistant from './Agenda/AgendaNexusAssistant';
 
 interface AgendaHubProps {
   onNavigate?: (tool: string, state?: any) => void;
   /** Modo de validação dev: compromissos em memória, sem Firebase (página dev-agenda.html). */
   seedCommitments?: AgendaCommitment[];
-}
+ }
 
 const MONTHS = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -31,27 +35,49 @@ const MONTHS = [
 
 const DAYS_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-interface MonthSectionRect {
-  year: number;
-  month: number;
-  top: number;
-  bottom: number;
+// Textarea com auto-resize para inputs de compromisso (edição e adição).
+// Cresce verticalmente conforme o conteúdo, mantendo largura fluida.
+function AutoResizeTextarea({
+  value,
+  onChange,
+  onBlur,
+  onKeyDown,
+  placeholder,
+  autoFocus,
+  rows = 1,
+  className = '',
+  style,
+  ...props
+}: React.TextareaHTMLAttributes<HTMLTextAreaElement> & {
+  onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.style.height = 'auto';
+      ref.current.style.height = `${ref.current.scrollHeight}px`;
+    }
+  }, [value]);
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={onChange}
+      onBlur={onBlur}
+      onKeyDown={onKeyDown}
+      placeholder={placeholder}
+      autoFocus={autoFocus}
+      rows={rows}
+      className={`flex-1 text-sm bg-transparent outline-none resize-none ${className}`}
+      style={{ minHeight: '20px', lineHeight: '17px', ...style }}
+      {...props}
+    />
+  );
 }
-
-// Mês ativo do cabeçalho: a primeira seção mensal (da mais alta para a mais
-// baixa) que contém estritamente a linha de referência — o fim do cabeçalho
-// sticky. Enquanto a linha estiver dentro da mesma seção o rótulo não muda;
-// só alterna quando a fronteira do próximo mês cruza a linha.
-function pickActiveMonth(sections: MonthSectionRect[], referenceY: number): { year: number; month: number } | null {
-  for (const s of sections) {
-    if (s.top < referenceY && s.bottom >= referenceY) return { year: s.year, month: s.month };
-  }
-  return null;
-}
-
-// Altura única de cada faixa da agenda — fonte única de verdade para TODAS as
+ 
+ // Altura única de cada faixa da agenda — fonte única de verdade para TODAS as
 // linhas (vazias, compromisso de 1 linha e cada fragmento de compromisso multilinha).
-const AGENDA_ROW_HEIGHT = 19;
+const AGENDA_ROW_HEIGHT = 28;
 
 // Pauta única do caderno: uma linha horizontal no fim de cada faixa, derivada da
 // mesma constante AGENDA_ROW_HEIGHT. Aplicada UMA vez no wrapper do caderno;
@@ -73,6 +99,10 @@ function getInitialUpcomingLimit(): number {
   }
   return 5;
 }
+
+// Janela (ms) em que a extensão automática fica suspensa após uma navegação
+// programática de mês — cobre a duração do scroll smooth até a seção alvo.
+const MONTH_NAV_SUPPRESS_MS = 500;
 
 function measureCommitLines(el: HTMLElement): string[] | null {
   const textNode = Array.from(el.childNodes).find((n) => n.nodeType === Node.TEXT_NODE) as Text | undefined;
@@ -161,6 +191,16 @@ function groupSeedByMonth(seed: AgendaCommitment[] | undefined): Record<string, 
   return out;
 }
 
+// Garante que (year, month) exista no stream mantendo a ordem cronológica.
+// Se já existir, devolve a MESMA referência (sem mutação/duplicação).
+function withMonthInStream(stream: YearMonth[], year: number, month: number): YearMonth[] {
+  if (stream.some((m) => m.year === year && m.month === month)) return stream;
+  const idx = stream.findIndex((m) => m.year > year || (m.year === year && m.month > month));
+  if (idx === -1) return [...stream, { year, month }];
+  if (idx === 0) return [{ year, month }, ...stream];
+  return [...stream.slice(0, idx), { year, month }, ...stream.slice(idx)];
+}
+
 const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) => {
   const { user } = useAuth();
   const { addToast } = useToast();
@@ -172,7 +212,6 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
 
   const [activeYear, setActiveYear] = useState(today.getFullYear());
   const [activeMonth, setActiveMonth] = useState(today.getMonth());
-  const [isTodayVisible, setIsTodayVisible] = useState(true);
 
   // Stream de meses — só cresce, nunca encolhe
   const [monthStream, setMonthStream] = useState<Array<{ year: number; month: number }>>(() => {
@@ -180,11 +219,7 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
     const m = today.getMonth();
     const result: Array<{ year: number; month: number }> = [];
     for (let i = -2; i <= 2; i++) {
-      let nm = m + i;
-      let ny = y;
-      while (nm < 0) { nm += 12; ny -= 1; }
-      while (nm > 11) { nm -= 12; ny += 1; }
-      result.push({ year: ny, month: nm });
+      result.push(shiftMonth(y, m, i));
     }
     return result;
   });
@@ -198,6 +233,9 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
   const [loadError, setLoadError] = useState(false);
   const [upcomingLimit, setUpcomingLimit] = useState<number>(() => getInitialUpcomingLimit());
   const [showUpcoming, setShowUpcoming] = useState(false);
+  const [showAgendaNexus, setShowAgendaNexus] = useState(false);
+  const nexusTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const nexusPanelRef = useRef<HTMLDivElement | null>(null);
   const [customOpen, setCustomOpen] = useState(false);
   const [customInput, setCustomInput] = useState('');
   const upcomingLimitRef = useRef(upcomingLimit);
@@ -219,6 +257,9 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
   const [calYear, setCalYear] = useState(today.getFullYear());
   const [calMonth, setCalMonth] = useState(today.getMonth());
 
+  // --- Confirmação de exclusão de compromisso ---
+  const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<{ id: string; title: string } | null>(null);
+
   const userId = user?.uid;
   const notebookRef = useRef<HTMLDivElement | null>(null);
   const loadedKeysRef = useRef<Set<string>>(new Set());
@@ -226,7 +267,6 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
   monthStreamRef.current = monthStream;
   const initialLoadingRef = useRef(true);
   const isSavingRef = useRef(false);
-  const suppressAutoExtendRef = useRef(false);
   const monthHeaderRef = useRef<HTMLDivElement | null>(null);
 
   // --- Loading de dados (só carrega meses ao redor do ativo) ---
@@ -295,10 +335,7 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
     if (!userId) return;
     const offsets = [-1, 0, 1];
     Promise.all(offsets.map((offset) => {
-      let nm = activeMonth + offset;
-      let ny = activeYear;
-      while (nm < 0) { nm += 12; ny -= 1; }
-      while (nm > 11) { nm -= 12; ny += 1; }
+      const { year: ny, month: nm } = shiftMonth(activeYear, activeMonth, offset);
       return ensureMonthLoaded(ny, nm);
     })).finally(() => {
       if (initialLoadingRef.current) {
@@ -309,11 +346,14 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
     loadUpcoming();
   }, [activeYear, activeMonth, userId, ensureMonthLoaded, loadUpcoming]);
 
-  // Podar meses distantes para evitar crescimento infinito da DOM
-  useEffect(() => {
+  // Podar meses distantes para evitar crescimento infinito da DOM. Mantém o
+  // stream limitado a ±3 meses do mês ativo. Roda tanto quando o mês ativo muda
+  // quanto imediatamente após cada extensão (flush do debounce) — assim mesmo
+  // durante scroll contínuo dentro do mesmo mês a DOM não cresce sem limite.
+  const pruneDistantMonths = useCallback((activeYear: number, activeMonth: number) => {
     setMonthStream(prev => {
       const pruned = prev.filter(({ year, month }) => {
-        let diff = (year - activeYear) * 12 + (month - activeMonth);
+        const diff = monthsBetween(activeYear, activeMonth, year, month);
         return Math.abs(diff) <= 3;
       });
       if (pruned.length === prev.length) return prev;
@@ -322,17 +362,14 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
     setAllMonths(prev => {
       const keep: Record<string, AgendaCommitment[]> = {};
       for (let i = -3; i <= 3; i++) {
-        let nm = activeMonth + i;
-        let ny = activeYear;
-        while (nm < 0) { nm += 12; ny -= 1; }
-        while (nm > 11) { nm -= 12; ny += 1; }
-        const key = `${ny}-${nm}`;
+        const { year: ny, month: nm } = shiftMonth(activeYear, activeMonth, i);
+        const key = monthKey(ny, nm);
         if (prev[key]) keep[key] = prev[key];
       }
       if (Object.keys(keep).length === Object.keys(prev).length) return prev;
       return keep;
     });
-  }, [activeYear, activeMonth]);
+  }, []);
 
   // --- Mapa dia → compromissos ---
   const dayMap = useMemo(() => {
@@ -393,104 +430,37 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
     };
   }, [allMonths, monthStream]);
 
-  // --- Extensão do stream (adiciona meses à DOM — nunca remove) ---
-  const extendForward = useCallback(() => {
-    setMonthStream(prev => {
-      const last = prev[prev.length - 1];
-      let nm = last.month + 1;
-      let ny = last.year;
-      if (nm > 11) { nm = 0; ny += 1; }
-      if (prev.some(m => m.year === ny && m.month === nm)) return prev;
-      return [...prev, { year: ny, month: nm }];
-    });
+  // --- Extensão ATÔMICA do stream (adiciona meses à DOM — nunca remove) ---
+  // Um único setMonthStream por flush automático; o count vem do motor de
+  // scroll e a lógica de meses/duplicatas/ordem vive em monthMath (função pura).
+  const extendMonths = useCallback((direction: ScrollDirection, count: number) => {
+    setMonthStream(prev => extendMonthStream(prev, direction, count));
   }, []);
 
-  const prependCountRef = useRef(0);
+  // Mês ativo como objeto estável (referência) para o hook do motor de scroll.
+  const activeMonthObj = useMemo(
+    () => ({ year: activeYear, month: activeMonth }),
+    [activeYear, activeMonth],
+  );
 
-  const extendBackward = useCallback(() => {
-    setMonthStream(prev => {
-      const first = prev[0];
-      let pm = first.month - 1;
-      let py = first.year;
-      if (pm < 0) { pm = 11; py -= 1; }
-      if (prev.some(m => m.year === py && m.month === pm)) return prev;
-      prependCountRef.current += 1;
-      return [{ year: py, month: pm }, ...prev];
-    });
+  const onActiveMonthChange = useCallback((next: YearMonth) => {
+    setActiveYear(next.year);
+    setActiveMonth(next.month);
   }, []);
 
-  // Compensação de scroll sempre que meses são inseridos no início
-  useLayoutEffect(() => {
-    if (prependCountRef.current === 0) return;
-    const count = prependCountRef.current;
-    prependCountRef.current = 0;
-    const sectionEls = document.querySelectorAll('[data-month-section]');
-    let totalHeight = 0;
-    for (let i = 0; i < count && i < sectionEls.length; i++) {
-      totalHeight += sectionEls[i].getBoundingClientRect().height;
-    }
-    if (totalHeight > 0) {
-      window.scrollBy(0, totalHeight);
-    }
-  }, [monthStream]);
-
-  // --- Scroll detection: centro da viewport + buffer zones ---
-  const activeRef = useRef({ year: activeYear, month: activeMonth });
-  activeRef.current = { year: activeYear, month: activeMonth };
-
-  useEffect(() => {
-    const BUFFER = 3000;
-
-    const onScroll = () => {
-      const sections = document.querySelectorAll('[data-month-section]');
-
-      // Durante um salto programado (HOJE / data), desliga a auto-extensão e a
-      // detecção de mês ativo para que o scrollIntoView smooth não seja cancelado
-      // pela compensação scrollBy e nem podado o mês alvo antes do scroll assentar.
-      if (suppressAutoExtendRef.current) return;
-
-      // Mês ativo: primeira seção que cruza a linha de referência — logo abaixo
-      // do cabeçalho sticky. Seções mensais são altas, então o rótulo só alterna
-      // quando a fronteira do próximo mês realmente alcança a linha.
-      const headerEl = monthHeaderRef.current;
-      const referenceY = headerEl ? headerEl.getBoundingClientRect().bottom : window.innerHeight * 0.2;
-      const activeRects: MonthSectionRect[] = [];
-      for (const section of sections) {
-        const rect = section.getBoundingClientRect();
-        const key = section.getAttribute('data-month-section');
-        if (!key) continue;
-        const [y, m] = key.split('-').map(Number);
-        activeRects.push({ year: y, month: m, top: rect.top, bottom: rect.bottom });
-      }
-      const active = pickActiveMonth(activeRects, referenceY);
-      if (active) {
-        const cur = activeRef.current;
-        if (active.year !== cur.year || active.month !== cur.month) {
-          setActiveYear(active.year);
-          setActiveMonth(active.month);
-        }
-      }
-
-      if (sections.length === 0) return;
-
-      // Buffer forward — estende se último mês está próximo do fim da viewport
-      const lastSec = sections[sections.length - 1];
-      const lastRect = lastSec.getBoundingClientRect();
-      if (lastRect.bottom < window.innerHeight + BUFFER) {
-        extendForward();
-      }
-
-      // Buffer backward — estende se primeiro mês está próximo do topo da viewport
-      const firstSec = sections[0];
-      const firstRect = firstSec.getBoundingClientRect();
-      if (firstRect.top > -BUFFER) {
-        extendBackward();
-      }
-    };
-
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, [extendForward, extendBackward]);
+  // Motor de infinite scroll (extraído): resolução do scroller, listener de
+  // scroll com rAF + debounce/ceiling, extensão forward/backward em buffer
+  // zones, compensação de posição por âncora e poda de meses distantes.
+  const { captureScrollAnchor, suppressAutoExtendRef } = useInfiniteMonthScroll({
+    notebookRef,
+    monthHeaderRef,
+    monthStream,
+    activeMonth: activeMonthObj,
+    initialLoading,
+    onActiveMonthChange,
+    onExtendMonths: extendMonths,
+    onPruneDistantMonths: pruneDistantMonths,
+  });
 
   // --- Scroll para o dia atual na abertura ---
   const initialScrollDone = useRef(false);
@@ -505,17 +475,16 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
     }
   }, [initialLoading, activeYear, activeMonth, today]);
 
-  // --- Observa se o dia de hoje está visível na tela ---
+  // Timers de navegação (goToDate/goToday): cancelados no unmount para não
+  // dispararem scroll/supressão em um caderno já desmontado.
+  const navTimersRef = useRef<number[]>([]);
+
   useEffect(() => {
-    const el = document.getElementById(`agenda-day-${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`);
-    if (!el) { setIsTodayVisible(false); return; }
-    const obs = new IntersectionObserver(
-      ([entry]) => { setIsTodayVisible(entry.isIntersecting); },
-      { rootMargin: '-1px 0px 0px 0px' }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [today, activeYear, activeMonth, initialLoading]);
+    const timers = navTimersRef.current;
+    return () => {
+      for (const t of timers) window.clearTimeout(t);
+    };
+  }, []);
 
   // --- Pedir permissão de notificação (desktop) na primeira visita ---
   useEffect(() => {
@@ -554,31 +523,75 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
     return () => stopAlarmChecker();
   }, [allMonths]);
 
-  // --- Navegação pelos botões do cabeçalho ---
+  // --- Navegação por mês (botões do cabeçalho) ---
+  // Intenção pendente de navegação mensal: consumida pelo useLayoutEffect abaixo
+  // (pós-render), que só rola quando a seção alvo já existe na DOM. Nunca usa
+  // setTimeout para "aguardar o render" — é o próprio efeito que espera a seção
+  // aparecer, mantendo a intenção até lá.
+  const pendingMonthNavRef = useRef<YearMonth | null>(null);
+
+  // Posiciona o topo da seção do mês alvo no topo da área útil (logo abaixo do
+  // cabeçalho fixo), buscando a seção DENTRO do caderno (nunca no document).
+  // Devolve false se a seção ainda não existe — o chamador mantém a intenção.
+  const scrollToMonthSection = useCallback((year: number, month: number): boolean => {
+    const key = monthKey(year, month);
+    const section = notebookRef.current?.querySelector<HTMLElement>(`[data-month-section="${key}"]`);
+    if (!section) return false;
+
+    // Alinha o topo da seção exatamente ao topo da área útil — logo abaixo do
+    // cabeçalho fixo (AppHeader + cabeçalho da Agenda). Medir o cabeçalho real,
+    // em vez de depender de scroll-margin fixa, garante que o dia 1 seja a
+    // primeira linha visível: scroll-margin menor que a pilha fixa deixava o
+    // dia 1 escondido sob a barra (primeiro dia visível = dia 2).
+    const sc = resolveScrollContainer(notebookRef.current);
+    const usefulTop = monthHeaderRef.current?.getBoundingClientRect().bottom ?? 0;
+    scrollContainerBy(sc, section.getBoundingClientRect().top - usefulTop);
+    return true;
+  }, [notebookRef, monthHeaderRef]);
+
+  // Fluxo centralizado de navegação mensal: ativa suppress temporário, garante o
+  // mês no stream (sem duplicar, ordem cronológica), atualiza o mês ativo e
+  // registra a intenção que o useLayoutEffect consome assim que a seção renderizar.
+  const navigateToMonth = useCallback((year: number, month: number) => {
+    suppressAutoExtendRef.current = true;
+    navTimersRef.current.push(window.setTimeout(() => {
+      suppressAutoExtendRef.current = false;
+    }, MONTH_NAV_SUPPRESS_MS));
+
+    // Já está no mês alvo e a seção existe: navega direto, sem pendência (que
+    // ficaria órfã — nenhum estado muda para o efeito re-disparar).
+    if (activeYear === year && activeMonth === month &&
+        monthStream.some((m) => m.year === year && m.month === month)) {
+      scrollToMonthSection(year, month);
+      return;
+    }
+
+    ensureMonthLoaded(year, month);
+    setMonthStream(prev => withMonthInStream(prev, year, month));
+    setActiveYear(year);
+    setActiveMonth(month);
+    pendingMonthNavRef.current = { year, month };
+  }, [activeYear, activeMonth, monthStream, ensureMonthLoaded, suppressAutoExtendRef, scrollToMonthSection]);
+
+  // Consome a intenção pendente APÓS o render: só navega quando a seção do mês
+  // alvo existe na DOM; se ainda não existe, mantém a intenção e re-tenta no
+  // próximo render (monthStream/activeMonth/initialLoading mudam).
+  useLayoutEffect(() => {
+    const target = pendingMonthNavRef.current;
+    if (!target) return;
+    if (!scrollToMonthSection(target.year, target.month)) return;
+    pendingMonthNavRef.current = null;
+  }, [monthStream, activeYear, activeMonth, initialLoading, scrollToMonthSection]);
+
   const goPrevMonth = useCallback(() => {
-    let newM = activeMonth - 1;
-    let newY = activeYear;
-    if (newM < 0) { newM = 11; newY -= 1; }
-    setMonthStream(prev => {
-      if (prev.some(m => m.year === newY && m.month === newM)) return prev;
-      prependCountRef.current += 1;
-      return [{ year: newY, month: newM }, ...prev];
-    });
-    setActiveYear(newY);
-    setActiveMonth(newM);
-  }, [activeYear, activeMonth]);
+    const { year, month } = shiftMonth(activeYear, activeMonth, -1);
+    navigateToMonth(year, month);
+  }, [activeYear, activeMonth, navigateToMonth]);
 
   const goNextMonth = useCallback(() => {
-    let newM = activeMonth + 1;
-    let newY = activeYear;
-    if (newM > 11) { newM = 0; newY += 1; }
-    setMonthStream(prev => {
-      if (prev.some(m => m.year === newY && m.month === newM)) return prev;
-      return [...prev, { year: newY, month: newM }];
-    });
-    setActiveYear(newY);
-    setActiveMonth(newM);
-  }, [activeYear, activeMonth]);
+    const { year, month } = shiftMonth(activeYear, activeMonth, 1);
+    navigateToMonth(year, month);
+  }, [activeYear, activeMonth, navigateToMonth]);
 
   // --- Ir para hoje ---
   const goToDate = useCallback((date: Date) => {
@@ -587,37 +600,35 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
     const d = date.getDate();
     suppressAutoExtendRef.current = true;
     ensureMonthLoaded(y, m);
-    setMonthStream(prev => {
-      if (prev.some(p => p.year === y && p.month === m)) return prev;
-      const idx = prev.findIndex(p => p.year > y || (p.year === y && p.month > m));
-      if (idx === -1) return [...prev, { year: y, month: m }];
-      if (idx === 0) return [{ year: y, month: m }, ...prev];
-      return [...prev.slice(0, idx), { year: y, month: m }, ...prev.slice(idx)];
-    });
+    captureScrollAnchor();
+    setMonthStream(prev => withMonthInStream(prev, y, m));
     setActiveYear(y);
     setActiveMonth(m);
-    setTimeout(() => {
+    const t1 = window.setTimeout(() => {
       document.getElementById(`agenda-day-${y}-${m}-${d}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      window.setTimeout(() => { suppressAutoExtendRef.current = false; }, 2000);
+      navTimersRef.current.push(window.setTimeout(() => { suppressAutoExtendRef.current = false; }, 2000));
     }, 80);
-  }, [ensureMonthLoaded]);
+    navTimersRef.current.push(t1);
+  }, [ensureMonthLoaded, captureScrollAnchor, suppressAutoExtendRef]);
 
   const goToday = useCallback(() => {
     const ty = today.getFullYear();
     const tm = today.getMonth();
     suppressAutoExtendRef.current = true;
+    captureScrollAnchor();
     setMonthStream(prev => {
       if (prev.some(m => m.year === ty && m.month === tm)) return prev;
       return [{ year: ty, month: tm }, ...prev];
     });
     setActiveYear(ty);
     setActiveMonth(tm);
-    setTimeout(() => {
+    const t1 = window.setTimeout(() => {
       const el = document.getElementById(`agenda-day-${ty}-${tm}-${today.getDate()}`);
       el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      window.setTimeout(() => { suppressAutoExtendRef.current = false; }, 2000);
+      navTimersRef.current.push(window.setTimeout(() => { suppressAutoExtendRef.current = false; }, 2000));
     }, 80);
-  }, [today]);
+    navTimersRef.current.push(t1);
+  }, [today, captureScrollAnchor, suppressAutoExtendRef]);
 
   // --- Navegação interna do calendário popover ---
   const openCalendar = useCallback(() => {
@@ -627,17 +638,13 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
   }, [activeYear, activeMonth]);
 
   const calGoPrev = useCallback(() => {
-    let m = calMonth - 1;
-    let y = calYear;
-    if (m < 0) { m = 11; y -= 1; }
+    const { year: y, month: m } = shiftMonth(calYear, calMonth, -1);
     setCalMonth(m);
     setCalYear(y);
   }, [calMonth, calYear]);
 
   const calGoNext = useCallback(() => {
-    let m = calMonth + 1;
-    let y = calYear;
-    if (m > 11) { m = 0; y += 1; }
+    const { year: y, month: m } = shiftMonth(calYear, calMonth, 1);
     setCalMonth(m);
     setCalYear(y);
   }, [calMonth, calYear]);
@@ -652,14 +659,43 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
     if (!userId) return;
     const offsets = [-1, 0, 1];
     Promise.all(offsets.map((offset) => {
-      let nm = activeMonth + offset;
-      let ny = activeYear;
-      while (nm < 0) { nm += 12; ny -= 1; }
-      while (nm > 11) { nm -= 12; ny += 1; }
+      const { year: ny, month: nm } = shiftMonth(activeYear, activeMonth, offset);
       return ensureMonthLoaded(ny, nm, true);
     }));
     loadUpcoming();
   }, [userId, activeYear, activeMonth, ensureMonthLoaded, loadUpcoming]);
+
+  const reloadAgendaAfterNexus = useCallback(() => {
+    reloadData();
+  }, [reloadData]);
+
+  const handleOpenNexus = useCallback(() => {
+    setShowAgendaNexus(true);
+  }, []);
+
+  const handleCloseNexus = useCallback(() => {
+    setShowAgendaNexus(false);
+    requestAnimationFrame(() => nexusTriggerRef.current?.focus());
+  }, []);
+
+  const handleNexusTriggerKeyDown = useCallback((event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    handleOpenNexus();
+  }, [handleOpenNexus]);
+
+  useEffect(() => {
+    if (!showAgendaNexus) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') handleCloseNexus();
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [showAgendaNexus, handleCloseNexus]);
+
+  useEffect(() => {
+    if (showAgendaNexus) requestAnimationFrame(() => nexusPanelRef.current?.focus());
+  }, [showAgendaNexus]);
 
   const handleDelete = useCallback(async (id: string) => {
     if (!userId) return;
@@ -671,6 +707,23 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
       addToast('Não foi possível excluir o compromisso', 'error');
     }
   }, [userId, reloadData, addToast]);
+
+  const openDeleteConfirm = useCallback((id: string, title: string) => {
+    setDeleteConfirmTarget({ id, title: title ?? '' });
+  }, []);
+
+  const confirmDelete = useCallback(async () => {
+    if (!userId || !deleteConfirmTarget) return;
+    try {
+      await deleteCommitment(userId, deleteConfirmTarget.id);
+      reloadData();
+    } catch (e) {
+      if (import.meta.env.DEV) console.error('[Agenda] Erro ao excluir', e);
+      addToast('Não foi possível excluir o compromisso', 'error');
+    } finally {
+      setDeleteConfirmTarget(null);
+    }
+  }, [userId, deleteConfirmTarget, reloadData, addToast]);
 
   const handleToggle = useCallback(async (id: string, completed: boolean) => {
     if (!userId) return;
@@ -820,7 +873,7 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
     // Estrutura única de TODA faixa da agenda (vazia, de 1 linha ou fragmento de
     // multilinha): altura fixa = AGENDA_ROW_HEIGHT; a régua vem UMA vez da pauta
     // global do caderno — nenhuma linha desenha a própria régua.
-    const rowCls = `relative flex items-end gap-3 -mx-4 px-4 ${todayCls}`;
+    const rowCls = `relative flex items-end gap-2 md:gap-3 -mx-4 px-4 ${todayCls}`;
 
     const firstCommit = commitments[0];
     const restCommits = commitments.slice(1);
@@ -830,11 +883,12 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
 
     const dayLabel = (
       <span
-        className={`self-start w-[70px] shrink-0 text-[11px] font-black uppercase tracking-wider ${
+        className={`inline-flex items-baseline whitespace-nowrap gap-1 w-[62px] md:w-[70px] shrink-0 text-[15px] leading-[17px] font-black uppercase tracking-wider translate-y-[1px] ${
           isToday ? 'text-sky-700 ring-2 ring-sky-500 rounded-full px-1.5' : isWeekend ? 'text-rose-500' : 'text-slate-500'
         }`}
       >
-        {dayOfWeek} {day}
+        <span className="shrink-0">{dayOfWeek}</span>
+        <span className="shrink-0">{day}</span>
       </span>
     );
 
@@ -842,7 +896,7 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
     // completo (para medição de quebra) + fragmento 1 (ou o título completo).
     const titleSpan = (c: AgendaCommitment, fragments: string[] | null) => (
       <span
-        className={`flex-1 text-sm leading-[19px] break-words cursor-text relative min-w-0 ${
+        className={`flex-1 text-sm leading-[17px] break-words cursor-text relative min-w-0 translate-y-[1.5px] font-bold ${
           c.completed ? 'line-through text-slate-400' : 'text-slate-800'
         }`}
         data-title-anchor={c.id}
@@ -858,7 +912,8 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
     );
 
     // Linhas 2..N de um compromisso quebrado: faixas reais da mesma grade, sem
-    // rótulo de dia/checkbox — só o fragmento, alinhado à 1ª linha.
+    // rótulo de dia/checkbox. Começam na margem útil da folha (apenas o respiro
+    // do px da faixa), dando a cada linha a largura quase total disponível.
     const continuationRows = (c: AgendaCommitment, fragments: string[] | null) =>
       fragments && fragments.length > 1 && editingId !== c.id
         ? fragments.slice(1).map((ln, i) => (
@@ -868,10 +923,8 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
               className={rowCls}
               style={{ height: AGENDA_ROW_HEIGHT }}
             >
-              <span className="w-[70px] shrink-0" aria-hidden="true" />
-              <span className="shrink-0 w-4 h-4" aria-hidden="true" />
               <span
-                className={`flex-1 text-sm leading-[19px] break-words cursor-text min-w-0 ${
+                className={`flex-1 text-sm leading-[17px] break-words cursor-text min-w-0 translate-y-[1.5px] font-bold ${
                   c.completed ? 'line-through text-slate-400' : 'text-slate-800'
                 }`}
                 data-fragment-line
@@ -895,38 +948,82 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
           }`}
           title={c.alarmAt ? 'Alarme definido' : 'Definir alarme'}
         >
-          {c.alarmAt ? <Bell size={12} fill="currentColor" /> : <BellOff size={12} />}
+          {c.alarmAt
+            ? <Bell size={24} fill="currentColor" className="w-[22px] h-[22px] md:w-[18px] md:h-[18px]" />
+            : <BellOff size={24} className="w-[22px] h-[22px] md:w-[18px] md:h-[18px]" />}
         </button>
         <button
-          onClick={() => c.id && handleDelete(c.id)}
-          className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-all p-0.5 shrink-0"
+          onClick={() => c.id && openDeleteConfirm(c.id, c.title)}
+          className="text-slate-400 hover:text-red-500 transition-all p-0.5 shrink-0"
           title="Excluir"
         >
-          <Trash2 size={12} />
+          <Trash2 size={24} className="w-[22px] h-[22px] md:w-[18px] md:h-[18px]" />
         </button>
       </>
     );
 
     const editInput = (commitId: string | undefined) => (
       <>
-        <input
-          type="text"
+        <AutoResizeTextarea
           value={editText}
           onChange={(e) => setEditText(e.target.value)}
           onBlur={() => commitId && commitEdit(commitId)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && commitId) commitEdit(commitId);
+            if (e.key === 'Enter' && !e.shiftKey && commitId) {
+              e.preventDefault();
+              commitEdit(commitId);
+            }
             if (e.key === 'Escape') setEditingId(null);
           }}
-          className="flex-1 text-sm leading-none bg-transparent outline-none text-slate-800 min-w-0"
+          className="flex-1 text-sm text-slate-800 min-w-0"
           autoFocus
+          rows={1}
         />
         <button
           onClick={() => commitId && commitEdit(commitId)}
-          className="shrink-0 text-emerald-500 hover:text-emerald-600 p-[1px]"
+          className="shrink-0 text-emerald-500 hover:text-emerald-600 p-[1px] self-start mt-1"
           title="Confirmar"
         >
-          <Check size={14} strokeWidth={3} />
+          <Check size={28} strokeWidth={3} className="w-[25px] h-[25px] md:w-[21px] md:h-[21px]" />
+        </button>
+      </>
+    );
+
+    // Controles do input de ADIÇÃO (dia vazio e dias com compromissos). Compartilhados
+    // para o input viver SEMPRE na linha de destino do compromisso: para dias vazios a
+    // linha é a própria linha da data (primeira linha); para dias preenchidos é a linha
+    // vazia logo abaixo. Assim o clique, o cursor e a renderização final coincidem.
+    const addInputControls = () => (
+      <>
+        <div className="shrink-0 w-4 h-4 rounded border-2 border-dashed border-sky-300" />
+        <AutoResizeTextarea
+          value={addText}
+          onChange={(e) => setAddText(e.target.value)}
+          onBlur={() => commitAdd(dateObj)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              commitAdd(dateObj);
+            }
+            if (e.key === 'Escape') setAddingDayKey(null);
+          }}
+          placeholder="Digite o compromisso..."
+          className="flex-1 text-sm text-slate-700 placeholder-slate-400"
+          autoFocus
+          rows={1}
+        />
+        <button
+          onClick={() => commitAdd(dateObj)}
+          className="shrink-0 text-emerald-500 hover:text-emerald-600 p-[1px] self-start mt-1"
+          title="Confirmar"
+        >
+          <Check size={28} strokeWidth={3} className="w-[25px] h-[25px] md:w-[21px] md:h-[21px]" />
+        </button>
+        <button
+          onClick={() => setAddingDayKey(null)}
+          className="text-slate-400 hover:text-slate-600 p-0.5 shrink-0 self-start mt-1"
+        >
+          <X size={24} className="w-[22px] h-[22px] md:w-[18px] md:h-[18px]" />
         </button>
       </>
     );
@@ -940,34 +1037,42 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
             : 'border-slate-300 hover:border-sky-400'
         }`}
       >
-        {c.completed && <Check size={10} strokeWidth={3} />}
+        {c.completed && <Check size={18} strokeWidth={3} className="w-[18px] h-[18px] md:w-[15px] md:h-[15px]" />}
       </button>
     );
 
     return (
       <div key={key}>
-        {/* Linha do dia: cabeçalho + primeiro compromisso na MESMA faixa da grade */}
+        {/* Linha do dia: cabeçalho + primeiro compromisso na MESMA faixa da grade.
+            Em dias vazios esta linha é a LINHA DE ENTRADA: clicável quando ociosa e,
+            ao adicionar, o input de digitação vive NELA — o cursor e a renderização
+            final do compromisso ficam sempre na linha da data, sem subir/descer. */}
         <div
           id={`agenda-day-${year}-${month}-${day}`}
           data-commit-id={firstCommit?.id}
-          className={`${rowCls} group`}
+          className={`${rowCls} group ${isEmpty && !isAdding ? 'cursor-pointer hover:bg-sky-50/50 rounded-sm' : ''}`}
           style={{ height: AGENDA_ROW_HEIGHT }}
+          onClick={isEmpty && !isAdding ? () => startAdd(key) : undefined}
         >
           {dayLabel}
 
-          {firstCommit &&
-            (editingId === firstCommit.id ? (
-              editInput(firstCommit.id)
+          {isEmpty ? (
+            isAdding ? (
+              addInputControls()
             ) : (
-              <>
-                {checkbox(firstCommit)}
-                {titleSpan(firstCommit, firstFragments)}
-                {controls(firstCommit)}
-              </>
-            ))}
-
-          {isEmpty && !isAdding && (
-            <span className="text-[11px] text-slate-300 flex-1 cursor-pointer" onClick={() => startAdd(key)}>—</span>
+              <span className="text-[11px] text-slate-300 flex-1">—</span>
+            )
+          ) : (
+            firstCommit &&
+              (editingId === firstCommit.id ? (
+                editInput(firstCommit.id)
+              ) : (
+                <>
+                  {checkbox(firstCommit)}
+                  {titleSpan(firstCommit, firstFragments)}
+                  {controls(firstCommit)}
+                </>
+              ))
           )}
         </div>
 
@@ -986,7 +1091,7 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
                 className={`${rowCls} hover:bg-sky-50/50 rounded-sm group`}
                 style={{ height: AGENDA_ROW_HEIGHT }}
               >
-                <span className="w-[70px] shrink-0" aria-hidden="true" />
+                <span className="w-[62px] md:w-[70px] shrink-0" aria-hidden="true" />
                 {editingId === c.id ? (
                   editInput(c.id)
                 ) : (
@@ -1002,44 +1107,28 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
           );
         })}
 
-        {isAdding ? (
-          <div className="relative flex items-end gap-3 -mx-4 px-4" style={{ height: AGENDA_ROW_HEIGHT }}>
-            <span className="w-[70px] shrink-0" aria-hidden="true" />
-            <div className="shrink-0 w-4 h-4 rounded border-2 border-dashed border-sky-300" />
-            <input
-              type="text"
-              value={addText}
-              onChange={(e) => setAddText(e.target.value)}
-              onBlur={() => commitAdd(dateObj)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') commitAdd(dateObj);
-                if (e.key === 'Escape') setAddingDayKey(null);
-              }}
-              placeholder="Digite o compromisso..."
-              className="flex-1 text-sm leading-none bg-transparent outline-none text-slate-700 placeholder-slate-400"
-              autoFocus
-            />
-            <button
-              onClick={() => commitAdd(dateObj)}
-              className="shrink-0 text-emerald-500 hover:text-emerald-600 p-[1px]"
-              title="Confirmar"
+        {!isEmpty ? (
+          isAdding ? (
+            <div className="relative flex items-end gap-2 md:gap-3 -mx-4 px-4" style={{ height: AGENDA_ROW_HEIGHT }}>
+              <span className="w-[62px] md:w-[70px] shrink-0" aria-hidden="true" />
+              {addInputControls()}
+            </div>
+          ) : (
+            <div
+              className="relative flex items-end gap-2 md:gap-3 -mx-4 px-4 cursor-pointer hover:bg-sky-50/50 rounded-sm group"
+              onClick={() => startAdd(key)}
+              style={{ height: AGENDA_ROW_HEIGHT }}
             >
-              <Check size={14} strokeWidth={3} />
-            </button>
-            <button
-              onClick={() => setAddingDayKey(null)}
-              className="text-slate-400 hover:text-slate-600 p-0.5 shrink-0"
-            >
-              <X size={12} />
-            </button>
-          </div>
+              <span className="w-[62px] md:w-[70px] shrink-0" aria-hidden="true" />
+            </div>
+          )
         ) : (
           <div
-            className="relative flex items-end gap-3 -mx-4 px-4 cursor-pointer hover:bg-sky-50/50 rounded-sm group"
-            onClick={() => startAdd(key)}
+            className="relative flex items-end gap-2 md:gap-3 -mx-4 px-4"
             style={{ height: AGENDA_ROW_HEIGHT }}
+            aria-hidden="true"
           >
-            <span className="w-[70px] shrink-0" aria-hidden="true" />
+            <span className="w-[62px] md:w-[70px] shrink-0" aria-hidden="true" />
           </div>
         )}
       </div>
@@ -1049,7 +1138,7 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
   // --- Divider entre meses ---
   function renderDivider(month: number, year: number) {
     return (
-      <div key={`divider-${year}-${month}`} className="flex items-center gap-3 h-[19px] select-none">
+      <div key={`divider-${year}-${month}`} className="flex items-center gap-3 h-[28px] select-none">
         <div className="flex-1 h-px bg-slate-200" />
         <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
           {MONTHS[month]} {year}
@@ -1072,23 +1161,67 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
           {/* Cabeçalho fixo — seção + mês/ano sempre visíveis durante o scroll.
               Usa `fixed` (não `sticky`): o AppLayout tem <main overflow-y-auto>,
               que se torna o "scroll container" mais próximo e impede o sticky de
-              engatar. `fixed` prende à viewport, como os botões flutuantes. */}
+              engatar. UMA estrutura única responsiva (testids não duplicados):
+              mobile 2 linhas (título+atalhos / navegação de mês); desktop 1 linha
+              h-14 com o mês sobreposto ao centro, inalterado. */}
           <div
             ref={monthHeaderRef}
             data-testid="agenda-header"
-            className="fixed top-[calc(4rem+env(safe-area-inset-top))] left-0 right-0 z-[90] bg-white border-b border-slate-100 h-14"
+            className="fixed top-[calc(4rem+env(safe-area-inset-top))] left-0 right-0 z-[90] isolate bg-white border-b border-slate-100 md:h-14"
           >
-            <div className="relative flex items-center justify-between max-w-4xl mx-auto px-4 h-full">
-              <h1 className="text-sm font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
-                <CalendarDays size={18} className="text-sky-600" />
-                Agenda
-              </h1>
+            <div className="relative max-w-4xl mx-auto md:h-full md:flex md:items-center md:px-4">
+              {/* Linha 1 — título (esq.) + HOJE/Próximos (dir.). No desktop preenche
+                  a linha inteira e empurra os atalhos para a extremidade direita. */}
+              <div className="relative z-10 flex items-center justify-between gap-3 h-11 w-full px-4 md:h-auto md:w-full md:flex-1 md:px-0">
+                <h1 className="text-sm font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
+                  <CalendarDays size={18} className="text-sky-600" />
+                  Agenda
+                </h1>
 
-              {/* Navegação de mês centralizada em relação ao caderno (folha pautada). */}
-              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-1">
+                <div className="relative z-10 flex items-center gap-2 pointer-events-auto">
+                  <button
+                    type="button"
+                    onClick={handleOpenNexus}
+                    onKeyDown={handleNexusTriggerKeyDown}
+                    ref={nexusTriggerRef}
+                    aria-label="Abrir Nexus na Agenda"
+                    aria-expanded={showAgendaNexus}
+                    aria-controls="agenda-nexus-panel"
+                    title="Nexus na Agenda"
+                    data-testid="agenda-nexus-trigger"
+                    className="relative z-10 inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-1 active:scale-95 md:px-3.5"
+                  >
+                    <Sparkles size={15} aria-hidden="true" />
+                    <span>Nexus na Agenda</span>
+                  </button>
+                  {userId && (
+                    <button
+                      type="button"
+                      onClick={goToday}
+                      aria-label="Ir para hoje"
+                      title="Ir para hoje"
+                      data-testid="agenda-hoje"
+                      className="bg-sky-500 text-white px-3.5 py-2 md:py-1.5 rounded-xl shadow hover:bg-sky-600 transition-all active:scale-95 text-sm font-bold"
+                    >
+                      HOJE
+                    </button>
+                  )}
+                  <button
+                    onClick={toggleUpcoming}
+                    data-testid="agenda-proximos-toggle"
+                    className="bg-sky-500 text-white px-3.5 py-2 md:py-1.5 rounded-lg shadow hover:bg-sky-600 transition-all active:scale-95 text-sm font-bold"
+                  >
+                    Próximos
+                  </button>
+                </div>
+              </div>
+
+              {/* Linha 2 (mobile) — navegação de mês; no desktop sobreposto ao
+                  centro (absolute) da linha única. */}
+              <div className="relative z-0 flex items-center justify-center gap-1 h-10 md:absolute md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2">
                 <button
                   onClick={goPrevMonth}
-                  className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-500 hover:text-slate-800 shrink-0"
+                  className="p-2.5 md:p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-500 hover:text-slate-800 shrink-0"
                   aria-label="Mês anterior"
                   data-testid="agenda-prev-month"
                 >
@@ -1105,7 +1238,7 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
                 </span>
                 <button
                   onClick={goNextMonth}
-                  className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-500 hover:text-slate-800 shrink-0"
+                  className="p-2.5 md:p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-500 hover:text-slate-800 shrink-0"
                   aria-label="Próximo mês"
                   data-testid="agenda-next-month"
                 >
@@ -1113,7 +1246,7 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
                 </button>
                 <button
                   onClick={openCalendar}
-                  className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-500 hover:text-slate-800 shrink-0"
+                  className="p-2.5 md:p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-500 hover:text-slate-800 shrink-0"
                   aria-label="Ir para data"
                   title="Ir para data"
                   data-testid="agenda-open-calendar-header"
@@ -1121,32 +1254,39 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
                   <CalendarDays size={18} />
                 </button>
               </div>
-
-              {/* HOJE + PRÓXIMOS — à direita do mês/ano, na barra fixa */}
-              <div className="flex items-center gap-2">
-                {userId && !showUpcoming && !isTodayVisible && (
-                  <button
-                    onClick={goToday}
-                    data-testid="agenda-hoje"
-                    className="bg-sky-500 text-white px-3.5 py-1.5 rounded-xl shadow hover:bg-sky-600 transition-all active:scale-95 text-sm font-bold"
-                  >
-                    HOJE
-                  </button>
-                )}
-                <button
-                  onClick={toggleUpcoming}
-                  data-testid="agenda-proximos-toggle"
-                  className="bg-sky-500 text-white px-3.5 py-1.5 rounded-lg shadow hover:bg-sky-600 transition-all active:scale-95 text-sm font-bold"
-                >
-                  Próximos
-                </button>
-              </div>
             </div>
           </div>
 
-          {/* Espaçador que reserva a altura do cabeçalho fixo (h-14) para o
-              caderno não ficar escondido sob a barra. */}
-          <div className="h-14" aria-hidden="true" />
+          {/* Espaçador que reserva a altura do cabeçalho fixo para o caderno não
+              ficar escondido sob a barra. Mobile: altura das duas linhas
+              (4.4rem ≈ 84px) via min-height. Desktop: h-14 (56px), inalterado. */}
+          <div className="min-h-[88px] md:min-h-14" aria-hidden="true" />
+
+          {showAgendaNexus && (
+            <div
+              id="agenda-nexus-panel"
+              ref={nexusPanelRef}
+              data-testid="agenda-nexus-panel"
+              data-state="open"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Nexus na Agenda"
+              tabIndex={-1}
+              onClick={(event) => {
+                if (event.target === event.currentTarget) handleCloseNexus();
+              }}
+              className="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 pt-[calc(4rem+env(safe-area-inset-top)+1rem)] backdrop-blur-sm md:items-center md:pt-4"
+            >
+              <div className="w-full max-w-2xl">
+              <AgendaNexusAssistant
+                onCommitted={reloadAgendaAfterNexus}
+                onUndone={reloadAgendaAfterNexus}
+                onClose={handleCloseNexus}
+                autoFocusCommand
+              />
+              </div>
+            </div>
+          )}
 
       {showUpcoming ? (
         <section data-testid="agenda-proximos-panel" className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-3">
@@ -1234,7 +1374,7 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
                       {label}
                     </span>
                     <span
-                      className={`flex-1 text-sm leading-tight break-words ${
+                      className={`flex-1 text-sm leading-tight break-words font-bold ${
                         c.completed ? 'line-through text-slate-400' : 'text-slate-800'
                       }`}
                     >
@@ -1246,11 +1386,11 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
                       </span>
                     )}
                     <button
-                      onClick={() => c.id && handleDelete(c.id)}
-                      className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-all p-0.5"
+onClick={() => c.id && openDeleteConfirm(c.id, c.title)}
+                      className="text-slate-400 hover:text-red-500 transition-all p-0.5"
                       title="Excluir"
                     >
-                      <Trash2 size={12} />
+                      <Trash2 size={24} className="w-[22px] h-[22px] md:w-[18px] md:h-[18px]" />
                     </button>
                   </div>
                 );
@@ -1264,9 +1404,11 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
       <div ref={notebookRef} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative -mt-2">
         <div className="relative">
           {/* Linha vertical vermelha (margem do caderno) */}
-          <div className="absolute left-10 top-0 bottom-0 w-px bg-red-300 pointer-events-none" />
+          {/* Linha vermelha vertical lateral removida: ocupava a lateral esquerda e
+              reduzia a área útil; a folha pautada + linhas horizontais seguem
+              intocadas, regidas pela pauta global do caderno. */}
 
-          <div className="relative pl-14 pr-4" data-notebook-content style={agendaPautaStyle}>
+          <div className="relative pl-4 pr-4" data-notebook-content style={{ ...agendaPautaStyle, overflowAnchor: 'none' }}>
             {initialLoading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="w-5 h-5 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
@@ -1278,7 +1420,10 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
                 return (
                   <div key={`sec-${year}-${month}`}>
                     {idx > 0 && renderDivider(month, year)}
-                    <div data-month-section={`${year}-${month}`}>
+                    <div
+                      data-month-section={`${year}-${month}`}
+                      className="scroll-mt-[96px] md:scroll-mt-16"
+                    >
                       {days.map((day) => renderDayRow(day, month, year))}
                     </div>
                   </div>
@@ -1462,8 +1607,39 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
           </button>
         </div>
       )}
+      {deleteConfirmTarget && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-[1000] animate-in fade-in duration-300">
+          <div className="absolute inset-0" onClick={() => setDeleteConfirmTarget(null)}></div>
+          <div className="bg-white border border-slate-200 rounded-[2.5rem] w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden flex flex-col relative z-10">
+            <div className="p-6 md:p-8 flex flex-col gap-4 max-h-[95vh]">
+              <h3 className="text-xl md:text-2xl font-black text-slate-900 text-center">Excluir compromisso?</h3>
+              <p className="text-slate-600 text-center leading-relaxed">
+                Tem certeza que deseja excluir o compromisso &ldquo;<strong className="font-black text-slate-900">{(deleteConfirmTarget?.title?.length ?? 0 > 60
+                  ? deleteConfirmTarget.title.substring(0, 60) + '...'
+                  : deleteConfirmTarget.title)}</strong>&rdquo;? Esta ação é irreversível.
+              </p>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setDeleteConfirmTarget(null)}
+                  className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 text-[11px] font-black uppercase tracking-widest hover:bg-slate-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="flex-1 py-3 rounded-xl bg-gradient-to-r from-red-500 to-red-600 text-white text-[11px] font-black uppercase tracking-widest hover:brightness-110 transition-all"
+                >
+                  Excluir
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
 
-export { AgendaHub, pickActiveMonth };
+export { AgendaHub };
+export { pickActiveMonth } from '../agenda/activeMonth';
+export { isProbeInterlocked, nextExtendDelay, resolveFlushDirection, getExtendBuffer } from '../agenda/useInfiniteMonthScroll';

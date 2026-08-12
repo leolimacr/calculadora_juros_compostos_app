@@ -16,13 +16,38 @@ import {
 } from 'firebase/firestore';
 import { firestore } from '../firebase';
 
+export type RecurrenceFreq = 'daily' | 'weekly' | 'monthly';
+
+/**
+ * Regra de recorrência de uma série de compromissos (espelho do que o Nexus
+ * interpreta em linguagem natural). `until` é a última ocorrência da série.
+ */
+export interface AgendaRecurrence {
+  freq: RecurrenceFreq;
+  /** 1..7, seg=1 — obrigatório quando freq === 'weekly' */
+  byDay?: number;
+  until?: Timestamp;
+}
+
 export interface AgendaCommitment {
   id?: string;
   date: Timestamp;
   title: string;
   time?: string;
+  /** Hora de término (ex.: '17h às 18h' → '18:00'). Opcional. */
+  endTime?: string;
   completed: boolean;
   alarmAt?: Timestamp;
+  /** Vínculo com a série original. Todos os membros de uma recorrência compartilham o mesmo id. */
+  seriesId?: string;
+  /** Regra de recorrência da qual este compromisso faz parte. */
+  recurrence?: AgendaRecurrence;
+  /** TRUE = exceção desmembrada da regra original (movida/editada individualmente). */
+  detached?: boolean;
+  detachedNote?: string;
+  location?: string;
+  participants?: string[];
+  notes?: string;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }
@@ -32,8 +57,16 @@ export interface AgendaCommitmentInput {
   date: Date;
   title: string;
   time?: string;
+  endTime?: string;
   completed: boolean;
   alarmAt?: Date;
+  seriesId?: string;
+  recurrence?: AgendaRecurrence;
+  detached?: boolean;
+  detachedNote?: string;
+  location?: string;
+  participants?: string[];
+  notes?: string;
 }
 
 const getCollection = (userId: string): CollectionReference<DocumentData> => {
@@ -93,7 +126,15 @@ export const addCommitment = async (
     updatedAt: now,
   };
   docData.time = data.time ?? null;
+  docData.endTime = data.endTime ?? null;
   if (data.alarmAt) docData.alarmAt = Timestamp.fromDate(data.alarmAt);
+  if (data.seriesId !== undefined) docData.seriesId = data.seriesId;
+  if (data.recurrence !== undefined) docData.recurrence = data.recurrence;
+  if (data.detached !== undefined) docData.detached = data.detached;
+  if (data.detachedNote !== undefined) docData.detachedNote = data.detachedNote;
+  if (data.location !== undefined) docData.location = data.location;
+  if (data.participants !== undefined) docData.participants = data.participants;
+  if (data.notes !== undefined) docData.notes = data.notes;
   const docRef = await addDoc(getCollection(userId), docData);
   return docRef.id;
 };
