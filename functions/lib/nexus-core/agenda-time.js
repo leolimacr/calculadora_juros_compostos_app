@@ -25,23 +25,35 @@ exports.MAX_OCCURRENCES = 366;
 exports.DEFAULT_RECURRENCE_HORIZON_DAYS = 180;
 const WEEKDAY_NAMES = {
     'segunda-feira': 1,
+    'segundas-feiras': 1,
     'segunda': 1,
+    'segundas': 1,
     'seg': 1,
     'terca-feira': 2,
+    'tercas-feiras': 2,
     'terca': 2,
+    'tercas': 2,
     'ter': 2,
     'quarta-feira': 3,
+    'quartas-feiras': 3,
     'quarta': 3,
+    'quartas': 3,
     'qua': 3,
     'quinta-feira': 4,
+    'quintas-feiras': 4,
     'quinta': 4,
+    'quintas': 4,
     'qui': 4,
     'sexta-feira': 5,
+    'sextas-feiras': 5,
     'sexta': 5,
+    'sextas': 5,
     'sex': 5,
     'sabado': 6,
+    'sabados': 6,
     'sab': 6,
     'domingo': 7,
+    'domingos': 7,
     'dom': 7,
 };
 const MONTH_NAMES = {
@@ -124,6 +136,24 @@ function firstWeekdayOfMonth(year, m0, weekday) {
     }
     return { y: year, m0, d: 1 };
 }
+function lastDayOfMonthYmd(year, m0) {
+    return { y: year, m0, d: daysInMonth(year, m0) };
+}
+function monthEndToYmd(tail, today) {
+    if (/^mes(?:\s+que\s+vem)?$/.test(tail)) {
+        const base = tail.includes('que vem') ? addMonthsClamped(today, 1) : today;
+        return lastDayOfMonthYmd(base.y, base.m0);
+    }
+    const m = /^([a-z]+)(?:\s+de\s+(\d{4}))?$/.exec(tail);
+    if (m) {
+        const month = monthNameToNumber(m[1]);
+        if (month) {
+            const year = m[2] ? Number(m[2]) : today.y;
+            return lastDayOfMonthYmd(year, month - 1);
+        }
+    }
+    return null;
+}
 function weekdayNameToNumber(raw) {
     const text = normalizeText(raw);
     const candidates = Object.keys(WEEKDAY_NAMES).sort((a, b) => b.length - a.length);
@@ -153,7 +183,7 @@ function normalizeText(raw) {
         .trim();
 }
 function resolveDateExpression(raw, today) {
-    const t = normalizeText(raw).replace(/^(na|no|em|para|dia|aos|as)\s+/, '');
+    const t = normalizeText(raw).replace(/^(na|no|em|para|dia|aos|as|ate)\s+/, '');
     const todayIso = ymdToIso(today);
     let m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
     if (m)
@@ -181,6 +211,32 @@ function resolveDateExpression(raw, today) {
         return { iso: ymdToIso(addDays(today, 1)), confidence: 'high' };
     if (/(^|\s)hoje($|\s)/.test(t))
         return { iso: ymdToIso(today), confidence: 'high' };
+    {
+        const fm = /^(?:o\s+|a\s+)?(?:fim|final)\s+(?:do|da)\s+(.+)$/.exec(t);
+        if (fm) {
+            const ymd = monthEndToYmd(fm[1], today);
+            if (ymd)
+                return { iso: ymdToIso(ymd), confidence: 'high' };
+        }
+    }
+    {
+        const fm = /^(?:o\s+|a\s+)?(?:fim|final)\s+de\s+(.+)$/.exec(t);
+        if (fm) {
+            const ymd = monthEndToYmd(fm[1], today);
+            if (ymd)
+                return { iso: ymdToIso(ymd), confidence: 'high' };
+        }
+    }
+    {
+        const m = /^([a-z]+)(?:\s+de\s+(\d{4}))?$/.exec(t);
+        if (m) {
+            const month = monthNameToNumber(m[1]);
+            if (month) {
+                const year = m[2] ? Number(m[2]) : today.y;
+                return { iso: ymdToIso(lastDayOfMonthYmd(year, month - 1)), confidence: 'high' };
+            }
+        }
+    }
     const weekday = weekdayNameToNumber(t);
     if (weekday) {
         if (t.includes('ultima')) {

@@ -54,23 +54,35 @@ export interface RecurrenceExpansion {
 
 const WEEKDAY_NAMES: Record<string, WeekdayNumber> = {
   'segunda-feira': 1,
+  'segundas-feiras': 1,
   'segunda': 1,
+  'segundas': 1,
   'seg': 1,
   'terca-feira': 2,
+  'tercas-feiras': 2,
   'terca': 2,
+  'tercas': 2,
   'ter': 2,
   'quarta-feira': 3,
+  'quartas-feiras': 3,
   'quarta': 3,
+  'quartas': 3,
   'qua': 3,
   'quinta-feira': 4,
+  'quintas-feiras': 4,
   'quinta': 4,
+  'quintas': 4,
   'qui': 4,
   'sexta-feira': 5,
+  'sextas-feiras': 5,
   'sexta': 5,
+  'sextas': 5,
   'sex': 5,
   'sabado': 6,
+  'sabados': 6,
   'sab': 6,
   'domingo': 7,
+  'domingos': 7,
   'dom': 7,
 };
 
@@ -175,6 +187,32 @@ export function firstWeekdayOfMonth(year: number, m0: number, weekday: WeekdayNu
   return { y: year, m0, d: 1 };
 }
 
+/** Último dia civil do mês (m0 0-based). */
+function lastDayOfMonthYmd(year: number, m0: number): YMD {
+  return { y: year, m0, d: daysInMonth(year, m0) };
+}
+
+/**
+ * Interpreta o sufixo de uma expressão de fim de período como mês-alvo:
+ * "mês" / "mês que vem" → último dia do mês atual/próximo; "<mês> [de <ano>]"
+ * → último dia do mês citado. Retorna null se não reconhecer.
+ */
+function monthEndToYmd(tail: string, today: YMD): YMD | null {
+  if (/^mes(?:\s+que\s+vem)?$/.test(tail)) {
+    const base = tail.includes('que vem') ? addMonthsClamped(today, 1) : today;
+    return lastDayOfMonthYmd(base.y, base.m0);
+  }
+  const m = /^([a-z]+)(?:\s+de\s+(\d{4}))?$/.exec(tail);
+  if (m) {
+    const month = monthNameToNumber(m[1]);
+    if (month) {
+      const year = m[2] ? Number(m[2]) : today.y;
+      return lastDayOfMonthYmd(year, month - 1);
+    }
+  }
+  return null;
+}
+
 // ───────────────────────────── Nomes em português ─────────────────────────────
 
 export function weekdayNameToNumber(raw: string): WeekdayNumber | null {
@@ -214,7 +252,7 @@ function normalizeText(raw: string): string {
  * em America/Sao_Paulo. Nunca inventa data: retorna null se não entendeu.
  */
 export function resolveDateExpression(raw: string, today: YMD): DateResolution | null {
-  const t = normalizeText(raw).replace(/^(na|no|em|para|dia|aos|as)\s+/, '');
+  const t = normalizeText(raw).replace(/^(na|no|em|para|dia|aos|as|ate)\s+/, '');
   const todayIso = ymdToIso(today);
 
   // Absoluta YYYY-MM-DD
@@ -245,6 +283,34 @@ export function resolveDateExpression(raw: string, today: YMD): DateResolution |
   if (/(^|\s)depois de amanha($|\s)/.test(t)) return { iso: ymdToIso(addDays(today, 2)), confidence: 'high' };
   if (/(^|\s)amanha($|\s)/.test(t)) return { iso: ymdToIso(addDays(today, 1)), confidence: 'high' };
   if (/(^|\s)hoje($|\s)/.test(t)) return { iso: ymdToIso(today), confidence: 'high' };
+
+  // Fim de período ("fim de setembro", "o fim de setembro", "fim do mês", "fim do mês que vem")
+  {
+    const fm = /^(?:o\s+|a\s+)?(?:fim|final)\s+(?:do|da)\s+(.+)$/.exec(t);
+    if (fm) {
+      const ymd = monthEndToYmd(fm[1], today);
+      if (ymd) return { iso: ymdToIso(ymd), confidence: 'high' };
+    }
+  }
+  {
+    const fm = /^(?:o\s+|a\s+)?(?:fim|final)\s+de\s+(.+)$/.exec(t);
+    if (fm) {
+      const ymd = monthEndToYmd(fm[1], today);
+      if (ymd) return { iso: ymdToIso(ymd), confidence: 'high' };
+    }
+  }
+
+  // Mês puro: "dezembro", "setembro de 2026" → último dia do mês (horizonte "até <mês>")
+  {
+    const m = /^([a-z]+)(?:\s+de\s+(\d{4}))?$/.exec(t);
+    if (m) {
+      const month = monthNameToNumber(m[1]);
+      if (month) {
+        const year = m[2] ? Number(m[2]) : today.y;
+        return { iso: ymdToIso(lastDayOfMonthYmd(year, month - 1)), confidence: 'high' };
+      }
+    }
+  }
 
   const weekday = weekdayNameToNumber(t);
   if (weekday) {
