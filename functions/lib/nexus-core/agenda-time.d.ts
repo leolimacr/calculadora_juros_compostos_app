@@ -32,6 +32,7 @@ export declare function firstWeekdayOfMonth(year: number, m0: number, weekday: W
 export declare function weekdayNameToNumber(raw: string): WeekdayNumber | null;
 export declare function monthNameToNumber(raw: string): number | null;
 export declare function resolveDateExpression(raw: string, today: YMD): DateResolution | null;
+export declare function resolveWindowExpression(raw: string, today: YMD): string | null;
 export declare function expandRecurrence(opts: {
     freq: RecurrenceFreq;
     startIso: string;

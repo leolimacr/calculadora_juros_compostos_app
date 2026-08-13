@@ -291,4 +291,104 @@ describe('useAgendaNexus', () => {
     expect(result.current.canUndo).toBe(false);
     expect(result.current.undoContract).toBeNull();
   });
+
+  it('entra em refinamento e mantém o histórico do diálogo para a próxima interpretação', async () => {
+    const question = 'Entendi que você quer uma recorrência. Você quer até uma data limite ou até o limite da agenda?';
+    callableMocks.interpret.mockResolvedValueOnce({
+      data: {
+        success: true,
+        outcome: 'clarification',
+        clarification: {
+          missing: [],
+          ambiguous: [],
+          questions: [question],
+          refinement: { question, suggestions: ['Até o final do ano', 'Sem prazo máximo'] },
+        },
+      },
+    });
+    callableMocks.interpret.mockResolvedValueOnce({
+      data: {
+        success: true,
+        outcome: 'clarification',
+        clarification: { missing: ['title'], ambiguous: [], questions: ['Informe title.'] },
+      },
+    });
+    const { result } = renderHook(() => useAgendaNexus());
+
+    await act(async () => { await result.current.interpret({ prompt: 'reunião toda terça' }); });
+    expect(result.current.stage).toBe('clarify');
+    expect(result.current.refinement?.question).toBe(question);
+    expect(result.current.refinement?.suggestions).toEqual(['Até o final do ano', 'Sem prazo máximo']);
+
+    await act(async () => { await result.current.interpret({ prompt: 'até o fim de setembro' }); });
+    expect(callableMocks.interpret).toHaveBeenCalledTimes(2);
+    const secondCall = callableMocks.interpret.mock.calls[1][0] as { prompt: string; history: Array<{ role: string; text: string }> };
+    expect(secondCall.prompt).toBe('até o fim de setembro');
+    expect(secondCall.history).toEqual([
+      { role: 'user', text: 'reunião toda terça' },
+      { role: 'assistant', text: question },
+    ]);
+  });
+
+  it('limpa o histórico do diálogo após uma proposta (fim do refinamento)', async () => {
+    const question = 'Entendi que você quer uma recorrência. Você quer até uma data limite ou até o limite da agenda?';
+    callableMocks.interpret.mockResolvedValueOnce({
+      data: {
+        success: true,
+        outcome: 'clarification',
+        clarification: {
+          missing: [],
+          ambiguous: [],
+          questions: [question],
+          refinement: { question, suggestions: ['Até o final do ano', 'Sem prazo máximo'] },
+        },
+      },
+    });
+    callableMocks.interpret.mockResolvedValueOnce({ data: proposalResponse });
+    const { result } = renderHook(() => useAgendaNexus());
+
+    await act(async () => { await result.current.interpret({ prompt: 'reunião toda terça' }); });
+    expect(result.current.stage).toBe('clarify');
+    await act(async () => { await result.current.interpret({ prompt: 'até o fim de setembro' }); });
+    expect(result.current.stage).toBe('done');
+
+    const secondCall = callableMocks.interpret.mock.calls[1][0] as { prompt: string; history: Array<{ role: string; text: string }> };
+    expect(secondCall.history).toEqual([
+      { role: 'user', text: 'reunião toda terça' },
+      { role: 'assistant', text: question },
+    ]);
+
+    callableMocks.interpret.mockResolvedValueOnce({ data: proposalResponse });
+    await act(async () => { await result.current.interpret({ prompt: 'nova reunião' }); });
+    const thirdCall = callableMocks.interpret.mock.calls[2][0] as { prompt: string; history: Array<{ role: string; text: string }> };
+    expect(thirdCall.history).toEqual([]);
+  });
+
+  it('limpa o refinamento ao resetar e ao cancelar', async () => {
+    const question = 'Entendi que você quer uma recorrência. Você quer até uma data limite ou até o limite da agenda?';
+    callableMocks.interpret.mockResolvedValue({
+      data: {
+        success: true,
+        outcome: 'clarification',
+        clarification: {
+          missing: [],
+          ambiguous: [],
+          questions: [question],
+          refinement: { question, suggestions: ['Até o final do ano', 'Sem prazo máximo'] },
+        },
+      },
+    });
+    const { result } = renderHook(() => useAgendaNexus());
+
+    await act(async () => { await result.current.interpret({ prompt: 'reunião toda terça' }); });
+    expect(result.current.refinement?.question).toBe(question);
+
+    act(() => { result.current.cancel(); });
+    expect(result.current.refinement).toBeNull();
+
+    await act(async () => { await result.current.interpret({ prompt: 'reunião toda terça' }); });
+    expect(result.current.refinement?.question).toBe(question);
+    act(() => { result.current.reset(); });
+    expect(result.current.refinement).toBeNull();
+  });
 });

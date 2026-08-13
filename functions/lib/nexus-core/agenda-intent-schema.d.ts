@@ -81,6 +81,15 @@ export declare const entitiesSchema: z.ZodObject<{
         }>;
         value: z.ZodString;
     }, z.core.$strict>>;
+    limitDate: z.ZodOptional<z.ZodObject<{
+        expression: z.ZodString;
+        resolved: z.ZodString;
+        confidence: z.ZodEnum<{
+            high: "high";
+            low: "low";
+        }>;
+    }, z.core.$strip>>;
+    maxSlots: z.ZodOptional<z.ZodBoolean>;
 }, z.core.$strict>;
 export type AgendaEntities = z.infer<typeof entitiesSchema>;
 export declare const assumptionSchema: z.ZodObject<{
@@ -142,6 +151,15 @@ export declare const agendaEnvelopeSchema: z.ZodObject<{
             }>;
             value: z.ZodString;
         }, z.core.$strict>>;
+        limitDate: z.ZodOptional<z.ZodObject<{
+            expression: z.ZodString;
+            resolved: z.ZodString;
+            confidence: z.ZodEnum<{
+                high: "high";
+                low: "low";
+            }>;
+        }, z.core.$strip>>;
+        maxSlots: z.ZodOptional<z.ZodBoolean>;
     }, z.core.$strict>;
     missing: z.ZodDefault<z.ZodArray<z.ZodString>>;
     ambiguous: z.ZodDefault<z.ZodArray<z.ZodString>>;

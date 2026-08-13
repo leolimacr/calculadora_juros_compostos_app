@@ -356,6 +356,34 @@ function confidenceFor(ymd: YMD, todayIso: string): 'high' | 'low' {
   return ymdToIso(ymd) >= todayIso ? 'high' : 'low';
 }
 
+/**
+ * Resolve janelas relativas ("nos próximos 5 dias", "próxima semana",
+ * "2 semanas", "1 mês") no último dia da janela, na data civil em
+ * America/Sao_Paulo. Retorna null se não reconhecer — nunca inventa prazo.
+ */
+export function resolveWindowExpression(raw: string, today: YMD): string | null {
+  const t = normalizeText(raw)
+    .replace(/^(na|no|em|para|nos|nas)\s+/, '')
+    .replace(/^(proximos?|proximas?)\s+/, '')
+    .replace(/^(ate|a)\s+/, '')
+    .trim();
+
+  const m = /^(\d+)\s+(dias?|semanas?|meses|mes)\b/.exec(t);
+  if (m) {
+    const count = Number(m[1]);
+    if (count < 1 || count > 366) return null;
+    const unit = m[2];
+    if (/^dia/.test(unit)) return ymdToIso(addDays(today, count));
+    if (/^semana/.test(unit)) return ymdToIso(addDays(today, count * 7));
+    if (/^mes/.test(unit)) return ymdToIso(addMonthsClamped(today, count));
+  }
+
+  if (/^semana\b/.test(t)) return ymdToIso(addDays(today, 7));
+  if (/^mes\b/.test(t)) return ymdToIso(addMonthsClamped(today, 1));
+
+  return null;
+}
+
 // ───────────────────────────── Expansão de recorrência ─────────────────────────────
 
 function stepDate(ymd: YMD, freq: RecurrenceFreq): YMD {

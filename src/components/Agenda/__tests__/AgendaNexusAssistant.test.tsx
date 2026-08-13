@@ -14,6 +14,7 @@ const mockNexus = vi.hoisted(() => ({
   missing: [],
   ambiguous: [],
   assumptions: [],
+  refinement: null,
   commitResult: null,
   error: null,
   canUndo: false,
@@ -56,6 +57,7 @@ function configure(overrides: Record<string, unknown> = {}) {
     missing: [],
     ambiguous: [],
     assumptions: [],
+    refinement: null,
     commitResult: null,
     error: null,
     canUndo: false,
@@ -316,5 +318,40 @@ describe('AgendaNexusAssistant', () => {
     render(<AgendaNexusAssistant />);
     expect(screen.getByRole('status')).toHaveTextContent('Pronto! 2 compromissos excluídos com sucesso.');
     expect(screen.getByText(/3 compromissos não foram encontrados na agenda/)).toBeInTheDocument();
+  });
+
+  it('exibe o estado Refinando informação com pergunta e chips de resposta rápida', () => {
+    const question = 'Entendi que você quer uma recorrência. Você quer que eu agende isso para todas as terças até uma data limite, ou devo preencher a terça mais próxima e gerar até o limite máximo de compromissos da sua agenda?';
+    configure({
+      stage: 'clarify',
+      refinement: { question, suggestions: ['Até o final do ano', 'Sem prazo máximo'] },
+    });
+    render(<AgendaNexusAssistant />);
+
+    expect(screen.getByText(/Refinando informação/)).toBeInTheDocument();
+    expect(screen.getByText(question)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Até o final do ano' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sem prazo máximo' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sem prazo máximo' }));
+    expect(mockNexus.interpret).toHaveBeenCalledWith({ prompt: 'Sem prazo máximo' });
+  });
+
+  it('mantém as listas clássicas de esclarecimento quando não há refinamento', () => {
+    configure({
+      stage: 'clarify',
+      missing: ['local'],
+      ambiguous: ['Qual terça-feira?'],
+    });
+    render(<AgendaNexusAssistant />);
+    expect(screen.queryByText(/Refinando informação/)).not.toBeInTheDocument();
+    expect(screen.getByText(/local/)).toBeInTheDocument();
+    expect(screen.getByText(/Qual terça-feira/)).toBeInTheDocument();
+  });
+
+  it('marca a proposta como Aguardando confirmação', () => {
+    configure({ stage: 'done', proposal });
+    render(<AgendaNexusAssistant />);
+    expect(screen.getByText('Aguardando confirmação')).toBeInTheDocument();
   });
 });

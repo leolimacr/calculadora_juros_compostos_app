@@ -16,6 +16,7 @@ import {
   nextWeekday,
   PRODUCT_TIMEZONE,
   resolveDateExpression,
+  resolveWindowExpression,
   saoPauloDayRangeMillis,
   todayYmdInProductTimezone,
   ymdToIso,
@@ -109,6 +110,13 @@ export interface AgendaRecap {
   summary: string;
 }
 
+export interface AgendaRefinement {
+  /** Pergunta de refinamento exibida ao usuário (diálogo ativo). */
+  question: string;
+  /** Chips de resposta rápida sugeridos na interface. */
+  suggestions: string[];
+}
+
 export type InterpretResponse =
   | {
       success: true;
@@ -123,7 +131,12 @@ export type InterpretResponse =
       success: true;
       outcome: 'clarification';
       status: 'awaiting_clarification';
-      clarification: { missing: string[]; ambiguous: string[]; questions: string[] };
+      clarification: {
+        missing: string[];
+        ambiguous: string[];
+        questions: string[];
+        refinement?: AgendaRefinement;
+      };
     }
   | {
       success: true;
@@ -141,12 +154,11 @@ export function requireAuth(request: { auth?: { uid?: string } | null }): string
 
 function buildSystemPrompt(now: Date): string {
   const today = todayYmdInProductTimezone(now);
-  return `Você é o Nexus Agenda, assistente de agendamentos do Finanças Pro Invest.
-Sua especialidade é cuidar da agenda do usuário: você cria compromissos, edita horários, remove eventos e organiza anotações com data e hora.
+  return `Você é um agente de produtividade focado em ações concretas na agenda. Seu objetivo é interpretar, planejar e executar alterações na agenda.
 
-Você conversa de forma natural, simpática e objetiva. Quando o usuário fala sobre compromissos, datas ou horários, você entende o que ele quer e ajuda a transformar isso em um agendamento claro.
+Você conversa de forma natural, direta e objetiva. Quando o usuário fala sobre compromissos, datas ou horários, você entende o que ele quer e ajuda a transformar isso em um agendamento claro.
 
-Se o usuário trouxer um assunto que não esteja relacionado à agenda do Finanças Pro Invest, você pode explicar com gentileza que seu papel é cuidar dos agendamentos e se oferecer para ajudar com compromissos. Não é necessário responder a outros temas; basta redirecionar com educação.
+Se você perceber que o usuário está desviando para um bate-papo informal, perguntas pessoais ou conversa fiada, interrompa educadamente a conversa e diga: "Você está fugindo das minhas atribuições delegadas. Precisamos manter o foco na gestão da sua agenda. Por favor, feche e reabra a interface do Nexus na Agenda para iniciarmos uma nova tarefa."
 
 Antes de executar qualquer alteração, você sempre confirma com o usuário. Você mostra, com suas palavras, o que entendeu: o nome do compromisso, a data, a hora e, quando houver recorrência, como ela funcionará. Você também pergunta se o usuário deseja ativar o alarme da agenda ou apenas deixar o compromisso anotado. Só depois da confirmação natural do usuário você realiza a alteração.
 
@@ -171,6 +183,8 @@ Responda SOMENTE com JSON válido, sem markdown e sem texto adicional, usando ex
     "date": {"expression":"texto original","resolved":"YYYY-MM-DD","confidence":"high|low"},
     "startTime":"HH:mm", "endTime":"HH:mm",
     "recurrence": {"freq":"daily|weekly|monthly","byDay":1,"until":{"expression":"texto","resolved":"YYYY-MM-DD","confidence":"high|low"}},
+    "limitDate": {"expression":"texto original","resolved":"YYYY-MM-DD","confidence":"high|low"} ou omitido,
+    "maxSlots": true ou omitido,
     "location":"string ou null", "participants":["string"] ou null, "notes":"string ou null", "timeZone":"string"
   },
   "missing": ["campo"], "ambiguous": ["explicação"],
@@ -179,12 +193,15 @@ Responda SOMENTE com JSON válido, sem markdown e sem texto adicional, usando ex
 
 Orientações de extração:
 - Recorrência semanal: frases como "toda terça-feira", "toda terça", "todas as terças", "toda semana" → recurrence freq "weekly" com byDay (1=segunda até 7=domingo) e mantenha a expressão do dia da semana em entities.date.expression (ex.: "toda terça-feira"). O horário vai em entities.startTime.
-- Data final da recorrência: expressões de fim de período como "até o fim de setembro", "fim de setembro", "até dezembro" → recurrence.until.expression preservando o texto original; o backend resolve a data final.
+- Data final da recorrência: expressões de fim de período como "até o fim de setembro", "fim de setembro", "até dezembro", "até o dia 31/12/2026" → recurrence.until.expression preservando o texto original; o backend resolve a data final.
+- Recorrência SEM data limite (ex.: apenas "toda terça"): NÃO invente uma data final — omita recurrence.until, limitDate e maxSlots. O produto perguntará ao usuário como ele prefere o prazo da recorrência.
+- Janela relativa: frases como "nos próximos 5 dias", "próxima semana", "2 semanas", "1 mês" → entities.limitDate com expression preservada (ex.: "nos próximos 5 dias"); o backend resolve a data final. NÃO coloque essa expressão em entities.date.
+- Limite máximo da agenda: frases como "no limite da agenda", "o quanto couber", "até o limite máximo", "máximo de compromissos", "sem prazo máximo" → entities.maxSlots: true (sem recurrence.until e sem limitDate).
 - Participantes: "reunião com <pessoa>" → entities.participants com o nome extraído.
 - Duração: "das 17h às 18h" → startTime "17:00" e endTime "18:00"; "18h" ou "às 18h" → startTime "18:00".
 - Exclusão em massa por título: frases como "excluir todos os compromissos com o nome X", "apagar todas as reuniões X", "remover os compromissos que se chamam X" → intent "delete" com entities.filter {"field":"title","value":X} (ou entities.title). NÃO exija data nem coloque "date" em missing — a ausência de data NÃO bloqueia a exclusão por título.
 - Exclusão por data: "excluir os compromissos de amanhã", "apagar tudo de hoje" → intent "delete" com entities.filter {"field":"date","value":"amanhã"} (expressão natural) ou entities.date.
-- missing e ambiguous devem ser escritos como perguntas naturais e educadas (são exibidas ao usuário). Para assuntos fora da agenda, use intent "clarify" e coloque em ambiguous um redirecionamento educado.
+- missing e ambiguous devem ser escritos como perguntas naturais e educadas (são exibidas ao usuário). Para assuntos fora da agenda (bate-papo informal, perguntas pessoais, conversa fiada), use intent "clarify" e coloque em ambiguous[0] EXATAMENTE esta frase: "Você está fugindo das minhas atribuições delegadas. Precisamos manter o foco na gestão da sua agenda. Por favor, feche e reabra a interface do Nexus na Agenda para iniciarmos uma nova tarefa."
 - A preferência de alarme/anotação é perguntada pelo produto na confirmação — não a inclua no envelope.
 - Preserve as expressões de data no campo expression. O backend recalculará resolved; nunca invente informações ausentes. Para baixa certeza, use confidence low e preencha ambiguous.`;
 }
@@ -258,6 +275,15 @@ function normalizeEnvelopeDates(envelope: AgendaEnvelope, today: YMD): AgendaEnv
         : { ...entities.recurrence.until, confidence: 'low' },
     };
   }
+  if (entities.limitDate) {
+    const windowIso = resolveWindowExpression(entities.limitDate.expression, today);
+    const resolved = windowIso
+      ? { iso: windowIso, confidence: 'high' as const }
+      : resolveDateExpression(entities.limitDate.expression, today);
+    entities.limitDate = resolved
+      ? { ...entities.limitDate, resolved: resolved.iso, confidence: resolved.confidence }
+      : { ...entities.limitDate, confidence: 'low' };
+  }
   return { ...envelope, entities };
 }
 
@@ -274,19 +300,49 @@ function formatDate(iso?: string): string {
   return `${day}/${month}/${year}`;
 }
 
-function buildQuestions(missing: string[], ambiguous: string[]): string[] {
+function buildQuestions(missing: string[], ambiguous: string[], refinement?: AgendaRefinement): string[] {
   return [
+    ...(refinement ? [refinement.question] : []),
     ...missing.map((field) => `Informe ${field}.`),
     ...ambiguous.map((item) => `Esclareça: ${item}`),
   ];
 }
 
-function clarification(missing: string[], ambiguous: string[]): InterpretResponse {
+function clarification(missing: string[], ambiguous: string[], refinement?: AgendaRefinement): InterpretResponse {
   return {
     success: true,
     outcome: 'clarification',
     status: 'awaiting_clarification',
-    clarification: { missing, ambiguous, questions: buildQuestions(missing, ambiguous) },
+    clarification: {
+      missing,
+      ambiguous,
+      questions: buildQuestions(missing, ambiguous, refinement),
+      ...(refinement ? { refinement } : {}),
+    },
+  };
+}
+
+const RECURRENCE_REFINEMENT_QUESTION =
+  'Entendi que você quer uma recorrência. Você quer que eu agende isso para todas as terças até uma data limite, ou devo preencher a terça mais próxima e gerar até o limite máximo de compromissos da sua agenda?';
+const RECURRENCE_REFINEMENT_SUGGESTIONS = ['Até o final do ano', 'Sem prazo máximo'] as const;
+
+/**
+ * Detecta recorrência SEM horizonte definido (sem recurrence.until, sem
+ * limitDate e sem maxSlots). Nesses casos o fluxo NÃO assume o default
+ * silencioso — entra em refinamento ativo perguntando como o usuário quer o
+ * prazo (até uma data limite vs. preencher até o limite da agenda).
+ */
+function detectRecurrenceAmbiguity(envelope: AgendaEnvelope): AgendaRefinement | null {
+  if (envelope.intent !== 'create' || !envelope.entities.recurrence) return null;
+  const hasHorizon = Boolean(
+    envelope.entities.recurrence.until
+    || envelope.entities.limitDate
+    || envelope.entities.maxSlots === true,
+  );
+  if (hasHorizon) return null;
+  return {
+    question: RECURRENCE_REFINEMENT_QUESTION,
+    suggestions: [...RECURRENCE_REFINEMENT_SUGGESTIONS],
   };
 }
 
@@ -346,11 +402,13 @@ function buildSummary(
   lastDate: string,
   startTime?: string,
   endTime?: string,
+  maxSlots = false,
 ): string {
   const time = startTime ? ` às ${startTime}${endTime ? ` às ${endTime}` : ''}` : '';
   const occurrences = count === 1 ? '1 compromisso' : `${count} compromissos`;
   const range = count === 1 ? formatDate(firstDate) : `de ${formatDate(firstDate)} a ${formatDate(lastDate)}`;
-  return `Entendi! Vou agendar "${title}" — ${occurrences}${time}, ${range}. Você prefere ativar o alarme ou apenas anotar? Confirma assim?`;
+  const limit = maxSlots ? ', até o limite máximo da agenda' : '';
+  return `Entendi! Vou agendar "${title}" — ${occurrences}${time}, ${range}${limit}. Você prefere ativar o alarme ou apenas anotar? Confirma assim?`;
 }
 
 function buildDeleteSummary(count: number, title?: string): string {
@@ -446,6 +504,7 @@ export async function orchestrateAgendaInterpret(
   const lowConfidence: string[] = [];
   if (normalized.entities.date?.confidence === 'low') lowConfidence.push('A data principal não pôde ser determinada com segurança.');
   if (normalized.entities.recurrence?.until?.confidence === 'low') lowConfidence.push('A data final da recorrência não pôde ser determinada com segurança.');
+  if (normalized.entities.limitDate?.confidence === 'low') lowConfidence.push('O limite de dias não pôde ser determinado com segurança.');
   if (lowConfidence.length > 0) return clarification([], lowConfidence);
 
   const validated = parseAndValidateAgendaEnvelope(JSON.stringify(normalized));
@@ -528,15 +587,25 @@ export async function orchestrateAgendaInterpret(
     };
   }
 
+  if (envelope.intent === 'create') {
+    const refinement = detectRecurrenceAmbiguity(envelope);
+    if (refinement) return clarification([], [], refinement);
+  }
+
   if (!envelope.entities.date) return clarification(['date'], []);
   const firstDate = envelope.entities.date.resolved;
   let lastDate = firstDate;
   let occurrenceCount = 1;
   const warnings: AgendaWarning[] = [];
   let recurrence: AgendaRecap['recurrence'];
+  let maxSlotsUsed = false;
 
   if (envelope.entities.recurrence) {
-    const until = envelope.entities.recurrence.until?.resolved ?? addDaysForHorizon(today);
+    const limitDate = envelope.entities.limitDate?.resolved;
+    maxSlotsUsed = envelope.entities.maxSlots === true;
+    const until = envelope.entities.recurrence.until?.resolved
+      ?? limitDate
+      ?? (maxSlotsUsed ? undefined : addDaysForHorizon(today));
     const expanded = expandRecurrence({
       freq: envelope.entities.recurrence.freq,
       startIso: firstDate,
@@ -550,7 +619,15 @@ export async function orchestrateAgendaInterpret(
       until: lastDate,
     };
     if (expanded.truncated) {
-      warnings.push({ type: 'truncated', message: `A recorrência foi limitada a ${expanded.occurrences.length} ocorrências.` });
+      warnings.push({
+        type: 'truncated',
+        message: maxSlotsUsed
+          ? `A agenda foi preenchida até o limite de ${expanded.occurrences.length} compromissos.`
+          : `A recorrência foi limitada a ${expanded.occurrences.length} ocorrências.`,
+      });
+    }
+    if (occurrenceCount === 0) {
+      return clarification([], ['A data inicial informada cai depois do limite da recorrência. Informe um período maior ou uma data inicial anterior.']);
     }
   }
 
@@ -582,8 +659,31 @@ export async function orchestrateAgendaInterpret(
     lastDate,
     occurrenceCount,
     recurrence,
-    summary: buildSummary(title, occurrenceCount, firstDate, lastDate, envelope.entities.startTime, envelope.entities.endTime),
+    summary: buildSummary(title, occurrenceCount, firstDate, lastDate, envelope.entities.startTime, envelope.entities.endTime, maxSlotsUsed),
   };
+
+  // Consistência plano→execução: quando a série foi limitada por limitDate ou
+  // maxSlots, materializa a data final resolvida em recurrence.until do
+  // envelope gravado, para o commit re-expandir EXATAMENTE a mesma série
+  // (evita que o commit expanda até MAX_COMMIT_OCCURRENCES e crie mais do que
+  // foi apresentado ao usuário na confirmação).
+  let storedEnvelope = envelope;
+  if (recurrence && (envelope.entities.limitDate || envelope.entities.maxSlots === true) && !envelope.entities.recurrence?.until) {
+    storedEnvelope = {
+      ...envelope,
+      entities: {
+        ...envelope.entities,
+        recurrence: {
+          ...(envelope.entities.recurrence as NonNullable<AgendaEnvelope['entities']['recurrence']>),
+          until: {
+            expression: envelope.entities.limitDate?.expression ?? 'limite máximo da agenda',
+            resolved: lastDate,
+            confidence: 'high',
+          },
+        },
+      },
+    };
+  }
 
   await dependencies.pending.write(uid, token, {
     uid,
@@ -595,7 +695,7 @@ export async function orchestrateAgendaInterpret(
     intent: envelope.intent,
     action: envelope.action,
     prompt: data.prompt,
-    envelope,
+    envelope: storedEnvelope,
     recap,
     warnings,
   });

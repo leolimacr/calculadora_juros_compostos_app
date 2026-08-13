@@ -179,7 +179,14 @@ export default function AgendaNexusAssistant({ className = '', onCommitted, onUn
     }
   };
 
+  const handleSuggestion = async (value: string) => {
+    if (nexus.isLoading) return;
+    setInput(value);
+    await nexus.interpret({ prompt: value });
+  };
+
   const proposal = nexus.proposal;
+  const refinement = nexus.refinement;
   const isDelete = proposal?.intent === 'delete' && proposal?.action === 'delete_commitment';
   const warnings = Array.isArray(proposal?.warnings)
     ? proposal.warnings.map(formatWarning)
@@ -273,7 +280,32 @@ export default function AgendaNexusAssistant({ className = '', onCommitted, onUn
 
         {nexus.stage === 'cancelled' && <p className="rounded-2xl bg-slate-50 p-4 text-xs text-slate-600" role="status">Operação cancelada. Você pode escrever uma nova solicitação.</p>}
 
-        {nexus.stage === 'clarify' && (
+        {nexus.stage === 'clarify' && refinement?.question && (
+          <div className="space-y-3 rounded-3xl border border-sky-200 bg-sky-50/70 p-4" role="status" aria-live="polite">
+            <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-sky-700">
+              <MessageCircle size={13} aria-hidden="true" />
+              Refinando informação
+            </p>
+            <p className="rounded-2xl bg-white p-4 text-sm font-semibold leading-relaxed text-slate-800">{refinement.question}</p>
+            {Array.isArray(refinement.suggestions) && refinement.suggestions.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {refinement.suggestions.map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    onClick={() => void handleSuggestion(suggestion)}
+                    disabled={nexus.isLoading}
+                    className="rounded-full border border-sky-200 bg-white px-3 py-1.5 text-xs font-bold text-sky-700 transition hover:bg-sky-100 disabled:opacity-50"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {nexus.stage === 'clarify' && !refinement?.question && (
           <div className="space-y-3" role="status" aria-live="polite">
             <ListNotice title="Faltam informações" items={missing} />
             <ListNotice title="Preciso esclarecer" items={ambiguous} tone="amber" />
@@ -285,6 +317,7 @@ export default function AgendaNexusAssistant({ className = '', onCommitted, onUn
             <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
               <CalendarDays size={17} className="text-sky-600" aria-hidden="true" />
               <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Revise antes de confirmar</h3>
+              <span className="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-amber-800">Aguardando confirmação</span>
             </div>
             {proposal.summary && <p className="rounded-2xl bg-sky-50 p-4 text-sm font-semibold leading-relaxed text-sky-900">{proposal.summary}</p>}
             <div className="grid gap-2 sm:grid-cols-2">

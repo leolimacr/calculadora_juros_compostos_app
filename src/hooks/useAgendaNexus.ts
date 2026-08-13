@@ -54,6 +54,11 @@ export interface AgendaNexusProposal {
   [key: string]: unknown;
 }
 
+export interface AgendaNexusRefinement {
+  question: string;
+  suggestions: string[];
+}
+
 export interface AgendaNexusInterpretResponse {
   success: boolean;
   outcome?: 'proposal' | 'clarification' | 'query_result';
@@ -67,6 +72,7 @@ export interface AgendaNexusInterpretResponse {
     missing?: string[];
     ambiguous?: string[];
     questions?: string[];
+    refinement?: AgendaNexusRefinement;
   };
   error?: string;
   message?: string;
@@ -105,6 +111,7 @@ export interface UseAgendaNexusResult {
   missing: string[];
   ambiguous: string[];
   assumptions: Array<Record<string, unknown>>;
+  refinement: AgendaNexusRefinement | null;
   commitResult: AgendaNexusCommitResult | null;
   error: string | null;
   canUndo: boolean;
@@ -161,6 +168,7 @@ export function useAgendaNexus(): UseAgendaNexusResult {
   const [error, setError] = useState<string | null>(null);
   const [canUndo, setCanUndo] = useState(false);
   const [undoContract, setUndoContract] = useState<AgendaNexusUndoContract | null>(null);
+  const [refinement, setRefinement] = useState<AgendaNexusRefinement | null>(null);
 
   const requestGenerationRef = useRef(0);
   const activeOperationRef = useRef<'interpret' | 'commit' | null>(null);
@@ -168,6 +176,7 @@ export function useAgendaNexus(): UseAgendaNexusResult {
   const undoTimerRef = useRef<number | null>(null);
   const pendingConfirmationTokenRef = useRef<string | null>(null);
   const proposalIntentRef = useRef<string | null>(null);
+  const dialogueHistoryRef = useRef<Array<{ role: 'user' | 'assistant'; text: string }>>([]);
 
   const clearTimers = useCallback(() => {
     timersRef.current.forEach((timer) => window.clearTimeout(timer));
@@ -188,12 +197,14 @@ export function useAgendaNexus(): UseAgendaNexusResult {
     invalidateOperation();
     pendingConfirmationTokenRef.current = null;
     proposalIntentRef.current = null;
+    dialogueHistoryRef.current = [];
     setStage('idle');
     setProgressMessage(null);
     setProposal(null);
     setMissing([]);
     setAmbiguous([]);
     setAssumptions([]);
+    setRefinement(null);
     setCommitResult(null);
     setError(null);
     setCanUndo(false);
@@ -204,8 +215,10 @@ export function useAgendaNexus(): UseAgendaNexusResult {
     invalidateOperation();
     pendingConfirmationTokenRef.current = null;
     proposalIntentRef.current = null;
+    dialogueHistoryRef.current = [];
     setStage('cancelled');
     setProgressMessage(null);
+    setRefinement(null);
     setError(null);
   }, [invalidateOperation]);
 
@@ -227,6 +240,7 @@ export function useAgendaNexus(): UseAgendaNexusResult {
     setMissing([]);
     setAmbiguous([]);
     setAssumptions([]);
+    setRefinement(null);
     setCommitResult(null);
     setError(null);
     setCanUndo(false);
@@ -243,7 +257,7 @@ export function useAgendaNexus(): UseAgendaNexusResult {
 
     try {
       const callable = httpsCallable(functions, 'nexusAgendaInterpret');
-      const result = await callable(input);
+      const result = await callable({ prompt: input.prompt, history: [...dialogueHistoryRef.current] });
       if (requestGenerationRef.current !== generation || activeOperationRef.current !== 'interpret') return null;
 
       const data = result.data as AgendaNexusInterpretResponse;
@@ -264,12 +278,26 @@ export function useAgendaNexus(): UseAgendaNexusResult {
       const nextAssumptions = Array.isArray(data.assumptions)
         ? data.assumptions
         : Array.isArray(nextProposal?.assumptions) ? nextProposal.assumptions as Array<Record<string, unknown>> : [];
+      const nextRefinement = data.clarification?.refinement ?? null;
       setProposal(nextProposal);
       setMissing(nextMissing);
       setAmbiguous(nextAmbiguous);
       setAssumptions(nextAssumptions);
+      setRefinement(nextRefinement);
 
-      if (data.outcome === 'clarification' || nextMissing.length > 0 || nextAmbiguous.length > 0) {
+      const isClarifying = data.outcome === 'clarification' || nextMissing.length > 0 || nextAmbiguous.length > 0;
+      if (isClarifying) {
+        const question = nextRefinement?.question ?? nextAmbiguous[0] ?? data.clarification?.questions?.[0] ?? null;
+        dialogueHistoryRef.current = [
+          ...dialogueHistoryRef.current,
+          { role: 'user', text: input.prompt },
+          ...(question ? [{ role: 'assistant' as const, text: question }] : []),
+        ];
+      } else {
+        dialogueHistoryRef.current = [];
+      }
+
+      if (isClarifying) {
         setStage('clarify');
       } else {
         pendingConfirmationTokenRef.current = data.confirmationToken ?? null;
@@ -405,6 +433,7 @@ export function useAgendaNexus(): UseAgendaNexusResult {
     missing,
     ambiguous,
     assumptions,
+    refinement,
     commitResult,
     undo,
     error,

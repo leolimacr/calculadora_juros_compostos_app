@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   expandRecurrence,
   resolveDateExpression,
+  resolveWindowExpression,
   todayYmdInProductTimezone,
   type YMD,
 } from '../nexus-core/agenda-time';
@@ -96,5 +97,32 @@ describe('expandRecurrence — série de terças até o fim de setembro', () => 
 
   it('mantém fuso de produto estável', () => {
     expect(todayYmdInProductTimezone(new Date('2026-08-12T15:00:00.000Z'))).toEqual({ y: 2026, m0: 7, d: 12 });
+  });
+});
+
+describe('resolveWindowExpression — janelas relativas', () => {
+  it('resolve "nos próximos 5 dias"', () => {
+    expect(resolveWindowExpression('nos próximos 5 dias', TODAY)).toBe('2026-08-17');
+  });
+
+  it('resolve "nos próximos 2 dias"', () => {
+    expect(resolveWindowExpression('nos próximos 2 dias', TODAY)).toBe('2026-08-14');
+  });
+
+  it('resolve "próxima semana"', () => {
+    expect(resolveWindowExpression('próxima semana', TODAY)).toBe('2026-08-19');
+  });
+
+  it('resolve "2 semanas"', () => {
+    expect(resolveWindowExpression('2 semanas', TODAY)).toBe('2026-08-26');
+  });
+
+  it('resolve "1 mês"', () => {
+    expect(resolveWindowExpression('1 mês', TODAY)).toBe('2026-09-12');
+  });
+
+  it('retorna null para texto não reconhecido', () => {
+    expect(resolveWindowExpression('qualquer dia', TODAY)).toBeNull();
+    expect(resolveWindowExpression('', TODAY)).toBeNull();
   });
 });

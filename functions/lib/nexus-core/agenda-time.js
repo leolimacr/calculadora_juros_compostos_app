@@ -11,6 +11,7 @@ exports.firstWeekdayOfMonth = firstWeekdayOfMonth;
 exports.weekdayNameToNumber = weekdayNameToNumber;
 exports.monthNameToNumber = monthNameToNumber;
 exports.resolveDateExpression = resolveDateExpression;
+exports.resolveWindowExpression = resolveWindowExpression;
 exports.expandRecurrence = expandRecurrence;
 exports.saoPauloDayRangeMillis = saoPauloDayRangeMillis;
 exports.sha1Hex = sha1Hex;
@@ -269,6 +270,31 @@ function isoTo(ymd) {
 }
 function confidenceFor(ymd, todayIso) {
     return ymdToIso(ymd) >= todayIso ? 'high' : 'low';
+}
+function resolveWindowExpression(raw, today) {
+    const t = normalizeText(raw)
+        .replace(/^(na|no|em|para|nos|nas)\s+/, '')
+        .replace(/^(proximos?|proximas?)\s+/, '')
+        .replace(/^(ate|a)\s+/, '')
+        .trim();
+    const m = /^(\d+)\s+(dias?|semanas?|meses|mes)\b/.exec(t);
+    if (m) {
+        const count = Number(m[1]);
+        if (count < 1 || count > 366)
+            return null;
+        const unit = m[2];
+        if (/^dia/.test(unit))
+            return ymdToIso(addDays(today, count));
+        if (/^semana/.test(unit))
+            return ymdToIso(addDays(today, count * 7));
+        if (/^mes/.test(unit))
+            return ymdToIso(addMonthsClamped(today, count));
+    }
+    if (/^semana\b/.test(t))
+        return ymdToIso(addDays(today, 7));
+    if (/^mes\b/.test(t))
+        return ymdToIso(addMonthsClamped(today, 1));
+    return null;
 }
 function stepDate(ymd, freq) {
     switch (freq) {

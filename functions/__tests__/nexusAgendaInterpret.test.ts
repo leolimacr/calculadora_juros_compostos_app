@@ -408,4 +408,175 @@ describe('nexusAgendaInterpret', () => {
     expect(test.agenda.onDay).toHaveBeenCalledWith('user-1', '2026-08-18');
     expect(test.agenda.searchByTitle).not.toHaveBeenCalled();
   });
+
+  it('entra em refinamento ativo quando a recorrência não tem data limite', async () => {
+    const raw = envelope({
+      entities: {
+        date: { expression: 'próxima terça-feira', resolved: '2026-08-18', confidence: 'high' },
+        recurrence: { freq: 'weekly', byDay: 2 },
+      },
+    });
+    const test = setup(raw);
+    const result = await orchestrateAgendaInterpret('user-1', { prompt: 'reunião toda terça' }, test.dependencies);
+
+    expect(result.success).toBe(true);
+    if (result.success && result.outcome === 'clarification') {
+      expect(result.status).toBe('awaiting_clarification');
+      expect(result.clarification.refinement?.question).toContain('Entendi que você quer uma recorrência');
+      expect(result.clarification.refinement?.suggestions).toEqual(['Até o final do ano', 'Sem prazo máximo']);
+      expect(result.clarification.questions[0]).toBe(result.clarification.refinement?.question);
+    }
+    expect(test.writes).toHaveLength(0);
+  });
+
+  it('não refina quando a recorrência já tem data limite (until)', async () => {
+    const raw = envelope({
+      entities: {
+        date: { expression: 'próxima terça-feira', resolved: '2026-08-18', confidence: 'high' },
+        recurrence: {
+          freq: 'weekly',
+          byDay: 2,
+          until: { expression: 'até o fim de setembro', resolved: '2026-09-30', confidence: 'high' },
+        },
+      },
+    });
+    const test = setup(raw);
+    const result = await orchestrateAgendaInterpret('user-1', { prompt: 'reunião toda terça até setembro' }, test.dependencies);
+
+    expect(result.success).toBe(true);
+    if (result.success && result.outcome === 'proposal') {
+      expect(result.recap.occurrenceCount).toBe(7);
+      expect(result.recap.lastDate).toBe('2026-09-29');
+    }
+  });
+
+  it('aplica limitDate "nos próximos 5 dias" como teto da série e materializa o until no envelope', async () => {
+    const raw = envelope({
+      entities: {
+        date: { expression: 'hoje', resolved: '2026-08-12', confidence: 'high' },
+        startTime: '09:00',
+        recurrence: { freq: 'daily' },
+        limitDate: { expression: 'nos próximos 5 dias', resolved: '2099-01-01', confidence: 'high' },
+      },
+    });
+    const test = setup(raw);
+    const result = await orchestrateAgendaInterpret('user-1', { prompt: 'check-in diário nos próximos 5 dias' }, test.dependencies);
+
+    expect(result.success).toBe(true);
+    if (result.success && result.outcome === 'proposal') {
+      expect(result.recap.occurrenceCount).toBe(6);
+      expect(result.recap.firstDate).toBe('2026-08-12');
+      expect(result.recap.lastDate).toBe('2026-08-17');
+      expect(result.recap.recurrence?.until).toBe('2026-08-17');
+    }
+    expect(test.writes).toHaveLength(1);
+    const stored = test.writes[0].document.envelope as { entities: { recurrence?: { until?: { resolved: string } } } };
+    expect(stored.entities.recurrence?.until?.resolved).toBe('2026-08-17');
+  });
+
+  it('preenche até o limite da agenda com maxSlots e avisa sobre o truncamento', async () => {
+    const raw = envelope({
+      entities: {
+        date: { expression: 'próxima terça-feira', resolved: '2026-08-18', confidence: 'high' },
+        startTime: '18:00',
+        endTime: '19:00',
+        recurrence: { freq: 'weekly', byDay: 2 },
+        maxSlots: true,
+      },
+    });
+    const test = setup(raw);
+    const result = await orchestrateAgendaInterpret('user-1', { prompt: 'reunião toda terça no limite da agenda' }, test.dependencies);
+
+    expect(result.success).toBe(true);
+    if (result.success && result.outcome === 'proposal') {
+      expect(result.recap.occurrenceCount).toBe(366);
+      expect(result.recap.recurrence?.freq).toBe('weekly');
+      expect(result.warnings).toEqual([
+        expect.objectContaining({ type: 'truncated', message: expect.stringContaining('limite de 366 compromissos') }),
+      ]);
+      expect(result.recap.summary).toContain('até o limite máximo da agenda');
+    }
+    expect(test.writes).toHaveLength(1);
+    const stored = test.writes[0].document.envelope as { entities: { recurrence?: { until?: { resolved: string } } } };
+    expect(stored.entities.recurrence?.until?.resolved).toBe(result.success && result.outcome === 'proposal' ? result.recap.lastDate : '');
+  });
+
+  it('esclarece quando a data inicial cai depois do limite da janela', async () => {
+    const raw = envelope({
+      entities: {
+        date: { expression: 'próxima terça-feira', resolved: '2026-08-18', confidence: 'high' },
+        recurrence: { freq: 'weekly', byDay: 2 },
+        limitDate: { expression: 'nos próximos 5 dias', resolved: '2099-01-01', confidence: 'high' },
+      },
+    });
+    const test = setup(raw);
+    const result = await orchestrateAgendaInterpret('user-1', { prompt: 'reunião toda terça nos próximos 5 dias' }, test.dependencies);
+
+    expect(result).toMatchObject({ success: true, outcome: 'clarification' });
+    expect(test.writes).toHaveLength(0);
+  });
+
+  it('entra em esclarecimento quando o limite de dias não pode ser resolvido', async () => {
+    const raw = envelope({
+      entities: {
+        date: { expression: 'próxima terça-feira', resolved: '2026-08-18', confidence: 'high' },
+        recurrence: { freq: 'weekly', byDay: 2 },
+        limitDate: { expression: 'quando couber', resolved: '2026-08-18', confidence: 'low' },
+      },
+    });
+    const test = setup(raw);
+    const result = await orchestrateAgendaInterpret('user-1', { prompt: 'reunião toda terça quando couber' }, test.dependencies);
+
+    expect(result).toMatchObject({ success: true, outcome: 'clarification' });
+    if (result.success && result.outcome === 'clarification') {
+      expect(result.clarification.ambiguous.join(' ')).toContain('limite de dias');
+    }
+  });
+
+  it('redireciona bate-papo fora de escopo com a frase de atribuições delegadas', async () => {
+    const redirect = 'Você está fugindo das minhas atribuições delegadas. Precisamos manter o foco na gestão da sua agenda. Por favor, feche e reabra a interface do Nexus na Agenda para iniciarmos uma nova tarefa.';
+    const raw = JSON.stringify({
+      intent: 'clarify',
+      action: 'query_clarification',
+      entities: {},
+      missing: [],
+      ambiguous: [redirect],
+      assumptions: [],
+    });
+    const test = setup(raw);
+    const result = await orchestrateAgendaInterpret('user-1', { prompt: 'qual é o seu signo?' }, test.dependencies);
+
+    expect(result.success).toBe(true);
+    if (result.success && result.outcome === 'clarification') {
+      expect(result.clarification.ambiguous[0]).toBe(redirect);
+      expect(result.clarification.questions[0]).toContain('atribuições delegadas');
+    }
+    expect(test.writes).toHaveLength(0);
+  });
+
+  it('encaminha o histórico do diálogo ao roteador para refinar a resposta seguinte', async () => {
+    const raw = envelope({
+      entities: {
+        date: { expression: 'próxima terça-feira', resolved: '2026-08-18', confidence: 'high' },
+        recurrence: {
+          freq: 'weekly',
+          byDay: 2,
+          until: { expression: 'até o fim de setembro', resolved: '2099-01-01', confidence: 'high' },
+        },
+      },
+    });
+    const test = setup(raw);
+    const history = [
+      { role: 'user', text: 'reunião toda terça' },
+      { role: 'assistant', text: 'Entendi que você quer uma recorrência. Você quer até uma data limite ou até o limite da agenda?' },
+    ];
+    const result = await orchestrateAgendaInterpret('user-1', { prompt: 'até o fim de setembro', history }, test.dependencies);
+
+    expect(result.success).toBe(true);
+    if (result.success && result.outcome === 'proposal') expect(result.recap.recurrence?.until).toBe('2026-09-29');
+    const sentMessages = test.routeRequest.mock.calls[0][0] as Array<{ role: string; content: string }>;
+    expect(sentMessages).toContainEqual({ role: 'user', content: 'reunião toda terça' });
+    expect(sentMessages).toContainEqual({ role: 'user', content: 'até o fim de setembro' });
+    expect(sentMessages).toContainEqual({ role: 'assistant', content: 'Entendi que você quer uma recorrência. Você quer até uma data limite ou até o limite da agenda?' });
+  });
 });

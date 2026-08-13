@@ -67,6 +67,10 @@ export interface AgendaRecap {
     truncated?: boolean;
     summary: string;
 }
+export interface AgendaRefinement {
+    question: string;
+    suggestions: string[];
+}
 export type InterpretResponse = {
     success: true;
     outcome: 'proposal';
@@ -83,6 +87,7 @@ export type InterpretResponse = {
         missing: string[];
         ambiguous: string[];
         questions: string[];
+        refinement?: AgendaRefinement;
     };
 } | {
     success: true;

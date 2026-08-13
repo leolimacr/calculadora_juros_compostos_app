@@ -90,6 +90,31 @@ describe('agenda-intent-schema parseAgendaEnvelope', () => {
       expect(result.ok).toBe(true);
       if (result.ok) expect(result.data.entities.filter?.value).toBe('Reunião com o coordenador de campo');
     });
+
+    it('aceita create com entities.limitDate (janela relativa)', () => {
+      const raw = JSON.stringify({
+        ...VALID_CREATE_ENVELOPE,
+        entities: {
+          ...VALID_CREATE_ENVELOPE.entities,
+          limitDate: { expression: 'nos próximos 5 dias', resolved: '2026-08-17', confidence: 'high' },
+        },
+      });
+      const result = parseAgendaEnvelope(raw);
+
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.data.entities.limitDate?.resolved).toBe('2026-08-17');
+    });
+
+    it('aceita create com entities.maxSlots true', () => {
+      const raw = JSON.stringify({
+        ...VALID_CREATE_ENVELOPE,
+        entities: { ...VALID_CREATE_ENVELOPE.entities, maxSlots: true },
+      });
+      const result = parseAgendaEnvelope(raw);
+
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.data.entities.maxSlots).toBe(true);
+    });
   });
 
   describe('JSON malformado', () => {
@@ -256,6 +281,29 @@ describe('agenda-intent-schema parseAgendaEnvelope', () => {
         expect(result.ok).toBe(false);
       }
     });
+
+    it('rejeita maxSlots com tipo errado', () => {
+      const raw = JSON.stringify({
+        ...VALID_CREATE_ENVELOPE,
+        entities: { ...VALID_CREATE_ENVELOPE.entities, maxSlots: 'sim' },
+      });
+      const result = parseAgendaEnvelope(raw);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.errors.join('\n')).toContain('maxSlots');
+    });
+
+    it('rejeita limitDate com resolved fora do formato YYYY-MM-DD', () => {
+      const raw = JSON.stringify({
+        ...VALID_CREATE_ENVELOPE,
+        entities: {
+          ...VALID_CREATE_ENVELOPE.entities,
+          limitDate: { expression: 'nos próximos 5 dias', resolved: '17/08/2026', confidence: 'high' },
+        },
+      });
+      const result = parseAgendaEnvelope(raw);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.errors.join('\n')).toContain('YYYY-MM-DD');
+    });
   });
 });
 
@@ -370,6 +418,24 @@ describe('agenda-intent-schema validateAgendaEnvelope', () => {
     const result = validateAgendaEnvelope(env);
     expect(result.valid).toBe(false);
     expect(result.errors.join('\n')).toContain('endTime');
+  });
+
+  it('rejeita maxSlots sem recurrence', () => {
+    const env: AgendaEnvelope = {
+      ...VALID_CREATE_ENVELOPE,
+      entities: { ...VALID_CREATE_ENVELOPE.entities, recurrence: undefined, maxSlots: true },
+    };
+    const result = validateAgendaEnvelope(env);
+    expect(result.valid).toBe(false);
+    expect(result.errors.join('\n')).toContain('maxSlots');
+  });
+
+  it('aceita maxSlots true com recurrence', () => {
+    const env: AgendaEnvelope = {
+      ...VALID_CREATE_ENVELOPE,
+      entities: { ...VALID_CREATE_ENVELOPE.entities, maxSlots: true },
+    };
+    expect(validateAgendaEnvelope(env).valid).toBe(true);
   });
 
   it('rejeita pareamento intenção/ação incompatível', () => {

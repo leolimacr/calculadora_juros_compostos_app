@@ -96,6 +96,16 @@ export const entitiesSchema = z
     timeZone: z.string().max(60).optional(),
     /** Filtro explícito para operações em massa (delete por título/date). */
     filter: agendaFilterSchema.optional(),
+    /**
+     * Janela relativa ("nos próximos 5 dias") que limita o horizonte da
+     * recorrência. Expression preservada; o backend resolve a data final.
+     */
+    limitDate: dateResolutionSchema.optional(),
+    /**
+     * TRUE = "no limite da agenda" / "o quanto couber": a recorrência expande
+     * até o teto máximo de compromissos suportado, sem data final fixa.
+     */
+    maxSlots: z.boolean().optional(),
   })
   .strict();
 export type AgendaEntities = z.infer<typeof entitiesSchema>;
@@ -213,6 +223,10 @@ export function validateAgendaEnvelope(env: AgendaEnvelope): EnvelopeValidation 
 
   if (env.entities.recurrence && env.entities.recurrence.freq === 'weekly' && env.entities.recurrence.byDay === undefined) {
     errors.push('entities.recurrence.byDay é obrigatório para recorrência weekly.');
+  }
+
+  if (env.entities.maxSlots === true && !env.entities.recurrence) {
+    errors.push('entities.maxSlots exige entities.recurrence para limitar o número de ocorrências.');
   }
 
   if (env.entities.endTime && env.entities.startTime && env.entities.endTime <= env.entities.startTime) {

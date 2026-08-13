@@ -61,6 +61,8 @@ exports.entitiesSchema = zod_1.z
     notes: zod_1.z.string().max(2000).nullable().optional(),
     timeZone: zod_1.z.string().max(60).optional(),
     filter: exports.agendaFilterSchema.optional(),
+    limitDate: exports.dateResolutionSchema.optional(),
+    maxSlots: zod_1.z.boolean().optional(),
 })
     .strict();
 exports.assumptionSchema = zod_1.z
@@ -141,6 +143,9 @@ function validateAgendaEnvelope(env) {
     }
     if (env.entities.recurrence && env.entities.recurrence.freq === 'weekly' && env.entities.recurrence.byDay === undefined) {
         errors.push('entities.recurrence.byDay é obrigatório para recorrência weekly.');
+    }
+    if (env.entities.maxSlots === true && !env.entities.recurrence) {
+        errors.push('entities.maxSlots exige entities.recurrence para limitar o número de ocorrências.');
     }
     if (env.entities.endTime && env.entities.startTime && env.entities.endTime <= env.entities.startTime) {
         errors.push('entities.endTime deve ser posterior a entities.startTime.');
