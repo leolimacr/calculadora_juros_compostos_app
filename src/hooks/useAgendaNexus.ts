@@ -112,6 +112,8 @@ export interface UseAgendaNexusResult {
   ambiguous: string[];
   assumptions: Array<Record<string, unknown>>;
   refinement: AgendaNexusRefinement | null;
+  /** Thread visual do diálogo de refinamento (espelho do histórico enviado ao backend). */
+  dialogue: AgendaNexusHistoryMessage[];
   commitResult: AgendaNexusCommitResult | null;
   error: string | null;
   canUndo: boolean;
@@ -169,6 +171,7 @@ export function useAgendaNexus(): UseAgendaNexusResult {
   const [canUndo, setCanUndo] = useState(false);
   const [undoContract, setUndoContract] = useState<AgendaNexusUndoContract | null>(null);
   const [refinement, setRefinement] = useState<AgendaNexusRefinement | null>(null);
+  const [dialogue, setDialogue] = useState<AgendaNexusHistoryMessage[]>([]);
 
   const requestGenerationRef = useRef(0);
   const activeOperationRef = useRef<'interpret' | 'commit' | null>(null);
@@ -198,6 +201,7 @@ export function useAgendaNexus(): UseAgendaNexusResult {
     pendingConfirmationTokenRef.current = null;
     proposalIntentRef.current = null;
     dialogueHistoryRef.current = [];
+    setDialogue([]);
     setStage('idle');
     setProgressMessage(null);
     setProposal(null);
@@ -216,6 +220,7 @@ export function useAgendaNexus(): UseAgendaNexusResult {
     pendingConfirmationTokenRef.current = null;
     proposalIntentRef.current = null;
     dialogueHistoryRef.current = [];
+    setDialogue([]);
     setStage('cancelled');
     setProgressMessage(null);
     setRefinement(null);
@@ -293,8 +298,10 @@ export function useAgendaNexus(): UseAgendaNexusResult {
           { role: 'user', text: input.prompt },
           ...(question ? [{ role: 'assistant' as const, text: question }] : []),
         ];
+        setDialogue(nextRefinement?.question ? [...dialogueHistoryRef.current] : []);
       } else {
         dialogueHistoryRef.current = [];
+        setDialogue([]);
       }
 
       if (isClarifying) {
@@ -434,6 +441,7 @@ export function useAgendaNexus(): UseAgendaNexusResult {
     ambiguous,
     assumptions,
     refinement,
+    dialogue,
     commitResult,
     undo,
     error,

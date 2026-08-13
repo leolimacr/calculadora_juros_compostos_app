@@ -15,6 +15,7 @@ const mockNexus = vi.hoisted(() => ({
   ambiguous: [],
   assumptions: [],
   refinement: null,
+  dialogue: [],
   commitResult: null,
   error: null,
   canUndo: false,
@@ -58,6 +59,7 @@ function configure(overrides: Record<string, unknown> = {}) {
     ambiguous: [],
     assumptions: [],
     refinement: null,
+    dialogue: [],
     commitResult: null,
     error: null,
     canUndo: false,
@@ -320,21 +322,76 @@ describe('AgendaNexusAssistant', () => {
     expect(screen.getByText(/3 compromissos não foram encontrados na agenda/)).toBeInTheDocument();
   });
 
-  it('exibe o estado Refinando informação com pergunta e chips de resposta rápida', () => {
+  it('exibe o estado Diálogo com o Nexus com bolha, pergunta e chips de resposta rápida', () => {
     const question = 'Entendi que você quer uma recorrência. Você quer que eu agende isso para todas as terças até uma data limite, ou devo preencher a terça mais próxima e gerar até o limite máximo de compromissos da sua agenda?';
     configure({
       stage: 'clarify',
       refinement: { question, suggestions: ['Até o final do ano', 'Sem prazo máximo'] },
+      dialogue: [
+        { role: 'user', text: 'reunião toda terça' },
+        { role: 'assistant', text: question },
+      ],
     });
     render(<AgendaNexusAssistant />);
 
-    expect(screen.getByText(/Refinando informação/)).toBeInTheDocument();
+    expect(screen.getByText(/Diálogo com o Nexus/)).toBeInTheDocument();
     expect(screen.getByText(question)).toBeInTheDocument();
+    expect(screen.getByText('reunião toda terça')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Até o final do ano' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Sem prazo máximo' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Sem prazo máximo' }));
     expect(mockNexus.interpret).toHaveBeenCalledWith({ prompt: 'Sem prazo máximo' });
+  });
+
+  it('no modo diálogo usa placeholder contextual e botão Responder', () => {
+    const question = 'Você quer até uma data limite?';
+    configure({
+      stage: 'clarify',
+      refinement: { question, suggestions: ['Até o final do ano'] },
+      dialogue: [{ role: 'assistant', text: question }],
+    });
+    render(<AgendaNexusAssistant />);
+
+    expect(screen.getByRole('textbox', { name: 'Comando para o Nexus' })).toHaveAttribute(
+      'placeholder',
+      'Digite sua resposta ou complemente a informação...',
+    );
+    expect(screen.getByRole('button', { name: /responder/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /enviar/i })).not.toBeInTheDocument();
+  });
+
+  it('empilha múltiplas trocas do diálogo como mini-histórico', () => {
+    const firstQuestion = 'Você quer até uma data limite?';
+    const secondQuestion = 'Entendi. E confirma o limite?';
+    configure({
+      stage: 'clarify',
+      refinement: { question: secondQuestion, suggestions: ['Confirmar'] },
+      dialogue: [
+        { role: 'user', text: 'reunião toda terça' },
+        { role: 'assistant', text: firstQuestion },
+        { role: 'user', text: 'até o fim de setembro' },
+        { role: 'assistant', text: secondQuestion },
+      ],
+    });
+    render(<AgendaNexusAssistant />);
+
+    expect(screen.getByText('reunião toda terça')).toBeInTheDocument();
+    expect(screen.getByText(firstQuestion)).toBeInTheDocument();
+    expect(screen.getByText('até o fim de setembro')).toBeInTheDocument();
+    expect(screen.getByText(secondQuestion)).toBeInTheDocument();
+  });
+
+  it('sai do modo diálogo ao apresentar proposta e volta ao placeholder padrão', () => {
+    configure({ stage: 'done', proposal });
+    render(<AgendaNexusAssistant />);
+
+    expect(screen.queryByText(/Diálogo com o Nexus/)).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Comando para o Nexus' })).toHaveAttribute(
+      'placeholder',
+      'Ex.: reunião toda terça, às 17h, até novembro',
+    );
+    expect(screen.getByRole('button', { name: /enviar/i })).toBeInTheDocument();
   });
 
   it('mantém as listas clássicas de esclarecimento quando não há refinamento', () => {
@@ -344,7 +401,7 @@ describe('AgendaNexusAssistant', () => {
       ambiguous: ['Qual terça-feira?'],
     });
     render(<AgendaNexusAssistant />);
-    expect(screen.queryByText(/Refinando informação/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Diálogo com o Nexus/)).not.toBeInTheDocument();
     expect(screen.getByText(/local/)).toBeInTheDocument();
     expect(screen.getByText(/Qual terça-feira/)).toBeInTheDocument();
   });

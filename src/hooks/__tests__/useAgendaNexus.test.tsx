@@ -364,6 +364,92 @@ describe('useAgendaNexus', () => {
     expect(thirdCall.history).toEqual([]);
   });
 
+  it('expoe o estado dialogue como thread do refinamento e limpa após proposta', async () => {
+    const question = 'Entendi que você quer uma recorrência. Você quer até uma data limite ou até o limite da agenda?';
+    callableMocks.interpret.mockResolvedValueOnce({
+      data: {
+        success: true,
+        outcome: 'clarification',
+        clarification: {
+          missing: [],
+          ambiguous: [],
+          questions: [question],
+          refinement: { question, suggestions: ['Até o final do ano', 'Sem prazo máximo'] },
+        },
+      },
+    });
+    callableMocks.interpret.mockResolvedValueOnce({ data: proposalResponse });
+    const { result } = renderHook(() => useAgendaNexus());
+
+    await act(async () => { await result.current.interpret({ prompt: 'reunião toda terça' }); });
+    expect(result.current.dialogue).toEqual([
+      { role: 'user', text: 'reunião toda terça' },
+      { role: 'assistant', text: question },
+    ]);
+
+    await act(async () => { await result.current.interpret({ prompt: 'até o fim de setembro' }); });
+    expect(result.current.stage).toBe('done');
+    expect(result.current.dialogue).toEqual([]);
+  });
+
+  it('empilha múltiplas trocas de refinamento na thread do dialogue', async () => {
+    const firstQuestion = 'Você quer até uma data limite?';
+    const secondQuestion = 'Entendi. Confirma o limite?';
+    callableMocks.interpret.mockResolvedValueOnce({
+      data: {
+        success: true,
+        outcome: 'clarification',
+        clarification: {
+          missing: [],
+          ambiguous: [],
+          questions: [firstQuestion],
+          refinement: { question: firstQuestion, suggestions: ['Até o final do ano'] },
+        },
+      },
+    });
+    callableMocks.interpret.mockResolvedValueOnce({
+      data: {
+        success: true,
+        outcome: 'clarification',
+        clarification: {
+          missing: [],
+          ambiguous: [],
+          questions: [secondQuestion],
+          refinement: { question: secondQuestion, suggestions: ['Confirmar'] },
+        },
+      },
+    });
+    const { result } = renderHook(() => useAgendaNexus());
+
+    await act(async () => { await result.current.interpret({ prompt: 'reunião toda terça' }); });
+    await act(async () => { await result.current.interpret({ prompt: 'até o fim de setembro' }); });
+
+    expect(result.current.dialogue).toEqual([
+      { role: 'user', text: 'reunião toda terça' },
+      { role: 'assistant', text: firstQuestion },
+      { role: 'user', text: 'até o fim de setembro' },
+      { role: 'assistant', text: secondQuestion },
+    ]);
+  });
+
+  it('não expõe thread de dialogue em clarificação clássica sem refinement', async () => {
+    callableMocks.interpret.mockResolvedValue({
+      data: {
+        success: true,
+        outcome: 'clarification',
+        clarification: {
+          missing: ['title'],
+          ambiguous: ['data não identificada'],
+          questions: ['Qual título?'],
+        },
+      },
+    });
+    const { result } = renderHook(() => useAgendaNexus());
+    await act(async () => { await result.current.interpret({ prompt: 'marque algo' }); });
+    expect(result.current.stage).toBe('clarify');
+    expect(result.current.dialogue).toEqual([]);
+  });
+
   it('limpa o refinamento ao resetar e ao cancelar', async () => {
     const question = 'Entendi que você quer uma recorrência. Você quer até uma data limite ou até o limite da agenda?';
     callableMocks.interpret.mockResolvedValue({

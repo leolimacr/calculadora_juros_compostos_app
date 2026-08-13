@@ -161,6 +161,7 @@ export default function AgendaNexusAssistant({ className = '', onCommitted, onUn
     const command = input.trim();
     if (!command || nexus.isLoading) return;
     await nexus.interpret({ prompt: command });
+    setInput('');
   };
 
   const handleCorrect = () => {
@@ -183,10 +184,13 @@ export default function AgendaNexusAssistant({ className = '', onCommitted, onUn
     if (nexus.isLoading) return;
     setInput(value);
     await nexus.interpret({ prompt: value });
+    setInput('');
   };
 
   const proposal = nexus.proposal;
   const refinement = nexus.refinement;
+  const dialogue = nexus.dialogue;
+  const isDialogueMode = dialogue.length > 0;
   const isDelete = proposal?.intent === 'delete' && proposal?.action === 'delete_commitment';
   const warnings = Array.isArray(proposal?.warnings)
     ? proposal.warnings.map(formatWarning)
@@ -254,7 +258,7 @@ export default function AgendaNexusAssistant({ className = '', onCommitted, onUn
             value={input}
             onChange={(event) => setInput(event.target.value)}
             disabled={nexus.isLoading}
-            placeholder="Ex.: reunião toda terça, às 17h, até novembro"
+            placeholder={isDialogueMode ? 'Digite sua resposta ou complemente a informação...' : 'Ex.: reunião toda terça, às 17h, até novembro'}
             className="min-h-11 flex-1 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-100 disabled:bg-slate-100"
           />
           <button
@@ -263,7 +267,7 @@ export default function AgendaNexusAssistant({ className = '', onCommitted, onUn
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-sky-600 px-5 text-xs font-black uppercase tracking-widest text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Send size={15} aria-hidden="true" />
-            Enviar
+            {isDialogueMode ? 'Responder' : 'Enviar'}
           </button>
         </form>
 
@@ -280,14 +284,26 @@ export default function AgendaNexusAssistant({ className = '', onCommitted, onUn
 
         {nexus.stage === 'cancelled' && <p className="rounded-2xl bg-slate-50 p-4 text-xs text-slate-600" role="status">Operação cancelada. Você pode escrever uma nova solicitação.</p>}
 
-        {nexus.stage === 'clarify' && refinement?.question && (
-          <div className="space-y-3 rounded-3xl border border-sky-200 bg-sky-50/70 p-4" role="status" aria-live="polite">
+        {isDialogueMode && (
+          <div className="space-y-3" role="status" aria-live="polite">
             <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-sky-700">
               <MessageCircle size={13} aria-hidden="true" />
-              Refinando informação
+              Diálogo com o Nexus
             </p>
-            <p className="rounded-2xl bg-white p-4 text-sm font-semibold leading-relaxed text-slate-800">{refinement.question}</p>
-            {Array.isArray(refinement.suggestions) && refinement.suggestions.length > 0 && (
+            <div className="space-y-2">
+              {dialogue.map((message, index) => (
+                message.role === 'user' ? (
+                  <div key={`user-${index}`} className="flex justify-end">
+                    <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-sky-100 px-4 py-3 text-sm font-medium leading-relaxed text-slate-800">{message.text}</div>
+                  </div>
+                ) : (
+                  <div key={`assistant-${index}`} className="flex justify-start">
+                    <div className="max-w-[85%] rounded-2xl rounded-bl-sm border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-semibold leading-relaxed text-slate-800">{message.text}</div>
+                  </div>
+                )
+              ))}
+            </div>
+            {refinement?.question && Array.isArray(refinement.suggestions) && refinement.suggestions.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {refinement.suggestions.map((suggestion) => (
                   <button
@@ -305,7 +321,7 @@ export default function AgendaNexusAssistant({ className = '', onCommitted, onUn
           </div>
         )}
 
-        {nexus.stage === 'clarify' && !refinement?.question && (
+        {nexus.stage === 'clarify' && !isDialogueMode && (
           <div className="space-y-3" role="status" aria-live="polite">
             <ListNotice title="Faltam informações" items={missing} />
             <ListNotice title="Preciso esclarecer" items={ambiguous} tone="amber" />
