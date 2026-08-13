@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.agendaEnvelopeSchema = exports.assumptionSchema = exports.entitiesSchema = exports.recurrenceSchema = exports.dateResolutionSchema = exports.WRITE_INTENTS = exports.CONFIDENCE_VALUES = exports.RECURRENCE_FREQS = exports.AGENDA_ACTIONS = exports.AGENDA_INTENTS = void 0;
+exports.agendaEnvelopeSchema = exports.assumptionSchema = exports.entitiesSchema = exports.agendaFilterSchema = exports.recurrenceSchema = exports.dateResolutionSchema = exports.WRITE_INTENTS = exports.CONFIDENCE_VALUES = exports.RECURRENCE_FREQS = exports.AGENDA_ACTIONS = exports.AGENDA_INTENTS = void 0;
 exports.actionMatchesIntent = actionMatchesIntent;
 exports.parseAgendaEnvelope = parseAgendaEnvelope;
 exports.validateAgendaEnvelope = validateAgendaEnvelope;
@@ -29,6 +29,12 @@ exports.recurrenceSchema = zod_1.z.object({
     byDay: zod_1.z.number().int().min(1).max(7).optional(),
     until: exports.dateResolutionSchema.optional(),
 });
+exports.agendaFilterSchema = zod_1.z
+    .object({
+    field: zod_1.z.enum(['title', 'date'], { message: 'filter.field deve ser "title" ou "date"' }),
+    value: zod_1.z.string().min(1).max(200),
+})
+    .strict();
 exports.entitiesSchema = zod_1.z
     .object({
     title: zod_1.z.string().min(1).max(200).optional(),
@@ -54,6 +60,7 @@ exports.entitiesSchema = zod_1.z
         .optional(),
     notes: zod_1.z.string().max(2000).nullable().optional(),
     timeZone: zod_1.z.string().max(60).optional(),
+    filter: exports.agendaFilterSchema.optional(),
 })
     .strict();
 exports.assumptionSchema = zod_1.z
@@ -125,8 +132,8 @@ function validateAgendaEnvelope(env) {
         }
     }
     if (env.intent === 'delete') {
-        if (!env.entities.date && !env.entities.title) {
-            errors.push('delete exige ao menos entities.title ou entities.date para identificar o compromisso.');
+        if (!env.entities.date && !env.entities.title && !env.entities.filter) {
+            errors.push('delete exige ao menos entities.title, entities.date ou entities.filter para identificar os compromissos.');
         }
         if (env.entities.date && env.entities.date.confidence === 'low') {
             errors.push('entities.date tem confiança baixa — solicite confirmação da data antes de excluir.');

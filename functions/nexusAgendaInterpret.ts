@@ -1,11 +1,13 @@
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { randomUUID } from 'node:crypto';
+import { jsonrepair } from 'jsonrepair';
 import { MultiModelRouter } from './nexus-core/MultiModelRouter';
 import {
   parseAgendaEnvelope,
   parseAndValidateAgendaEnvelope,
   type AgendaEnvelope,
+  type AgendaEnvelopeParseResult,
 } from './nexus-core/agenda-intent-schema';
 import {
   DEFAULT_RECURRENCE_HORIZON_DAYS,
@@ -26,6 +28,8 @@ import {
 
 const PENDING_TTL_MS = 10 * 60 * 1000;
 const MAX_CONFLICT_DATES_TO_READ = 366;
+const MAX_DELETE_SCAN = 5000;
+const MAX_DELETE_TARGETS = 500;
 const FRIENDLY_INVALID_MODEL = 'Não consegui estruturar esse comando de agenda. Tente descrevê-lo com uma data e horário mais claros.';
 
 export interface InterpretRequestData {
@@ -44,6 +48,8 @@ export interface StoredAgendaCommitment {
 export interface AgendaReader {
   onDay(uid: string, isoDate: string): Promise<StoredAgendaCommitment[]>;
   upcoming(uid: string, max: number): Promise<StoredAgendaCommitment[]>;
+  /** Busca por título em toda a agenda (normalizado, case/acento-insensível). */
+  searchByTitle(uid: string, title: string, opts?: { maxResults?: number }): Promise<StoredAgendaCommitment[]>;
 }
 
 export interface PendingWriter {
@@ -55,7 +61,7 @@ export interface AgendaRouter {
     messages: unknown[],
     systemPrompt?: string,
     options?: Record<string, unknown>,
-  ): Promise<{ content: string; success?: boolean }>;
+  ): Promise<{ content: string; success?: boolean; isContingency?: boolean }>;
 }
 
 export interface InterpretDependencies {
@@ -69,6 +75,15 @@ export interface AgendaWarning {
   type: 'conflict' | 'duplicate' | 'truncated';
   date?: string;
   message: string;
+}
+
+/** Item afetado por uma operação em massa (ex.: exclusão por título). */
+export interface AgendaAffectedItem {
+  id: string;
+  title: string;
+  time?: string | null;
+  endTime?: string | null;
+  dateMs: number;
 }
 
 export interface AgendaRecap {
@@ -85,6 +100,12 @@ export interface AgendaRecap {
     byDay?: number;
     until?: string;
   };
+  /** Quantidade de itens que uma operação em massa (delete) vai afetar. */
+  matchCount?: number;
+  /** Esboço dos itens afetados (para dar segurança antes da aprovação). */
+  affectedItems?: AgendaAffectedItem[];
+  /** TRUE quando a operação em massa foi truncada no teto de itens. */
+  truncated?: boolean;
   summary: string;
 }
 
@@ -120,8 +141,25 @@ export function requireAuth(request: { auth?: { uid?: string } | null }): string
 
 function buildSystemPrompt(now: Date): string {
   const today = todayYmdInProductTimezone(now);
-  return `Você é o interpretador estruturado da Agenda do Finanças Pro Invest.
+  return `Você é o Nexus Agenda, assistente de agendamentos do Finanças Pro Invest.
+Sua especialidade é cuidar da agenda do usuário: você cria compromissos, edita horários, remove eventos e organiza anotações com data e hora.
+
+Você conversa de forma natural, simpática e objetiva. Quando o usuário fala sobre compromissos, datas ou horários, você entende o que ele quer e ajuda a transformar isso em um agendamento claro.
+
+Se o usuário trouxer um assunto que não esteja relacionado à agenda do Finanças Pro Invest, você pode explicar com gentileza que seu papel é cuidar dos agendamentos e se oferecer para ajudar com compromissos. Não é necessário responder a outros temas; basta redirecionar com educação.
+
+Antes de executar qualquer alteração, você sempre confirma com o usuário. Você mostra, com suas palavras, o que entendeu: o nome do compromisso, a data, a hora e, quando houver recorrência, como ela funcionará. Você também pergunta se o usuário deseja ativar o alarme da agenda ou apenas deixar o compromisso anotado. Só depois da confirmação natural do usuário você realiza a alteração.
+
+Se faltar alguma informação, pergunte de forma natural. Por exemplo:
+- "Qual será o nome ou assunto do compromisso?"
+- "Para qual dia e horário devo anotar?"
+- "Você quer que eu ative o alarme ou apenas deixe anotado?"
+
+Quando entender um pedido completo, responda de maneira confirmatória e amigável.
+
 Data/hora do servidor em ${PRODUCT_TIMEZONE}: ${ymdToIso(today)}.
+
+A sua saída é SEMPRE o envelope JSON estrito abaixo — o produto converte esse envelope em uma conversa amigável de confirmação, seguindo o fluxo acima. Não escreva texto fora do JSON, não use markdown e não use crases.
 
 Responda SOMENTE com JSON válido, sem markdown e sem texto adicional, usando exatamente este contrato:
 {
@@ -129,6 +167,7 @@ Responda SOMENTE com JSON válido, sem markdown e sem texto adicional, usando ex
   "action": "create_commitment|edit_commitment|delete_commitment|query_commitments|query_clarification",
   "entities": {
     "title": "string ou omitido",
+    "filter": {"field":"title|date","value":"texto"} ou omitido (usado para exclusão em massa),
     "date": {"expression":"texto original","resolved":"YYYY-MM-DD","confidence":"high|low"},
     "startTime":"HH:mm", "endTime":"HH:mm",
     "recurrence": {"freq":"daily|weekly|monthly","byDay":1,"until":{"expression":"texto","resolved":"YYYY-MM-DD","confidence":"high|low"}},
@@ -138,7 +177,16 @@ Responda SOMENTE com JSON válido, sem markdown e sem texto adicional, usando ex
   "assumptions": [{"field":"campo","note":"explicação"}]
 }
 
-Extraia a intenção e preserve as expressões de data no campo expression. O backend recalculará resolved; nunca invente informações ausentes. Para baixa certeza, use confidence low e preencha ambiguous. Para weekly, byDay usa 1=segunda até 7=domingo.`;
+Orientações de extração:
+- Recorrência semanal: frases como "toda terça-feira", "toda terça", "todas as terças", "toda semana" → recurrence freq "weekly" com byDay (1=segunda até 7=domingo) e mantenha a expressão do dia da semana em entities.date.expression (ex.: "toda terça-feira"). O horário vai em entities.startTime.
+- Data final da recorrência: expressões de fim de período como "até o fim de setembro", "fim de setembro", "até dezembro" → recurrence.until.expression preservando o texto original; o backend resolve a data final.
+- Participantes: "reunião com <pessoa>" → entities.participants com o nome extraído.
+- Duração: "das 17h às 18h" → startTime "17:00" e endTime "18:00"; "18h" ou "às 18h" → startTime "18:00".
+- Exclusão em massa por título: frases como "excluir todos os compromissos com o nome X", "apagar todas as reuniões X", "remover os compromissos que se chamam X" → intent "delete" com entities.filter {"field":"title","value":X} (ou entities.title). NÃO exija data nem coloque "date" em missing — a ausência de data NÃO bloqueia a exclusão por título.
+- Exclusão por data: "excluir os compromissos de amanhã", "apagar tudo de hoje" → intent "delete" com entities.filter {"field":"date","value":"amanhã"} (expressão natural) ou entities.date.
+- missing e ambiguous devem ser escritos como perguntas naturais e educadas (são exibidas ao usuário). Para assuntos fora da agenda, use intent "clarify" e coloque em ambiguous um redirecionamento educado.
+- A preferência de alarme/anotação é perguntada pelo produto na confirmação — não a inclua no envelope.
+- Preserve as expressões de data no campo expression. O backend recalculará resolved; nunca invente informações ausentes. Para baixa certeza, use confidence low e preencha ambiguous.`;
 }
 
 function buildMessages(prompt: string, history: Array<{ role: string; text: string }>): unknown[] {
@@ -156,10 +204,41 @@ async function callModel(
 ): Promise<string> {
   const response = await router.routeRequest(messages, systemPrompt, {
     temperature: 0.1,
-    maxTokens: 700,
+    maxTokens: 1000,
     fallbackContext: { primaryIntent: 'agenda_interpret' },
   });
+  if (response.isContingency) throw new Error('Modelo temporariamente indisponível');
   return response.content ?? '';
+}
+
+/**
+ * Extrai o envelope JSON da resposta do modelo, tolerando cercas de markdown
+ * (```json) e texto ao redor. Fallback: tenta reparar o JSON com jsonrepair.
+ */
+function extractJsonEnvelope(raw: string): string {
+  const trimmed = raw.trim();
+  const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(trimmed);
+  if (fenced) return fenced[1].trim();
+  const start = trimmed.indexOf('{');
+  const end = trimmed.lastIndexOf('}');
+  if (start !== -1 && end > start) return trimmed.slice(start, end + 1);
+  return trimmed;
+}
+
+function tryParseEnvelope(raw: string): AgendaEnvelopeParseResult {
+  const cleaned = extractJsonEnvelope(raw);
+  const direct = parseAgendaEnvelope(cleaned);
+  if (direct.ok) return direct;
+  try {
+    const repaired = jsonrepair(cleaned);
+    if (repaired !== cleaned) {
+      const result = parseAgendaEnvelope(repaired);
+      if (result.ok) return result;
+    }
+  } catch {
+    // Falha de reparo — mantém o erro estrutural original
+  }
+  return direct;
 }
 
 function normalizeEnvelopeDates(envelope: AgendaEnvelope, today: YMD): AgendaEnvelope {
@@ -269,7 +348,59 @@ function buildSummary(
   endTime?: string,
 ): string {
   const time = startTime ? ` às ${startTime}${endTime ? ` às ${endTime}` : ''}` : '';
-  return `Criar "${title}" — ${count} compromisso${count === 1 ? '' : 's'}${time}, de ${formatDate(firstDate)} a ${formatDate(lastDate)}.`;
+  const occurrences = count === 1 ? '1 compromisso' : `${count} compromissos`;
+  const range = count === 1 ? formatDate(firstDate) : `de ${formatDate(firstDate)} a ${formatDate(lastDate)}`;
+  return `Entendi! Vou agendar "${title}" — ${occurrences}${time}, ${range}. Você prefere ativar o alarme ou apenas anotar? Confirma assim?`;
+}
+
+function buildDeleteSummary(count: number, title?: string): string {
+  const items = count === 1 ? '1 compromisso' : `${count} compromissos`;
+  const reference = title ? ` com o nome "${title}"` : '';
+  return `Entendi. Encontrei ${items}${reference}. Pretendo excluí-los permanentemente. Posso prosseguir?`;
+}
+
+/**
+ * Resolve os alvos de uma exclusão em massa a partir da intenção+entidades.
+ * Prioriza entities.filter (modelo "Filtro = {campo, valor}") e aceita a
+ * ausência de data quando o critério é o título. Retorna null quando o filtro
+ * de data não pôde ser resolvido.
+ */
+async function resolveDeleteTargets(
+  uid: string,
+  envelope: AgendaEnvelope,
+  agenda: AgendaReader,
+  today: YMD,
+): Promise<{ targets: AgendaAffectedItem[]; truncated: boolean } | null> {
+  const filter = envelope.entities.filter;
+  const title = filter?.field === 'title' ? filter.value : envelope.entities.title;
+  let date = filter?.field === 'date' ? filter.value : envelope.entities.date?.resolved;
+  if (filter?.field === 'date' && date) {
+    const resolved = resolveDateExpression(date, today);
+    if (!resolved) return null;
+    date = resolved.iso;
+  }
+
+  let candidates: StoredAgendaCommitment[];
+  if (title) {
+    candidates = await agenda.searchByTitle(uid, title, { maxResults: MAX_DELETE_SCAN });
+    if (date) {
+      const range = saoPauloDayRangeMillis(isoToYmd(date));
+      candidates = candidates.filter((item) => item.dateMs >= range.startMs && item.dateMs < range.endMs);
+    }
+  } else if (date) {
+    candidates = await agenda.onDay(uid, date);
+  } else {
+    candidates = [];
+  }
+
+  const targets: AgendaAffectedItem[] = candidates.slice(0, MAX_DELETE_TARGETS).map((item) => ({
+    id: item.id,
+    title: item.title,
+    time: item.time ?? null,
+    endTime: item.endTime ?? null,
+    dateMs: item.dateMs,
+  }));
+  return { targets, truncated: candidates.length > MAX_DELETE_TARGETS };
 }
 
 export async function orchestrateAgendaInterpret(
@@ -289,18 +420,25 @@ export async function orchestrateAgendaInterpret(
     return { success: false, error: 'O Nexus está temporariamente indisponível. Tente novamente em instantes.' };
   }
 
-  let parsed = parseAgendaEnvelope(raw);
+  let parsed = tryParseEnvelope(raw);
   if (!parsed.ok) {
+    const detail = parsed.errors.slice(0, 4).join('; ');
     try {
       raw = await callModel(
         dependencies.router,
-        [...messages, { role: 'user', content: 'A resposta anterior não era JSON válido. Responda somente com o envelope JSON estrito.' }],
+        [
+          ...messages,
+          {
+            role: 'user',
+            content: `Sua resposta anterior não passou na validação do contrato JSON. Erros: ${detail}. Responda SOMENTE com o envelope JSON estrito, sem markdown e sem texto adicional.`,
+          },
+        ],
         systemPrompt,
       );
     } catch {
       return { success: false, error: FRIENDLY_INVALID_MODEL };
     }
-    parsed = parseAgendaEnvelope(raw);
+    parsed = tryParseEnvelope(raw);
     if (!parsed.ok) return { success: false, error: FRIENDLY_INVALID_MODEL };
   }
 
@@ -328,6 +466,65 @@ export async function orchestrateAgendaInterpret(
       outcome: 'query_result',
       status: 'ok',
       commitments: commitments.map(({ id, title, time, dateMs }) => ({ id, title, time, dateMs })),
+    };
+  }
+
+  if (envelope.intent === 'delete') {
+    const resolved = await resolveDeleteTargets(uid, envelope, dependencies.agenda, today);
+    if (!resolved) {
+      return clarification([], ['Não consegui determinar a data do filtro de exclusão. Descreva-a de forma clara.']);
+    }
+    const filterReference = envelope.entities.filter?.field === 'title'
+      ? `"${envelope.entities.filter.value}"`
+      : envelope.entities.title
+        ? `"${envelope.entities.title}"`
+        : 'o critério informado';
+    if (resolved.targets.length === 0) {
+      return clarification([], [`Não encontrei nenhum compromisso que atenda a ${filterReference}.`]);
+    }
+    const deleteTitle = envelope.entities.filter?.field === 'title'
+      ? envelope.entities.filter.value
+      : (envelope.entities.title ?? undefined);
+    const warnings: AgendaWarning[] = [];
+    if (resolved.truncated) {
+      warnings.push({ type: 'truncated', message: `Encontrei mais compromissos do que o limite suportado. A exclusão será aplicada aos ${resolved.targets.length} mais recentes.` });
+    }
+    const recap: AgendaRecap = {
+      intent: 'delete',
+      action: envelope.action,
+      title: deleteTitle,
+      occurrenceCount: resolved.targets.length,
+      matchCount: resolved.targets.length,
+      affectedItems: resolved.targets,
+      truncated: resolved.truncated,
+      summary: buildDeleteSummary(resolved.targets.length, deleteTitle),
+    };
+    const token = randomUUID();
+    const createdAtMs = now.getTime();
+    const expiresAtMs = createdAtMs + PENDING_TTL_MS;
+    await dependencies.pending.write(uid, token, {
+      uid,
+      nonce: token,
+      confirmationToken: token,
+      status: 'awaiting_confirmation',
+      createdAtMs,
+      expiresAtMs,
+      intent: 'delete',
+      action: envelope.action,
+      prompt: data.prompt,
+      envelope,
+      recap,
+      warnings,
+      targets: resolved.targets,
+    });
+    return {
+      success: true,
+      outcome: 'proposal',
+      status: 'awaiting_confirmation',
+      confirmationToken: token,
+      expiresAtMs,
+      recap,
+      warnings,
     };
   }
 
@@ -360,7 +557,7 @@ export async function orchestrateAgendaInterpret(
   const title = envelope.entities.title ?? '';
   if (!title) return clarification(['title'], []);
 
-  if (envelope.intent === 'edit' || envelope.intent === 'delete') {
+  if (envelope.intent === 'edit') {
     const candidates = await dependencies.agenda.onDay(uid, firstDate);
     const matching = candidates.filter((item) => normalizeTitle(item.title) === normalizeTitle(title));
     if (matching.length === 0) return clarification([], [`Não encontrei "${title}" em ${formatDate(firstDate)}.`]);
@@ -445,6 +642,18 @@ function buildFirestoreDependencies(db: ReturnType<typeof getFirestore>): Omit<I
           .limit(max)
           .get();
         return snapshot.docs.map(mapDoc);
+      },
+      async searchByTitle(uid, title, opts) {
+        const maxResults = opts?.maxResults ?? MAX_DELETE_SCAN;
+        const snapshot = await db.collection(collectionPath(uid))
+          .orderBy('date', 'desc')
+          .limit(maxResults)
+          .get();
+        const normalized = normalizeTitle(title);
+        return snapshot.docs
+          .map(mapDoc)
+          .filter((item) => normalizeTitle(item.title) === normalized)
+          .slice(0, MAX_DELETE_TARGETS);
       },
     },
     pending: {

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import {
   useAgendaNexus,
+  type AgendaNexusAffectedItem,
   type AgendaNexusProposal,
 } from '../../hooks/useAgendaNexus';
 
@@ -35,6 +36,44 @@ function formatDate(value?: string): string | null {
   const parts = value.split('-');
   if (parts.length !== 3) return value;
   return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
+/** Data civil em America/Sao_Paulo a partir do epoch ms do compromisso. */
+function formatPreviewDate(dateMs?: number): string | null {
+  if (typeof dateMs !== 'number' || !Number.isFinite(dateMs)) return null;
+  return new Date(dateMs).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'America/Sao_Paulo',
+  });
+}
+
+function DeleteItemsPreview({ items }: { items: AgendaNexusAffectedItem[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div className="rounded-2xl border border-rose-100 bg-rose-50/60 p-4" aria-label="Itens que serão excluídos">
+      <p className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-rose-700">
+        <AlertTriangle size={13} aria-hidden="true" />
+        {items.length === 1 ? '1 compromisso será excluído' : `${items.length} compromissos serão excluídos`}
+      </p>
+      <ul className="max-h-52 space-y-1.5 overflow-y-auto pr-1">
+        {items.map((item) => {
+          const itemDate = formatPreviewDate(item.dateMs);
+          const itemTime = typeof item.time === 'string' && item.time ? item.time : null;
+          return (
+            <li key={item.id ?? `${item.title}-${item.dateMs}`} className="flex items-center justify-between gap-3 rounded-lg border border-rose-100 bg-white px-3 py-2">
+              <span className="min-w-0 truncate text-xs font-semibold text-slate-800">{item.title ?? 'Sem título'}</span>
+              <span className="shrink-0 text-[11px] font-medium text-slate-500">
+                {itemDate}
+                {itemTime ? ` · ${itemTime}` : ''}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
 }
 
 function formatRecurrence(proposal: AgendaNexusProposal): string | null {
@@ -94,6 +133,7 @@ function ListNotice({ title, items, tone = 'slate' }: { title: string; items: st
 export default function AgendaNexusAssistant({ className = '', onCommitted, onUndone, onClose, autoFocusCommand = false }: AgendaNexusAssistantProps) {
   const nexus = useAgendaNexus();
   const [input, setInput] = useState('');
+  const [alarmChoice, setAlarmChoice] = useState<'alarm' | 'note'>('note');
   const inputRef = useRef<HTMLInputElement>(null);
   const confirmingRef = useRef(false);
   const previousStageRef = useRef(nexus.stage);
@@ -112,6 +152,10 @@ export default function AgendaNexusAssistant({ className = '', onCommitted, onUn
     if (autoFocusCommand) inputRef.current?.focus();
   }, [autoFocusCommand]);
 
+  useEffect(() => {
+    if (nexus.proposal) setAlarmChoice('note');
+  }, [nexus.proposal]);
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const command = input.trim();
@@ -129,24 +173,29 @@ export default function AgendaNexusAssistant({ className = '', onCommitted, onUn
     if (confirmingRef.current || !canConfirm) return;
     confirmingRef.current = true;
     try {
-      await nexus.commit();
+      await nexus.commit(undefined, { alarm: alarmChoice === 'alarm' });
     } finally {
       confirmingRef.current = false;
     }
   };
 
   const proposal = nexus.proposal;
+  const isDelete = proposal?.intent === 'delete' && proposal?.action === 'delete_commitment';
   const warnings = Array.isArray(proposal?.warnings)
     ? proposal.warnings.map(formatWarning)
     : [];
   const missing = nexus.missing;
   const ambiguous = nexus.ambiguous;
   const assumptions = nexus.assumptions.map((assumption) => String(assumption.note ?? assumption.field ?? 'Suposição aplicada'));
+  const affectedItems = Array.isArray(proposal?.affectedItems) ? proposal.affectedItems : [];
+  const matchCount = typeof proposal?.matchCount === 'number' ? proposal.matchCount : null;
   const canConfirm = nexus.stage === 'done'
     && Boolean(proposal)
-    && proposal?.intent === 'create'
-    && proposal?.action === 'create_commitment'
-    && !nexus.isLoading;
+    && !nexus.isLoading
+    && (
+      (proposal?.intent === 'create' && proposal?.action === 'create_commitment')
+      || (isDelete && matchCount !== null && matchCount > 0 && affectedItems.length > 0)
+    );
   const showProposal = Boolean(proposal) && ['done', 'committing', 'success', 'partial', 'error', 'undone'].includes(nexus.stage);
   const startDate = formatDate(proposal?.firstDate);
   const endDate = formatDate(proposal?.lastDate);
@@ -157,6 +206,18 @@ export default function AgendaNexusAssistant({ className = '', onCommitted, onUn
   const location = displayValue(proposal?.location);
   const notes = displayValue(proposal?.notes);
   const participants = Array.isArray(proposal?.participants) ? proposal.participants.join(', ') : null;
+  const deletedCount = Array.isArray(nexus.commitResult?.idsDeleted) ? nexus.commitResult.idsDeleted.length : null;
+  const missingTargets = isDelete && matchCount !== null && deletedCount !== null && deletedCount < matchCount
+    ? matchCount - deletedCount
+    : null;
+  const successTitle = isDelete
+    ? deletedCount !== null && deletedCount > 0
+      ? `Pronto! ${deletedCount === 1 ? '1 compromisso excluído' : `${deletedCount} compromissos excluídos`} com sucesso.`
+      : 'Compromissos excluídos com sucesso.'
+    : 'Compromisso criado com sucesso.';
+  const successSubtitle = isDelete
+    ? 'Os compromissos foram removidos permanentemente da sua Agenda.'
+    : 'A criação foi registrada na sua Agenda.';
 
   return (
     <section className={`w-full overflow-hidden rounded-3xl border border-sky-200 bg-white shadow-sm ${className}`} aria-labelledby="agenda-nexus-title">
@@ -227,29 +288,47 @@ export default function AgendaNexusAssistant({ className = '', onCommitted, onUn
             </div>
             {proposal.summary && <p className="rounded-2xl bg-sky-50 p-4 text-sm font-semibold leading-relaxed text-sky-900">{proposal.summary}</p>}
             <div className="grid gap-2 sm:grid-cols-2">
-              {title && <SummaryRow icon={<MessageCircle size={15} />} label="Compromisso" value={title} />}
+              {title && <SummaryRow icon={<MessageCircle size={15} />} label={isDelete ? 'Compromissos com o nome' : 'Compromisso'} value={title} />}
               {startDate && <SummaryRow icon={<CalendarDays size={15} />} label="Data inicial" value={startDate} />}
               {endDate && endDate !== startDate && <SummaryRow icon={<CalendarDays size={15} />} label="Data final" value={endDate} />}
               {startTime && <SummaryRow icon={<Clock3 size={15} />} label={endTime ? 'Horário' : 'Início'} value={endTime ? `${startTime} às ${endTime}` : startTime} />}
               {recurrence && <SummaryRow icon={<RotateCcw size={15} />} label="Recorrência" value={recurrence} />}
-              {typeof proposal.occurrenceCount === 'number' && <SummaryRow icon={<CalendarDays size={15} />} label="Ocorrências" value={String(proposal.occurrenceCount)} />}
+              {!isDelete && typeof proposal.occurrenceCount === 'number' && <SummaryRow icon={<CalendarDays size={15} />} label="Ocorrências" value={String(proposal.occurrenceCount)} />}
+              {isDelete && matchCount !== null && <SummaryRow icon={<AlertTriangle size={15} />} label="Itens a excluir" value={`${matchCount} ${matchCount === 1 ? 'compromisso' : 'compromissos'}`} />}
               {location && <SummaryRow icon={<MapPin size={15} />} label="Local" value={location} />}
               {participants && <SummaryRow icon={<Users size={15} />} label="Participantes" value={participants} />}
               {notes && <SummaryRow icon={<Info size={15} />} label="Observações" value={notes} />}
             </div>
+            {isDelete && affectedItems.length > 0 && <DeleteItemsPreview items={affectedItems} />}
             <ListNotice title="Suposições" items={assumptions} />
             <ListNotice title="Conflitos ou duplicidades encontrados" items={warnings} tone="amber" />
             <ListNotice title="Dados pendentes" items={missing} tone="amber" />
+            {canConfirm && !isDelete && (
+              <fieldset className="rounded-2xl border border-slate-100 bg-slate-50 p-4" aria-label="Preferência de alarme">
+                <legend className="px-1 text-[10px] font-black uppercase tracking-widest text-slate-500">Alarme</legend>
+                <p className="mb-2 text-xs text-slate-600">Você quer ativar o alarme desses compromissos ou apenas anotá-los na agenda?</p>
+                <div className="flex flex-col gap-2 sm:flex-row sm:gap-6">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                    <input type="radio" name="agenda-alarm" value="alarm" checked={alarmChoice === 'alarm'} onChange={() => setAlarmChoice('alarm')} className="accent-sky-600" />
+                    Ativar alarme
+                  </label>
+                  <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                    <input type="radio" name="agenda-alarm" value="note" checked={alarmChoice === 'note'} onChange={() => setAlarmChoice('note')} className="accent-sky-600" />
+                    Apenas anotar
+                  </label>
+                </div>
+              </fieldset>
+            )}
             <div className="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
                <button type="button" onClick={() => { nexus.cancel(); onClose?.(); }} disabled={nexus.isLoading} className="rounded-xl border border-slate-200 px-4 py-3 text-xs font-black uppercase tracking-widest text-slate-600 transition hover:bg-slate-50 disabled:opacity-50">Cancelar</button>
               <button type="button" onClick={handleCorrect} disabled={nexus.isLoading} className="rounded-xl border border-sky-200 px-4 py-3 text-xs font-black uppercase tracking-widest text-sky-700 transition hover:bg-sky-50 disabled:opacity-50">Corrigir</button>
-              {canConfirm && <button type="button" onClick={() => void handleConfirm()} disabled={!canConfirm || confirmingRef.current} className="rounded-xl bg-emerald-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">Confirmar criação</button>}
+              {canConfirm && <button type="button" onClick={() => void handleConfirm()} disabled={!canConfirm || confirmingRef.current} className="rounded-xl bg-emerald-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">{isDelete ? 'Confirmar exclusão' : 'Confirmar criação'}</button>}
             </div>
           </div>
         )}
 
-        {nexus.stage === 'committing' && <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs font-bold text-amber-800" role="status" aria-live="polite">Confirmando a criação na Agenda…</p>}
-        {nexus.stage === 'success' && <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800" role="status"><CheckCircle2 size={18} className="mt-0.5 shrink-0" aria-hidden="true" /><div><p className="font-black">Compromisso criado com sucesso.</p><p className="mt-1 text-xs">A criação foi registrada na sua Agenda.</p>{nexus.canUndo && <button type="button" onClick={() => void nexus.undo()} className="mt-3 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-xs font-black uppercase tracking-widest text-emerald-800 hover:bg-emerald-100">Desfazer</button>}</div></div>}
+        {nexus.stage === 'committing' && <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs font-bold text-amber-800" role="status" aria-live="polite">{isDelete ? 'Confirmando a exclusão na Agenda…' : 'Confirmando a criação na Agenda…'}</p>}
+        {nexus.stage === 'success' && <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800" role="status"><CheckCircle2 size={18} className="mt-0.5 shrink-0" aria-hidden="true" /><div><p className="font-black">{successTitle}</p><p className="mt-1 text-xs">{successSubtitle}</p>{missingTargets !== null && <p className="mt-2 rounded-lg bg-amber-100 px-2 py-1.5 text-xs font-semibold text-amber-900">{missingTargets === 1 ? '1 compromisso não foi encontrado na agenda' : `${missingTargets} compromissos não foram encontrados na agenda`} — os demais foram excluídos.</p>}{nexus.canUndo && <button type="button" onClick={() => void nexus.undo()} className="mt-3 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-xs font-black uppercase tracking-widest text-emerald-800 hover:bg-emerald-100">Desfazer</button>}</div></div>}
         {nexus.stage === 'undone' && <p className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-700" role="status">A criação foi desfeita.</p>}
         {nexus.stage === 'partial' && <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="alert"><AlertTriangle size={18} className="mt-0.5 shrink-0" aria-hidden="true" /><div><p className="font-black">Operação parcialmente concluída.</p><p className="mt-1 text-xs">Alguns compromissos podem ter sido criados. É necessária reconciliação antes de tentar novamente.</p>{nexus.error && <p className="mt-2 text-xs">{nexus.error}</p>}</div></div>}
         {nexus.stage === 'error' && nexus.error && <p className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs font-semibold text-rose-800" role="alert">{nexus.error}</p>}

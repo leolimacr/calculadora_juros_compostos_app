@@ -12,53 +12,61 @@ export declare const dateResolutionSchema: z.ZodObject<{
     expression: z.ZodString;
     resolved: z.ZodString;
     confidence: z.ZodEnum<{
-        low: "low";
         high: "high";
+        low: "low";
     }>;
 }, z.core.$strip>;
 export type DateResolution = z.infer<typeof dateResolutionSchema>;
 export declare const recurrenceSchema: z.ZodObject<{
     freq: z.ZodEnum<{
-        monthly: "monthly";
         daily: "daily";
         weekly: "weekly";
+        monthly: "monthly";
     }>;
     byDay: z.ZodOptional<z.ZodNumber>;
     until: z.ZodOptional<z.ZodObject<{
         expression: z.ZodString;
         resolved: z.ZodString;
         confidence: z.ZodEnum<{
-            low: "low";
             high: "high";
+            low: "low";
         }>;
     }, z.core.$strip>>;
 }, z.core.$strip>;
 export type RecurrenceSpec = z.infer<typeof recurrenceSchema>;
+export declare const agendaFilterSchema: z.ZodObject<{
+    field: z.ZodEnum<{
+        title: "title";
+        date: "date";
+    }>;
+    value: z.ZodString;
+}, z.core.$strict>;
+export type AgendaFilter = z.infer<typeof agendaFilterSchema>;
 export declare const entitiesSchema: z.ZodObject<{
     title: z.ZodOptional<z.ZodString>;
     date: z.ZodOptional<z.ZodObject<{
         expression: z.ZodString;
         resolved: z.ZodString;
         confidence: z.ZodEnum<{
-            low: "low";
             high: "high";
+            low: "low";
         }>;
     }, z.core.$strip>>;
     startTime: z.ZodOptional<z.ZodString>;
     endTime: z.ZodOptional<z.ZodString>;
     recurrence: z.ZodOptional<z.ZodObject<{
         freq: z.ZodEnum<{
-            monthly: "monthly";
             daily: "daily";
             weekly: "weekly";
+            monthly: "monthly";
         }>;
         byDay: z.ZodOptional<z.ZodNumber>;
         until: z.ZodOptional<z.ZodObject<{
             expression: z.ZodString;
             resolved: z.ZodString;
             confidence: z.ZodEnum<{
-                low: "low";
                 high: "high";
+                low: "low";
             }>;
         }, z.core.$strip>>;
     }, z.core.$strip>>;
@@ -66,6 +74,13 @@ export declare const entitiesSchema: z.ZodObject<{
     participants: z.ZodOptional<z.ZodNullable<z.ZodArray<z.ZodString>>>;
     notes: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     timeZone: z.ZodOptional<z.ZodString>;
+    filter: z.ZodOptional<z.ZodObject<{
+        field: z.ZodEnum<{
+            title: "title";
+            date: "date";
+        }>;
+        value: z.ZodString;
+    }, z.core.$strict>>;
 }, z.core.$strict>;
 export type AgendaEntities = z.infer<typeof entitiesSchema>;
 export declare const assumptionSchema: z.ZodObject<{
@@ -94,25 +109,25 @@ export declare const agendaEnvelopeSchema: z.ZodObject<{
             expression: z.ZodString;
             resolved: z.ZodString;
             confidence: z.ZodEnum<{
-                low: "low";
                 high: "high";
+                low: "low";
             }>;
         }, z.core.$strip>>;
         startTime: z.ZodOptional<z.ZodString>;
         endTime: z.ZodOptional<z.ZodString>;
         recurrence: z.ZodOptional<z.ZodObject<{
             freq: z.ZodEnum<{
-                monthly: "monthly";
                 daily: "daily";
                 weekly: "weekly";
+                monthly: "monthly";
             }>;
             byDay: z.ZodOptional<z.ZodNumber>;
             until: z.ZodOptional<z.ZodObject<{
                 expression: z.ZodString;
                 resolved: z.ZodString;
                 confidence: z.ZodEnum<{
-                    low: "low";
                     high: "high";
+                    low: "low";
                 }>;
             }, z.core.$strip>>;
         }, z.core.$strip>>;
@@ -120,6 +135,13 @@ export declare const agendaEnvelopeSchema: z.ZodObject<{
         participants: z.ZodOptional<z.ZodNullable<z.ZodArray<z.ZodString>>>;
         notes: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         timeZone: z.ZodOptional<z.ZodString>;
+        filter: z.ZodOptional<z.ZodObject<{
+            field: z.ZodEnum<{
+                title: "title";
+                date: "date";
+            }>;
+            value: z.ZodString;
+        }, z.core.$strict>>;
     }, z.core.$strict>;
     missing: z.ZodDefault<z.ZodArray<z.ZodString>>;
     ambiguous: z.ZodDefault<z.ZodArray<z.ZodString>>;

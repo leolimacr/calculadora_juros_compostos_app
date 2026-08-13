@@ -54,6 +54,19 @@ export const recurrenceSchema = z.object({
 });
 export type RecurrenceSpec = z.infer<typeof recurrenceSchema>;
 
+/**
+ * Filtro explícito para operações em massa (ex.: delete por título em toda a
+ * agenda). `field: 'title'` compara o título normalizado; `field: 'date'`
+ * compara o dia civil em America/Sao_Paulo.
+ */
+export const agendaFilterSchema = z
+  .object({
+    field: z.enum(['title', 'date'], { message: 'filter.field deve ser "title" ou "date"' }),
+    value: z.string().min(1).max(200),
+  })
+  .strict();
+export type AgendaFilter = z.infer<typeof agendaFilterSchema>;
+
 export const entitiesSchema = z
   .object({
     title: z.string().min(1).max(200).optional(),
@@ -81,6 +94,8 @@ export const entitiesSchema = z
       .optional(),
     notes: z.string().max(2000).nullable().optional(),
     timeZone: z.string().max(60).optional(),
+    /** Filtro explícito para operações em massa (delete por título/date). */
+    filter: agendaFilterSchema.optional(),
   })
   .strict();
 export type AgendaEntities = z.infer<typeof entitiesSchema>;
@@ -188,8 +203,8 @@ export function validateAgendaEnvelope(env: AgendaEnvelope): EnvelopeValidation 
   }
 
   if (env.intent === 'delete') {
-    if (!env.entities.date && !env.entities.title) {
-      errors.push('delete exige ao menos entities.title ou entities.date para identificar o compromisso.');
+    if (!env.entities.date && !env.entities.title && !env.entities.filter) {
+      errors.push('delete exige ao menos entities.title, entities.date ou entities.filter para identificar os compromissos.');
     }
     if (env.entities.date && env.entities.date.confidence === 'low') {
       errors.push('entities.date tem confiança baixa — solicite confirmação da data antes de excluir.');

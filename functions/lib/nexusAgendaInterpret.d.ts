@@ -16,6 +16,9 @@ export interface StoredAgendaCommitment {
 export interface AgendaReader {
     onDay(uid: string, isoDate: string): Promise<StoredAgendaCommitment[]>;
     upcoming(uid: string, max: number): Promise<StoredAgendaCommitment[]>;
+    searchByTitle(uid: string, title: string, opts?: {
+        maxResults?: number;
+    }): Promise<StoredAgendaCommitment[]>;
 }
 export interface PendingWriter {
     write(uid: string, token: string, document: Record<string, unknown>): Promise<void>;
@@ -24,6 +27,7 @@ export interface AgendaRouter {
     routeRequest(messages: unknown[], systemPrompt?: string, options?: Record<string, unknown>): Promise<{
         content: string;
         success?: boolean;
+        isContingency?: boolean;
     }>;
 }
 export interface InterpretDependencies {
@@ -36,6 +40,13 @@ export interface AgendaWarning {
     type: 'conflict' | 'duplicate' | 'truncated';
     date?: string;
     message: string;
+}
+export interface AgendaAffectedItem {
+    id: string;
+    title: string;
+    time?: string | null;
+    endTime?: string | null;
+    dateMs: number;
 }
 export interface AgendaRecap {
     intent: AgendaEnvelope['intent'];
@@ -51,6 +62,9 @@ export interface AgendaRecap {
         byDay?: number;
         until?: string;
     };
+    matchCount?: number;
+    affectedItems?: AgendaAffectedItem[];
+    truncated?: boolean;
     summary: string;
 }
 export type InterpretResponse = {

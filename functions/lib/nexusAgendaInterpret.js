@@ -6,12 +6,15 @@ exports.orchestrateAgendaInterpret = orchestrateAgendaInterpret;
 const firestore_1 = require("firebase-admin/firestore");
 const https_1 = require("firebase-functions/v2/https");
 const node_crypto_1 = require("node:crypto");
+const jsonrepair_1 = require("jsonrepair");
 const MultiModelRouter_1 = require("./nexus-core/MultiModelRouter");
 const agenda_intent_schema_1 = require("./nexus-core/agenda-intent-schema");
 const agenda_time_1 = require("./nexus-core/agenda-time");
 const secrets_1 = require("./secrets");
 const PENDING_TTL_MS = 10 * 60 * 1000;
 const MAX_CONFLICT_DATES_TO_READ = 366;
+const MAX_DELETE_SCAN = 5000;
+const MAX_DELETE_TARGETS = 500;
 const FRIENDLY_INVALID_MODEL = 'Não consegui estruturar esse comando de agenda. Tente descrevê-lo com uma data e horário mais claros.';
 function requireAuth(request) {
     const uid = request.auth?.uid;
@@ -21,8 +24,25 @@ function requireAuth(request) {
 }
 function buildSystemPrompt(now) {
     const today = (0, agenda_time_1.todayYmdInProductTimezone)(now);
-    return `Você é o interpretador estruturado da Agenda do Finanças Pro Invest.
+    return `Você é o Nexus Agenda, assistente de agendamentos do Finanças Pro Invest.
+Sua especialidade é cuidar da agenda do usuário: você cria compromissos, edita horários, remove eventos e organiza anotações com data e hora.
+
+Você conversa de forma natural, simpática e objetiva. Quando o usuário fala sobre compromissos, datas ou horários, você entende o que ele quer e ajuda a transformar isso em um agendamento claro.
+
+Se o usuário trouxer um assunto que não esteja relacionado à agenda do Finanças Pro Invest, você pode explicar com gentileza que seu papel é cuidar dos agendamentos e se oferecer para ajudar com compromissos. Não é necessário responder a outros temas; basta redirecionar com educação.
+
+Antes de executar qualquer alteração, você sempre confirma com o usuário. Você mostra, com suas palavras, o que entendeu: o nome do compromisso, a data, a hora e, quando houver recorrência, como ela funcionará. Você também pergunta se o usuário deseja ativar o alarme da agenda ou apenas deixar o compromisso anotado. Só depois da confirmação natural do usuário você realiza a alteração.
+
+Se faltar alguma informação, pergunte de forma natural. Por exemplo:
+- "Qual será o nome ou assunto do compromisso?"
+- "Para qual dia e horário devo anotar?"
+- "Você quer que eu ative o alarme ou apenas deixe anotado?"
+
+Quando entender um pedido completo, responda de maneira confirmatória e amigável.
+
 Data/hora do servidor em ${agenda_time_1.PRODUCT_TIMEZONE}: ${(0, agenda_time_1.ymdToIso)(today)}.
+
+A sua saída é SEMPRE o envelope JSON estrito abaixo — o produto converte esse envelope em uma conversa amigável de confirmação, seguindo o fluxo acima. Não escreva texto fora do JSON, não use markdown e não use crases.
 
 Responda SOMENTE com JSON válido, sem markdown e sem texto adicional, usando exatamente este contrato:
 {
@@ -30,6 +50,7 @@ Responda SOMENTE com JSON válido, sem markdown e sem texto adicional, usando ex
   "action": "create_commitment|edit_commitment|delete_commitment|query_commitments|query_clarification",
   "entities": {
     "title": "string ou omitido",
+    "filter": {"field":"title|date","value":"texto"} ou omitido (usado para exclusão em massa),
     "date": {"expression":"texto original","resolved":"YYYY-MM-DD","confidence":"high|low"},
     "startTime":"HH:mm", "endTime":"HH:mm",
     "recurrence": {"freq":"daily|weekly|monthly","byDay":1,"until":{"expression":"texto","resolved":"YYYY-MM-DD","confidence":"high|low"}},
@@ -39,7 +60,16 @@ Responda SOMENTE com JSON válido, sem markdown e sem texto adicional, usando ex
   "assumptions": [{"field":"campo","note":"explicação"}]
 }
 
-Extraia a intenção e preserve as expressões de data no campo expression. O backend recalculará resolved; nunca invente informações ausentes. Para baixa certeza, use confidence low e preencha ambiguous. Para weekly, byDay usa 1=segunda até 7=domingo.`;
+Orientações de extração:
+- Recorrência semanal: frases como "toda terça-feira", "toda terça", "todas as terças", "toda semana" → recurrence freq "weekly" com byDay (1=segunda até 7=domingo) e mantenha a expressão do dia da semana em entities.date.expression (ex.: "toda terça-feira"). O horário vai em entities.startTime.
+- Data final da recorrência: expressões de fim de período como "até o fim de setembro", "fim de setembro", "até dezembro" → recurrence.until.expression preservando o texto original; o backend resolve a data final.
+- Participantes: "reunião com <pessoa>" → entities.participants com o nome extraído.
+- Duração: "das 17h às 18h" → startTime "17:00" e endTime "18:00"; "18h" ou "às 18h" → startTime "18:00".
+- Exclusão em massa por título: frases como "excluir todos os compromissos com o nome X", "apagar todas as reuniões X", "remover os compromissos que se chamam X" → intent "delete" com entities.filter {"field":"title","value":X} (ou entities.title). NÃO exija data nem coloque "date" em missing — a ausência de data NÃO bloqueia a exclusão por título.
+- Exclusão por data: "excluir os compromissos de amanhã", "apagar tudo de hoje" → intent "delete" com entities.filter {"field":"date","value":"amanhã"} (expressão natural) ou entities.date.
+- missing e ambiguous devem ser escritos como perguntas naturais e educadas (são exibidas ao usuário). Para assuntos fora da agenda, use intent "clarify" e coloque em ambiguous um redirecionamento educado.
+- A preferência de alarme/anotação é perguntada pelo produto na confirmação — não a inclua no envelope.
+- Preserve as expressões de data no campo expression. O backend recalculará resolved; nunca invente informações ausentes. Para baixa certeza, use confidence low e preencha ambiguous.`;
 }
 function buildMessages(prompt, history) {
     const previous = history.slice(-6).map((message) => ({
@@ -51,10 +81,40 @@ function buildMessages(prompt, history) {
 async function callModel(router, messages, systemPrompt) {
     const response = await router.routeRequest(messages, systemPrompt, {
         temperature: 0.1,
-        maxTokens: 700,
+        maxTokens: 1000,
         fallbackContext: { primaryIntent: 'agenda_interpret' },
     });
+    if (response.isContingency)
+        throw new Error('Modelo temporariamente indisponível');
     return response.content ?? '';
+}
+function extractJsonEnvelope(raw) {
+    const trimmed = raw.trim();
+    const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(trimmed);
+    if (fenced)
+        return fenced[1].trim();
+    const start = trimmed.indexOf('{');
+    const end = trimmed.lastIndexOf('}');
+    if (start !== -1 && end > start)
+        return trimmed.slice(start, end + 1);
+    return trimmed;
+}
+function tryParseEnvelope(raw) {
+    const cleaned = extractJsonEnvelope(raw);
+    const direct = (0, agenda_intent_schema_1.parseAgendaEnvelope)(cleaned);
+    if (direct.ok)
+        return direct;
+    try {
+        const repaired = (0, jsonrepair_1.jsonrepair)(cleaned);
+        if (repaired !== cleaned) {
+            const result = (0, agenda_intent_schema_1.parseAgendaEnvelope)(repaired);
+            if (result.ok)
+                return result;
+        }
+    }
+    catch {
+    }
+    return direct;
 }
 function normalizeEnvelopeDates(envelope, today) {
     const entities = { ...envelope.entities };
@@ -145,7 +205,47 @@ async function collectWarnings(uid, dates, title, startTime, endTime, agenda) {
 }
 function buildSummary(title, count, firstDate, lastDate, startTime, endTime) {
     const time = startTime ? ` às ${startTime}${endTime ? ` às ${endTime}` : ''}` : '';
-    return `Criar "${title}" — ${count} compromisso${count === 1 ? '' : 's'}${time}, de ${formatDate(firstDate)} a ${formatDate(lastDate)}.`;
+    const occurrences = count === 1 ? '1 compromisso' : `${count} compromissos`;
+    const range = count === 1 ? formatDate(firstDate) : `de ${formatDate(firstDate)} a ${formatDate(lastDate)}`;
+    return `Entendi! Vou agendar "${title}" — ${occurrences}${time}, ${range}. Você prefere ativar o alarme ou apenas anotar? Confirma assim?`;
+}
+function buildDeleteSummary(count, title) {
+    const items = count === 1 ? '1 compromisso' : `${count} compromissos`;
+    const reference = title ? ` com o nome "${title}"` : '';
+    return `Entendi. Encontrei ${items}${reference}. Pretendo excluí-los permanentemente. Posso prosseguir?`;
+}
+async function resolveDeleteTargets(uid, envelope, agenda, today) {
+    const filter = envelope.entities.filter;
+    const title = filter?.field === 'title' ? filter.value : envelope.entities.title;
+    let date = filter?.field === 'date' ? filter.value : envelope.entities.date?.resolved;
+    if (filter?.field === 'date' && date) {
+        const resolved = (0, agenda_time_1.resolveDateExpression)(date, today);
+        if (!resolved)
+            return null;
+        date = resolved.iso;
+    }
+    let candidates;
+    if (title) {
+        candidates = await agenda.searchByTitle(uid, title, { maxResults: MAX_DELETE_SCAN });
+        if (date) {
+            const range = (0, agenda_time_1.saoPauloDayRangeMillis)((0, agenda_time_1.isoToYmd)(date));
+            candidates = candidates.filter((item) => item.dateMs >= range.startMs && item.dateMs < range.endMs);
+        }
+    }
+    else if (date) {
+        candidates = await agenda.onDay(uid, date);
+    }
+    else {
+        candidates = [];
+    }
+    const targets = candidates.slice(0, MAX_DELETE_TARGETS).map((item) => ({
+        id: item.id,
+        title: item.title,
+        time: item.time ?? null,
+        endTime: item.endTime ?? null,
+        dateMs: item.dateMs,
+    }));
+    return { targets, truncated: candidates.length > MAX_DELETE_TARGETS };
 }
 async function orchestrateAgendaInterpret(uid, data, dependencies) {
     const now = dependencies.now ?? new Date();
@@ -159,15 +259,22 @@ async function orchestrateAgendaInterpret(uid, data, dependencies) {
     catch {
         return { success: false, error: 'O Nexus está temporariamente indisponível. Tente novamente em instantes.' };
     }
-    let parsed = (0, agenda_intent_schema_1.parseAgendaEnvelope)(raw);
+    let parsed = tryParseEnvelope(raw);
     if (!parsed.ok) {
+        const detail = parsed.errors.slice(0, 4).join('; ');
         try {
-            raw = await callModel(dependencies.router, [...messages, { role: 'user', content: 'A resposta anterior não era JSON válido. Responda somente com o envelope JSON estrito.' }], systemPrompt);
+            raw = await callModel(dependencies.router, [
+                ...messages,
+                {
+                    role: 'user',
+                    content: `Sua resposta anterior não passou na validação do contrato JSON. Erros: ${detail}. Responda SOMENTE com o envelope JSON estrito, sem markdown e sem texto adicional.`,
+                },
+            ], systemPrompt);
         }
         catch {
             return { success: false, error: FRIENDLY_INVALID_MODEL };
         }
-        parsed = (0, agenda_intent_schema_1.parseAgendaEnvelope)(raw);
+        parsed = tryParseEnvelope(raw);
         if (!parsed.ok)
             return { success: false, error: FRIENDLY_INVALID_MODEL };
     }
@@ -193,6 +300,64 @@ async function orchestrateAgendaInterpret(uid, data, dependencies) {
             outcome: 'query_result',
             status: 'ok',
             commitments: commitments.map(({ id, title, time, dateMs }) => ({ id, title, time, dateMs })),
+        };
+    }
+    if (envelope.intent === 'delete') {
+        const resolved = await resolveDeleteTargets(uid, envelope, dependencies.agenda, today);
+        if (!resolved) {
+            return clarification([], ['Não consegui determinar a data do filtro de exclusão. Descreva-a de forma clara.']);
+        }
+        const filterReference = envelope.entities.filter?.field === 'title'
+            ? `"${envelope.entities.filter.value}"`
+            : envelope.entities.title
+                ? `"${envelope.entities.title}"`
+                : 'o critério informado';
+        if (resolved.targets.length === 0) {
+            return clarification([], [`Não encontrei nenhum compromisso que atenda a ${filterReference}.`]);
+        }
+        const deleteTitle = envelope.entities.filter?.field === 'title'
+            ? envelope.entities.filter.value
+            : (envelope.entities.title ?? undefined);
+        const warnings = [];
+        if (resolved.truncated) {
+            warnings.push({ type: 'truncated', message: `Encontrei mais compromissos do que o limite suportado. A exclusão será aplicada aos ${resolved.targets.length} mais recentes.` });
+        }
+        const recap = {
+            intent: 'delete',
+            action: envelope.action,
+            title: deleteTitle,
+            occurrenceCount: resolved.targets.length,
+            matchCount: resolved.targets.length,
+            affectedItems: resolved.targets,
+            truncated: resolved.truncated,
+            summary: buildDeleteSummary(resolved.targets.length, deleteTitle),
+        };
+        const token = (0, node_crypto_1.randomUUID)();
+        const createdAtMs = now.getTime();
+        const expiresAtMs = createdAtMs + PENDING_TTL_MS;
+        await dependencies.pending.write(uid, token, {
+            uid,
+            nonce: token,
+            confirmationToken: token,
+            status: 'awaiting_confirmation',
+            createdAtMs,
+            expiresAtMs,
+            intent: 'delete',
+            action: envelope.action,
+            prompt: data.prompt,
+            envelope,
+            recap,
+            warnings,
+            targets: resolved.targets,
+        });
+        return {
+            success: true,
+            outcome: 'proposal',
+            status: 'awaiting_confirmation',
+            confirmationToken: token,
+            expiresAtMs,
+            recap,
+            warnings,
         };
     }
     if (!envelope.entities.date)
@@ -223,7 +388,7 @@ async function orchestrateAgendaInterpret(uid, data, dependencies) {
     const title = envelope.entities.title ?? '';
     if (!title)
         return clarification(['title'], []);
-    if (envelope.intent === 'edit' || envelope.intent === 'delete') {
+    if (envelope.intent === 'edit') {
         const candidates = await dependencies.agenda.onDay(uid, firstDate);
         const matching = candidates.filter((item) => normalizeTitle(item.title) === normalizeTitle(title));
         if (matching.length === 0)
@@ -306,6 +471,18 @@ function buildFirestoreDependencies(db) {
                     .limit(max)
                     .get();
                 return snapshot.docs.map(mapDoc);
+            },
+            async searchByTitle(uid, title, opts) {
+                const maxResults = opts?.maxResults ?? MAX_DELETE_SCAN;
+                const snapshot = await db.collection(collectionPath(uid))
+                    .orderBy('date', 'desc')
+                    .limit(maxResults)
+                    .get();
+                const normalized = normalizeTitle(title);
+                return snapshot.docs
+                    .map(mapDoc)
+                    .filter((item) => normalizeTitle(item.title) === normalized)
+                    .slice(0, MAX_DELETE_TARGETS);
             },
         },
         pending: {

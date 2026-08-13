@@ -26,6 +26,14 @@ export interface AgendaNexusInterpretInput {
   history?: AgendaNexusHistoryMessage[];
 }
 
+export interface AgendaNexusAffectedItem {
+  id?: string;
+  title?: string;
+  time?: string | null;
+  endTime?: string | null;
+  dateMs?: number;
+}
+
 export interface AgendaNexusProposal {
   intent?: string;
   action?: string;
@@ -37,6 +45,12 @@ export interface AgendaNexusProposal {
   occurrenceCount?: number;
   recurrence?: Record<string, unknown> | null;
   summary?: string;
+  /** Quantidade de itens que uma operação em massa (exclusão) vai afetar. */
+  matchCount?: number;
+  /** Esboço dos itens afetados — renderizado antes da aprovação. */
+  affectedItems?: AgendaNexusAffectedItem[];
+  /** TRUE quando a operação em massa foi truncada no teto de itens. */
+  truncated?: boolean;
   [key: string]: unknown;
 }
 
@@ -62,8 +76,10 @@ export interface AgendaNexusInterpretResponse {
 export interface AgendaNexusCommitResult {
   success: boolean;
   status?: 'committed' | 'partial' | 'failed' | 'idempotent' | string;
+  intent?: 'create' | 'delete' | string;
   actionId?: string;
   idsCreated?: string[];
+  idsDeleted?: string[];
   seriesId?: string;
   occurrenceCount?: number;
   message?: string;
@@ -78,7 +94,7 @@ export interface AgendaNexusUndoContract {
 
 export interface UseAgendaNexusResult {
   interpret(input: AgendaNexusInterpretInput): Promise<AgendaNexusInterpretResponse | null>;
-  commit(confirmationToken?: string): Promise<AgendaNexusCommitResult | null>;
+  commit(confirmationToken?: string, options?: { alarm?: boolean }): Promise<AgendaNexusCommitResult | null>;
   undo(): Promise<AgendaNexusCommitResult | null>;
   cancel(): void;
   reset(): void;
@@ -151,6 +167,7 @@ export function useAgendaNexus(): UseAgendaNexusResult {
   const timersRef = useRef<number[]>([]);
   const undoTimerRef = useRef<number | null>(null);
   const pendingConfirmationTokenRef = useRef<string | null>(null);
+  const proposalIntentRef = useRef<string | null>(null);
 
   const clearTimers = useCallback(() => {
     timersRef.current.forEach((timer) => window.clearTimeout(timer));
@@ -170,6 +187,7 @@ export function useAgendaNexus(): UseAgendaNexusResult {
   const reset = useCallback(() => {
     invalidateOperation();
     pendingConfirmationTokenRef.current = null;
+    proposalIntentRef.current = null;
     setStage('idle');
     setProgressMessage(null);
     setProposal(null);
@@ -185,6 +203,7 @@ export function useAgendaNexus(): UseAgendaNexusResult {
   const cancel = useCallback(() => {
     invalidateOperation();
     pendingConfirmationTokenRef.current = null;
+    proposalIntentRef.current = null;
     setStage('cancelled');
     setProgressMessage(null);
     setError(null);
@@ -239,6 +258,7 @@ export function useAgendaNexus(): UseAgendaNexusResult {
       const nextProposal = rawProposal
         ? { ...rawProposal, warnings: data.warnings ?? rawProposal.warnings, assumptions: data.assumptions ?? rawProposal.assumptions }
         : null;
+      proposalIntentRef.current = typeof nextProposal?.intent === 'string' ? nextProposal.intent : null;
       const nextMissing = data.clarification?.missing ?? [];
       const nextAmbiguous = data.clarification?.ambiguous ?? [];
       const nextAssumptions = Array.isArray(data.assumptions)
@@ -270,7 +290,7 @@ export function useAgendaNexus(): UseAgendaNexusResult {
     }
   }, [clearTimers]);
 
-  const commit = useCallback(async (confirmationToken?: string) => {
+  const commit = useCallback(async (confirmationToken?: string, options?: { alarm?: boolean }) => {
     if (activeOperationRef.current !== null) return null;
     const token = confirmationToken ?? pendingConfirmationTokenRef.current;
     if (!token) {
@@ -288,7 +308,11 @@ export function useAgendaNexus(): UseAgendaNexusResult {
 
     try {
       const callable = httpsCallable(functions, 'nexusAgendaCommit');
-      const result = await callable({ confirmationToken: token, confirmed: true });
+      const result = await callable({
+        confirmationToken: token,
+        confirmed: true,
+        ...(options?.alarm ? { alarm: true } : {}),
+      });
       if (requestGenerationRef.current !== generation || activeOperationRef.current !== 'commit') return null;
 
       const data = result.data as AgendaNexusCommitResult;
@@ -303,14 +327,19 @@ export function useAgendaNexus(): UseAgendaNexusResult {
         setError(responseError ?? 'Não foi possível confirmar a operação da Agenda.');
         setCanUndo(false);
       } else {
+        const isCreate = proposalIntentRef.current === 'create';
         setStage('success');
-        setCanUndo(true);
-        setUndoContract(data.actionId ? { actionId: data.actionId, confirmationToken: token } : null);
-        undoTimerRef.current = window.setTimeout(() => {
-          undoTimerRef.current = null;
-          setCanUndo(false);
+        setCanUndo(isCreate);
+        if (isCreate) {
+          setUndoContract(data.actionId ? { actionId: data.actionId, confirmationToken: token } : null);
+          undoTimerRef.current = window.setTimeout(() => {
+            undoTimerRef.current = null;
+            setCanUndo(false);
+            setUndoContract(null);
+          }, UNDO_TTL_MS);
+        } else {
           setUndoContract(null);
-        }, UNDO_TTL_MS);
+        }
         pendingConfirmationTokenRef.current = null;
       }
       return data;

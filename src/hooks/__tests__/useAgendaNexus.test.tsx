@@ -25,6 +25,8 @@ const proposalResponse = {
   confirmationToken: 'token-1',
   expiresAtMs: Date.now() + 600000,
   recap: {
+    intent: 'create',
+    action: 'create_commitment',
     title: 'Reunião',
     firstDate: '2026-08-18',
     lastDate: '2026-08-18',
@@ -139,6 +141,24 @@ describe('useAgendaNexus', () => {
     expect(callableMocks.commit).toHaveBeenCalledWith({ confirmationToken: 'token-1', confirmed: true });
   });
 
+  it('envia alarm true ao commit quando o usuário ativa o alarme', async () => {
+    callableMocks.interpret.mockResolvedValue({ data: proposalResponse });
+    callableMocks.commit.mockResolvedValue({ data: { success: true, status: 'committed', actionId: 'act-1', idsCreated: ['c-1'] } });
+    const { result } = renderHook(() => useAgendaNexus());
+    await act(async () => { await result.current.interpret({ prompt: 'reunião' }); });
+    await act(async () => { await result.current.commit(undefined, { alarm: true }); });
+    expect(callableMocks.commit).toHaveBeenCalledWith({ confirmationToken: 'token-1', confirmed: true, alarm: true });
+  });
+
+  it('omite alarm do commit quando a escolha é apenas anotar', async () => {
+    callableMocks.interpret.mockResolvedValue({ data: proposalResponse });
+    callableMocks.commit.mockResolvedValue({ data: { success: true, status: 'committed', actionId: 'act-1', idsCreated: ['c-1'] } });
+    const { result } = renderHook(() => useAgendaNexus());
+    await act(async () => { await result.current.interpret({ prompt: 'reunião' }); });
+    await act(async () => { await result.current.commit(undefined, { alarm: false }); });
+    expect(callableMocks.commit).toHaveBeenCalledWith({ confirmationToken: 'token-1', confirmed: true });
+  });
+
   it('vai para success e prepara undo sem executar nexusAgendaUndo', async () => {
     callableMocks.interpret.mockResolvedValue({ data: proposalResponse });
     callableMocks.commit.mockResolvedValue({ data: { success: true, status: 'committed', actionId: 'act-1', idsCreated: ['c-1'] } });
@@ -230,5 +250,45 @@ describe('useAgendaNexus', () => {
     act(() => { result.current.cancel(); });
     expect(vi.getTimerCount()).toBe(0);
     await act(async () => { pending.resolve({ data: proposalResponse }); });
+  });
+
+  it('interpreta proposta de exclusão e confirma sem oferecer desfazer', async () => {
+    callableMocks.interpret.mockResolvedValue({
+      data: {
+        success: true,
+        outcome: 'proposal',
+        status: 'awaiting_confirmation',
+        confirmationToken: 'token-del',
+        expiresAtMs: Date.now() + 600000,
+        recap: {
+          intent: 'delete',
+          action: 'delete_commitment',
+          title: 'Reunião com o coordenador de campo',
+          matchCount: 2,
+          affectedItems: [
+            { id: 'a1', title: 'Reunião com o coordenador de campo', dateMs: 0 },
+            { id: 'a2', title: 'Reunião com o coordenador de campo', dateMs: 0 },
+          ],
+          summary: 'Entendi. Encontrei 2 compromissos com esse nome. Pretendo excluí-los permanentemente. Posso prosseguir?',
+        },
+        warnings: [],
+      },
+    });
+    callableMocks.commit.mockResolvedValue({
+      data: { success: true, status: 'committed', intent: 'delete', actionId: 'act-del', idsDeleted: ['a1', 'a2'], occurrenceCount: 2 },
+    });
+    const { result } = renderHook(() => useAgendaNexus());
+
+    await act(async () => { await result.current.interpret({ prompt: 'excluir todos' }); });
+    expect(result.current.stage).toBe('done');
+    expect(result.current.proposal?.matchCount).toBe(2);
+    expect(Array.isArray(result.current.proposal?.affectedItems)).toBe(true);
+
+    await act(async () => { await result.current.commit(); });
+    expect(callableMocks.commit).toHaveBeenCalledWith({ confirmationToken: 'token-del', confirmed: true });
+    expect(result.current.stage).toBe('success');
+    expect(result.current.commitResult?.idsDeleted).toEqual(['a1', 'a2']);
+    expect(result.current.canUndo).toBe(false);
+    expect(result.current.undoContract).toBeNull();
   });
 });

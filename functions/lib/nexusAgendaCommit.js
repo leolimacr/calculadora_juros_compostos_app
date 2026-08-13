@@ -43,7 +43,7 @@ function validatePendingEnvelope(pending) {
         throw new Error(`Proposta inválida: ${result.errors.join('; ')}`);
     return result.data;
 }
-function buildCommitDocuments(uid, envelope, actionId, token) {
+function buildCreateDocuments(uid, envelope, actionId, token, alarm) {
     if (envelope.intent !== 'create' || envelope.action !== 'create_commitment') {
         throw new Error('Somente propostas create_commitment podem ser executadas nesta fase.');
     }
@@ -88,6 +88,8 @@ function buildCommitDocuments(uid, envelope, actionId, token) {
                 ...(until ? { until: timestampForOccurrence(until) } : {}),
             };
         }
+        if (alarm)
+            data.alarmAt = timestampForOccurrence(occurrence, envelope.entities.startTime);
         if (envelope.entities.location !== undefined)
             data.location = envelope.entities.location;
         if (envelope.entities.participants !== undefined)
@@ -99,11 +101,34 @@ function buildCommitDocuments(uid, envelope, actionId, token) {
     void uid;
     return { documents, seriesId, occurrenceCount: documents.length };
 }
+function parseDeleteTargets(value) {
+    if (!Array.isArray(value))
+        return [];
+    return value
+        .filter((item) => Boolean(item) && typeof item.id === 'string' && item.id.length > 0)
+        .map((item) => ({ id: item.id }));
+}
+function buildExecutionPlan(envelope, pendingTargets, actionId, token, alarm) {
+    if (envelope.intent === 'create' && envelope.action === 'create_commitment') {
+        const { documents, seriesId, occurrenceCount } = buildCreateDocuments('', envelope, actionId, token, alarm);
+        return { kind: 'create', documents, seriesId, occurrenceCount };
+    }
+    if (envelope.intent === 'delete' && envelope.action === 'delete_commitment') {
+        const targets = parseDeleteTargets(pendingTargets);
+        if (targets.length === 0)
+            throw new Error('A proposta de exclusão não possui alvos gravados.');
+        return { kind: 'delete', targetIds: targets.map((target) => target.id), occurrenceCount: targets.length };
+    }
+    throw new Error('Somente propostas create_commitment ou delete_commitment podem ser executadas nesta fase.');
+}
 async function executeAgendaCommit(uid, request, dependencies, now = Date.now()) {
     if (!request.confirmed)
         throw new https_1.HttpsError('failed-precondition', 'A confirmação explícita é obrigatória.');
     if (!request.confirmationToken || typeof request.confirmationToken !== 'string') {
         throw new https_1.HttpsError('invalid-argument', 'confirmationToken é obrigatório.');
+    }
+    if (request.alarm !== undefined && typeof request.alarm !== 'boolean') {
+        throw new https_1.HttpsError('invalid-argument', 'alarm deve ser booleano quando informado.');
     }
     const executionId = `exec_${(0, node_crypto_1.createHash)('sha1').update(`${uid}|${request.confirmationToken}|${now}`).digest('hex').slice(0, 20)}`;
     const claimed = await dependencies.claimPending(uid, request.confirmationToken, now, executionId);
@@ -128,40 +153,63 @@ async function executeAgendaCommit(uid, request, dependencies, now = Date.now())
         throw new https_1.HttpsError('failed-precondition', 'A data da proposta é inválida.');
     let documents = [];
     let committedIds = [];
+    let deletedIds = [];
     let seriesId;
+    let intent = 'create';
+    let targetRecords = [];
     try {
         const envelope = validatePendingEnvelope(pending);
-        const built = buildCommitDocuments(uid, envelope, actionId, request.confirmationToken);
-        documents = built.documents;
-        seriesId = built.seriesId;
-        const alreadyExisting = await dependencies.existingIds(uid, documents.map((document) => document.id));
-        if (alreadyExisting.length > 0)
-            throw new Error(`Compromissos já existentes: ${alreadyExisting.join(', ')}`);
-        for (let index = 0; index < documents.length; index += exports.MAX_COMMIT_BATCH_WRITES) {
-            const batchDocuments = documents.slice(index, index + exports.MAX_COMMIT_BATCH_WRITES);
-            await dependencies.writeBatch(uid, batchDocuments);
-            committedIds = committedIds.concat(batchDocuments.map((document) => document.id));
+        const plan = buildExecutionPlan(envelope, pending.targets, actionId, request.confirmationToken, request.alarm === true);
+        intent = plan.kind;
+        if (plan.kind === 'create') {
+            documents = plan.documents;
+            seriesId = plan.seriesId;
+            const alreadyExisting = await dependencies.existingIds(uid, documents.map((document) => document.id));
+            if (alreadyExisting.length > 0)
+                throw new Error(`Compromissos já existentes: ${alreadyExisting.join(', ')}`);
+            for (let index = 0; index < documents.length; index += exports.MAX_COMMIT_BATCH_WRITES) {
+                const batchDocuments = documents.slice(index, index + exports.MAX_COMMIT_BATCH_WRITES);
+                await dependencies.writeBatch(uid, batchDocuments);
+                committedIds = committedIds.concat(batchDocuments.map((document) => document.id));
+            }
+        }
+        else {
+            const existing = await dependencies.existingIds(uid, plan.targetIds);
+            if (existing.length === 0)
+                throw new Error('Nenhum dos compromissos alvo ainda existe.');
+            for (let index = 0; index < existing.length; index += exports.MAX_COMMIT_BATCH_WRITES) {
+                const batch = existing.slice(index, index + exports.MAX_COMMIT_BATCH_WRITES);
+                await dependencies.deleteBatch(uid, batch);
+                deletedIds = deletedIds.concat(batch);
+            }
+            targetRecords = plan.targetIds.map((id) => ({ id }));
         }
         const completedAtMs = Date.now();
         const result = {
             success: true,
             actionId,
             status: 'committed',
+            intent,
             idsCreated: committedIds,
+            idsDeleted: deletedIds,
             seriesId,
-            occurrenceCount: documents.length,
+            occurrenceCount: intent === 'create' ? documents.length : deletedIds.length,
         };
         await dependencies.writeAudit(uid, actionId, {
             actionId,
             uid,
             token: request.confirmationToken,
             status: 'committed',
+            intent,
             idsCreated: result.idsCreated,
+            idsDeleted: result.idsDeleted,
             seriesId,
-            before: null,
-            after: documents
-                .filter((document) => committedIds.includes(document.id))
-                .map((document) => ({ id: document.id, ...document.data })),
+            before: intent === 'delete' ? targetRecords : null,
+            after: intent === 'create'
+                ? documents
+                    .filter((document) => committedIds.includes(document.id))
+                    .map((document) => ({ id: document.id, ...document.data }))
+                : null,
             requestHash: requestHash(uid, request.confirmationToken, request.confirmed),
             createdAtMs,
             completedAtMs,
@@ -171,19 +219,24 @@ async function executeAgendaCommit(uid, request, dependencies, now = Date.now())
     }
     catch (error) {
         const message = error instanceof Error ? error.message : 'Falha desconhecida na gravação.';
-        const status = committedIds.length > 0 ? 'partial' : 'failed';
+        const partial = intent === 'create' ? committedIds.length > 0 : deletedIds.length > 0;
+        const status = partial ? 'partial' : 'failed';
         const completedAtMs = Date.now();
         await dependencies.writeAudit(uid, actionId, {
             actionId,
             uid,
             token: request.confirmationToken,
             status,
+            intent,
             idsCreated: committedIds,
+            idsDeleted: deletedIds,
             seriesId,
-            before: null,
-            after: documents
-                .filter((document) => committedIds.includes(document.id))
-                .map((document) => ({ id: document.id, ...document.data })),
+            before: intent === 'delete' ? targetRecords : null,
+            after: intent === 'create'
+                ? documents
+                    .filter((document) => committedIds.includes(document.id))
+                    .map((document) => ({ id: document.id, ...document.data }))
+                : null,
             requestHash: requestHash(uid, request.confirmationToken, request.confirmed),
             createdAtMs,
             completedAtMs,
@@ -191,8 +244,8 @@ async function executeAgendaCommit(uid, request, dependencies, now = Date.now())
         });
         await dependencies.finalizePending(uid, request.confirmationToken, { status, executionId, error: message });
         throw new https_1.HttpsError('internal', status === 'partial'
-            ? `A gravação foi parcialmente concluída e precisa de reconciliação. (${message})`
-            : `Não foi possível gravar a proposta de agenda. (${message})`);
+            ? `A operação foi parcialmente concluída e precisa de reconciliação. (${message})`
+            : `Não foi possível executar a proposta de agenda. (${message})`);
     }
 }
 function buildFirestoreDependencies(db) {
@@ -234,6 +287,12 @@ function buildFirestoreDependencies(db) {
                 batch.set(db.doc(agendaPath(uid, document.id)), document.data, { merge: false });
             await batch.commit();
         },
+        async deleteBatch(uid, ids) {
+            const batch = db.batch();
+            for (const id of ids)
+                batch.delete(db.doc(agendaPath(uid, id)));
+            await batch.commit();
+        },
         async finalizePending(uid, token, patch) {
             await db.doc(pendingPath(uid, token)).update({ ...patch, updatedAt: firestore_1.Timestamp.now() });
         },
@@ -252,6 +311,10 @@ exports.nexusAgendaCommit = (0, https_1.onCall)({ memory: '1GiB', timeoutSeconds
     if (!data || typeof data.confirmationToken !== 'string' || typeof data.confirmed !== 'boolean') {
         throw new https_1.HttpsError('invalid-argument', 'confirmationToken e confirmed são obrigatórios.');
     }
-    return executeAgendaCommit(uid, { confirmationToken: data.confirmationToken, confirmed: data.confirmed }, buildFirestoreDependencies((0, firestore_1.getFirestore)()));
+    return executeAgendaCommit(uid, {
+        confirmationToken: data.confirmationToken,
+        confirmed: data.confirmed,
+        alarm: typeof data.alarm === 'boolean' ? data.alarm : undefined,
+    }, buildFirestoreDependencies((0, firestore_1.getFirestore)()));
 });
 //# sourceMappingURL=nexusAgendaCommit.js.map

@@ -14,6 +14,7 @@ interface PendingDocument {
     warnings?: unknown;
     executionId?: unknown;
     result?: unknown;
+    targets?: unknown;
 }
 interface CommitDocument {
     id: string;
@@ -24,10 +25,12 @@ interface CommitAudit {
     uid: string;
     token: string;
     status: 'committed' | 'failed' | 'partial';
+    intent: 'create' | 'delete';
     idsCreated: string[];
+    idsDeleted: string[];
     seriesId?: string;
-    before: null;
-    after: Record<string, unknown>[];
+    before: unknown;
+    after: unknown;
     requestHash: string;
     createdAtMs: number;
     completedAtMs: number;
@@ -37,7 +40,9 @@ export interface CommitResult {
     success: true;
     actionId: string;
     status: 'committed';
+    intent: 'create' | 'delete';
     idsCreated: string[];
+    idsDeleted: string[];
     seriesId?: string;
     occurrenceCount: number;
 }
@@ -54,12 +59,14 @@ export interface CommitDependencies {
     }>;
     existingIds(uid: string, ids: string[]): Promise<string[]>;
     writeBatch(uid: string, documents: CommitDocument[]): Promise<void>;
+    deleteBatch(uid: string, ids: string[]): Promise<void>;
     finalizePending(uid: string, token: string, patch: Record<string, unknown>): Promise<void>;
     writeAudit(uid: string, actionId: string, audit: CommitAudit): Promise<void>;
 }
 export interface CommitRequest {
     confirmationToken: string;
     confirmed: boolean;
+    alarm?: boolean;
 }
 export declare function requireCommitAuth(request: {
     auth?: {

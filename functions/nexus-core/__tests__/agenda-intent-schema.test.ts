@@ -78,6 +78,18 @@ describe('agenda-intent-schema parseAgendaEnvelope', () => {
 
       expect(result.ok).toBe(true);
     });
+
+    it('aceita delete com entities.filter de título', () => {
+      const raw = JSON.stringify({
+        intent: 'delete',
+        action: 'delete_commitment',
+        entities: { filter: { field: 'title', value: 'Reunião com o coordenador de campo' } },
+      });
+      const result = parseAgendaEnvelope(raw);
+
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.data.entities.filter?.value).toBe('Reunião com o coordenador de campo');
+    });
   });
 
   describe('JSON malformado', () => {
@@ -313,6 +325,28 @@ describe('agenda-intent-schema validateAgendaEnvelope', () => {
       assumptions: [],
     };
     expect(validateAgendaEnvelope(env).valid).toBe(true);
+  });
+
+  it('aceita delete identificado apenas por entities.filter', () => {
+    const env: AgendaEnvelope = {
+      intent: 'delete',
+      action: 'delete_commitment',
+      entities: { filter: { field: 'title', value: 'Almoço com a família' } },
+      missing: [],
+      ambiguous: [],
+      assumptions: [],
+    };
+    expect(validateAgendaEnvelope(env).valid).toBe(true);
+  });
+
+  it('rejeita filter.field fora do enum title|date', () => {
+    const raw = JSON.stringify({
+      intent: 'delete',
+      action: 'delete_commitment',
+      entities: { filter: { field: 'location', value: 'Sala 3' } },
+    });
+    const result = parseAgendaEnvelope(raw);
+    expect(result.ok).toBe(false);
   });
 
   it('rejeita recorrência weekly sem byDay', () => {

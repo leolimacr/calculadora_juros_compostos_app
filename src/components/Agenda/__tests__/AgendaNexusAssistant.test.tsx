@@ -227,4 +227,94 @@ describe('AgendaNexusAssistant', () => {
     fireEvent.keyDown(input, { key: 'Tab' });
     expect(document.activeElement).toBe(input);
   });
+
+  it('pergunta sobre alarme/anotação na proposta e confirma com "apenas anotar" por padrão', () => {
+    configure({ stage: 'done', proposal });
+    render(<AgendaNexusAssistant />);
+    expect(screen.getByRole('radio', { name: 'Ativar alarme' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Apenas anotar' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /confirmar criação/i }));
+    expect(mockNexus.commit).toHaveBeenCalledWith(undefined, { alarm: false });
+  });
+
+  it('envia alarm true ao confirmar quando o usuário escolhe ativar o alarme', () => {
+    configure({ stage: 'done', proposal });
+    render(<AgendaNexusAssistant />);
+    fireEvent.click(screen.getByRole('radio', { name: 'Ativar alarme' }));
+    fireEvent.click(screen.getByRole('button', { name: /confirmar criação/i }));
+    expect(mockNexus.commit).toHaveBeenCalledWith(undefined, { alarm: true });
+  });
+
+  it('não oferece a escolha de alarme quando não há proposta confirmável', () => {
+    configure({ stage: 'clarify', proposal: { ...proposal, summary: undefined }, missing: ['date'] });
+    render(<AgendaNexusAssistant />);
+    expect(screen.queryByRole('radio', { name: 'Ativar alarme' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /confirmar criação/i })).not.toBeInTheDocument();
+  });
+
+  it('renderiza plano de exclusão com preview dos itens afetados e confirma sem alarme', () => {
+    const deleteProposal = {
+      intent: 'delete',
+      action: 'delete_commitment',
+      title: 'Reunião com o coordenador de campo',
+      matchCount: 2,
+      affectedItems: [
+        { id: 'a1', title: 'Reunião com o coordenador de campo', time: '18:00', dateMs: 0 },
+        { id: 'a2', title: 'Reunião com o coordenador de campo', time: '09:00', dateMs: 0 },
+      ],
+      summary: 'Entendi. Encontrei 2 compromissos com esse nome. Pretendo excluí-los permanentemente. Posso prosseguir?',
+    };
+    configure({ stage: 'done', proposal: deleteProposal });
+    render(<AgendaNexusAssistant />);
+
+    expect(screen.getByRole('button', { name: /confirmar exclusão/i })).toBeInTheDocument();
+    expect(screen.getByLabelText('Itens que serão excluídos')).toBeInTheDocument();
+    expect(screen.getByText('2 compromissos serão excluídos')).toBeInTheDocument();
+    expect(screen.getAllByText('Reunião com o coordenador de campo').length).toBeGreaterThan(0);
+    expect(screen.queryByRole('radio', { name: 'Ativar alarme' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /confirmar criação/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /confirmar exclusão/i }));
+    expect(mockNexus.commit).toHaveBeenCalledWith(undefined, { alarm: false });
+  });
+
+  it('exibe sucesso de exclusão sem oferecer desfazer', () => {
+    const deleteProposal = {
+      intent: 'delete',
+      action: 'delete_commitment',
+      title: 'Reunião com o coordenador de campo',
+      matchCount: 2,
+      affectedItems: [{ id: 'a1', title: 'Reunião com o coordenador de campo', dateMs: 0 }],
+      summary: 'Entendi. Encontrei 2 compromissos.',
+    };
+    configure({
+      stage: 'success',
+      proposal: deleteProposal,
+      commitResult: { success: true, status: 'committed', intent: 'delete', actionId: 'act-del', idsDeleted: ['a1', 'a2'], occurrenceCount: 2 },
+      canUndo: false,
+    });
+    render(<AgendaNexusAssistant />);
+    expect(screen.getByRole('status')).toHaveTextContent('Pronto! 2 compromissos excluídos com sucesso.');
+    expect(screen.queryByRole('button', { name: 'Desfazer' })).not.toBeInTheDocument();
+  });
+
+  it('avisa quando parte dos compromissos não foi encontrada na exclusão', () => {
+    const deleteProposal = {
+      intent: 'delete',
+      action: 'delete_commitment',
+      title: 'Reunião com o coordenador de campo',
+      matchCount: 5,
+      affectedItems: [{ id: 'a1', title: 'Reunião com o coordenador de campo', dateMs: 0 }],
+      summary: 'Entendi. Encontrei 5 compromissos.',
+    };
+    configure({
+      stage: 'success',
+      proposal: deleteProposal,
+      commitResult: { success: true, status: 'committed', intent: 'delete', actionId: 'act-del', idsDeleted: ['a1', 'a2'], occurrenceCount: 2 },
+      canUndo: false,
+    });
+    render(<AgendaNexusAssistant />);
+    expect(screen.getByRole('status')).toHaveTextContent('Pronto! 2 compromissos excluídos com sucesso.');
+    expect(screen.getByText(/3 compromissos não foram encontrados na agenda/)).toBeInTheDocument();
+  });
 });
