@@ -359,7 +359,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
         <Route path="metas" element={<React.Suspense fallback={<DashboardSkeleton />}><GoalManager userId={user?.uid} userMeta={userMeta} /></React.Suspense>} />
 
         {/* FERRAMENTAS */}
-        <Route path="ferramentas/fire" element={<React.Suspense fallback={<DashboardSkeleton />}><FireCalculatorTool onNavigate={handleNavigate} isAuthenticated={isAuthenticated} /></React.Suspense>} />
+        <Route path="ferramentas/fire" element={<React.Suspense fallback={<DashboardSkeleton />}><FireCalculatorTool onNavigate={handleNavigate} isAuthenticated={isAuthenticated} isPro={isPro} isPremium={isPremium} /></React.Suspense>} />
         <Route path="ferramentas/juros" element={<React.Suspense fallback={<DashboardSkeleton />}><CompoundInterestTool onNavigate={handleNavigate} isAuthenticated={isAuthenticated} /></React.Suspense>} />
         <Route path="ferramentas/inflacao" element={<React.Suspense fallback={<DashboardSkeleton />}><InflationTool onNavigate={handleNavigate} isAuthenticated={isAuthenticated} /></React.Suspense>} />
         <Route path="ferramentas/alugar" element={<React.Suspense fallback={<DashboardSkeleton />}><RentVsFinanceTool onNavigate={handleNavigate} isAuthenticated={isAuthenticated} /></React.Suspense>} />
