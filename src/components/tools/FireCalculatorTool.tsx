@@ -571,7 +571,7 @@ export const FireCalculatorTool: React.FC<FireCalculatorToolProps> = ({
         <div className="w-full lg:w-1/2 flex flex-col gap-6">
 
           {/* Result panel */}
-          <div className="sticky top-8 bg-gradient-to-br from-white to-orange-50/60 border border-orange-100 rounded-[2.5rem] p-7 md:p-10 shadow-[0_20px_60px_rgba(249,115,22,0.10)]">
+          <div className="bg-gradient-to-br from-white to-orange-50/60 border border-orange-100 rounded-[2.5rem] p-7 md:p-10 shadow-[0_20px_60px_rgba(249,115,22,0.10)]">
 
             {/* FIRE Number */}
             <div className="mb-8 text-center">
