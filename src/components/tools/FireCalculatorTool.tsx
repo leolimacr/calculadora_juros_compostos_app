@@ -18,6 +18,11 @@ import {
   Info,
   RotateCcw,
   Sparkles,
+  Table as TableIcon,
+  Download,
+  Calculator,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -34,6 +39,13 @@ import {
 
 const fmtMoney = (n: number) =>
   'R$ ' + n.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+
+const fmtMoneyExact = (n: number) =>
+  'R$ ' +
+  n.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
 const formatMoneyInput = (value: number | '') => {
   if (value === '' || value === null || Number.isNaN(Number(value))) return '';
@@ -331,14 +343,28 @@ const CustomTooltip = ({ active, payload }: any) => {
   );
 };
 
-// ─── Componente Principal ───────────────────────────────────────────────────
+// ─── Tipagens da Planilha ───────────────────────────────────────────────────
 
-interface FireCalculatorToolProps {
-  onNavigate: (route: string) => void;
-  onCalcUpdate?: (data: { type: string; label: string; details: string }) => void;
-  isAuthenticated: boolean;
-  isPro?: boolean;
-  isPremium?: boolean;
+export interface FireMonthlyRow {
+  month: number;
+  year: number;
+  monthInYear: number;
+  startingBalance: number;
+  investment: number;
+  interest: number;
+  endingBalance: number;
+  passiveIncome: number;
+  isFireAchievedMonth: boolean;
+}
+
+export interface FireYearlyRow {
+  year: number;
+  startingBalance: number;
+  totalInvested: number;
+  totalInterest: number;
+  endingBalance: number;
+  passiveIncome: number;
+  isFireAchievedYear: boolean;
 }
 
 interface CalculatedState {
@@ -355,6 +381,385 @@ interface CalculatedState {
   currentWealth: number;
   withdrawalRate: number;
   returnRate: number;
+  monthlyRate: number;
+  monthlyBreakdown: FireMonthlyRow[];
+  yearlyBreakdown: FireYearlyRow[];
+}
+
+// ─── Componente da Planilha Transparente e Memória de Cálculo ───────────────
+
+interface FireSpreadsheetSectionProps {
+  result: CalculatedState;
+}
+
+const FireSpreadsheetSection: React.FC<FireSpreadsheetSectionProps> = ({ result }) => {
+  const [viewMode, setViewMode] = useState<'yearly' | 'monthly'>('yearly');
+  const [selectedYear, setSelectedYear] = useState<number>(1);
+
+  const totalYears = result.yearlyBreakdown.length;
+  const currentYearMonthlyData = result.monthlyBreakdown.filter(
+    (m) => m.year === selectedYear
+  );
+
+  const handleDownloadCSV = () => {
+    if (!result || !result.monthlyBreakdown.length) return;
+
+    const headers = [
+      'Mes_Global',
+      'Ano',
+      'Mes_Do_Ano',
+      'Saldo_Inicial_R$',
+      'Aporte_Mensal_R$',
+      'Rendimento_Juros_R$',
+      'Saldo_Final_R$',
+      'Renda_Passiva_Mensal_Gerada_R$',
+      'Meta_FIRE_Atingida',
+    ];
+
+    const rows = result.monthlyBreakdown.map((r) => [
+      r.month,
+      r.year,
+      r.monthInYear,
+      r.startingBalance.toFixed(2),
+      r.investment.toFixed(2),
+      r.interest.toFixed(2),
+      r.endingBalance.toFixed(2),
+      r.passiveIncome.toFixed(2),
+      r.isFireAchievedMonth ? 'SIM' : 'NAO',
+    ]);
+
+    const csvContent = [headers.join(';'), ...rows.map((e) => e.join(';'))].join('\n');
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `planilha_fire_financas_pro_invest.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const totalDeposited =
+    result.currentWealth +
+    result.monthlyBreakdown.reduce((acc, cur) => acc + cur.investment, 0);
+
+  const totalInterestEarned = result.monthlyBreakdown.reduce(
+    (acc, cur) => acc + cur.interest,
+    0
+  );
+
+  const lastRow = result.monthlyBreakdown[result.monthlyBreakdown.length - 1];
+  const finalBalance = lastRow ? lastRow.endingBalance : result.fireNumber;
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-[2.5rem] p-6 md:p-8 shadow-sm space-y-8">
+      {/* Cabeçalho da Seção de Transparência */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+        <div>
+          <h4 className="text-base md:text-lg font-black text-slate-900 flex items-center gap-2">
+            <TableIcon className="text-orange-500" size={20} />
+            Transparência Matemática · Planilha de Evolução
+          </h4>
+          <p className="text-xs text-slate-500 mt-1">
+            Entenda exatamente como cada centavo do seu dinheiro cresce mês a mês através dos juros compostos.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleDownloadCSV}
+          className="self-start sm:self-auto flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 hover:border-orange-300 hover:bg-orange-50 text-slate-700 hover:text-orange-900 font-bold text-xs transition-all cursor-pointer"
+          title="Baixar planilha completa em formato CSV para Excel ou Google Planilhas"
+        >
+          <Download size={14} className="text-orange-500" />
+          <span>Baixar Planilha (.csv)</span>
+        </button>
+      </div>
+
+      {/* Memória de Cálculo / Fórmulas Utilizadas */}
+      <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Calculator size={16} className="text-orange-600" />
+          <h5 className="text-xs font-black text-slate-800 uppercase tracking-wider">
+            Memória de Cálculo e Fórmulas Oficiais
+          </h5>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+            <p className="text-[10px] font-black text-slate-400 uppercase">1. Número FIRE</p>
+            <p className="text-xs font-mono font-bold text-slate-800 mt-1">
+              Gasto × 12 ÷ Retirada
+            </p>
+            <p className="text-[11px] text-orange-600 font-semibold mt-1">
+              {fmtMoney(result.monthlyExpense)} × 12 ÷ {(result.withdrawalRate * 100).toFixed(0)}% ={' '}
+              <strong>{fmtMoney(result.fireNumber)}</strong>
+            </p>
+          </div>
+
+          <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+            <p className="text-[10px] font-black text-slate-400 uppercase">2. Taxa Mensal Efetiva</p>
+            <p className="text-xs font-mono font-bold text-slate-800 mt-1">
+              (1 + i_anual)^(1/12) - 1
+            </p>
+            <p className="text-[11px] text-orange-600 font-semibold mt-1">
+              (1 + {result.returnRate / 100})^(1/12) - 1 ={' '}
+              <strong>{(result.monthlyRate * 100).toFixed(4)}% a.m.</strong>
+            </p>
+          </div>
+
+          <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+            <p className="text-[10px] font-black text-slate-400 uppercase">3. Juros do Mês</p>
+            <p className="text-xs font-mono font-bold text-slate-800 mt-1">
+              Saldo Inicial × Taxa Mensal
+            </p>
+            <p className="text-[11px] text-slate-600 mt-1">
+              Os juros incidem sobre o saldo acumulado antes do novo aporte.
+            </p>
+          </div>
+
+          <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+            <p className="text-[10px] font-black text-slate-400 uppercase">4. Renda Mensal Gerada</p>
+            <p className="text-xs font-mono font-bold text-slate-800 mt-1">
+              Saldo × Retirada ÷ 12
+            </p>
+            <p className="text-[11px] text-slate-600 mt-1">
+              Mostra quanto de renda passiva mensal perpétua seu saldo já produz.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Resumo de Aportes Próprios vs Juros Gerados */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+            Total do Seu Bolso (Aportes)
+          </p>
+          <p className="text-xl font-black text-slate-900 mt-1">
+            {fmtMoney(totalDeposited)}
+          </p>
+          <p className="text-[10px] text-slate-500 mt-0.5">
+            Capital investido por você
+          </p>
+        </div>
+
+        <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-2xl">
+          <p className="text-[10px] font-black text-emerald-700 uppercase tracking-wider">
+            Total Gerado por Juros
+          </p>
+          <p className="text-xl font-black text-emerald-800 mt-1">
+            {fmtMoney(totalInterestEarned)}
+          </p>
+          <p className="text-[10px] text-emerald-600 mt-0.5">
+            Efeito multiplicador da bola de neve
+          </p>
+        </div>
+
+        <div className="p-4 bg-orange-50/70 border border-orange-200 rounded-2xl">
+          <p className="text-[10px] font-black text-orange-700 uppercase tracking-wider">
+            Patrimônio Final Projetado
+          </p>
+          <p className="text-xl font-black text-orange-900 mt-1">
+            {fmtMoney(finalBalance)}
+          </p>
+          <p className="text-[10px] text-orange-600 mt-0.5">
+            Liberdade financeira garantida
+          </p>
+        </div>
+      </div>
+
+      {/* Seletor de Visão (Anual vs Mês a Mês) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+        <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-xl w-fit">
+          <button
+            type="button"
+            onClick={() => setViewMode('yearly')}
+            className={`px-4 py-2 rounded-lg text-xs font-black transition-all ${
+              viewMode === 'yearly'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            Visão Consolidada Anual
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('monthly')}
+            className={`px-4 py-2 rounded-lg text-xs font-black transition-all ${
+              viewMode === 'monthly'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            Detalhamento Mês a Mês
+          </button>
+        </div>
+
+        {viewMode === 'monthly' && (
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <span className="text-xs font-bold text-slate-500">Exibindo:</span>
+            <button
+              type="button"
+              disabled={selectedYear <= 1}
+              onClick={() => setSelectedYear((y) => Math.max(1, y - 1))}
+              className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              className="bg-white border border-slate-200 text-xs font-black text-slate-800 py-1.5 px-3 rounded-lg outline-none cursor-pointer"
+            >
+              {Array.from({ length: totalYears }, (_, i) => i + 1).map((y) => (
+                <option key={y} value={y}>
+                  Ano {y}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              disabled={selectedYear >= totalYears}
+              onClick={() => setSelectedYear((y) => Math.min(totalYears, y + 1))}
+              className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Tabela de Dados */}
+      <div className="border border-slate-200 rounded-2xl overflow-x-auto shadow-2xs">
+        {viewMode === 'yearly' ? (
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 text-slate-600 font-black border-b border-slate-200 uppercase tracking-wider text-[10px]">
+              <tr>
+                <th className="py-3.5 px-4">Ano</th>
+                <th className="py-3.5 px-4 text-right">Saldo Inicial</th>
+                <th className="py-3.5 px-4 text-right">Aportado no Ano</th>
+                <th className="py-3.5 px-4 text-right">Juros Ganhos</th>
+                <th className="py-3.5 px-4 text-right">Saldo Final</th>
+                <th className="py-3.5 px-4 text-right">Renda Mensal Gerada</th>
+                <th className="py-3.5 px-4 text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+              {result.yearlyBreakdown.map((row) => (
+                <tr
+                  key={row.year}
+                  className={`hover:bg-slate-50/80 transition-colors ${
+                    row.isFireAchievedYear
+                      ? 'bg-emerald-50/80 font-bold border-l-4 border-l-emerald-500'
+                      : ''
+                  }`}
+                >
+                  <td className="py-3 px-4 font-black text-slate-900">Ano {row.year}</td>
+                  <td className="py-3 px-4 text-right">{fmtMoneyExact(row.startingBalance)}</td>
+                  <td className="py-3 px-4 text-right text-slate-900 font-bold">
+                    {fmtMoneyExact(row.totalInvested)}
+                  </td>
+                  <td className="py-3 px-4 text-right text-emerald-600 font-bold">
+                    +{fmtMoneyExact(row.totalInterest)}
+                  </td>
+                  <td className="py-3 px-4 text-right font-black text-slate-900">
+                    {fmtMoneyExact(row.endingBalance)}
+                  </td>
+                  <td className="py-3 px-4 text-right text-orange-600 font-black">
+                    {fmtMoneyExact(row.passiveIncome)}/mês
+                  </td>
+                  <td className="py-3 px-4 text-center">
+                    {row.isFireAchievedYear ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-800 bg-emerald-100/80 px-2.5 py-1 rounded-full">
+                        🏁 Meta FIRE!
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 font-bold">
+                        {Math.min(
+                          (row.endingBalance / result.fireNumber) * 100,
+                          100
+                        ).toFixed(0)}
+                        %
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 text-slate-600 font-black border-b border-slate-200 uppercase tracking-wider text-[10px]">
+              <tr>
+                <th className="py-3.5 px-4">Período</th>
+                <th className="py-3.5 px-4 text-right">Saldo Inicial</th>
+                <th className="py-3.5 px-4 text-right">Aporte do Mês</th>
+                <th className="py-3.5 px-4 text-right">Juros do Mês</th>
+                <th className="py-3.5 px-4 text-right">Saldo Final</th>
+                <th className="py-3.5 px-4 text-right">Renda Mensal Gerada</th>
+                <th className="py-3.5 px-4 text-center">Conquista</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+              {currentYearMonthlyData.map((row) => (
+                <tr
+                  key={row.month}
+                  className={`hover:bg-slate-50/80 transition-colors ${
+                    row.isFireAchievedMonth
+                      ? 'bg-emerald-50/90 font-bold border-l-4 border-l-emerald-500'
+                      : ''
+                  }`}
+                >
+                  <td className="py-3 px-4 font-black text-slate-900">
+                    Mês {row.month} <span className="text-slate-400 font-normal">({row.monthInYear}º do Ano {row.year})</span>
+                  </td>
+                  <td className="py-3 px-4 text-right">{fmtMoneyExact(row.startingBalance)}</td>
+                  <td className="py-3 px-4 text-right text-slate-900 font-bold">
+                    {fmtMoneyExact(row.investment)}
+                  </td>
+                  <td className="py-3 px-4 text-right text-emerald-600 font-bold">
+                    +{fmtMoneyExact(row.interest)}
+                  </td>
+                  <td className="py-3 px-4 text-right font-black text-slate-900">
+                    {fmtMoneyExact(row.endingBalance)}
+                  </td>
+                  <td className="py-3 px-4 text-right text-orange-600 font-black">
+                    {fmtMoneyExact(row.passiveIncome)}/mês
+                  </td>
+                  <td className="py-3 px-4 text-center">
+                    {row.isFireAchievedMonth ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-full">
+                        🏁 Atingiu o FIRE aqui!
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 font-bold">
+                        {Math.min(
+                          (row.endingBalance / result.fireNumber) * 100,
+                          100
+                        ).toFixed(0)}
+                        %
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ─── Componente Principal ───────────────────────────────────────────────────
+
+interface FireCalculatorToolProps {
+  onNavigate: (route: string) => void;
+  onCalcUpdate?: (data: { type: string; label: string; details: string }) => void;
+  isAuthenticated: boolean;
+  isPro?: boolean;
+  isPremium?: boolean;
 }
 
 export const FireCalculatorTool: React.FC<FireCalculatorToolProps> = ({
@@ -439,6 +844,77 @@ export const FireCalculatorTool: React.FC<FireCalculatorToolProps> = ({
       }
     }
 
+    // ── Geração da Planilha Mês a Mês Completa ─────────────────────────────
+    const monthlyBreakdown: FireMonthlyRow[] = [];
+    const yearlyBreakdown: FireYearlyRow[] = [];
+
+    // Limitar o cálculo da planilha até 2 anos pós-FIRE ou 30 anos (360 meses)
+    const breakdownTotalMonths = alreadyFire
+      ? 24
+      : Math.min((months || 360) + 24, 360);
+
+    let curBalance = wealth;
+    let fireTriggered = alreadyFire;
+
+    let currentYearInvested = 0;
+    let currentYearInterest = 0;
+    let currentYearStart = wealth;
+
+    for (let m = 1; m <= breakdownTotalMonths; m++) {
+      const yearIndex = Math.ceil(m / 12);
+      const monthInYear = ((m - 1) % 12) + 1;
+
+      const start = curBalance;
+      const interest = start * monthlyRate;
+      const invest = monthly;
+      const end = start + interest + invest;
+      const passiveInc = end * (withdrawalRate / 12);
+
+      let isFireAchievedMonth = false;
+      if (!fireTriggered && end >= fireNumber) {
+        isFireAchievedMonth = true;
+        fireTriggered = true;
+      }
+
+      monthlyBreakdown.push({
+        month: m,
+        year: yearIndex,
+        monthInYear,
+        startingBalance: start,
+        investment: invest,
+        interest,
+        endingBalance: end,
+        passiveIncome: passiveInc,
+        isFireAchievedMonth,
+      });
+
+      currentYearInvested += invest;
+      currentYearInterest += interest;
+      curBalance = end;
+
+      // Ao fechar 12 meses ou no último mês do loop, consolidar o ano
+      if (monthInYear === 12 || m === breakdownTotalMonths) {
+        const isFireAchievedYear =
+          monthlyBreakdown
+            .filter((row) => row.year === yearIndex)
+            .some((row) => row.isFireAchievedMonth) || (alreadyFire && yearIndex === 1);
+
+        yearlyBreakdown.push({
+          year: yearIndex,
+          startingBalance: currentYearStart,
+          totalInvested: currentYearInvested,
+          totalInterest: currentYearInterest,
+          endingBalance: end,
+          passiveIncome: passiveInc,
+          isFireAchievedYear,
+        });
+
+        currentYearStart = end;
+        currentYearInvested = 0;
+        currentYearInterest = 0;
+      }
+    }
+
     const fireYear =
       yearsToFire !== null && yearsToFire > 0
         ? Math.round(yearsToFire * 10) / 10
@@ -463,6 +939,9 @@ export const FireCalculatorTool: React.FC<FireCalculatorToolProps> = ({
       currentWealth: wealth,
       withdrawalRate,
       returnRate: rate,
+      monthlyRate,
+      monthlyBreakdown,
+      yearlyBreakdown,
     };
 
     setResult(newResult);
@@ -807,6 +1286,9 @@ export const FireCalculatorTool: React.FC<FireCalculatorToolProps> = ({
                 </div>
               </div>
             )}
+
+            {/* ── Planilha Detalhada e Memória de Cálculo ───────────────── */}
+            <FireSpreadsheetSection result={result} />
           </div>
         )}
 
