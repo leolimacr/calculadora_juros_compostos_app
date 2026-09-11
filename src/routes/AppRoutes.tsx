@@ -44,6 +44,7 @@ const DividendsTool = lazy(() => import('../components/tools/DividendsTool').the
 const BuyCashOrInstallInvestTool = lazy(() => import('../components/tools/buy-cash-or-installments/BuyCashOrInstallInvestTool'));
 const TermsPage = lazy(() => import('../components/TermsPage').then((mod) => ({ default: mod.TermsPage })));
 const PrivacyPage = lazy(() => import('../components/PrivacyPage').then((mod) => ({ default: mod.PrivacyPage })));
+const DownloadPage = lazy(() => import('../pages/DownloadPage'));
 
 interface AppRoutesProps {
   state: ReturnType<typeof useAppState>;
@@ -182,6 +183,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
 
         <Route path="/termos" element={<React.Suspense fallback={<AppLoadingScreen />}><TermsPage /></React.Suspense>} />
         <Route path="/privacidade" element={<React.Suspense fallback={<AppLoadingScreen />}><PrivacyPage /></React.Suspense>} />
+        <Route path="/download" element={<React.Suspense fallback={<AppLoadingScreen />}><DownloadPage /></React.Suspense>} />
 
         {/* ARTIGOS */}
         <Route path="/artigos/investir-2026" element={(() => {

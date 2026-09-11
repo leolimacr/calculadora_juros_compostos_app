@@ -22,6 +22,7 @@ export const TOOL_ROUTES: Record<string, string> = {
   register: '/register',
   termos: '/termos',
   privacidade: '/privacidade',
+  download: '/download',
   'tool-fire': '/app/ferramentas/fire',
   'tool-juros': '/app/ferramentas/juros',
   'tool-inflacao': '/app/ferramentas/inflacao',

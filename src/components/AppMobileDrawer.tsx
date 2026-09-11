@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, LayoutDashboard, BarChart3, CreditCard, Compass, Settings, Sparkles, LogOut, ChevronRight, Crown } from 'lucide-react';
+import { X, LayoutDashboard, BarChart3, CreditCard, Compass, Settings, Sparkles, LogOut, ChevronRight, Crown, Share2 } from 'lucide-react';
 import { useNavigation } from '../hooks/useNavigation';
 import { useEntitlement } from '../hooks/useEntitlement';
 import type { UserMeta } from '../types';
@@ -175,6 +175,27 @@ const AppMobileDrawer: React.FC<AppMobileDrawerProps> = ({
               Explorar
             </span>
             <ChevronRight size={16} className="text-slate-400" />
+          </button>
+
+          <button
+            onClick={() => {
+              onClose();
+              handleNavigate('download');
+            }}
+            className="w-full flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-r from-sky-50 to-emerald-50 border border-sky-200/70 hover:border-sky-300 transition-all active:scale-95 text-left group"
+          >
+            <div className="p-2 bg-white rounded-lg text-sky-600 shadow-sm group-hover:scale-110 transition-transform">
+              <Share2 size={18} />
+            </div>
+            <div className="flex-1">
+              <span className="block text-[13px] font-black text-slate-800 uppercase tracking-wider">
+                Indicar / Baixar App
+              </span>
+              <span className="block text-[10px] text-slate-500 font-medium">
+                Compartilhe o app com amigos
+              </span>
+            </div>
+            <ChevronRight size={16} className="text-sky-500" />
           </button>
         </div>
 

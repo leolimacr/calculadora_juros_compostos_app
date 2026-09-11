@@ -3,7 +3,7 @@ import {
   User, ShieldCheck, CreditCard, FileText,
   Pencil, Check, ChevronRight, ExternalLink, ArrowLeft, Lock, X,
   Trash2, Smartphone, AlertTriangle, Loader2, Bell,
-  House, LayoutGrid, Crown, Brain
+  House, LayoutGrid, Crown, Brain, Share2
 } from 'lucide-react';
 import { FPI_COPY } from '../theme/fpiVoiceGuide';
 import { auth, functions } from '../firebase';
@@ -603,7 +603,30 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
         </div>
       </div>
 
-      {/* 5. DADOS */}
+      {/* 5. INDICAÇÃO / COMPARTILHAR APP */}
+      <div className="rounded-[2rem] border border-sky-200/80 bg-gradient-to-r from-sky-50/70 via-white to-emerald-50/50 shadow-card p-6 md:p-8 mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        <div className="flex items-center gap-5">
+          <div className="w-14 h-14 bg-sky-600 rounded-2xl flex items-center justify-center text-white shadow-md shadow-sky-600/20 shrink-0">
+            <Share2 size={26} />
+          </div>
+          <div>
+            <h4 className="text-base font-black text-slate-900 uppercase tracking-tight">
+              Indicar o Finanças Pro Invest
+            </h4>
+            <p className="text-xs text-slate-600 mt-1 max-w-xl leading-relaxed">
+              Compartilhe o aplicativo com seus amigos e familiares para que eles também organizem suas finanças com clareza e soberania.
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => navigate('/download')}
+          className="w-full md:w-auto px-6 py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 shrink-0"
+        >
+          <Share2 size={16} /> Ver Página de Download
+        </button>
+      </div>
+
+      {/* 6. DADOS */}
       <div className="space-y-6 mb-6">
         <div className="grid md:grid-cols-2 gap-6">
           <button
