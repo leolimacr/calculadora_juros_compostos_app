@@ -279,7 +279,7 @@ const AppLayoutInner: React.FC<AppLayoutProps> = ({ state }) => {
   }, [user, recurringBills, addToast, handleNavigate]);
 
   return (
-    <div className="min-h-screen bg-surface-secondary text-text-primary flex flex-col font-sans animate-in fade-in duration-300">
+    <div className="h-screen h-[100dvh] overflow-hidden bg-surface-secondary text-text-primary flex flex-col font-sans animate-in fade-in duration-300">
       <AppHeader
         isAuthenticated={isAuthenticated}
         userMeta={userMeta}
