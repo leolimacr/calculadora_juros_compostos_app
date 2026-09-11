@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { PanelLeftClose, PanelLeftOpen, Plus } from 'lucide-react';
+import { PanelLeftClose, PanelLeftOpen, Plus, Smartphone } from 'lucide-react';
 import { useNavigation } from '../hooks/useNavigation';
 import { PRIMARY_NAV_ITEMS } from '../config/appPrimaryNav';
 import type { PrimaryNavItem } from '../config/appPrimaryNav';

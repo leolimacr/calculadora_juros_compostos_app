@@ -36,6 +36,8 @@ import { useUpcomingCommitments } from '../hooks/useUpcomingCommitments';
 
 import AppOnlyBlock from '../components/AppOnlyBlock';
 import AppDesktopNav from '../components/AppDesktopNav';
+import MobileAppGate from '../components/MobileAppGate';
+import DownloadQrModal from '../components/DownloadQrModal';
 import { ExclusionsProvider, useExclusionAmount } from '../contexts/ExclusionsContext';
 
 interface AppLayoutProps {
@@ -73,6 +75,8 @@ const AppLayoutInner: React.FC<AppLayoutProps> = ({ state }) => {
     routerNavigate,
     isMobileBrowser,
   } = state;
+
+  const [isDownloadQrOpen, setIsDownloadQrOpen] = React.useState(false);
 
   useEventSubscriptions(user?.uid);
   useNexusEventBridge(user?.uid, userMeta?.persona?.archetype);
@@ -287,6 +291,7 @@ const AppLayoutInner: React.FC<AppLayoutProps> = ({ state }) => {
         isNotificationsOpen={isNotificationsOpen}
         onOpenNotifications={setIsNotificationsOpen}
         showDesktopNav={showDesktopNav}
+        onOpenDownloadQr={() => setIsDownloadQrOpen(true)}
       />
 
       <div className="flex flex-1 min-h-0 pt-[calc(4rem+env(safe-area-inset-top))]">
@@ -318,6 +323,13 @@ const AppLayoutInner: React.FC<AppLayoutProps> = ({ state }) => {
           onAdd={openTransactionForm}
         />
       )}
+
+      <MobileAppGate isMobileBrowser={isMobileBrowser} isAuthenticated={isAuthenticated} />
+
+      <DownloadQrModal
+        isOpen={isDownloadQrOpen}
+        onClose={() => setIsDownloadQrOpen(false)}
+      />
 
       <AppOnlyBlock isMobileBrowser={isMobileBrowser} hasBottomNav={isAuthenticated && !isAppLocked && isMobile} />
 

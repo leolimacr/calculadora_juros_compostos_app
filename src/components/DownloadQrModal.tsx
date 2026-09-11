@@ -1,0 +1,95 @@
+import React, { useState } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
+import { X, Smartphone, Check, Copy, ExternalLink } from 'lucide-react';
+
+interface DownloadQrModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const DOWNLOAD_URL = 'https://www.financasproinvest.com.br/download';
+
+export const DownloadQrModal: React.FC<DownloadQrModalProps> = ({ isOpen, onClose }) => {
+  const [copied, setCopied] = useState(false);
+
+  if (!isOpen) return null;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(DOWNLOAD_URL);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[150] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <div 
+        className="bg-white border border-slate-200 rounded-[2.5rem] p-8 md:p-10 max-w-md w-full shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-6 right-6 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+          aria-label="Fechar modal"
+        >
+          <X size={20} />
+        </button>
+
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200/60 flex items-center justify-center shrink-0">
+            <Smartphone size={24} />
+          </div>
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 block">
+              Aplicativo Mobile
+            </span>
+            <h3 className="text-xl font-black text-slate-900 tracking-tight">
+              Instale no seu Celular
+            </h3>
+          </div>
+        </div>
+
+        <p className="text-xs text-slate-500 leading-relaxed mb-6">
+          Aponte a câmera do seu smartphone para o QR Code abaixo e acesse a página de download do instalador oficial do <strong>Finanças Pro Invest</strong>.
+        </p>
+
+        {/* QR Code Container */}
+        <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl p-6 flex flex-col items-center justify-center mb-6">
+          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+            <QRCodeSVG
+              value={DOWNLOAD_URL}
+              size={190}
+              level="H"
+              includeMargin={false}
+            />
+          </div>
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-4">
+            Compatível com Android
+          </span>
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={handleCopy}
+            className="flex-1 py-3 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 active:scale-95"
+          >
+            {copied ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
+            <span>{copied ? 'Link Copiado!' : 'Copiar Link'}</span>
+          </button>
+
+          <a
+            href="/download"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md active:scale-95"
+          >
+            <ExternalLink size={16} />
+            <span>Abrir Página</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default DownloadQrModal;

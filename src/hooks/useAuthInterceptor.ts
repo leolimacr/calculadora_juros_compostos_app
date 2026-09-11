@@ -9,7 +9,7 @@ export const useAuthInterceptor = (isAuthenticated: boolean, onNavigate: (route:
   const [intendedRoute, setIntendedRoute] = useState<string | null>(null);
 
   const handleProtectedAction = useCallback((route: string) => {
-    if (isAuthenticated) {
+    if (isAuthenticated || route === 'download') {
       onNavigate(route);
     } else {
       setIntendedRoute(route);

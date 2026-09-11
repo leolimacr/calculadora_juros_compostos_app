@@ -21,6 +21,7 @@ import { HomeFooter } from './Home/HomeFooter';
 import PreAuthModal from './Auth/PreAuthModal';
 import { useAuthInterceptor } from '../hooks/useAuthInterceptor';
 import { LogOut } from 'lucide-react';
+import DownloadQrModal from './DownloadQrModal';
 
 const FIREBASE_FUNCTIONS_BASE_URL = import.meta.env.VITE_FIREBASE_FUNCTIONS_BASE_URL;
 const BCB_API_BASE_URL = import.meta.env.VITE_BCB_API_BASE_URL;
@@ -81,8 +82,18 @@ export const PublicHome: React.FC<any> = ({ onNavigate, isAuthenticated, userMet
   const [activeInfoModal, setActiveInfoModal] = useState<string | null>(null);
   const [selectedArticle, setSelectedArticle] = useState<any | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<any | null>(null);
+  const [isDownloadQrOpen, setIsDownloadQrOpen] = useState(false);
   const [_showNewsAdmin, setShowNewsAdmin] = useState(false);
   const [newsForm, setNewsForm] = useState({ id: '', title: '', summary: '', content: '', coverImage: '' });
+
+  const handleDownloadAction = () => {
+    const isMobileDevice = window.innerWidth < 768;
+    if (isMobileDevice) {
+      onNavigate('download');
+    } else {
+      setIsDownloadQrOpen(true);
+    }
+  };
 
   const fetchNews = async () => {
     const fetchedNews = await getLatestNews(9);
@@ -149,11 +160,19 @@ export const PublicHome: React.FC<any> = ({ onNavigate, isAuthenticated, userMet
     }
   };
 
+  const handleNavigationAction = (route: string) => {
+    if (route === 'download') {
+      handleDownloadAction();
+    } else {
+      handleProtectedAction(route);
+    }
+  };
+
   return (
     <div className="bg-surface-secondary flex flex-col overflow-x-hidden font-sans">
       <HomeHero
         isAuthenticated={isAuthenticated}
-        onNavigate={handleProtectedAction}
+        onNavigate={handleNavigationAction}
         onStartNow={() => handleProtectedAction('register')}
         isPrivacyMode={isPrivacyMode}
         userMeta={userMeta}
@@ -180,7 +199,7 @@ export const PublicHome: React.FC<any> = ({ onNavigate, isAuthenticated, userMet
 
       <HomeSecoesSuporte
         heroPersona={heroPersona}
-        onNavigate={handleProtectedAction}
+        onNavigate={handleNavigationAction}
         onStartNow={() => handleProtectedAction('register')}
         isAuthenticated={isAuthenticated}
       />
@@ -213,7 +232,7 @@ export const PublicHome: React.FC<any> = ({ onNavigate, isAuthenticated, userMet
       <HomeFooter
         heroPersona={heroPersona}
         isAuthenticated={isAuthenticated}
-        onNavigate={handleProtectedAction}
+        onNavigate={handleNavigationAction}
         onStartNow={() => handleProtectedAction('register')}
         setActiveInfoModal={setActiveInfoModal}
       />
@@ -258,6 +277,11 @@ export const PublicHome: React.FC<any> = ({ onNavigate, isAuthenticated, userMet
           </div>
         </div>
       )}
+
+      <DownloadQrModal
+        isOpen={isDownloadQrOpen}
+        onClose={() => setIsDownloadQrOpen(false)}
+      />
     </div>
   );
 };

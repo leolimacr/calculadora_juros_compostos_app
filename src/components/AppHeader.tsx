@@ -19,6 +19,7 @@ interface AppHeaderProps {
   isNotificationsOpen: boolean;
   onOpenNotifications: (open: boolean) => void;
   showDesktopNav?: boolean;
+  onOpenDownloadQr?: () => void;
 }
 
 const MAIN_ROUTES = ['/app/central', '/app/controla', '/app/dashboard', '/app/mais', '/app/explorar', '/app/agenda', '/'];
@@ -33,6 +34,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   onOpenMobileMenu,
   onOpenNotifications,
   showDesktopNav = false,
+  onOpenDownloadQr,
 }) => {
   const isNative = Capacitor.isNativePlatform();
   const { currentTool, handleNavigate } = useNavigation();
@@ -139,7 +141,16 @@ const AppHeader: React.FC<AppHeaderProps> = ({
           <div className="flex items-center gap-2">
             {!isNative && (
               <button
-                onClick={() => handleNavigate('download')}
+                onClick={() => {
+                  const isMobileDevice = window.innerWidth < 768;
+                  if (isMobileDevice) {
+                    handleNavigate('download');
+                  } else if (onOpenDownloadQr) {
+                    onOpenDownloadQr();
+                  } else {
+                    handleNavigate('download');
+                  }
+                }}
                 className="hidden sm:inline-flex items-center gap-1.5 text-[10px] md:text-xs font-bold text-slate-700 hover:text-slate-950 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl px-3.5 py-2.5 uppercase tracking-wider transition-all active:scale-95"
               >
                 <Smartphone size={14} className="text-emerald-600" />
@@ -157,6 +168,26 @@ const AppHeader: React.FC<AppHeaderProps> = ({
 
         {isAuthenticated && (
           <>
+            {!isNative && (
+              <button
+                onClick={() => {
+                  const isMobileDevice = window.innerWidth < 768;
+                  if (isMobileDevice) {
+                    handleNavigate('download');
+                  } else if (onOpenDownloadQr) {
+                    onOpenDownloadQr();
+                  } else {
+                    handleNavigate('download');
+                  }
+                }}
+                className="hidden lg:inline-flex items-center gap-1.5 text-[10px] md:text-xs font-bold text-slate-700 hover:text-slate-950 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 rounded-xl px-3 py-2 uppercase tracking-wider transition-all active:scale-95 mr-2"
+                title="Instale no seu celular"
+              >
+                <Smartphone size={14} className="text-emerald-600" />
+                <span>Baixar App</span>
+              </button>
+            )}
+
             {hasPremiumAccess && (
               <div 
                 className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 mr-4 animate-in fade-in zoom-in duration-300 shadow-[0_0_10px_rgba(16,185,129,0.1)]"
