@@ -22,6 +22,7 @@ const BASE_SNAPSHOT: SovereignSnapshot = {
   accumulatedIncome: 100000,
   accumulatedExpenses: 80000,
   obligationsDeduction: 2000,
+  virtualImpact: 1000,
 };
 
 describe('sovereignMap – classifyStage', () => {
@@ -95,7 +96,7 @@ describe('sovereignMap – classifyStage', () => {
   it('gera explanation contextualizada com valores do snapshot', () => {
     const result = classifyStage({ launchCount: 10, sovereignFreeBalance: -1500, protectionShortfall: 4000, leewayDays: 0, freedomDeficit: 1500 });
     expect(result.explanation).toContain('1500');
-    expect(result.explanation).toContain('negativa');
+    expect(result.explanation).toContain('-1500.00');
   });
 
   it('nunca retorna blockers vazio em "pressao" ou "colchao-incompleto"', () => {
@@ -103,6 +104,17 @@ describe('sovereignMap – classifyStage', () => {
     const col = classifyStage({ launchCount: 10, sovereignFreeBalance: 1, protectionShortfall: 1, leewayDays: 0, freedomDeficit: 0 });
     expect(dep.blockers.length).toBeGreaterThan(0);
     expect(col.blockers.length).toBeGreaterThan(0);
+  });
+
+  it('com launchCount < 5 e freeBalance negativo, força pressao (borda intencional)', () => {
+    const result = classifyStage({ launchCount: 1, sovereignFreeBalance: -10, protectionShortfall: 500, leewayDays: 0, freedomDeficit: 10 });
+    expect(result.id).toBe('pressao');
+  });
+
+  it('com expenses = 0, leewayDays = 0 impede solido/expansao (intencional)', () => {
+    const solidLike = classifyStage({ launchCount: 20, sovereignFreeBalance: 100000, protectionShortfall: 0, leewayDays: 0, freedomDeficit: 0 });
+    expect(solidLike.id).toBe('estavel');
+    expect(solidLike.blockers.length).toBeGreaterThan(0);
   });
 });
 

@@ -22,10 +22,11 @@ export const useReengagementTrigger = ({
 
     const evaluate = async () => {
       try {
-        const metaSnap = await getDoc(doc(firestore, 'users', userId, 'meta', 'profile'));
-        if (!metaSnap.exists()) return;
+        // Lê doc raiz users/{uid} (já em cache via AuthContext = 0 reads adicionais)
+        const userSnap = await getDoc(doc(firestore, 'users', userId));
+        if (!userSnap.exists()) return;
 
-        const lastActiveRaw = metaSnap.data()?.lastActiveAt;
+        const lastActiveRaw = userSnap.data()?.lastActiveAt;
         if (!lastActiveRaw) return;
 
         const lastActive: Date = lastActiveRaw.toDate
@@ -46,11 +47,11 @@ export const useReengagementTrigger = ({
               ctaLabel: 'Retomar plano',
             },
             deepLink: 'home',
-            cooldownHours: 168, // 7 dias — não incomoda toda semana
+            cooldownHours: 168,
             expiresInHours: 7 * 24,
             resourceId: userId,
             payload: { daysSinceLastActive: Math.floor(daysSince) },
-          });
+          }).catch(() => {});
         }
       } catch {
         // silencioso

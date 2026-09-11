@@ -47,7 +47,7 @@ const NexusInsightToast: React.FC<NexusInsightToastProps> = ({
           {insight.message.ctaLabel && (
             <button 
               onClick={handleCtaClick}
-              className="mt-2 px-4 py-1.5 bg-surface-primary text-brand-primary rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-surface-secondary transition-all active:scale-95 shadow-sm"
+              className="mt-2 px-4 py-1.5 bg-surface-primary text-action-primaryDark rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-surface-secondary transition-all active:scale-95 shadow-sm"
             >
               {insight.message.ctaLabel}
             </button>

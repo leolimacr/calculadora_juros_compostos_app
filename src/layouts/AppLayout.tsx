@@ -1,9 +1,8 @@
 import React from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { getDocs, collection, query as fsQuery, where, orderBy, limit } from 'firebase/firestore';
 import { ref, get, orderByChild, startAt, endAt, query as rtdbQuery } from 'firebase/database';
-import { firestore, db } from '../firebase';
+import { db } from '../firebase';
 import AppHeader from '../components/AppHeader';
 import AppMobileDrawer from '../components/AppMobileDrawer';
 import MobileBottomNav from '../components/MobileBottomNav';
@@ -26,14 +25,18 @@ import { clearEventInsightStore } from '../services/eventInsightStore';
 import type { NexusAdvisoryContext } from '../services/nexusInsightEngine';
 import { addPaidRecurringBillTransaction } from '../services/transactionService';
 import { PresenceEventService } from '../services/PresenceEventService';
-import { queryKeys } from '../core/query/queryKeys';
 import { loadControla } from '../services/routePreload';
 import { useBills } from '../hooks/useBills';
 import { PrefetchProvider, usePrefetchReady } from '../contexts/PrefetchContext';
-import type { CreditCard, RecurringBill, CardInvoice } from '../types';
+import { usePresenceTriggers } from '../hooks/usePresenceTriggers';
+import { useWealthPresenceTriggers } from '../hooks/useWealthPresenceTriggers';
+import { useNexusAdvisorTriggers } from '../hooks/useNexusAdvisorTriggers';
+import { useWealthData } from '../hooks/useWealthData';
+import { useUpcomingCommitments } from '../hooks/useUpcomingCommitments';
 
 import AppOnlyBlock from '../components/AppOnlyBlock';
 import AppDesktopNav from '../components/AppDesktopNav';
+import { ExclusionsProvider, useExclusionAmount } from '../contexts/ExclusionsContext';
 
 interface AppLayoutProps {
   state: ReturnType<typeof useAppState>;
@@ -95,22 +98,6 @@ const AppLayoutInner: React.FC<AppLayoutProps> = ({ state }) => {
         // Preload do bundle do Controla (aquece cache do navegador)
         loadControla();
 
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-        const [cardsSnap, billsSnap, invoicesSnap] = await Promise.all([
-          getDocs(collection(firestore, `users/${uid}/cartoes`)),
-          getDocs(collection(firestore, `users/${uid}/contas_fixas`)),
-          getDocs(fsQuery(collection(firestore, `users/${uid}/faturas`), where('periodEnd', '>=', sixMonthsAgo.toISOString()), orderBy('periodEnd', 'desc'), limit(50))),
-        ]);
-
-        const cards = cardsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CreditCard));
-        const bills = billsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as RecurringBill));
-        const invoices = invoicesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CardInvoice));
-
-        queryClient.setQueryData(queryKeys.cards.byUser(uid), cards);
-        queryClient.setQueryData(queryKeys.bills.byUser(uid), bills);
-        queryClient.setQueryData(queryKeys.invoices.byUser(uid), invoices);
-
         // Prefetch dos últimos 6 meses via RTDB (mesma queryKey que useTransactions.fetchMonth usa)
         const extraKey = ['transactions_extra', uid];
         const registryKey = ['transactions_fetched_months', uid];
@@ -160,12 +147,12 @@ const AppLayoutInner: React.FC<AppLayoutProps> = ({ state }) => {
     const schedule =
       typeof window !== 'undefined' && 'requestIdleCallback' in window
         ? window.requestIdleCallback.bind(window)
-        : (cb: () => void) => window.setTimeout(cb, 0);
+        : (cb: () => void) => window.setTimeout(cb, 0) as unknown as number;
 
     const cancel =
       typeof window !== 'undefined' && 'cancelIdleCallback' in window
         ? window.cancelIdleCallback.bind(window)
-        : window.clearTimeout.bind(window);
+        : (handle: number) => window.clearTimeout(handle);
 
     const handle = schedule(() => {
       void preload();
@@ -185,7 +172,40 @@ const AppLayoutInner: React.FC<AppLayoutProps> = ({ state }) => {
     }
   }, [isAuthenticated]);
 
-  const sovereign = useSovereignSnapshot(lancamentos, userMeta);
+  const reserveTarget = userMeta?.financialProfile?.emergencyReserveTarget || 0;
+  const colchaoTarget = userMeta?.financialProfile?.colchaoInicialTarget || 0;
+  const exclusionAmount = useExclusionAmount(reserveTarget, colchaoTarget);
+
+  const sovereign = useSovereignSnapshot(lancamentos, userMeta, false, undefined, exclusionAmount);
+
+  const wealthData = useWealthData();
+
+  usePresenceTriggers({
+    userId: user?.uid,
+    debts: wealthData.debts,
+    debtsLoading: wealthData.loading,
+  });
+
+  useWealthPresenceTriggers({
+    userId: user?.uid,
+    goals: wealthData.goals,
+    assets: wealthData.assets,
+    goalsLoading: wealthData.loading,
+    assetsLoading: wealthData.loading,
+  });
+
+  const { commitments: upcomingCommitments } = useUpcomingCommitments(user?.uid, 10);
+
+  useNexusAdvisorTriggers({
+    userId: user?.uid,
+    sovereign,
+    debts: wealthData.debts,
+    assets: wealthData.assets,
+    bills: recurringBills,
+    commitments: upcomingCommitments,
+    userMeta,
+    launchCount: lancamentos.length,
+  });
 
   const nexusAdvisoryContext = React.useMemo((): NexusAdvisoryContext | undefined => {
     if (!lancamentos) return undefined;
@@ -208,7 +228,7 @@ const AppLayoutInner: React.FC<AppLayoutProps> = ({ state }) => {
       categorySpending,
       isPremium,
     };
-  }, [lancamentos, userMeta, sovereign, isPremium]);
+  }, [lancamentos, sovereign, isPremium]);
 
   const location = useLocation();
 
@@ -294,7 +314,7 @@ const AppLayoutInner: React.FC<AppLayoutProps> = ({ state }) => {
 
       {isAuthenticated && !isAppLocked && isMobile && (
         <MobileBottomNav
-          onOpenMore={() => handleNavigate('settings')}
+          onOpenMore={() => setMobileMenuOpen(true)}
           onAdd={openTransactionForm}
         />
       )}
@@ -395,7 +415,9 @@ const AppLayoutInner: React.FC<AppLayoutProps> = ({ state }) => {
 const AppLayout: React.FC<AppLayoutProps> = (props) => (
   <ToastProvider>
     <PrefetchProvider>
-      <AppLayoutInner {...props} />
+      <ExclusionsProvider>
+        <AppLayoutInner {...props} />
+      </ExclusionsProvider>
     </PrefetchProvider>
   </ToastProvider>
 );

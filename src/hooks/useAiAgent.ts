@@ -9,6 +9,22 @@ interface ContextualAction {
   icon?: string;
 }
 
+interface NexusHistoryItem {
+  role: string;
+  text: string;
+}
+
+interface NexusContextInput {
+  transactions?: unknown[];
+  simulations?: unknown;
+  goals?: unknown[];
+  assets?: unknown[];
+  passives?: unknown[];
+  debts?: unknown[];
+  currentTool?: string;
+  [key: string]: unknown;
+}
+
 interface AiResponse {
   answer: string;
   actions?: ContextualAction[];
@@ -24,9 +40,9 @@ export const useAiAgent = () => {
 
   const sendToNexus = async (
     prompt: string,
-    context: any,
+    context: NexusContextInput,
     userName: string,
-    history: any[],
+    history: NexusHistoryItem[],
     isFirstInteraction: boolean
   ) => {
     setIsLoading(true);
@@ -44,13 +60,13 @@ export const useAiAgent = () => {
         isFirstInteraction
       });
 
-      const data = result.data as { 
-        success: boolean; 
-        answer: string; 
-        context?: { 
+      const data = result.data as {
+        success: boolean;
+        answer: string;
+        context?: {
           actions?: ContextualAction[];
-          metadata?: any;
-        } 
+          metadata?: AiResponse['metadata'];
+        }
       };
 
       if (!data.success) throw new Error("Falha na resposta da IA");
@@ -60,11 +76,12 @@ export const useAiAgent = () => {
         actions: data.context?.actions,
         metadata: data.context?.metadata
       } as AiResponse;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Erro no Nexus AI:", err);
-      // Tratamento amigável de erros do Firebase
-      const msg = err.message.includes('resource-exhausted') 
-        ? "Limite de mensagens do plano atingido." 
+      // Tratamento amigável de erros do Firebase (incl. cota N3: resource-exhausted)
+      const message = err instanceof Error ? err.message : String(err);
+      const msg = message.includes('resource-exhausted')
+        ? "Limite de mensagens do plano atingido."
         : "O Nexus está processando muitos dados. Tente novamente.";
       setError(msg);
       return null;

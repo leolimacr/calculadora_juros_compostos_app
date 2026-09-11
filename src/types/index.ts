@@ -81,6 +81,7 @@ export interface Transaction {
   amount: number;
   paymentMethod?: 'money' | 'credit' | 'voucher';
   cardId?: string;
+  isVirtual?: boolean; // Lançamento virtual sem impacto imediato no caixa (ex.: fatura futura projetada)
   linkedDebtId?: string; // [NEXUS] Vínculo para amortização assistida
   isBillPayment?: boolean; // [NEXUS] Identifica pagamento de fatura
   linkedRecurringBillId?: string; // [NEXUS] Vínculo para conta recorrente paga
@@ -147,8 +148,18 @@ export interface PersonaContext {
   };
 }
 
+/** Assinatura legada (Etapa 7 — E7-06): mantida para compatibilidade com
+ * usuários migrados. Fonte canônica: `users/{uid}/billing/main`.
+ * Remoção total em futura Etapa 7.2, após evidência de migração. */
+export interface LegacySubscription {
+  active: boolean;
+  status?: string | null;
+  planId?: string | null;
+  currentPeriodEnd?: unknown;
+}
+
 export interface UserMeta {
-  /** @deprecated Será removido na Fase 6. Usar billing.tier. */
+  /** Legado (Etapa 7 — E7-06): ver `LegacySubscription`. Fonte canônica: billing/main. */
   plan: string;
   nickname?: string;
   launchLimit: number;
@@ -156,8 +167,8 @@ export interface UserMeta {
   onboardingCompleted?: boolean;
   onboardingPersona?: 'dividas' | 'patrimonio' | 'geral';
   financialProfile?: FinancialProfile;
-  /** @deprecated Será removido na Fase 6. Usar billing.* */
-  subscription?: { active: boolean };
+  /** Legado (Etapa 7 — E7-06): ver `LegacySubscription`. */
+  subscription?: LegacySubscription;
   persona?: PersonaContext; // [NEXUS] Inteligência de Persona
 }
 

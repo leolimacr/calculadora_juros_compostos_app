@@ -3,6 +3,8 @@ import { doc, setDoc } from 'firebase/firestore';
 import { firestore } from '../../../../firebase';
 import { Pencil, X, Check } from 'lucide-react';
 import type { UserMeta, FinancialProfile, Transaction } from '../../../../types';
+import { maskCurrency } from '../../../../utils/calculations';
+import { useExclusions } from '../../../../contexts/ExclusionsContext';
 
 interface ProtectionBarProps {
   saldoRealTotal: number;
@@ -12,14 +14,10 @@ interface ProtectionBarProps {
   userId?: string;
   userMeta?: UserMeta | null;
   onOpenForm?: (initialData?: Partial<Transaction>) => void;
-  excludeReserva: boolean;
-  excludeColchao: boolean;
-  onToggleReserva: () => void;
-  onToggleColchao: () => void;
+  /** Pre-computed effective balance (after exclusions). When provided,
+   *  the component skips its own exclusion calculation to avoid double-counting. */
+  effectiveBalanceOverride?: number;
 }
-
-const fmt = (n: number) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
 
 const ProtectionBar: React.FC<ProtectionBarProps> = ({
   saldoRealTotal,
@@ -28,11 +26,9 @@ const ProtectionBar: React.FC<ProtectionBarProps> = ({
   isPrivacyMode,
   userId,
   userMeta,
-  excludeReserva,
-  excludeColchao,
-  onToggleReserva,
-  onToggleColchao,
+  effectiveBalanceOverride,
 }) => {
+  const { excluirReserva, excluirColchao, toggleReserva, toggleColchao } = useExclusions();
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<string>('');
   const [saving, setSaving] = useState(false);
@@ -66,10 +62,12 @@ const ProtectionBar: React.FC<ProtectionBarProps> = ({
   };
 
   const totalTarget = reserveTarget + colchaoTarget;
-  const remainingTarget = (excludeReserva ? 0 : reserveTarget) + (excludeColchao ? 0 : colchaoTarget);
-  const effectiveBalance = Math.max(0, saldoRealTotal
-    - (excludeReserva ? reserveTarget : 0)
-    - (excludeColchao ? colchaoTarget : 0));
+  const remainingTarget = (excluirReserva ? 0 : reserveTarget) + (excluirColchao ? 0 : colchaoTarget);
+  const effectiveBalance = effectiveBalanceOverride != null
+    ? Math.max(0, effectiveBalanceOverride)
+    : Math.max(0, saldoRealTotal
+        - (excluirReserva ? reserveTarget : 0)
+        - (excluirColchao ? colchaoTarget : 0));
 
   const coveredAmount = Math.min(effectiveBalance, remainingTarget);
   const surplusAmount = effectiveBalance - coveredAmount;
@@ -81,7 +79,7 @@ const ProtectionBar: React.FC<ProtectionBarProps> = ({
 
   const coveragePct = totalTarget > 0 ? (coveredAmount / barDenominator) * 100 : 0;
   const surplusPct = totalTarget > 0 ? (surplusAmount / barDenominator) * 100 : 0;
-  const coverageStartPct = excludeReserva ? reservePct : 0;
+  const coverageStartPct = excluirReserva ? reservePct : 0;
 
   const hasTargets = totalTarget > 0;
 
@@ -108,12 +106,14 @@ const ProtectionBar: React.FC<ProtectionBarProps> = ({
               <button
                 onClick={() => handleSave(field)}
                 disabled={saving}
-                className="p-1 rounded-lg text-brand-primary hover:bg-brand-primary/10 transition-colors"
+                aria-label="Salvar meta"
+                className="p-1 rounded-lg text-action-primaryDark hover:bg-brand-primary/10 transition-colors"
               >
                 <Check size={14} />
               </button>
               <button
                 onClick={handleCancel}
+                aria-label="Cancelar edição"
                 className="p-1 rounded-lg text-text-muted hover:bg-surface-secondary transition-colors"
               >
                 <X size={14} />
@@ -122,11 +122,12 @@ const ProtectionBar: React.FC<ProtectionBarProps> = ({
           ) : (
             <>
               <span className="text-xs font-black tabular-nums text-text-primary">
-                {isPrivacyMode ? '••••' : fmt(value)}
+                {isPrivacyMode ? '••••' : maskCurrency(value)}
               </span>
               <button
                 onClick={() => handleStartEdit(field, value)}
-                className="p-1 rounded-lg text-text-muted opacity-0 group-hover:opacity-100 hover:bg-surface-secondary transition-all"
+                aria-label={`Editar ${label}`}
+                className="p-1 rounded-lg text-text-muted opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 focus-visible:opacity-100 hover:bg-surface-secondary transition-all"
               >
                 <Pencil size={12} />
               </button>
@@ -138,21 +139,21 @@ const ProtectionBar: React.FC<ProtectionBarProps> = ({
   };
 
   return (
-    <div className="bg-surface-primary border border-surface-elevated rounded-4xl p-5 shadow-soft border-l-4 border-l-brand-technical/40 space-y-4">
+    <div className="bg-surface-primary border border-slate-200 rounded-section p-5 border-l-4 border-l-brand-technical/40 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-black text-text-primary uppercase tracking-ultra-wide">
           Proteção Financeira
         </h3>
         <div className="flex items-center gap-2">
           <span className="text-[9px] font-bold text-text-muted">
-            {isPrivacyMode ? '••••' : fmt(effectiveBalance)} disponível
+            {isPrivacyMode ? '••••' : maskCurrency(effectiveBalance)} disponível
           </span>
           {hasTargets && (
             <>
               <button
-                onClick={onToggleReserva}
+                onClick={toggleReserva}
                 className={`text-[8px] px-1.5 py-0.5 rounded-full font-bold border transition-all ${
-                  excludeReserva
+                  excluirReserva
                     ? 'bg-violet-100 border-violet-300 text-violet-700'
                     : 'border-transparent text-text-muted hover:bg-surface-secondary'
                 }`}
@@ -160,9 +161,9 @@ const ProtectionBar: React.FC<ProtectionBarProps> = ({
                 – Reserva
               </button>
               <button
-                onClick={onToggleColchao}
+                onClick={toggleColchao}
                 className={`text-[8px] px-1.5 py-0.5 rounded-full font-bold border transition-all ${
-                  excludeColchao
+                  excluirColchao
                     ? 'bg-emerald-100 border-emerald-300 text-emerald-700'
                     : 'border-transparent text-text-muted hover:bg-surface-secondary'
                 }`}
@@ -183,7 +184,7 @@ const ProtectionBar: React.FC<ProtectionBarProps> = ({
             >
               <div className="text-[10px] font-bold text-violet-700 leading-tight">Meta Reserva</div>
               <div className="text-[10px] font-bold text-violet-700 leading-tight">
-                {isPrivacyMode ? '••••' : fmt(reserveTarget)}
+                {isPrivacyMode ? '••••' : maskCurrency(reserveTarget)}
               </div>
             </div>
             <div
@@ -192,7 +193,7 @@ const ProtectionBar: React.FC<ProtectionBarProps> = ({
             >
               <div className="text-[10px] font-bold text-emerald-700 leading-tight">Meta Colchão</div>
               <div className="text-[10px] font-bold text-emerald-700 leading-tight">
-                {isPrivacyMode ? '••••' : fmt(colchaoTarget)}
+                {isPrivacyMode ? '••••' : maskCurrency(colchaoTarget)}
               </div>
             </div>
             {surplusPct > 0 && (
@@ -202,7 +203,7 @@ const ProtectionBar: React.FC<ProtectionBarProps> = ({
               >
                 <div className="text-[10px] font-bold text-amber-700 leading-tight">Saldo Excedente</div>
                 <div className="text-[10px] font-bold text-amber-700 leading-tight">
-                  {isPrivacyMode ? '••••' : fmt(surplusAmount)}
+                  {isPrivacyMode ? '••••' : maskCurrency(surplusAmount)}
                 </div>
               </div>
             )}
@@ -210,28 +211,28 @@ const ProtectionBar: React.FC<ProtectionBarProps> = ({
         )}
         <div className="relative w-full">
           {/* Bar track */}
-          <div className="relative h-5 w-full bg-slate-100 rounded-full overflow-hidden">
+          <div className="relative h-5 w-full bg-slate-200 rounded-full overflow-hidden ring-1 ring-slate-200">
             {hasTargets && (
               <>
                 <div
-                  className="absolute inset-y-0 left-0 bg-violet-200"
+                  className="absolute inset-y-0 left-0 bg-violet-300"
                   style={{ width: `${reservePct}%` }}
                 />
                 <div
-                  className="absolute inset-y-0 bg-emerald-200"
+                  className="absolute inset-y-0 bg-emerald-300"
                   style={{ left: `${reservePct}%`, width: `${colchaoPct}%` }}
                 />
               </>
             )}
             {effectiveBalance > 0 && coveragePct > 0 && (
               <div
-                className="absolute inset-y-0 border-2 border-dashed border-amber-400 bg-transparent"
+                className="absolute inset-y-0 border-2 border-dashed border-amber-500 bg-transparent"
                 style={{ left: `${coverageStartPct}%`, width: `${coveragePct}%` }}
               />
             )}
             {surplusPct > 0 && (
               <div
-                className="absolute inset-y-0 right-0 bg-amber-100 border-2 border-dashed border-amber-400"
+                className="absolute inset-y-0 right-0 bg-amber-100 border-2 border-dashed border-amber-500"
                 style={{ width: `${surplusPct}%` }}
               />
             )}
@@ -247,34 +248,34 @@ const ProtectionBar: React.FC<ProtectionBarProps> = ({
             {hasTargets && (
               <>
                 <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-violet-400" />
+                  <span className="w-2 h-2 rounded-full bg-violet-600" />
                   Meta Reserva
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                  <span className="w-2 h-2 rounded-full bg-emerald-600" />
                   Meta Colchão
                 </span>
               </>
             )}
             {hasTargets && (
               <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <span className="w-2 h-2 rounded-full bg-amber-600" />
                 Saldo atual
               </span>
             )}
             {surplusAmount > 0 && (
               <>
                 <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-amber-300 border border-amber-500" />
+                  <span className="w-2 h-2 rounded-full bg-amber-300 border border-amber-600" />
                   Excedente
                 </span>
-                <span className="text-amber-600 font-bold">
-                  +{fmt(surplusAmount)} acima das metas
+                <span className="text-amber-700 font-bold">
+                  +{maskCurrency(surplusAmount)} acima das metas
                 </span>
               </>
             )}
             {coveragePct > 0 && coveragePct < 100 && surplusPct === 0 && (
-              <span className="text-amber-600">
+              <span className="text-amber-700">
                 {(coveredAmount / remainingTarget * 100).toFixed(0)}% das metas
               </span>
             )}
@@ -282,8 +283,8 @@ const ProtectionBar: React.FC<ProtectionBarProps> = ({
         )}
 
         {effectiveBalance <= 0 && (
-          <p className="text-[10px] font-medium text-status-danger">
-            Saldo disponível insuficiente. Revise suas despesas.
+          <p className="text-[10px] font-medium text-slate-600">
+            Saldo no período abaixo da meta de proteção. Acompanhe as despesas e a evolução da folga para decidir como recompor essa margem.
           </p>
         )}
       </div>

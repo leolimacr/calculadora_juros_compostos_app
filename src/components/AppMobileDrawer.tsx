@@ -1,7 +1,8 @@
 import React from 'react';
-import { X, LayoutDashboard, User, CreditCard, PiggyBank, Target, BookOpen, Compass, Menu, TrendingUp, TrendingDown, Shield, Zap, Sparkles, HelpCircle, LogOut, ChevronRight, ChartNoAxesColumn, DollarSign, Bell, BarChart3, RotateCw, Globe, Gem, LucideGlobe, NotepadText, Coins, ArrowRightLeft, ScanLine, FileText, Trophy, BadgePercent, BriefcaseBusiness, Wallet } from 'lucide-react';
+import { X, LayoutDashboard, BarChart3, CreditCard, Compass, Settings, Sparkles, LogOut, ChevronRight, Crown } from 'lucide-react';
 import { useNavigation } from '../hooks/useNavigation';
 import { useEntitlement } from '../hooks/useEntitlement';
+import type { UserMeta } from '../types';
 
 interface AppMobileDrawerProps {
   isOpen: boolean;
@@ -135,6 +136,19 @@ const AppMobileDrawer: React.FC<AppMobileDrawerProps> = ({
               </div>
               <ChevronRight size={16} className="text-slate-400 group-hover:text-emerald-600" />
             </div>
+          </button>
+
+          <button
+            onClick={() => go('dashboard')}
+            className="w-full flex items-center gap-3 p-4 rounded-2xl bg-surface-secondary border border-slate-200 hover:bg-slate-100 transition-all active:scale-95 text-left group"
+          >
+            <div className="p-2 bg-slate-100 rounded-lg text-slate-500 group-hover:text-emerald-600 transition-colors">
+              <BarChart3 size={18} />
+            </div>
+            <span className="flex-1 text-[13px] font-bold text-slate-600 uppercase tracking-widest">
+              Dashboard
+            </span>
+            <ChevronRight size={16} className="text-slate-400" />
           </button>
 
           <button

@@ -5,19 +5,19 @@ exports.ACTION_REGISTRY = {
     'NAV_DEBTS': {
         id: 'NAV_DEBTS',
         label: 'Ver minhas dívidas',
-        route: '/dividas',
+        route: '/app/minhas-dividas',
         icon: 'credit_card'
     },
     'NAV_RESERVE': {
         id: 'NAV_RESERVE',
         label: 'Configurar reserva',
-        route: '/reserva',
+        route: '/app/controla',
         icon: 'shield'
     },
     'NAV_CASHFLOW': {
         id: 'NAV_CASHFLOW',
         label: 'Ver extrato',
-        route: '/extrato',
+        route: '/app/controla',
         icon: 'account_balance'
     }
 };
@@ -25,7 +25,7 @@ class ActionManager {
     static extractActions(text) {
         const actionRegex = /\[ACTION:(.*?)\]/g;
         const foundActions = [];
-        const cleanText = text.replace(actionRegex, (match, actionId) => {
+        const cleanText = text.replace(actionRegex, (_match, actionId) => {
             const id = actionId.trim();
             if (exports.ACTION_REGISTRY[id]) {
                 foundActions.push(exports.ACTION_REGISTRY[id]);

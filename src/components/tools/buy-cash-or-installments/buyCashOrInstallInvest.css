@@ -22,7 +22,7 @@
   padding: 0;
   background: none;
   border: none;
-  color: #059669;
+  color: #047857;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -33,9 +33,15 @@
   opacity: 0.7;
 }
 
+.cvp-back-btn:focus-visible {
+  outline: 2px solid #0284c7;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 .cvp-eyebrow {
   margin: 0 0 8px;
-  color: #059669; /* verde destaque, alinhado com seu tema */
+  color: #047857; /* verde escuro p/ contraste, alinhado com seu tema */
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -117,8 +123,8 @@ input {
 }
 
 input:focus {
-  border-color: #5b9bff;
-  box-shadow: 0 0 0 3px rgba(91, 155, 255, 0.15);
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.2);
 }
 
 /* CORREÇÃO: Checkbox com fundo sempre branco e marcação verde */

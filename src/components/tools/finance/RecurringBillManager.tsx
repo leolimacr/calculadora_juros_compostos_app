@@ -231,8 +231,8 @@ const RecurringBillManager: React.FC<RecurringBillManagerProps> = ({ isOpen, onC
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="text-[9px] font-bold text-text-muted uppercase tracking-tighter">Dia {bill.dueDay}</span>
                           <span className="text-[9px] font-bold text-text-muted opacity-30">•</span>
-                          <span className="text-[9px] font-bold text-brand-primary uppercase tracking-tighter">
-                            R$ {bill.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          <span className="text-[9px] font-bold text-action-primaryDark uppercase tracking-tighter">
+                            R$ {bill.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
                       </div>
@@ -240,7 +240,7 @@ const RecurringBillManager: React.FC<RecurringBillManagerProps> = ({ isOpen, onC
                     
                     <button
                       onClick={() => handleDelete(bill.id)}
-                      className="p-2 text-text-muted hover:text-status-danger hover:bg-status-danger/10 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                      className="p-2 text-text-muted hover:text-status-danger hover:bg-status-danger/10 rounded-xl transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
                     >
                       <Trash2 size={16} />
                     </button>

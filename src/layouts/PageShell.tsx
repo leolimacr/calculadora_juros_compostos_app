@@ -24,7 +24,13 @@ interface PageShellProps {
   children: React.ReactNode;
 }
 
+// Fase 1.5 — canvas com hierarquia de superfícies apenas nas telas
+// Central, Controla e Explorar. Demais telas (incluindo Agenda)
+// mantêm o fundo anterior.
+const CANVAS_TOOLS = new Set(['central', 'home', 'manager', 'explorar']);
+
 const PageShell: React.FC<PageShellProps> = ({
+  currentTool,
   isAuthRoute = false,
   withMobileNav = false,
   children,
@@ -36,7 +42,7 @@ const PageShell: React.FC<PageShellProps> = ({
         : withMobileNav
           ? 'pb-28'
           : 'pb-24'
-    } min-h-full bg-slate-50`}
+    } min-h-full ${CANVAS_TOOLS.has(currentTool) ? 'bg-surface-canvas' : 'bg-slate-50'}`}
   >
     {children}
   </div>

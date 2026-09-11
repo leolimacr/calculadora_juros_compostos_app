@@ -1,15 +1,117 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.nexusAgendaCommit = exports.MAX_COMMIT_OCCURRENCES = exports.MAX_COMMIT_BATCH_WRITES = void 0;
+exports.nexusAgendaCommit = exports.MAX_READ_BATCH_SIZE = exports.MAX_COMMIT_OCCURRENCES = exports.MAX_COMMIT_BATCH_WRITES = void 0;
+exports.getAllInBatches = getAllInBatches;
+exports.sanitizeForFirestore = sanitizeForFirestore;
+exports.batchWriteErrorLog = batchWriteErrorLog;
+exports.auditErrorLog = auditErrorLog;
+exports.resolveReminderMode = resolveReminderMode;
 exports.requireCommitAuth = requireCommitAuth;
 exports.executeAgendaCommit = executeAgendaCommit;
 const firestore_1 = require("firebase-admin/firestore");
 const https_1 = require("firebase-functions/v2/https");
+const logger = __importStar(require("firebase-functions/logger"));
 const node_crypto_1 = require("node:crypto");
 const agenda_intent_schema_1 = require("./nexus-core/agenda-intent-schema");
 const agenda_time_1 = require("./nexus-core/agenda-time");
 exports.MAX_COMMIT_BATCH_WRITES = 400;
 exports.MAX_COMMIT_OCCURRENCES = 800;
+exports.MAX_READ_BATCH_SIZE = 400;
+async function getAllInBatches(db, docRefs, uid, ids) {
+    const out = [];
+    for (let index = 0; index < ids.length; index += exports.MAX_READ_BATCH_SIZE) {
+        const chunk = ids.slice(index, index + exports.MAX_READ_BATCH_SIZE);
+        if (chunk.length === 0)
+            continue;
+        const snapshots = await db.getAll(...chunk.map((id) => docRefs(uid, id)));
+        out.push(...snapshots);
+    }
+    return out;
+}
+function sanitizeForFirestore(value) {
+    if (value === undefined)
+        return null;
+    if (value === null)
+        return null;
+    if (value instanceof firestore_1.Timestamp)
+        return value;
+    if (value instanceof Date) {
+        return Number.isNaN(value.getTime()) ? null : value;
+    }
+    if (Array.isArray(value))
+        return value.map(sanitizeForFirestore);
+    if (typeof value === 'object') {
+        const output = {};
+        for (const [key, item] of Object.entries(value)) {
+            output[key] = sanitizeForFirestore(item);
+        }
+        return output;
+    }
+    return value;
+}
+function safeUid(uid) {
+    return uid.length > 12 ? `${uid.slice(0, 8)}…${uid.slice(-4)}` : 'short';
+}
+function safeToken(token) {
+    return token.length > 8 ? `${token.slice(0, 4)}…${token.slice(-4)}` : 'mascarado';
+}
+function errorMessage(error) {
+    return error instanceof Error ? error.message : 'erro desconhecido';
+}
+function batchWriteErrorLog(uid, documents, error) {
+    return {
+        uid: safeUid(uid),
+        documentCount: documents.length,
+        documentIds: documents.map((document) => document.id),
+        errorMessage: errorMessage(error),
+    };
+}
+function auditErrorLog(uid, actionId, error) {
+    return {
+        uid: safeUid(uid),
+        actionId,
+        errorMessage: errorMessage(error),
+    };
+}
+function resolveReminderMode(request) {
+    if (request.reminderMode === 'notification' || request.reminderMode === 'notification_alarm') {
+        return request.reminderMode;
+    }
+    return request.alarm === true ? 'notification' : 'none';
+}
 function requireCommitAuth(request) {
     const uid = request.auth?.uid;
     if (!uid)
@@ -43,7 +145,7 @@ function validatePendingEnvelope(pending) {
         throw new Error(`Proposta inválida: ${result.errors.join('; ')}`);
     return result.data;
 }
-function buildCreateDocuments(uid, envelope, actionId, token, alarm) {
+function buildCreateDocuments(uid, envelope, actionId, token, reminderMode) {
     if (envelope.intent !== 'create' || envelope.action !== 'create_commitment') {
         throw new Error('Somente propostas create_commitment podem ser executadas nesta fase.');
     }
@@ -68,7 +170,7 @@ function buildCreateDocuments(uid, envelope, actionId, token, alarm) {
     const documents = expansion.occurrences.map((occurrence) => {
         const id = (0, agenda_time_1.generateCommitmentId)(seriesId ?? null, occurrence, envelope.entities.startTime ?? '');
         const data = {
-            date: timestampForOccurrence(occurrence, envelope.entities.startTime),
+            date: timestampForOccurrence(occurrence, envelope.entities.startTime ?? undefined),
             title,
             time: envelope.entities.startTime ?? null,
             endTime: envelope.entities.endTime ?? null,
@@ -88,8 +190,10 @@ function buildCreateDocuments(uid, envelope, actionId, token, alarm) {
                 ...(until ? { until: timestampForOccurrence(until) } : {}),
             };
         }
-        if (alarm)
-            data.alarmAt = timestampForOccurrence(occurrence, envelope.entities.startTime);
+        if (reminderMode !== 'none') {
+            data.alarmAt = timestampForOccurrence(occurrence, envelope.entities.startTime ?? undefined);
+            data.reminderMode = reminderMode;
+        }
         if (envelope.entities.location !== undefined)
             data.location = envelope.entities.location;
         if (envelope.entities.participants !== undefined)
@@ -108,18 +212,105 @@ function parseDeleteTargets(value) {
         .filter((item) => Boolean(item) && typeof item.id === 'string' && item.id.length > 0)
         .map((item) => ({ id: item.id }));
 }
-function buildExecutionPlan(envelope, pendingTargets, actionId, token, alarm) {
+function parseEditTarget(value) {
+    if (!value || typeof value !== 'object')
+        return null;
+    const item = value;
+    if (typeof item.id !== 'string' || item.id.length === 0)
+        return null;
+    return { id: item.id };
+}
+function optionalString(value) {
+    if (typeof value === 'string')
+        return value;
+    if (value === null)
+        return null;
+    return undefined;
+}
+function parseEditSnapshot(value) {
+    if (!value || typeof value !== 'object')
+        return null;
+    const item = value;
+    if (typeof item.title !== 'string' || item.title.length === 0)
+        return null;
+    if (typeof item.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(item.date))
+        return null;
+    const participants = Array.isArray(item.participants) && item.participants.every((participant) => typeof participant === 'string')
+        ? item.participants
+        : null;
+    return {
+        title: item.title,
+        date: item.date,
+        startTime: optionalString(item.startTime),
+        endTime: optionalString(item.endTime),
+        location: optionalString(item.location),
+        participants,
+        notes: optionalString(item.notes),
+    };
+}
+function editSnapshotFromDoc(data) {
+    const dateField = data.date;
+    const dateMs = dateField?.toMillis?.();
+    const participants = Array.isArray(data.participants) && data.participants.every((participant) => typeof participant === 'string')
+        ? data.participants
+        : null;
+    return {
+        title: typeof data.title === 'string' ? data.title : '',
+        date: typeof dateMs === 'number' && Number.isFinite(dateMs) ? (0, agenda_time_1.isoFromDateMs)(dateMs) : '',
+        startTime: typeof data.time === 'string' ? data.time : null,
+        endTime: typeof data.endTime === 'string' ? data.endTime : null,
+        location: typeof data.location === 'string' ? data.location : null,
+        participants,
+        notes: typeof data.notes === 'string' ? data.notes : null,
+    };
+}
+function snapshotsEqual(a, b) {
+    return a.title === b.title
+        && a.date === b.date
+        && (a.startTime ?? null) === (b.startTime ?? null)
+        && (a.endTime ?? null) === (b.endTime ?? null)
+        && (a.location ?? null) === (b.location ?? null)
+        && JSON.stringify(a.participants ?? null) === JSON.stringify(b.participants ?? null)
+        && (a.notes ?? null) === (b.notes ?? null);
+}
+function applyEditData(current, after, actionId) {
+    const now = firestore_1.Timestamp.now();
+    return {
+        ...current,
+        title: after.title,
+        time: after.startTime ?? null,
+        endTime: after.endTime ?? null,
+        location: after.location ?? null,
+        participants: after.participants ?? null,
+        notes: after.notes ?? null,
+        date: timestampForOccurrence(after.date, after.startTime ?? undefined),
+        updatedAt: now,
+        updatedBy: 'nexus',
+        updatedByActionId: actionId,
+    };
+}
+function buildExecutionPlan(envelope, pending, actionId, token, reminderMode) {
     if (envelope.intent === 'create' && envelope.action === 'create_commitment') {
-        const { documents, seriesId, occurrenceCount } = buildCreateDocuments('', envelope, actionId, token, alarm);
+        const { documents, seriesId, occurrenceCount } = buildCreateDocuments('', envelope, actionId, token, reminderMode);
         return { kind: 'create', documents, seriesId, occurrenceCount };
     }
     if (envelope.intent === 'delete' && envelope.action === 'delete_commitment') {
-        const targets = parseDeleteTargets(pendingTargets);
+        const targets = parseDeleteTargets(pending.targets);
         if (targets.length === 0)
             throw new Error('A proposta de exclusão não possui alvos gravados.');
         return { kind: 'delete', targetIds: targets.map((target) => target.id), occurrenceCount: targets.length };
     }
-    throw new Error('Somente propostas create_commitment ou delete_commitment podem ser executadas nesta fase.');
+    if (envelope.intent === 'edit' && envelope.action === 'edit_commitment') {
+        const target = parseEditTarget(pending.target);
+        const before = parseEditSnapshot(pending.before);
+        const after = parseEditSnapshot(pending.after);
+        if (!target)
+            throw new Error('A proposta de edição não possui alvo gravado.');
+        if (!before || !after)
+            throw new Error('A proposta de edição não possui estado antes/depois gravado.');
+        return { kind: 'edit', targetId: target.id, before, after };
+    }
+    throw new Error('Somente propostas create_commitment, delete_commitment ou edit_commitment podem ser executadas nesta fase.');
 }
 async function executeAgendaCommit(uid, request, dependencies, now = Date.now()) {
     if (!request.confirmed)
@@ -129,6 +320,11 @@ async function executeAgendaCommit(uid, request, dependencies, now = Date.now())
     }
     if (request.alarm !== undefined && typeof request.alarm !== 'boolean') {
         throw new https_1.HttpsError('invalid-argument', 'alarm deve ser booleano quando informado.');
+    }
+    if (request.reminderMode !== undefined
+        && request.reminderMode !== 'notification'
+        && request.reminderMode !== 'notification_alarm') {
+        throw new https_1.HttpsError('invalid-argument', 'reminderMode deve ser "notification" ou "notification_alarm" quando informado.');
     }
     const executionId = `exec_${(0, node_crypto_1.createHash)('sha1').update(`${uid}|${request.confirmationToken}|${now}`).digest('hex').slice(0, 20)}`;
     const claimed = await dependencies.claimPending(uid, request.confirmationToken, now, executionId);
@@ -154,12 +350,15 @@ async function executeAgendaCommit(uid, request, dependencies, now = Date.now())
     let documents = [];
     let committedIds = [];
     let deletedIds = [];
+    let editedIds = [];
     let seriesId;
     let intent = 'create';
     let targetRecords = [];
+    let editBeforeRecord = null;
+    let editAfterRecord = null;
     try {
         const envelope = validatePendingEnvelope(pending);
-        const plan = buildExecutionPlan(envelope, pending.targets, actionId, request.confirmationToken, request.alarm === true);
+        const plan = buildExecutionPlan(envelope, pending, actionId, request.confirmationToken, resolveReminderMode(request));
         intent = plan.kind;
         if (plan.kind === 'create') {
             documents = plan.documents;
@@ -173,7 +372,7 @@ async function executeAgendaCommit(uid, request, dependencies, now = Date.now())
                 committedIds = committedIds.concat(batchDocuments.map((document) => document.id));
             }
         }
-        else {
+        else if (plan.kind === 'delete') {
             const existing = await dependencies.existingIds(uid, plan.targetIds);
             if (existing.length === 0)
                 throw new Error('Nenhum dos compromissos alvo ainda existe.');
@@ -184,6 +383,22 @@ async function executeAgendaCommit(uid, request, dependencies, now = Date.now())
             }
             targetRecords = plan.targetIds.map((id) => ({ id }));
         }
+        else {
+            const current = await dependencies.readCommitment(uid, plan.targetId);
+            if (!current)
+                throw new Error('O compromisso alvo da edição não existe mais.');
+            if (typeof current.seriesId === 'string' || current.recurrence) {
+                throw new Error('Não é possível editar um compromisso de uma série recorrente.');
+            }
+            if (!snapshotsEqual(editSnapshotFromDoc(current), plan.before)) {
+                throw new Error('O compromisso foi alterado por outra sessão desde a proposta. Recarregue a Agenda e tente novamente.');
+            }
+            const data = applyEditData(current, plan.after, actionId);
+            await dependencies.updateCommitment(uid, plan.targetId, data);
+            editedIds = [plan.targetId];
+            editBeforeRecord = { id: plan.targetId, ...current };
+            editAfterRecord = { id: plan.targetId, ...data };
+        }
         const completedAtMs = Date.now();
         const result = {
             success: true,
@@ -192,8 +407,9 @@ async function executeAgendaCommit(uid, request, dependencies, now = Date.now())
             intent,
             idsCreated: committedIds,
             idsDeleted: deletedIds,
+            idsEdited: editedIds,
             seriesId,
-            occurrenceCount: intent === 'create' ? documents.length : deletedIds.length,
+            occurrenceCount: intent === 'create' ? documents.length : intent === 'delete' ? deletedIds.length : 1,
         };
         await dependencies.writeAudit(uid, actionId, {
             actionId,
@@ -203,13 +419,16 @@ async function executeAgendaCommit(uid, request, dependencies, now = Date.now())
             intent,
             idsCreated: result.idsCreated,
             idsDeleted: result.idsDeleted,
+            idsEdited: result.idsEdited,
             seriesId,
-            before: intent === 'delete' ? targetRecords : null,
+            before: intent === 'delete' ? targetRecords : intent === 'edit' ? editBeforeRecord : null,
             after: intent === 'create'
                 ? documents
                     .filter((document) => committedIds.includes(document.id))
                     .map((document) => ({ id: document.id, ...document.data }))
-                : null,
+                : intent === 'edit'
+                    ? editAfterRecord
+                    : null,
             requestHash: requestHash(uid, request.confirmationToken, request.confirmed),
             createdAtMs,
             completedAtMs,
@@ -219,7 +438,7 @@ async function executeAgendaCommit(uid, request, dependencies, now = Date.now())
     }
     catch (error) {
         const message = error instanceof Error ? error.message : 'Falha desconhecida na gravação.';
-        const partial = intent === 'create' ? committedIds.length > 0 : deletedIds.length > 0;
+        const partial = intent === 'create' ? committedIds.length > 0 : intent === 'delete' ? deletedIds.length > 0 : editedIds.length > 0;
         const status = partial ? 'partial' : 'failed';
         const completedAtMs = Date.now();
         await dependencies.writeAudit(uid, actionId, {
@@ -230,22 +449,38 @@ async function executeAgendaCommit(uid, request, dependencies, now = Date.now())
             intent,
             idsCreated: committedIds,
             idsDeleted: deletedIds,
+            idsEdited: editedIds,
             seriesId,
-            before: intent === 'delete' ? targetRecords : null,
+            before: intent === 'delete' ? targetRecords : intent === 'edit' ? editBeforeRecord : null,
             after: intent === 'create'
                 ? documents
                     .filter((document) => committedIds.includes(document.id))
                     .map((document) => ({ id: document.id, ...document.data }))
-                : null,
+                : intent === 'edit'
+                    ? editAfterRecord
+                    : null,
             requestHash: requestHash(uid, request.confirmationToken, request.confirmed),
             createdAtMs,
             completedAtMs,
             error: message,
         });
         await dependencies.finalizePending(uid, request.confirmationToken, { status, executionId, error: message });
-        throw new https_1.HttpsError('internal', status === 'partial'
-            ? `A operação foi parcialmente concluída e precisa de reconciliação. (${message})`
-            : `Não foi possível executar a proposta de agenda. (${message})`);
+        if (partial) {
+            const partialResult = {
+                success: false,
+                actionId,
+                status: 'partial',
+                intent,
+                idsCreated: committedIds,
+                idsDeleted: deletedIds,
+                idsEdited: editedIds,
+                seriesId,
+                occurrenceCount: intent === 'create' ? committedIds.length : intent === 'delete' ? deletedIds.length : editedIds.length,
+                error: message,
+            };
+            return partialResult;
+        }
+        throw new https_1.HttpsError('internal', `Não foi possível executar a proposta de agenda. (${message})`);
     }
 }
 function buildFirestoreDependencies(db) {
@@ -254,54 +489,100 @@ function buildFirestoreDependencies(db) {
     const auditPath = (uid, actionId) => `users/${uid}/agenda/_nexus/audit/${actionId}`;
     return {
         async claimPending(uid, token, nowMs, executionId) {
-            return db.runTransaction(async (transaction) => {
-                const ref = db.doc(pendingPath(uid, token));
-                const snapshot = await transaction.get(ref);
-                if (!snapshot.exists)
-                    return { kind: 'rejected', reason: 'Proposta inexistente.' };
-                const pending = snapshot.data();
-                if (pending.uid !== uid)
-                    return { kind: 'rejected', reason: 'A proposta não pertence ao usuário autenticado.' };
-                if (pending.status === 'committed' && pending.result)
-                    return { kind: 'idempotent', result: pending.result };
-                if (pending.status !== 'awaiting_confirmation')
-                    return { kind: 'rejected', reason: 'A proposta já foi consumida ou não está disponível.' };
-                const expiresAt = timestampMs(pending.expiresAtMs) ?? timestampMs(pending.expiresAt);
-                if (!expiresAt || expiresAt <= nowMs)
-                    return { kind: 'rejected', reason: 'A proposta de agenda expirou.' };
-                transaction.update(ref, { status: 'processing', executionId, processingAt: firestore_1.Timestamp.fromMillis(nowMs) });
-                return { kind: 'claimed', pending: { ...pending, status: 'processing', executionId } };
-            });
+            try {
+                return await db.runTransaction(async (transaction) => {
+                    const ref = db.doc(pendingPath(uid, token));
+                    const snapshot = await transaction.get(ref);
+                    if (!snapshot.exists)
+                        return { kind: 'rejected', reason: 'Proposta inexistente.' };
+                    const pending = snapshot.data();
+                    if (pending.uid !== uid)
+                        return { kind: 'rejected', reason: 'A proposta não pertence ao usuário autenticado.' };
+                    if (pending.status === 'committed' && pending.result)
+                        return { kind: 'idempotent', result: pending.result };
+                    if (pending.status !== 'awaiting_confirmation')
+                        return { kind: 'rejected', reason: 'A proposta já foi consumida ou não está disponível.' };
+                    const expiresAt = timestampMs(pending.expiresAtMs) ?? timestampMs(pending.expiresAt);
+                    if (!expiresAt || expiresAt <= nowMs)
+                        return { kind: 'rejected', reason: 'A proposta de agenda expirou.' };
+                    transaction.update(ref, sanitizeForFirestore({ status: 'processing', executionId, processingAt: firestore_1.Timestamp.fromMillis(nowMs) }));
+                    return { kind: 'claimed', pending: { ...pending, status: 'processing', executionId } };
+                });
+            }
+            catch (error) {
+                logger.error('nexusAgendaCommit: falha ao reivindicar proposta no Firestore.', { uid: safeUid(uid), token: safeToken(token), executionId, errorMessage: errorMessage(error) });
+                throw error;
+            }
         },
         async existingIds(uid, ids) {
-            const existing = [];
-            for (const id of ids) {
-                if ((await db.doc(agendaPath(uid, id)).get()).exists)
-                    existing.push(id);
-            }
-            return existing;
+            const snapshots = await getAllInBatches(db, (ownerId, id) => db.doc(agendaPath(ownerId, id)), uid, ids);
+            return snapshots.filter((snapshot) => snapshot.exists).map((snapshot) => snapshot.id);
         },
         async writeBatch(uid, documents) {
-            const batch = db.batch();
-            for (const document of documents)
-                batch.set(db.doc(agendaPath(uid, document.id)), document.data, { merge: false });
-            await batch.commit();
+            try {
+                const batch = db.batch();
+                for (const document of documents) {
+                    batch.set(db.doc(agendaPath(uid, document.id)), sanitizeForFirestore(document.data), { merge: false });
+                }
+                await batch.commit();
+            }
+            catch (error) {
+                logger.error('nexusAgendaCommit: falha ao gravar lote de compromissos.', batchWriteErrorLog(uid, documents, error));
+                throw error;
+            }
         },
         async deleteBatch(uid, ids) {
-            const batch = db.batch();
-            for (const id of ids)
-                batch.delete(db.doc(agendaPath(uid, id)));
-            await batch.commit();
+            try {
+                const batch = db.batch();
+                for (const id of ids)
+                    batch.delete(db.doc(agendaPath(uid, id)));
+                await batch.commit();
+            }
+            catch (error) {
+                logger.error('nexusAgendaCommit: falha ao excluir lote de compromissos.', { uid: safeUid(uid), idCount: ids.length, errorMessage: errorMessage(error) });
+                throw error;
+            }
+        },
+        async readCommitment(uid, id) {
+            try {
+                const snapshot = await db.doc(agendaPath(uid, id)).get();
+                return snapshot.exists ? snapshot.data() : null;
+            }
+            catch (error) {
+                logger.error('nexusAgendaCommit: falha ao ler compromisso alvo da edição.', { uid: safeUid(uid), id, errorMessage: errorMessage(error) });
+                throw error;
+            }
+        },
+        async updateCommitment(uid, id, data) {
+            try {
+                await db.doc(agendaPath(uid, id)).set(sanitizeForFirestore(data), { merge: false });
+            }
+            catch (error) {
+                logger.error('nexusAgendaCommit: falha ao atualizar compromisso.', { uid: safeUid(uid), id, errorMessage: errorMessage(error) });
+                throw error;
+            }
         },
         async finalizePending(uid, token, patch) {
-            await db.doc(pendingPath(uid, token)).update({ ...patch, updatedAt: firestore_1.Timestamp.now() });
+            try {
+                await db.doc(pendingPath(uid, token)).update(sanitizeForFirestore({ ...patch, updatedAt: firestore_1.Timestamp.now() }));
+            }
+            catch (error) {
+                logger.error('nexusAgendaCommit: falha ao finalizar proposta no Firestore.', { uid: safeUid(uid), token: safeToken(token), errorMessage: errorMessage(error) });
+                throw error;
+            }
         },
         async writeAudit(uid, actionId, audit) {
-            await db.doc(auditPath(uid, actionId)).set({
-                ...audit,
-                createdAt: firestore_1.Timestamp.fromMillis(audit.createdAtMs),
-                completedAt: firestore_1.Timestamp.fromMillis(audit.completedAtMs),
-            });
+            try {
+                await db.doc(auditPath(uid, actionId)).set(sanitizeForFirestore({
+                    ...audit,
+                    createdAt: firestore_1.Timestamp.fromMillis(audit.createdAtMs),
+                    completedAt: firestore_1.Timestamp.fromMillis(audit.completedAtMs),
+                }));
+            }
+            catch (error) {
+                logger.error('nexusAgendaCommit: falha ao gravar auditoria no Firestore.', auditErrorLog(uid, actionId, error));
+                throw error;
+            }
         },
     };
 }
@@ -311,10 +592,24 @@ exports.nexusAgendaCommit = (0, https_1.onCall)({ memory: '1GiB', timeoutSeconds
     if (!data || typeof data.confirmationToken !== 'string' || typeof data.confirmed !== 'boolean') {
         throw new https_1.HttpsError('invalid-argument', 'confirmationToken e confirmed são obrigatórios.');
     }
-    return executeAgendaCommit(uid, {
-        confirmationToken: data.confirmationToken,
-        confirmed: data.confirmed,
-        alarm: typeof data.alarm === 'boolean' ? data.alarm : undefined,
-    }, buildFirestoreDependencies((0, firestore_1.getFirestore)()));
+    try {
+        return await executeAgendaCommit(uid, {
+            confirmationToken: data.confirmationToken,
+            confirmed: data.confirmed,
+            alarm: typeof data.alarm === 'boolean' ? data.alarm : undefined,
+            reminderMode: data.reminderMode === 'notification' || data.reminderMode === 'notification_alarm'
+                ? data.reminderMode
+                : undefined,
+        }, buildFirestoreDependencies((0, firestore_1.getFirestore)()));
+    }
+    catch (error) {
+        if (error instanceof https_1.HttpsError && error.code !== 'internal')
+            throw error;
+        logger.error('nexusAgendaCommit: falha interna ao registrar a operação.', { errorMessage: errorMessage(error) });
+        return {
+            success: false,
+            error: 'Não foi possível registrar a operação. Verifique os logs.',
+        };
+    }
 });
 //# sourceMappingURL=nexusAgendaCommit.js.map

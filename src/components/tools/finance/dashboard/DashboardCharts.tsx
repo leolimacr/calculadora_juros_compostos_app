@@ -23,8 +23,8 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       {/* Composição por categoria */}
-      <div className="bg-surface-primary p-8 rounded-5xl border border-surface-elevated shadow-soft">
-        <h3 className="text-text-primary font-black mb-6 text-xxs uppercase tracking-ultra-wide flex items-center gap-3">
+      <div className="bg-surface-primary p-6 md:p-8 rounded-section border border-slate-200">
+        <h3 className="text-text-primary font-black mb-6 text-sm tracking-tight flex items-center gap-3">
           <PieChart size={16} className="text-brand-primary" /> {voice.compositionTitle}
         </h3>
         <div className="flex items-center gap-10">
@@ -51,8 +51,8 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
       </div>
 
       {/* Visão de Fluxo */}
-      <div className="bg-surface-primary p-8 rounded-5xl border border-surface-elevated shadow-soft">
-        <h3 className="text-text-primary font-black mb-6 text-xxs uppercase tracking-ultra-wide flex items-center gap-3">
+      <div className="bg-surface-primary p-6 md:p-8 rounded-section border border-slate-200">
+        <h3 className="text-text-primary font-black mb-6 text-sm tracking-tight flex items-center gap-3">
           <BarChart3 size={16} className="text-brand-secondary" /> {voice.flowChart}
         </h3>
         <div className="flex items-end justify-around h-32 gap-4">

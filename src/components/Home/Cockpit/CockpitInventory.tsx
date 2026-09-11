@@ -25,12 +25,12 @@ const CockpitInventory: React.FC<CockpitInventoryProps> = ({
     const displayCards = detailedCards.slice(0, 3);
     const totalPurchases = detailedCards.reduce((sum, c) => sum + c.purchaseCount, 0);
 
-    return (
+  return (
       <button
         key={item.id}
         onClick={item.action}
-        className={`group relative flex flex-row md:flex-col p-4 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border transition-all text-left bg-white shadow-sm hover:shadow-xl hover:-translate-y-1 active:scale-[0.98] items-center md:items-start gap-4 md:gap-0 ${
-          item.warning ? 'border-status-danger/30 hover:border-status-danger' : 'border-slate-200 hover:border-brand-primary/40'
+        className={`group relative flex flex-row md:flex-col p-4 rounded-item border transition-all text-left bg-surface-subtle items-center md:items-start gap-4 ${
+          item.warning ? 'border-status-danger/30 hover:border-status-danger' : 'border-slate-200 hover:border-slate-300'
         }`}
       >
         <div className={`p-3 rounded-2xl md:mb-6 shrink-0 ${
@@ -44,7 +44,7 @@ const CockpitInventory: React.FC<CockpitInventoryProps> = ({
             {item.label}
           </p>
           <p className={`text-lg font-black tracking-tight ${
-            hasData ? 'text-slate-900' : 'text-slate-400 italic font-medium'
+            hasData ? 'text-slate-900' : 'text-slate-500 italic font-medium'
           }`}>
             {isPrivacyMode ? '••••••' : item.warning ? 'Configurar Datas' : hasData ? formatCurrency(item.value) : 'Cadastrar +'}
           </p>
@@ -68,19 +68,19 @@ const CockpitInventory: React.FC<CockpitInventoryProps> = ({
                   <div className="flex items-center justify-between text-[10px] font-bold">
                     <span className="text-slate-700 uppercase tracking-tight">{card.name}</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-slate-400 font-medium">{card.purchaseCount} compras</span>
+                      <span className="text-slate-500 font-medium">{card.purchaseCount} compras</span>
                       <span className="text-slate-900">{isPrivacyMode ? '••••' : formatCurrency(card.balance)}</span>
                     </div>
                   </div>
                   {card.limit > 0 && (
                     <div className="space-y-1">
-                      <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
                         <div 
                           className={`h-full transition-all duration-1000 ${card.usagePercent > 90 ? 'bg-status-danger' : card.usagePercent > 70 ? 'bg-amber-500' : 'bg-brand-primary'}`}
                           style={{ width: `${card.usagePercent}%` }}
                         />
                       </div>
-                      <div className="flex justify-between text-[8px] font-black uppercase tracking-tighter text-slate-400">
+                      <div className="flex justify-between text-[8px] font-black uppercase tracking-tighter text-slate-500">
                         <span>Uso: {card.usagePercent.toFixed(0)}%</span>
                         <span>Restam {isPrivacyMode ? '••••' : formatCurrency(card.available)}</span>
                       </div>
@@ -91,7 +91,7 @@ const CockpitInventory: React.FC<CockpitInventoryProps> = ({
             </div>
             
             {totalPurchases > 0 && (
-              <p className="text-[9px] font-black text-brand-primary uppercase tracking-widest text-center py-2 bg-brand-primary/5 rounded-xl border border-brand-primary/10 group-hover:bg-brand-primary/10 transition-colors">
+              <p className="text-[9px] font-black text-emerald-700 uppercase tracking-widest text-center py-2 bg-brand-primary/5 rounded-xl border border-brand-primary/10 group-hover:bg-brand-primary/10 transition-colors">
                 Clique para ver as {totalPurchases} compras em aberto
               </p>
             )}
@@ -99,18 +99,18 @@ const CockpitInventory: React.FC<CockpitInventoryProps> = ({
         )}
 
         {!hasData && !item.warning && (
-          <div className="hidden md:flex flex-1 flex-col items-center justify-center text-center py-4 space-y-2 opacity-40 w-full">
-            <div className="p-3 bg-slate-50 rounded-full">
-              <Plus size={20} className="text-slate-300" />
+          <div className="hidden md:flex flex-1 flex-col items-center justify-center text-center py-4 space-y-2 w-full">
+            <div className="p-3 bg-surface-subtle rounded-full">
+              <Plus size={20} className="text-slate-400" />
             </div>
-            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">{FPI_COPY.creditOrganize}</p>
+            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">{FPI_COPY.creditOrganize}</p>
           </div>
         )}
 
         {(hasData || item.warning) && (
-          <div className="hidden md:flex pt-4 border-t border-slate-50 items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity mt-auto w-full">
-            <span className="text-[9px] font-black uppercase tracking-widest text-brand-primary">Gestão Completa de Cartões</span>
-            <ChevronRight size={14} className="text-brand-primary" />
+          <div className="hidden md:flex pt-4 border-t border-slate-100 items-center justify-between opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity mt-auto w-full">
+            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-700">Gestão Completa de Cartões</span>
+            <ChevronRight size={14} className="text-emerald-700" />
           </div>
         )}
       </button>
@@ -125,8 +125,8 @@ const CockpitInventory: React.FC<CockpitInventoryProps> = ({
       <button
         key={item.id}
         onClick={item.action}
-        className={`group relative flex flex-row md:flex-col p-4 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border transition-all text-left bg-white shadow-sm hover:shadow-xl hover:-translate-y-1 active:scale-95 items-center md:items-start gap-4 md:gap-0 ${
-          item.warning ? 'border-status-danger/30 hover:border-status-danger' : 'border-slate-200 hover:border-brand-primary/40'
+        className={`group relative flex flex-row md:flex-col p-4 rounded-item border transition-all text-left bg-surface-subtle items-center md:items-start gap-4 md:gap-0 ${
+          item.warning ? 'border-status-danger/30 hover:border-status-danger' : 'border-slate-200 hover:border-slate-300'
         }`}
       >
         <div className={`p-3 rounded-2xl md:mb-6 shrink-0 ${
@@ -144,12 +144,12 @@ const CockpitInventory: React.FC<CockpitInventoryProps> = ({
             {item.label}
           </p>
           <p className={`text-lg font-black tracking-tight ${
-            hasData ? 'text-slate-900' : 'text-slate-400 italic font-medium'
+            hasData ? 'text-slate-900' : 'text-slate-500 italic font-medium'
           }`}>
             {isPrivacyMode ? '••••••' : item.warning ? 'Configurar Datas' : hasData ? formatCurrency(item.value) : 'Cadastrar +'}
           </p>
           {isLocked && item.proFeature && (
-            <p className="text-[9px] font-bold text-slate-400 mt-2 line-through decoration-slate-300 hidden md:block">
+            <p className="text-[9px] font-bold text-slate-500 mt-2 line-through decoration-slate-300 hidden md:block">
               {item.proFeature}
             </p>
           )}
@@ -157,7 +157,7 @@ const CockpitInventory: React.FC<CockpitInventoryProps> = ({
 
         <div className="flex items-center gap-2">
           {item.isValidated && (
-            <div className="p-1.5 bg-emerald-50 text-emerald-500 rounded-lg border border-emerald-100" title="Validado hoje">
+            <div className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-200" title="Validado hoje">
               <ShieldCheck size={14} />
             </div>
           )}
@@ -171,17 +171,17 @@ const CockpitInventory: React.FC<CockpitInventoryProps> = ({
               <span className="text-[8px] font-black text-emerald-700 uppercase tracking-tighter">Pro</span>
             </div>
           ) : !hasData ? (
-            <Plus size={16} className="text-slate-300 group-hover:text-brand-primary" />
+            <Plus size={16} className="text-slate-400 group-hover:text-emerald-700" />
           ) : null}
-          <ChevronRight size={14} className="text-brand-primary md:hidden" />
+          <ChevronRight size={14} className="text-emerald-700 md:hidden" />
         </div>
 
         {(hasData || item.warning) && (
-          <div className="hidden md:flex mt-4 pt-4 border-t border-slate-50 items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity w-full">
-            <span className="text-[9px] font-black uppercase tracking-widest text-brand-primary">
+          <div className="hidden md:flex mt-4 pt-4 border-t border-slate-100 items-center justify-between opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity w-full">
+            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-700">
               {item.isValidated ? 'Ver detalhes' : 'Validar agora'}
             </span>
-            <ChevronRight size={14} className="text-brand-primary" />
+            <ChevronRight size={14} className="text-emerald-700" />
           </div>
         )}
       </button>
@@ -196,18 +196,18 @@ const CockpitInventory: React.FC<CockpitInventoryProps> = ({
   ];
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between px-2">
-        <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Comando Patrimonial</h4>
-        {!isPremium && <button onClick={() => onNavigate('pricing')} className="text-[10px] font-black text-emerald-600 uppercase hover:underline">Ver benefícios Pro</button>}
+    <section className="bg-white border border-slate-200 rounded-section p-4 md:p-5 space-y-4">
+      <div className="flex items-center justify-between px-1">
+        <h2 className="text-sm font-black text-slate-900 tracking-tight">Comando Patrimonial</h2>
+        {!isPremium && <button onClick={() => onNavigate('pricing')} className="text-[10px] font-black text-emerald-700 uppercase hover:underline">Ver benefícios Pro</button>}
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
         {inventoryItems.map(item => {
           if (item.id === 'cartoes') return renderCardsCard(item);
           return renderInventoryCard(item);
         })}
       </div>
-    </div>
+    </section>
   );
 };
 

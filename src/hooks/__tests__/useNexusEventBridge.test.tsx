@@ -8,6 +8,13 @@ import {
   dismissCurrentInsight,
   clearEventInsightStore,
 } from '../../services/eventInsightStore';
+import { PresenceEventService } from '../../services/PresenceEventService';
+
+vi.mock('../../services/PresenceEventService', () => ({
+  PresenceEventService: {
+    createNexusAdvisorAlert: vi.fn().mockResolvedValue(true),
+  },
+}));
 
 const USER_ID = 'test-user-123';
 
@@ -182,4 +189,34 @@ describe('useNexusEventBridge', () => {
     expect(getEventInsight()).not.toBeNull();
     expect(getEventInsight()?.message.title).toBe('Estorno de amortização');
   });
+
+  it('dispatches CFP advisor alert when installment expense is created', async () => {
+    renderHook(() => useNexusEventBridge(USER_ID));
+
+    await eventBus.publish(createDomainEvent(
+      'transaction',
+      EVENT_TYPES.transaction.created,
+      {
+        transaction: {
+          id: 'tx-installment-1',
+          amount: 250,
+          type: 'expense',
+          installmentsCount: 10,
+        } as any,
+        isNew: true,
+        userId: USER_ID,
+      },
+      'test'
+    ));
+
+    expect(PresenceEventService.createNexusAdvisorAlert).toHaveBeenCalledWith(
+      USER_ID,
+      expect.objectContaining({
+        id: 'nexus-alert-installment-tx-installment-1',
+        title: 'Parcelamento Registrado',
+        urgency: 'medium',
+      })
+    );
+  });
 });
+

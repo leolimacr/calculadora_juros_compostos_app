@@ -22,10 +22,10 @@ const CategorySummaryPanel: React.FC<CategorySummaryPanelProps> = ({
   if (categorySummary.length === 0) return null;
 
   return (
-    <div className="bg-surface-primary border border-surface-elevated rounded-4xl p-5 shadow-soft">
+    <div className="bg-surface-primary border border-slate-200 rounded-section p-5">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h3 className="text-text-primary font-black text-xxs uppercase tracking-ultra-wide">Resumo por Categoria</h3>
+          <h3 className="text-text-primary font-black text-sm tracking-tight">Resumo por Categoria</h3>
           <p className="text-text-muted text-xxs font-bold uppercase tracking-ultra-wide mt-1">
             Visão consolidada dos lançamentos filtrados
           </p>
@@ -47,7 +47,7 @@ const CategorySummaryPanel: React.FC<CategorySummaryPanelProps> = ({
             className={`px-4 py-2.5 rounded-2xl text-xxs font-black uppercase border transition-all ${
               showCategorySummary
                 ? 'bg-surface-elevated border-surface-elevated text-text-secondary hover:bg-surface-secondary'
-                : 'bg-status-success/10 border-brand-primary/30 text-brand-primary hover:bg-status-success/20'
+                : 'bg-status-success/10 border-brand-primary/30 text-action-primaryDark hover:bg-status-success/20'
             }`}
           >
             {showCategorySummary ? 'Ocultar Resumo por Categoria' : 'Mostrar Resumo por Categoria'}
@@ -78,7 +78,7 @@ const CategorySummaryPanel: React.FC<CategorySummaryPanelProps> = ({
                         <p className="text-xxs font-bold uppercase tracking-ultra-wide text-text-muted mt-1">
                           {cat.count} lançamento{cat.count !== 1 ? 's' : ''}
                         </p>
-                        <p className="text-xxs font-bold uppercase tracking-ultra-wide text-brand-primary mt-2">
+                        <p className="text-xxs font-bold uppercase tracking-ultra-wide text-action-primaryDark mt-2">
                           {isOpen ? 'Toque para ocultar lançamentos' : 'Toque para visualizar lançamentos'}
                         </p>
                       </div>
@@ -86,22 +86,22 @@ const CategorySummaryPanel: React.FC<CategorySummaryPanelProps> = ({
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
                         <div className="text-left sm:text-center">
                           <p className="text-xxs font-black text-text-muted uppercase mb-1">{voice.income}</p>
-                          <p className="text-sm font-black text-brand-primary">
-                            {isPrivacyMode ? '••••' : `R$ ${cat.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                          <p className="text-sm font-black text-action-primaryDark">
+                            {isPrivacyMode ? '••••' : `R$ ${cat.income.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                           </p>
                         </div>
 
                         <div className="text-left sm:text-center">
                           <p className="text-xxs font-black text-text-muted uppercase mb-1">{voice.expense}</p>
-                          <p className="text-sm font-black text-status-danger">
-                            {isPrivacyMode ? '••••' : `R$ ${cat.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                          <p className="text-sm font-black text-action-dangerDark">
+                            {isPrivacyMode ? '••••' : `R$ ${cat.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                           </p>
                         </div>
 
                         <div className="text-left sm:text-center sm:border-l sm:border-surface-elevated sm:pl-6">
                           <p className="text-xxs font-black text-text-muted uppercase mb-1">Dinheiro que sobra</p>
-                          <p className={`text-sm font-black ${cat.total >= 0 ? 'text-brand-primary' : 'text-status-danger'}`}>
-                            {isPrivacyMode ? '••••' : `R$ ${cat.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                          <p className={`text-sm font-black ${cat.total >= 0 ? 'text-action-primaryDark' : 'text-action-dangerDark'}`}>
+                            {isPrivacyMode ? '••••' : `R$ ${cat.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                           </p>
                         </div>
                       </div>
@@ -128,7 +128,7 @@ const CategorySummaryPanel: React.FC<CategorySummaryPanelProps> = ({
                                     {new Date(t.date.replace(/-/g, '/')).toLocaleDateString('pt-BR')}
                                   </span>
                                   <span className={`text-xxs font-black uppercase tracking-ultra-wide ${
-                                    t.type === 'income' ? 'text-brand-primary' : 'text-status-danger'
+                                    t.type === 'income' ? 'text-action-primaryDark' : 'text-action-dangerDark'
                                   }`}>
                                     {t.type === 'income' ? 'Entrada' : 'Saída'}
                                   </span>
@@ -137,11 +137,11 @@ const CategorySummaryPanel: React.FC<CategorySummaryPanelProps> = ({
 
                               <div className="text-left sm:text-right">
                                 <p className={`text-sm font-black ${
-                                  t.type === 'income' ? 'text-brand-primary' : 'text-status-danger'
+                                  t.type === 'income' ? 'text-action-primaryDark' : 'text-action-dangerDark'
                                 }`}>
                                   {isPrivacyMode
                                     ? '••••'
-                                    : `R$ ${Number(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                                    : `R$ ${Number(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                                 </p>
                               </div>
                             </div>

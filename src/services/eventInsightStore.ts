@@ -60,6 +60,37 @@ function isSeen(id: string): boolean {
   return getSeenIds().includes(id);
 }
 
+// ── Supressão por família de evento (N14) ──
+// Ids de evento têm o formato `nexus-event-<familia>--<correlationId>`
+// (separador duplo — o correlationId pode conter traços, ex.: uuid).
+// Repetir a mesma família em sequência (ex.: todo bill_payment) trocava o
+// card atual a cada evento; agora a família silencia por uma janela após
+// exibir, exceto prioridade alta. Ids legados (traço simples) caem no
+// extractBaseId como antes.
+const EVENT_FAMILY_SUPPRESS_MS = 5 * 60 * 1000;
+const lastShownAtByFamily = new Map<string, number>();
+
+export function extractEventFamily(id: string): string | null {
+  if (!id.startsWith('nexus-event-')) return null;
+  const sep = id.indexOf('--');
+  // Somente o formato novo (duplo-traço) tem família confiável; ids legados
+  // de traço simples mantêm a semântica anterior (sem supressão temporal).
+  return sep > 0 ? id.substring(0, sep) : null;
+}
+
+function isFamilySuppressed(id: string, priority: NexusInsight['priority']): boolean {
+  if (priority === 'alta') return false;
+  const family = extractEventFamily(id);
+  if (!family) return false;
+  const last = lastShownAtByFamily.get(family);
+  return last !== undefined && Date.now() - last < EVENT_FAMILY_SUPPRESS_MS;
+}
+
+function markFamilyShown(id: string): void {
+  const family = extractEventFamily(id);
+  if (family) lastShownAtByFamily.set(family, Date.now());
+}
+
 // ── Priority replacement rules ──
 
 const PRIORITY_RANK: Record<string, number> = { alta: 0, media: 1, baixa: 2, inline: 3 };
@@ -101,12 +132,6 @@ function archiveCurrent(): void {
 
 
 
-function trimDismissed(): void {
-  if (state.dismissedIds.length > 50) {
-    state.dismissedIds = state.dismissedIds.slice(-25);
-  }
-}
-
 // ── Public API (backward-compat) ──
 
 export function getEventInsight(): NexusInsight | null {
@@ -125,10 +150,12 @@ export function setEventInsight(insight: NexusInsight | null): boolean {
 
   if (state.dismissedIds.includes(insight.id)) return false;
   if (isSeen(insight.id)) return false;
+  if (isFamilySuppressed(insight.id, insight.priority)) return false;
 
   if (!shouldReplace(insight, state.current)) return false;
 
   markSeen(insight.id);
+  markFamilyShown(insight.id);
 
   if (state.current) {
     archiveCurrent();
@@ -224,6 +251,7 @@ export function subscribeFeed(fn: FeedListener): () => void {
 /** Reset store — useful for tests or user logout */
 export function clearEventInsightStore(): void {
   state = { current: null, history: [], dismissedIds: [] };
+  lastShownAtByFamily.clear();
   notifyInsight();
   notifyFeed();
 }

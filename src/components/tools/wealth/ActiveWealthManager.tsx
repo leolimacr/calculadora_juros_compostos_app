@@ -368,7 +368,7 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
               {!editingId && assets.length > 0 && (
                 <button
                   onClick={() => setShowForm(false)}
-                  className="text-xs font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1"
+                  className="text-xs font-bold text-slate-500 hover:text-slate-700 flex items-center gap-1"
                 >
                   <X size={14} /> Fechar
                 </button>
@@ -447,7 +447,7 @@ export const ActiveWealthManager: React.FC<ActiveWealthManagerProps> = ({ userId
                 <textarea
                   value={currentAsset.proposito || ''}
                   onChange={e => setCurrentAsset({ ...currentAsset, proposito: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-emerald-100/50 focus:ring-2 focus:ring-brand-primaryCta/30 focus:border-brand-primaryCta transition-all text-sm font-medium bg-white min-h-[60px] resize-none placeholder:text-slate-300"
+                  className="w-full px-4 py-2.5 rounded-xl border border-emerald-100/50 focus:ring-2 focus:ring-brand-primaryCta/30 focus:border-brand-primaryCta transition-all text-sm font-medium bg-white min-h-[60px] resize-none placeholder:text-slate-500"
                   placeholder="Qual o objetivo deste investimento? O que você planeja conquistar com ele?"
                 />
               </div>

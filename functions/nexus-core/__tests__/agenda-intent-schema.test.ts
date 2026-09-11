@@ -460,6 +460,69 @@ describe('agenda-intent-schema validateAgendaEnvelope', () => {
     expect(validateAgendaEnvelope(env).valid).toBe(true);
   });
 
+  it('aceita edit sem data (localização apenas pelo título)', () => {
+    const env: AgendaEnvelope = {
+      intent: 'edit',
+      action: 'edit_commitment',
+      entities: {
+        title: 'Reunião com o coordenador',
+        startTime: '19:00',
+      },
+      missing: [],
+      ambiguous: [],
+      assumptions: [],
+    };
+    expect(validateAgendaEnvelope(env).valid).toBe(true);
+  });
+
+  it('rejeita edit sem título', () => {
+    const env: AgendaEnvelope = {
+      intent: 'edit',
+      action: 'edit_commitment',
+      entities: { startTime: '19:00' },
+      missing: [],
+      ambiguous: [],
+      assumptions: [],
+    };
+    const result = validateAgendaEnvelope(env);
+    expect(result.valid).toBe(false);
+    expect(result.errors.join('\n')).toContain('entities.title é obrigatório');
+  });
+
+  it('rejeita edit com recurrence', () => {
+    const env: AgendaEnvelope = {
+      intent: 'edit',
+      action: 'edit_commitment',
+      entities: {
+        title: 'Reunião com o coordenador',
+        recurrence: { freq: 'weekly', byDay: 2 },
+      },
+      missing: [],
+      ambiguous: [],
+      assumptions: [],
+    };
+    const result = validateAgendaEnvelope(env);
+    expect(result.valid).toBe(false);
+    expect(result.errors.join('\n')).toContain('entities.recurrence não é suportado em edição');
+  });
+
+  it('rejeita edit com data de confiança baixa', () => {
+    const env: AgendaEnvelope = {
+      intent: 'edit',
+      action: 'edit_commitment',
+      entities: {
+        title: 'Reunião com o coordenador',
+        date: { expression: 'talvez', resolved: '2026-09-16', confidence: 'low' },
+      },
+      missing: [],
+      ambiguous: [],
+      assumptions: [],
+    };
+    const result = validateAgendaEnvelope(env);
+    expect(result.valid).toBe(false);
+    expect(result.errors.join('\n')).toContain('confiança baixa');
+  });
+
   it('aceita query mesmo sem entities preenchidas', () => {
     const env: AgendaEnvelope = {
       intent: 'query',

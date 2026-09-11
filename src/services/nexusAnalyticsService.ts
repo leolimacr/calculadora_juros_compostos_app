@@ -132,12 +132,14 @@ export function trackActionCompleted(
   insightId: string,
   priority: string,
   actionType: string,
+  surface: string = 'store',
 ): void {
   trackEvent('nexus_acao_concluida', {
     insightId,
     baseId: extractBaseId(insightId),
     priority,
     actionType,
+    surface,
     timestamp: Date.now(),
   });
 }
@@ -147,6 +149,7 @@ export function trackActionFailed(
   priority: string,
   actionType: string,
   error?: string,
+  surface: string = 'store',
 ): void {
   trackEvent('nexus_acao_falhou', {
     insightId,
@@ -154,6 +157,7 @@ export function trackActionFailed(
     priority,
     actionType,
     error,
+    surface,
     timestamp: Date.now(),
   });
 }

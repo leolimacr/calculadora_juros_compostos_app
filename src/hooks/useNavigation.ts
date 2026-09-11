@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 export const TOOL_ROUTES: Record<string, string> = {
   central: '/app/central',
   home: '/app/central',
+  dashboard: '/app/dashboard',
   manager: '/app/controla',
   chat: '/app/ia',
   explorar: '/app/explorar',

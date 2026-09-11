@@ -13,21 +13,22 @@ function interpolate(template: string, vars: Record<string, string>): string {
   return result;
 }
 
-const KNOWN_VARS = ['value', 'diff', 'jump', 'amount', 'newSaldo', 'previousSaldo'];
+const CURRENCY_VARS = ['value', 'diff', 'jump', 'amount', 'newSaldo', 'previousSaldo', 'remainingAmount'];
+// Vars textuais (nomes, datas como cardName/dueDate): repassadas sem formatação.
 
 export function prepareEventInsight(
   raw: NexusInsight,
-  templateVars: Record<string, number>,
+  templateVars: Record<string, number | string>,
   archetype: Archetype = 'guardian',
 ): NexusInsight {
   const voice = getPersonaVoice(archetype);
 
   const formatted: Record<string, string> = {};
-  for (const [key, num] of Object.entries(templateVars)) {
-    if (KNOWN_VARS.includes(key)) {
-      formatted[key] = fmt(num);
+  for (const [key, val] of Object.entries(templateVars)) {
+    if (CURRENCY_VARS.includes(key) && typeof val === 'number') {
+      formatted[key] = fmt(val);
     } else {
-      formatted[key] = String(num);
+      formatted[key] = String(val);
     }
   }
   formatted.prefix = voice.prefix;

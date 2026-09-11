@@ -1,27 +1,59 @@
 import type { CreditCard, Transaction, RecurringBill } from '../types';
 
 /**
- * Verifica se uma conta recorrente foi paga no mês atual.
- * Baseia-se no nome da conta (description) ou categoria.
+ * Verifica se uma conta recorrente foi paga no mês corrente.
+ *
+ * REGRA 1 (dados novos, prioridade absoluta): `linkedRecurringBillId === bill.id` → paga.
+ * REGRA 2 (legado sem link — restrita e determinística, cumulativa):
+ *   a) sem `linkedRecurringBillId` (link para outra conta → não é desta);
+ *   b) nome normalizado EXATO (trim + lowercase + sem diacríticos);
+ *      nome parcial ("Luz" × "Luzerne") NUNCA casa; nomes vazios NUNCA casam;
+ *   c) categoria, quando presente nos dois lados, deve ser igual
+ *      (categoria sozinha NUNCA decide);
+ *   d) valor, quando finito e > 0 nos dois lados, deve diferir no máximo
+ *      max(0.01, 1% do valor da conta); divergência → não paga.
+ * REGRA 3 (ambíguo → pendente): fora da Regra 1 e sem cumprir toda a Regra 2
+ *   → NÃO paga. Na dúvida, a conta permanece pendente.
  */
+function normalizeBillName(value: string | undefined | null): string {
+  return (value ?? '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
+}
+
 export function isBillPaid(bill: RecurringBill, transactions: Transaction[]): boolean {
   const today = new Date();
   const currentMonth = today.getMonth();
   const currentYear = today.getFullYear();
+  const billName = normalizeBillName(bill.name);
 
   return transactions.some(t => {
     if (t.type !== 'expense') return false;
-    
+
     const tDate = new Date(t.date.replace(/-/g, '/'));
     const isSameMonth = tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear;
-    
+
     if (!isSameMonth) return false;
 
-    // Critério de correspondência: Nome contido na descrição ou categoria idêntica
-    const descMatch = t.description.toLowerCase().includes(bill.name.toLowerCase());
-    const categoryMatch = t.category === bill.category;
+    // Regra 1: link explícito (match exato, sem falso-positivos)
+    if (t.linkedRecurringBillId && bill.id && t.linkedRecurringBillId === bill.id) return true;
 
-    return descMatch || categoryMatch;
+    // Regra 2: fallback legado restrito
+    if (t.linkedRecurringBillId) return false; // vínculo com outra conta
+    const txName = normalizeBillName(t.description);
+    if (!billName || !txName || txName !== billName) return false;
+    if (t.category && bill.category && t.category !== bill.category) return false;
+
+    const txAmount = Number(t.amount);
+    if (Number.isFinite(txAmount) && txAmount > 0 && Number.isFinite(bill.amount) && bill.amount > 0) {
+      const tolerance = Math.max(0.01, Math.abs(bill.amount) * 0.01);
+      if (Math.abs(txAmount - bill.amount) > tolerance) return false;
+    }
+
+    return true;
   });
 }
 

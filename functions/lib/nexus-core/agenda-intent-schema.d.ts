@@ -12,32 +12,32 @@ export declare const dateResolutionSchema: z.ZodObject<{
     expression: z.ZodString;
     resolved: z.ZodString;
     confidence: z.ZodEnum<{
-        high: "high";
         low: "low";
+        high: "high";
     }>;
 }, z.core.$strip>;
 export type DateResolution = z.infer<typeof dateResolutionSchema>;
 export declare const recurrenceSchema: z.ZodObject<{
     freq: z.ZodEnum<{
+        monthly: "monthly";
         daily: "daily";
         weekly: "weekly";
-        monthly: "monthly";
     }>;
-    byDay: z.ZodOptional<z.ZodNumber>;
+    byDay: z.ZodOptional<z.ZodUnion<readonly [z.ZodNumber, z.ZodArray<z.ZodNumber>]>>;
     until: z.ZodOptional<z.ZodObject<{
         expression: z.ZodString;
         resolved: z.ZodString;
         confidence: z.ZodEnum<{
-            high: "high";
             low: "low";
+            high: "high";
         }>;
     }, z.core.$strip>>;
 }, z.core.$strip>;
 export type RecurrenceSpec = z.infer<typeof recurrenceSchema>;
 export declare const agendaFilterSchema: z.ZodObject<{
     field: z.ZodEnum<{
-        title: "title";
         date: "date";
+        title: "title";
     }>;
     value: z.ZodString;
 }, z.core.$strict>;
@@ -48,25 +48,25 @@ export declare const entitiesSchema: z.ZodObject<{
         expression: z.ZodString;
         resolved: z.ZodString;
         confidence: z.ZodEnum<{
-            high: "high";
             low: "low";
+            high: "high";
         }>;
     }, z.core.$strip>>;
-    startTime: z.ZodOptional<z.ZodString>;
-    endTime: z.ZodOptional<z.ZodString>;
+    startTime: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    endTime: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     recurrence: z.ZodOptional<z.ZodObject<{
         freq: z.ZodEnum<{
+            monthly: "monthly";
             daily: "daily";
             weekly: "weekly";
-            monthly: "monthly";
         }>;
-        byDay: z.ZodOptional<z.ZodNumber>;
+        byDay: z.ZodOptional<z.ZodUnion<readonly [z.ZodNumber, z.ZodArray<z.ZodNumber>]>>;
         until: z.ZodOptional<z.ZodObject<{
             expression: z.ZodString;
             resolved: z.ZodString;
             confidence: z.ZodEnum<{
-                high: "high";
                 low: "low";
+                high: "high";
             }>;
         }, z.core.$strip>>;
     }, z.core.$strip>>;
@@ -76,8 +76,8 @@ export declare const entitiesSchema: z.ZodObject<{
     timeZone: z.ZodOptional<z.ZodString>;
     filter: z.ZodOptional<z.ZodObject<{
         field: z.ZodEnum<{
-            title: "title";
             date: "date";
+            title: "title";
         }>;
         value: z.ZodString;
     }, z.core.$strict>>;
@@ -85,8 +85,8 @@ export declare const entitiesSchema: z.ZodObject<{
         expression: z.ZodString;
         resolved: z.ZodString;
         confidence: z.ZodEnum<{
-            high: "high";
             low: "low";
+            high: "high";
         }>;
     }, z.core.$strip>>;
     maxSlots: z.ZodOptional<z.ZodBoolean>;
@@ -118,25 +118,25 @@ export declare const agendaEnvelopeSchema: z.ZodObject<{
             expression: z.ZodString;
             resolved: z.ZodString;
             confidence: z.ZodEnum<{
-                high: "high";
                 low: "low";
+                high: "high";
             }>;
         }, z.core.$strip>>;
-        startTime: z.ZodOptional<z.ZodString>;
-        endTime: z.ZodOptional<z.ZodString>;
+        startTime: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        endTime: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         recurrence: z.ZodOptional<z.ZodObject<{
             freq: z.ZodEnum<{
+                monthly: "monthly";
                 daily: "daily";
                 weekly: "weekly";
-                monthly: "monthly";
             }>;
-            byDay: z.ZodOptional<z.ZodNumber>;
+            byDay: z.ZodOptional<z.ZodUnion<readonly [z.ZodNumber, z.ZodArray<z.ZodNumber>]>>;
             until: z.ZodOptional<z.ZodObject<{
                 expression: z.ZodString;
                 resolved: z.ZodString;
                 confidence: z.ZodEnum<{
-                    high: "high";
                     low: "low";
+                    high: "high";
                 }>;
             }, z.core.$strip>>;
         }, z.core.$strip>>;
@@ -146,8 +146,8 @@ export declare const agendaEnvelopeSchema: z.ZodObject<{
         timeZone: z.ZodOptional<z.ZodString>;
         filter: z.ZodOptional<z.ZodObject<{
             field: z.ZodEnum<{
-                title: "title";
                 date: "date";
+                title: "title";
             }>;
             value: z.ZodString;
         }, z.core.$strict>>;
@@ -155,8 +155,8 @@ export declare const agendaEnvelopeSchema: z.ZodObject<{
             expression: z.ZodString;
             resolved: z.ZodString;
             confidence: z.ZodEnum<{
-                high: "high";
                 low: "low";
+                high: "high";
             }>;
         }, z.core.$strip>>;
         maxSlots: z.ZodOptional<z.ZodBoolean>;
@@ -169,6 +169,15 @@ export declare const agendaEnvelopeSchema: z.ZodObject<{
     }, z.core.$strict>>>;
 }, z.core.$strict>;
 export type AgendaEnvelope = z.infer<typeof agendaEnvelopeSchema>;
+export interface AgendaEditSnapshot {
+    title: string;
+    date: string;
+    startTime?: string | null;
+    endTime?: string | null;
+    location?: string | null;
+    participants?: string[] | null;
+    notes?: string | null;
+}
 export declare function actionMatchesIntent(intent: AgendaIntent, action: AgendaAction): boolean;
 export type AgendaEnvelopeParseResult = {
     ok: true;

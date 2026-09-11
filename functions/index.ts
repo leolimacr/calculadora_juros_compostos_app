@@ -10,7 +10,7 @@ process.on('unhandledRejection', (reason) => {
 import { initializeApp } from 'firebase-admin/app';
 initializeApp();
 
-export { askAiAdvisor, testMistral } from './askAiAdvisor';
+export { askAiAdvisor } from './askAiAdvisor';
 export { generateDebtPlan } from './generateDebtPlan';
 export { dailyPresenceCheck } from './presenceCheck';
 export { monthlyRotativoInterest } from './monthlyRotativo';

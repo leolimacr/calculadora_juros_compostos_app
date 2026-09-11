@@ -114,6 +114,15 @@ export function isoToYmd(iso: string): YMD {
   return { y, m0: m - 1, d };
 }
 
+/**
+ * Dia civil em America/Sao_Paulo (YYYY-MM-DD) a partir de epoch ms.
+ * Compromissos são gravados com `date` = meia-noite SP + minutos*60k, então
+ * somar o offset fixo de SP devolve o dia civil correto em UTC puro.
+ */
+export function isoFromDateMs(dateMs: number): string {
+  return new Date(dateMs + STABLE_SP_OFFSET_MS).toISOString().slice(0, 10);
+}
+
 function addDays(ymd: YMD, days: number): YMD {
   const ms = Date.UTC(ymd.y, ymd.m0, ymd.d) + days * 86400000;
   const dt = new Date(ms);
@@ -252,7 +261,11 @@ function normalizeText(raw: string): string {
  * em America/Sao_Paulo. Nunca inventa data: retorna null se não entendeu.
  */
 export function resolveDateExpression(raw: string, today: YMD): DateResolution | null {
-  const t = normalizeText(raw).replace(/^(na|no|em|para|dia|aos|as|ate)\s+/, '');
+  // Corta prefixos compostos ("até o dia 15/12/2026", "o dia 15/12/2026",
+  // "no dia de 15/12/2026") antes do corte de prefixo único.
+  const t = normalizeText(raw)
+    .replace(/^(?:at[eé]|no|na|em|para|aos|as|o|a)\s+(?:o\s+)?dia\s+(?:de\s+)?/, '')
+    .replace(/^(na|no|em|para|dia|aos|as|ate)\s+/, '');
   const todayIso = ymdToIso(today);
 
   // Absoluta YYYY-MM-DD
@@ -308,6 +321,19 @@ export function resolveDateExpression(raw: string, today: YMD): DateResolution |
       if (month) {
         const year = m[2] ? Number(m[2]) : today.y;
         return { iso: ymdToIso(lastDayOfMonthYmd(year, month - 1)), confidence: 'high' };
+      }
+    }
+  }
+
+  // "todos os <wd> [do mês] de <mês> [de <ano>]" → primeiro <wd> do mês citado
+  if (t.startsWith('todos') || t.startsWith('todas')) {
+    const weekday = weekdayNameToNumber(t);
+    if (weekday) {
+      const month = monthNameToNumber(t);
+      if (month) {
+        const year = /\b(\d{4})\b/.exec(t);
+        const ymd = firstWeekdayOfMonth(year ? Number(year[1]) : today.y, month - 1, weekday);
+        return { iso: ymdToIso(ymd), confidence: confidenceFor(ymd, todayIso) };
       }
     }
   }
@@ -448,6 +474,44 @@ export function expandRecurrence(
 export function saoPauloDayRangeMillis(ymd: YMD): { startMs: number; endMs: number } {
   const startMs = Date.UTC(ymd.y, ymd.m0, ymd.d) - STABLE_SP_OFFSET_MS;
   return { startMs, endMs: startMs + 86400000 };
+}
+
+/**
+ * Range civil (epoch ms) de um mês inteiro em SP — [1º dia 00:00, 1º dia do mês
+ * seguinte 00:00). Reconhece mês puro: "novembro", "em novembro", "no mês que
+ * vem", "novembro de 2026". Retorna null quando a expressão NÃO é um mês puro
+ * (nunca inventa período — a resolução de "fim de mês" continua em
+ * resolveDateExpression, que colapsa para o último dia).
+ */
+export function resolvePeriodRange(raw: string, today: YMD): { startMs: number; endMs: number } | null {
+  const t = normalizeText(raw).trim();
+  if (!t) return null;
+
+  if (/(^|\s)m(es|e)s?\s+que\s+vem($|\s)/.test(t)) {
+    const next = addMonthsClamped(today, 1);
+    const first = { y: next.y, m0: next.m0, d: 1 };
+    const after = addMonthsClamped(first, 1);
+    return {
+      startMs: saoPauloDayRangeMillis(first).startMs,
+      endMs: saoPauloDayRangeMillis({ y: after.y, m0: after.m0, d: 1 }).startMs,
+    };
+  }
+
+  const monthMatch = /^(?:(?:em|no|na|nesse|neste)\s+)?([a-z]+)(?:\s+de\s+(\d{4}))?$/.exec(t);
+  if (monthMatch) {
+    const month = monthNameToNumber(monthMatch[1]);
+    if (month) {
+      const year = monthMatch[2] ? Number(monthMatch[2]) : today.y;
+      const first = { y: year, m0: month - 1, d: 1 };
+      const after = addMonthsClamped(first, 1);
+      return {
+        startMs: saoPauloDayRangeMillis(first).startMs,
+        endMs: saoPauloDayRangeMillis({ y: after.y, m0: after.m0, d: 1 }).startMs,
+      };
+    }
+  }
+
+  return null;
 }
 
 // ───────────────────────────── IDs determinísticos (nex_) ─────────────────────────────

@@ -1,5 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../firebase';
 import { TrendingUp, Target, X, ChevronRight, Sparkles, LayoutGrid, Brain, Crown, BarChart3, FileText, Shield } from 'lucide-react';
 import { useEntitlement } from '../hooks/useEntitlement';
 
@@ -192,6 +196,29 @@ interface PaywallModalProps {
 export default function PaywallModal({ open, onClose, feature }: PaywallModalProps) {
   const navigate = useNavigate();
   const { effectiveTier } = useEntitlement();
+  const [portalLoading, setPortalLoading] = useState(false);
+
+  // E7-09: premium com pendência vai ao portal Stripe (regularizar),
+  // não à página de venda.
+  const handlePrimary = async () => {
+    if (effectiveTier !== 'premium') {
+      navigate('/app/mais/pricing');
+      return;
+    }
+    setPortalLoading(true);
+    try {
+      const fn = httpsCallable(functions, 'createPortalSession');
+      const result = await fn({ returnUrl: window.location.href });
+      const url = (result.data as { url: string }).url;
+      if (Capacitor.isNativePlatform()) {
+        await Browser.open({ url });
+      } else {
+        window.open(url, '_blank');
+      }
+    } finally {
+      setPortalLoading(false);
+    }
+  };
 
   if (!open) return null;
 
@@ -238,10 +265,11 @@ export default function PaywallModal({ open, onClose, feature }: PaywallModalPro
 
         <div className="px-6 pb-6 space-y-3">
           <button
-            onClick={() => navigate('/app/mais/pricing')}
-            className="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-black py-3.5 px-6 rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 uppercase text-xs tracking-widest"
+            onClick={() => void handlePrimary()}
+            disabled={portalLoading}
+            className="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-black py-3.5 px-6 rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 uppercase text-xs tracking-widest disabled:opacity-70"
           >
-            {context.cta} <ChevronRight size={16} />
+            {portalLoading ? 'Abrindo...' : <>{context.cta} <ChevronRight size={16} /></>}
           </button>
           <button
             onClick={onClose}

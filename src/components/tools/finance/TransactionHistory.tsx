@@ -115,14 +115,14 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, o
                                 </span>
                               </td>
                               <td className="px-4 py-3 text-right font-black text-sm whitespace-nowrap text-orange-700">
-                                {isPrivacyMode ? '••••' : `R$ ${Number(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                                {isPrivacyMode ? '••••' : `R$ ${Number(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                               </td>
                               <td className="px-4 py-3">
                                 <div className="flex justify-center gap-2">
                                   <button
                                     onClick={(e) => { e.stopPropagation(); onEdit(t); }}
                                     disabled={isDisabled}
-                                    className="p-2 text-text-muted hover:text-brand-secondary hover:bg-brand-secondary/10 active:bg-brand-secondary/20 rounded-lg transition-all disabled:opacity-30"
+                                    className="p-2 text-text-muted hover:text-brand-secondary hover:bg-brand-secondary/10 active:bg-brand-secondary/20 rounded-lg transition-all disabled:opacity-50"
                                     title="Editar"
                                   >
                                     <Pencil size={16}/>
@@ -130,7 +130,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, o
                                   <button
                                     onClick={(e) => { e.stopPropagation(); if (window.confirm(`Deseja excluir "${t.description}"?`)) onDelete(t.id); }}
                                     disabled={isDisabled}
-                                    className="p-2 text-text-muted hover:text-status-danger hover:bg-status-danger/10 active:bg-status-danger/20 rounded-lg transition-all disabled:opacity-30"
+                                    className="p-2 text-text-muted hover:text-status-danger hover:bg-status-danger/10 active:bg-status-danger/20 rounded-lg transition-all disabled:opacity-50"
                                     title="Excluir"
                                   >
                                     <Trash2 size={16}/>
@@ -185,7 +185,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, o
                             </span>
                           </td>
                           <td className="px-4 py-3 text-right font-black text-sm whitespace-nowrap text-amber-700">
-                            {isPrivacyMode ? '••••' : `R$ ${Number(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                            {isPrivacyMode ? '••••' : `R$ ${Number(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex justify-center gap-2">
@@ -239,6 +239,13 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, o
                               </span>
                             </div>
                           )}
+                          {t.paymentMethod === 'voucher' && !isBillPayment && (
+                            <div className="flex">
+                              <span className="px-1.5 py-0.5 bg-emerald-100 border border-emerald-200 rounded-md text-[9px] font-black text-emerald-700 uppercase tracking-wider">
+                                {t.cardId && cardMap[t.cardId] ? cardMap[t.cardId] : 'Voucher'}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td className="px-4 py-3">
@@ -246,8 +253,8 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, o
                           {isBillPayment ? 'Fatura' : t.category}
                         </span>
                       </td>
-                      <td className={`px-4 py-3 text-right font-black text-sm whitespace-nowrap ${isBillPayment ? 'text-red-800' : t.type === 'income' ? 'text-brand-primary' : 'text-status-danger'}`}>
-                        {isPrivacyMode ? '••••' : `R$ ${Number(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                      <td className={`px-4 py-3 text-right font-black text-sm whitespace-nowrap ${isBillPayment ? 'text-red-800' : t.type === 'income' ? 'text-emerald-700' : 'text-rose-700'}`}>
+                        {isPrivacyMode ? '••••' : `R$ ${Number(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex justify-center gap-2">
@@ -289,7 +296,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, o
                                     </p>
                                   </div>
                                   <p className="text-xs font-black text-text-primary tabular-nums shrink-0">
-                                    R$ {tx.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                     R$ {tx.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                   </p>
                                 </div>
                               ))}
@@ -300,7 +307,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, o
                                   Pagamento
                                 </span>
                                 <span className="text-sm font-black text-red-700 tabular-nums">
-                                  -R$ {Number(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                   -R$ {Number(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
                               </div>
                               <div className="flex justify-between items-center">
@@ -308,7 +315,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, o
                                   Total da fatura
                                 </span>
                                 <span className="text-sm font-black text-text-primary tabular-nums">
-                                  R$ {expandedComposition.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                   R$ {expandedComposition.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
                               </div>
                             </div>

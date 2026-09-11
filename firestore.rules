@@ -8,15 +8,47 @@ service cloud.firestore {
     }
 
     // Dados do usuário — apenas o próprio dono
-    match /users/{userId}/agenda/_nexus/{document=**} {
-      allow read: if request.auth != null && request.auth.uid == userId;
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // Billing (Etapa 7 — E7-01, menor privilégio): leitura do dono SOMENTE
+    // em billing/main. Demais docs sob billing/** sem concessão ao cliente;
+    // escrita só via backend (Admin SDK). Nenhum `allow ... if false` abaixo
+    // nega por prioridade — a escrita é negada por ausência de concessão.
+    match /users/{userId}/billing/main {
+      allow read: if isOwner(userId);
       allow write: if false;
     }
 
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null
-        && request.auth.uid == userId
-        && !document.startsWith('agenda/_nexus');
+    match /users/{userId}/billing/{document=**} {
+      allow read, write: if false;
+    }
+
+    // Nexus Agenda interno: leitura do dono; escrita só via backend (Admin SDK).
+    match /users/{userId}/agenda/_nexus/{document=**} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
+
+    // Compromissos da Agenda (documentos de 1 nível). Leitura sem guarda por
+    // ID (list por mês precisa valer para todo retorno possível); escrita com
+    // guarda por documento (avaliável por operação em doc único).
+    match /users/{userId}/agenda/{commitmentId} {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId) && commitmentId != '_nexus';
+    }
+
+    // Demais coleções do usuário (dividas, cartoes, metas, ativos, passivos,
+    // transactions, presence*, nexusPlans, nexusDebtPlans, jurosRotativos...).
+    match /users/{userId}/{collection}/{document=**} {
+      allow read, write: if isOwner(userId)
+        && collection != 'billing'
+        && collection != 'agenda';
     }
 
     // Coleção legacy de transações (RTDB mirror) — apenas dono

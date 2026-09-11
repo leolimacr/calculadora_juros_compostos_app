@@ -1,6 +1,7 @@
 import React, { FormEvent, useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
+  Bell,
   CalendarDays,
   CheckCircle2,
   Clock3,
@@ -16,7 +17,9 @@ import {
 import {
   useAgendaNexus,
   type AgendaNexusAffectedItem,
+  type AgendaNexusEditSnapshot,
   type AgendaNexusProposal,
+  type AgendaReminderMode,
 } from '../../hooks/useAgendaNexus';
 
 interface AgendaNexusAssistantProps {
@@ -89,6 +92,53 @@ function formatRecurrence(proposal: AgendaNexusProposal): string | null {
   return labels[freq] ?? freq;
 }
 
+function editFieldValue(snapshot: AgendaNexusEditSnapshot | null | undefined, field: keyof AgendaNexusEditSnapshot): string {
+  if (!snapshot) return '—';
+  const value = snapshot[field];
+  if (value === null || value === undefined || value === '') return '—';
+  if (field === 'date' && typeof value === 'string') return formatDate(value) ?? value;
+  if (field === 'participants' && Array.isArray(value)) return value.join(', ');
+  return String(value);
+}
+
+/** Diferenças entre o estado atual (before) e o proposto (after) numa edição. */
+function buildEditDiff(before?: AgendaNexusEditSnapshot | null, after?: AgendaNexusEditSnapshot | null): Array<{ label: string; before: string; after: string }> {
+  if (!before || !after) return [];
+  const labels: Record<string, string> = {
+    title: 'Título',
+    date: 'Data',
+    startTime: 'Início',
+    endTime: 'Término',
+    location: 'Local',
+    participants: 'Participantes',
+    notes: 'Observações',
+  };
+  return (Object.keys(labels) as Array<keyof AgendaNexusEditSnapshot>)
+    .filter((field) => editFieldValue(before, field) !== editFieldValue(after, field))
+    .map((field) => ({ label: labels[field], before: editFieldValue(before, field), after: editFieldValue(after, field) }));
+}
+
+function EditDiffPreview({ before, after }: { before?: AgendaNexusEditSnapshot | null; after?: AgendaNexusEditSnapshot | null }) {
+  const diff = buildEditDiff(before, after);
+  if (diff.length === 0) return null;
+  return (
+    <div className="rounded-2xl border border-sky-100 bg-sky-50/60 p-4" aria-label="Alterações da edição">
+      <p className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-sky-700">
+        <Info size={13} aria-hidden="true" />
+        Alterações propostas
+      </p>
+      <ul className="max-h-52 space-y-1.5 overflow-y-auto pr-1">
+        {diff.map((change) => (
+          <li key={change.label} className="rounded-lg border border-sky-100 bg-white px-3 py-2">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{change.label}</p>
+            <p className="mt-0.5 text-xs text-slate-500"><span className="line-through">{change.before}</span> <span aria-hidden="true">→</span> <span className="font-semibold text-slate-800">{change.after}</span></p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function formatWarning(warning: unknown): string {
   if (typeof warning === 'string') return warning;
   if (warning && typeof warning === 'object') {
@@ -130,11 +180,41 @@ function ListNotice({ title, items, tone = 'slate' }: { title: string; items: st
   );
 }
 
+/** Rótulo amigável dos campos ausentes retornados pelo backend. */
+const MISSING_FIELD_LABELS: Record<string, string> = {
+  title: 'Título',
+  date: 'Data',
+  startTime: 'Horário de início',
+  endTime: 'Horário de término',
+  location: 'Local',
+  participants: 'Participantes',
+  notes: 'Observações',
+  byDay: 'Dia da semana',
+  recurrence: 'Recorrência',
+  limitDate: 'Prazo da série',
+  filter: 'Critério de identificação',
+};
+
+/** Rótulo amigável de cada modo de aviso escolhido na confirmação. */
+const REMINDER_LABELS: Record<AgendaReminderMode, string> = {
+  none: 'Sem aviso',
+  notification: 'Notificação',
+  notification_alarm: 'Notificação + alarme',
+};
+
+const REMINDER_OPTIONS: Array<{ value: AgendaReminderMode; label: string }> = [
+  { value: 'none', label: 'Sem aviso' },
+  { value: 'notification', label: 'Notificação' },
+  { value: 'notification_alarm', label: 'Notificação + alarme' },
+];
+
 export default function AgendaNexusAssistant({ className = '', onCommitted, onUndone, onClose, autoFocusCommand = false }: AgendaNexusAssistantProps) {
   const nexus = useAgendaNexus();
   const [input, setInput] = useState('');
-  const [alarmChoice, setAlarmChoice] = useState<'alarm' | 'note'>('note');
+  const [reminderChoice, setReminderChoice] = useState<AgendaReminderMode>('none');
+  const [showTimeInAgenda, setShowTimeInAgenda] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
+  const threadRef = useRef<HTMLDivElement>(null);
   const confirmingRef = useRef(false);
   const previousStageRef = useRef(nexus.stage);
 
@@ -153,8 +233,18 @@ export default function AgendaNexusAssistant({ className = '', onCommitted, onUn
   }, [autoFocusCommand]);
 
   useEffect(() => {
-    if (nexus.proposal) setAlarmChoice('note');
+    if (nexus.proposal) {
+      setReminderChoice('none');
+      setShowTimeInAgenda(true);
+    }
   }, [nexus.proposal]);
+
+  useEffect(() => {
+    const container = threadRef.current;
+    if (container && typeof container.scrollTo === 'function') {
+      container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+    }
+  }, [nexus.stage, nexus.dialogue]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -174,7 +264,7 @@ export default function AgendaNexusAssistant({ className = '', onCommitted, onUn
     if (confirmingRef.current || !canConfirm) return;
     confirmingRef.current = true;
     try {
-      await nexus.commit(undefined, { alarm: alarmChoice === 'alarm' });
+      await nexus.commit(undefined, { reminderMode: reminderChoice });
     } finally {
       confirmingRef.current = false;
     }
@@ -192,10 +282,13 @@ export default function AgendaNexusAssistant({ className = '', onCommitted, onUn
   const dialogue = nexus.dialogue;
   const isDialogueMode = dialogue.length > 0;
   const isDelete = proposal?.intent === 'delete' && proposal?.action === 'delete_commitment';
+  const isEdit = proposal?.intent === 'edit' && proposal?.action === 'edit_commitment';
+  const editBefore = proposal?.before ?? null;
+  const editAfter = proposal?.after ?? null;
   const warnings = Array.isArray(proposal?.warnings)
     ? proposal.warnings.map(formatWarning)
     : [];
-  const missing = nexus.missing;
+  const missing = nexus.missing.map((field) => MISSING_FIELD_LABELS[field] ?? field);
   const ambiguous = nexus.ambiguous;
   const assumptions = nexus.assumptions.map((assumption) => String(assumption.note ?? assumption.field ?? 'Suposição aplicada'));
   const affectedItems = Array.isArray(proposal?.affectedItems) ? proposal.affectedItems : [];
@@ -206,6 +299,7 @@ export default function AgendaNexusAssistant({ className = '', onCommitted, onUn
     && (
       (proposal?.intent === 'create' && proposal?.action === 'create_commitment')
       || (isDelete && matchCount !== null && matchCount > 0 && affectedItems.length > 0)
+      || (isEdit && Boolean(editBefore) && Boolean(editAfter))
     );
   const showProposal = Boolean(proposal) && ['done', 'committing', 'success', 'partial', 'error', 'undone'].includes(nexus.stage);
   const startDate = formatDate(proposal?.firstDate);
@@ -225,14 +319,18 @@ export default function AgendaNexusAssistant({ className = '', onCommitted, onUn
     ? deletedCount !== null && deletedCount > 0
       ? `Pronto! ${deletedCount === 1 ? '1 compromisso excluído' : `${deletedCount} compromissos excluídos`} com sucesso.`
       : 'Compromissos excluídos com sucesso.'
-    : 'Compromisso criado com sucesso.';
+    : isEdit
+      ? 'Compromisso atualizado com sucesso.'
+      : 'Compromisso criado com sucesso.';
   const successSubtitle = isDelete
     ? 'Os compromissos foram removidos permanentemente da sua Agenda.'
-    : 'A criação foi registrada na sua Agenda.';
+    : isEdit
+      ? 'As alterações foram registradas no compromisso da sua Agenda.'
+      : 'A criação foi registrada na sua Agenda.';
 
   return (
-    <section className={`w-full overflow-hidden rounded-3xl border border-sky-200 bg-white shadow-sm ${className}`} aria-labelledby="agenda-nexus-title">
-      <div className="flex items-start justify-between gap-4 border-b border-slate-100 bg-sky-50/70 p-5 md:p-6">
+    <section className={`flex max-h-[calc(100dvh-7rem)] w-full flex-col overflow-hidden rounded-3xl border border-sky-200 bg-white shadow-sm md:max-h-[calc(100dvh-4rem)] ${className}`} aria-labelledby="agenda-nexus-title">
+      <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 bg-sky-50/70 p-5 md:p-6">
         <div className="flex items-start gap-3">
           <div className="rounded-2xl border border-sky-200 bg-white p-2.5 text-sky-700 shadow-sm">
             <Sparkles size={19} aria-hidden="true" />
@@ -249,28 +347,7 @@ export default function AgendaNexusAssistant({ className = '', onCommitted, onUn
         )}
       </div>
 
-      <div className="space-y-4 p-5 md:p-6">
-        <form onSubmit={handleSubmit} className="flex flex-col gap-2 sm:flex-row">
-          <label htmlFor="agenda-nexus-command" className="sr-only">Comando para o Nexus</label>
-          <input
-            ref={inputRef}
-            id="agenda-nexus-command"
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            disabled={nexus.isLoading}
-            placeholder={isDialogueMode ? 'Digite sua resposta ou complemente a informação...' : 'Ex.: reunião toda terça, às 17h, até novembro'}
-            className="min-h-11 flex-1 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-100 disabled:bg-slate-100"
-          />
-          <button
-            type="submit"
-            disabled={!input.trim() || nexus.isLoading}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-sky-600 px-5 text-xs font-black uppercase tracking-widest text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Send size={15} aria-hidden="true" />
-            {isDialogueMode ? 'Responder' : 'Enviar'}
-          </button>
-        </form>
-
+      <div ref={threadRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5 md:p-6">
         {nexus.isLoading && (
           <div className="flex items-center gap-3 rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-xs font-bold text-sky-800" role="status" aria-live="polite">
             <span className="flex gap-1" aria-hidden="true">
@@ -335,53 +412,102 @@ export default function AgendaNexusAssistant({ className = '', onCommitted, onUn
               <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Revise antes de confirmar</h3>
               <span className="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-amber-800">Aguardando confirmação</span>
             </div>
-            {proposal.summary && <p className="rounded-2xl bg-sky-50 p-4 text-sm font-semibold leading-relaxed text-sky-900">{proposal.summary}</p>}
             <div className="grid gap-2 sm:grid-cols-2">
-              {title && <SummaryRow icon={<MessageCircle size={15} />} label={isDelete ? 'Compromissos com o nome' : 'Compromisso'} value={title} />}
+              {title && (
+                <div className="flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5 sm:col-span-2">
+                  <span className="mt-0.5 shrink-0 text-sky-600"><MessageCircle size={15} /></span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{isDelete ? 'Compromissos com o nome' : 'Compromisso'}</p>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <p className="break-words text-sm font-semibold text-slate-800">{title}</p>
+                      {showTimeInAgenda && startTime && (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-sky-100 px-1.5 py-0.5 font-mono text-xs font-bold text-sky-800">
+                          <Clock3 size={13} aria-hidden="true" />
+                          {endTime ? `${startTime} às ${endTime}` : startTime}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {startTime && (
+                    <label className="flex shrink-0 items-center gap-1.5 self-start rounded-lg px-1.5 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-white" aria-label="Mostrar o horário da agenda">
+                      <input
+                        type="checkbox"
+                        checked={showTimeInAgenda}
+                        onChange={(event) => setShowTimeInAgenda(event.target.checked)}
+                        className="accent-sky-600"
+                      />
+                      Mostrar o horário da agenda
+                    </label>
+                  )}
+                </div>
+              )}
               {startDate && <SummaryRow icon={<CalendarDays size={15} />} label="Data inicial" value={startDate} />}
               {endDate && endDate !== startDate && <SummaryRow icon={<CalendarDays size={15} />} label="Data final" value={endDate} />}
-              {startTime && <SummaryRow icon={<Clock3 size={15} />} label={endTime ? 'Horário' : 'Início'} value={endTime ? `${startTime} às ${endTime}` : startTime} />}
+              {!title && startTime && <SummaryRow icon={<Clock3 size={15} />} label={endTime ? 'Horário' : 'Início'} value={endTime ? `${startTime} às ${endTime}` : startTime} />}
               {recurrence && <SummaryRow icon={<RotateCcw size={15} />} label="Recorrência" value={recurrence} />}
               {!isDelete && typeof proposal.occurrenceCount === 'number' && <SummaryRow icon={<CalendarDays size={15} />} label="Ocorrências" value={String(proposal.occurrenceCount)} />}
               {isDelete && matchCount !== null && <SummaryRow icon={<AlertTriangle size={15} />} label="Itens a excluir" value={`${matchCount} ${matchCount === 1 ? 'compromisso' : 'compromissos'}`} />}
               {location && <SummaryRow icon={<MapPin size={15} />} label="Local" value={location} />}
               {participants && <SummaryRow icon={<Users size={15} />} label="Participantes" value={participants} />}
               {notes && <SummaryRow icon={<Info size={15} />} label="Observações" value={notes} />}
+              {canConfirm && !isDelete && !isEdit && reminderChoice !== 'none' && <SummaryRow icon={<Bell size={15} />} label="Aviso" value={REMINDER_LABELS[reminderChoice]} />}
             </div>
             {isDelete && affectedItems.length > 0 && <DeleteItemsPreview items={affectedItems} />}
+            {isEdit && <EditDiffPreview before={editBefore} after={editAfter} />}
             <ListNotice title="Suposições" items={assumptions} />
             <ListNotice title="Conflitos ou duplicidades encontrados" items={warnings} tone="amber" />
-            <ListNotice title="Dados pendentes" items={missing} tone="amber" />
-            {canConfirm && !isDelete && (
-              <fieldset className="rounded-2xl border border-slate-100 bg-slate-50 p-4" aria-label="Preferência de alarme">
-                <legend className="px-1 text-[10px] font-black uppercase tracking-widest text-slate-500">Alarme</legend>
-                <p className="mb-2 text-xs text-slate-600">Você quer ativar o alarme desses compromissos ou apenas anotá-los na agenda?</p>
+            {canConfirm && !isDelete && !isEdit && (
+              <fieldset className="rounded-2xl border border-slate-100 bg-slate-50 p-4" aria-label="Preferência de aviso">
+                <legend className="px-1 text-[10px] font-black uppercase tracking-widest text-slate-500">Aviso</legend>
+                <p className="mb-2 text-xs text-slate-600">Você quer receber um aviso nesses compromissos?</p>
                 <div className="flex flex-col gap-2 sm:flex-row sm:gap-6">
-                  <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                    <input type="radio" name="agenda-alarm" value="alarm" checked={alarmChoice === 'alarm'} onChange={() => setAlarmChoice('alarm')} className="accent-sky-600" />
-                    Ativar alarme
-                  </label>
-                  <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                    <input type="radio" name="agenda-alarm" value="note" checked={alarmChoice === 'note'} onChange={() => setAlarmChoice('note')} className="accent-sky-600" />
-                    Apenas anotar
-                  </label>
+                  {REMINDER_OPTIONS.map((option) => (
+                    <label key={option.value} className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                      <input type="radio" name="agenda-reminder" value={option.value} checked={reminderChoice === option.value} onChange={() => setReminderChoice(option.value)} className="accent-sky-600" />
+                      {option.label}
+                    </label>
+                  ))}
                 </div>
+                <p className="mt-2 text-[11px] leading-relaxed text-slate-500">O alarme sonoro depende das permissões do dispositivo e pode exigir o aplicativo instalado ou aberto em segundo plano.</p>
               </fieldset>
             )}
             <div className="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
                <button type="button" onClick={() => { nexus.cancel(); onClose?.(); }} disabled={nexus.isLoading} className="rounded-xl border border-slate-200 px-4 py-3 text-xs font-black uppercase tracking-widest text-slate-600 transition hover:bg-slate-50 disabled:opacity-50">Cancelar</button>
               <button type="button" onClick={handleCorrect} disabled={nexus.isLoading} className="rounded-xl border border-sky-200 px-4 py-3 text-xs font-black uppercase tracking-widest text-sky-700 transition hover:bg-sky-50 disabled:opacity-50">Corrigir</button>
-              {canConfirm && <button type="button" onClick={() => void handleConfirm()} disabled={!canConfirm || confirmingRef.current} className="rounded-xl bg-emerald-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">{isDelete ? 'Confirmar exclusão' : 'Confirmar criação'}</button>}
+              {canConfirm && <button type="button" onClick={() => void handleConfirm()} disabled={!canConfirm || confirmingRef.current} className="rounded-xl bg-emerald-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">{isDelete ? 'Confirmar exclusão' : isEdit ? 'Confirmar edição' : 'Confirmar criação'}</button>}
             </div>
           </div>
         )}
 
-        {nexus.stage === 'committing' && <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs font-bold text-amber-800" role="status" aria-live="polite">{isDelete ? 'Confirmando a exclusão na Agenda…' : 'Confirmando a criação na Agenda…'}</p>}
+        {nexus.stage === 'committing' && <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs font-bold text-amber-800" role="status" aria-live="polite">{isDelete ? 'Confirmando a exclusão na Agenda…' : isEdit ? 'Confirmando a edição na Agenda…' : 'Confirmando a criação na Agenda…'}</p>}
         {nexus.stage === 'success' && <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800" role="status"><CheckCircle2 size={18} className="mt-0.5 shrink-0" aria-hidden="true" /><div><p className="font-black">{successTitle}</p><p className="mt-1 text-xs">{successSubtitle}</p>{missingTargets !== null && <p className="mt-2 rounded-lg bg-amber-100 px-2 py-1.5 text-xs font-semibold text-amber-900">{missingTargets === 1 ? '1 compromisso não foi encontrado na agenda' : `${missingTargets} compromissos não foram encontrados na agenda`} — os demais foram excluídos.</p>}{nexus.canUndo && <button type="button" onClick={() => void nexus.undo()} className="mt-3 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-xs font-black uppercase tracking-widest text-emerald-800 hover:bg-emerald-100">Desfazer</button>}</div></div>}
         {nexus.stage === 'undone' && <p className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-700" role="status">A criação foi desfeita.</p>}
         {nexus.stage === 'partial' && <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="alert"><AlertTriangle size={18} className="mt-0.5 shrink-0" aria-hidden="true" /><div><p className="font-black">Operação parcialmente concluída.</p><p className="mt-1 text-xs">Alguns compromissos podem ter sido criados. É necessária reconciliação antes de tentar novamente.</p>{nexus.error && <p className="mt-2 text-xs">{nexus.error}</p>}</div></div>}
         {nexus.stage === 'error' && nexus.error && <p className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs font-semibold text-rose-800" role="alert">{nexus.error}</p>}
       </div>
+
+      <footer className="shrink-0 border-t border-slate-100 p-4 md:p-5">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-2 sm:flex-row">
+          <label htmlFor="agenda-nexus-command" className="sr-only">Comando para o Nexus</label>
+          <input
+            ref={inputRef}
+            id="agenda-nexus-command"
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            disabled={nexus.isLoading}
+            placeholder={isDialogueMode ? 'Digite sua resposta ou complemente a informação...' : 'Ex.: reunião toda terça, às 17h, até novembro'}
+            className="min-h-11 flex-1 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-100 disabled:bg-slate-100"
+          />
+          <button
+            type="submit"
+            disabled={!input.trim() || nexus.isLoading}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-sky-600 px-5 text-xs font-black uppercase tracking-widest text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Send size={15} aria-hidden="true" />
+            Enviar
+          </button>
+        </form>
+      </footer>
     </section>
   );
 }

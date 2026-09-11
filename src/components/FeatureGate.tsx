@@ -13,7 +13,10 @@ export const FeatureGate: React.FC<FeatureGateProps> = ({
   fallback = null,
   children,
 }) => {
-  const { hasFeature } = useEntitlement();
+  const { hasFeature, loading } = useEntitlement();
+  // Durante o carregamento do entitlement, nunca exibir o fallback comercial
+  // (evita flash de paywall para pagantes em cold start) — E7-03.
+  if (loading) return null;
   return hasFeature(featureKey) ? <>{children}</> : <>{fallback}</>;
 };
 

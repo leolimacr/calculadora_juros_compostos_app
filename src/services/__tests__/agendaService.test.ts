@@ -13,6 +13,9 @@ const mockLimit = vi.hoisted(() => vi.fn(() => 'limit'));
 const mockServerTimestamp = vi.hoisted(() => vi.fn(() => 'server-ts'));
 const mockTimestampNow = vi.hoisted(() => vi.fn(() => 'ts-now'));
 const mockTimestampFromDate = vi.hoisted(() => vi.fn((d: Date) => `ts-${d.toISOString()}`));
+const mockBatchUpdate = vi.hoisted(() => vi.fn());
+const mockBatchCommit = vi.hoisted(() => vi.fn(() => Promise.resolve()));
+const mockWriteBatch = vi.hoisted(() => vi.fn(() => ({ update: mockBatchUpdate, commit: mockBatchCommit })));
 
 vi.mock('../../firebase', () => ({
   firestore: {},
@@ -36,6 +39,7 @@ vi.mock('firebase/firestore', () => ({
   orderBy: mockOrderBy,
   limit: mockLimit,
   serverTimestamp: mockServerTimestamp,
+  writeBatch: mockWriteBatch,
 }));
 
 import {
@@ -43,6 +47,7 @@ import {
   updateCommitment,
   deleteCommitment,
   toggleCommitment,
+  reorderDayCommitments,
 } from '../agendaService';
 import type { AgendaRecurrence } from '../agendaService';
 
@@ -204,6 +209,49 @@ describe('agendaService', () => {
       const callArgs = mockAddDoc.mock.calls[0] as unknown as [unknown, Record<string, unknown>];
       const calledData = callArgs[1];
       expect(calledData.endTime).toBeNull();
+    });
+
+    it('persiste order quando informado e grava null quando ausente', async () => {
+      const date = new Date('2026-07-29T00:00:00');
+      await addCommitment(USER_ID, {
+        date,
+        title: 'Com ordem',
+        completed: false,
+        order: 3,
+      });
+
+      const withOrder = mockAddDoc.mock.calls[0] as unknown as [unknown, Record<string, unknown>];
+      expect(withOrder[1].order).toBe(3);
+
+      await addCommitment(USER_ID, {
+        date,
+        title: 'Sem ordem',
+        completed: false,
+      });
+
+      const withoutOrder = mockAddDoc.mock.calls[1] as unknown as [unknown, Record<string, unknown>];
+      expect(withoutOrder[1].order).toBeNull();
+    });
+  });
+
+  describe('reorderDayCommitments', () => {
+    it('grava order de cada item num único batch atômico', async () => {
+      await reorderDayCommitments(USER_ID, [
+        { id: 'c-b', order: 0 },
+        { id: 'c-a', order: 1 },
+      ]);
+
+      expect(mockWriteBatch).toHaveBeenCalledTimes(1);
+      expect(mockBatchUpdate).toHaveBeenCalledTimes(2);
+      expect(mockBatchUpdate).toHaveBeenCalledWith(
+        { path: `users/${USER_ID}/agenda/c-b` },
+        { order: 0, updatedAt: 'server-ts' }
+      );
+      expect(mockBatchUpdate).toHaveBeenCalledWith(
+        { path: `users/${USER_ID}/agenda/c-a` },
+        { order: 1, updatedAt: 'server-ts' }
+      );
+      expect(mockBatchCommit).toHaveBeenCalledTimes(1);
     });
   });
 });

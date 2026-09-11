@@ -40,11 +40,27 @@ export interface NexusAdvisoryContext {
   isPremium: boolean;
 }
 
+export type NexusPlanTier = 'free' | 'pro' | 'premium';
+
+export interface NexusActionPayload {
+  title?: string;
+  value?: number;
+  targetDate?: string;
+  debtId?: string;
+  cardId?: string;
+  cardName?: string;
+  amount?: number;
+  invoiceId?: string;
+  periodEnd?: string;
+  remainingAmount?: number;
+  dueDate?: string;
+}
+
 export interface NexusInsightAction {
   label: string;
   type: string;
-  requiresPlan?: string;
-  payload?: any;
+  requiresPlan?: NexusPlanTier;
+  payload?: NexusActionPayload;
 }
 
 export interface NexusInsight {
@@ -348,9 +364,9 @@ const INSIGHT_CATALOG: CatalogItem[] = [
     insight: {
       id: 'central-debt-interest',
       message: {
-        title: 'Hemorragia de Juros',
-        body: '{prefix} suas dívidas estão drenando sua folga do mês. Manter esse passivo é como tentar encher um balde furado. Vamos tapar esse buraco?',
-        ctaLabel: 'Estancar Juros',
+        title: 'Impacto dos Juros',
+        body: '{prefix} os juros destas dívidas consomem parte da sua folga do mês. Conhecer o custo acumulado e simular uma rota de amortização pode ajudar a recuperar margem no seu fluxo.',
+        ctaLabel: 'Ver Estratégia',
       },
       deepLink: 'minhas-dividas',
       priority: 'alta',
@@ -367,7 +383,7 @@ const INSIGHT_CATALOG: CatalogItem[] = [
       id: 'strategic-opportunity-cost',
       message: {
         title: 'Custo de Oportunidade',
-        body: '{prefix} você possui ativos com liquidez enquanto paga juros altos em dívidas. Matematicamente, usar parte desse capital para quitar o débito é o seu melhor investimento hoje.',
+        body: '{prefix} você possui ativos com liquidez enquanto mantém dívidas com juros elevados. A taxa das dívidas costuma superar o rendimento da liquidez — amortizar é uma alternativa que reduz o custo total de juros.',
         ctaLabel: 'Ver Estratégia',
       },
       deepLink: 'minhas-dividas',
@@ -503,7 +519,9 @@ function checkPurpose(item: { proposito?: string }, keywords: string[]): boolean
   return keywords.some((k) => lower.includes(k.toLowerCase()));
 }
 
-function catalogItemDomain(id: string): string | null {
+type CatalogDomain = 'protecao' | 'cartao' | 'orcamento';
+
+function catalogItemDomain(id: string): CatalogDomain | null {
   if (id === 'home-sovereign-deficit' || id === 'home-margin-thin' || id === 'central-cushion-warning') return 'protecao';
   if (id === 'fatima_reserva' || id === 'home-bill-pressure') return 'cartao';
   if (id.startsWith('budget-')) return 'orcamento';
@@ -568,7 +586,7 @@ function isInsightSuppressed(id: string, ctx: UserContext, key: string): boolean
   const record = getSeenRecords(key).find((r) => r.id === id);
   if (!record) return false;
   const domain = catalogItemDomain(id);
-  const multiplier = domain ? getDomainSuppressionMultiplier(domain as any) : 1;
+  const multiplier = domain ? getDomainSuppressionMultiplier(domain) : 1;
   if (Date.now() - record.seenAt >= SUPPRESSION_DURATION_MS * multiplier) return false;
   return record.fingerprint === getInsightFingerprint(id, ctx);
 }
@@ -604,7 +622,8 @@ function prepareInsight(insight: NexusInsight, ctx: UserContext): NexusInsight {
   const fmt = (n: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
 
-  const toneMarker = getToneMarker(catalogItemDomain(insight.id) as any);
+  const domain = catalogItemDomain(insight.id);
+  const toneMarker = domain ? getToneMarker(domain) : '';
 
   const vars: Record<string, string | number> = {
     prefix: voice.prefix,
@@ -683,7 +702,7 @@ export function getPrioritizedInsight(ctx: UserContext): NexusInsight | null {
   // Comportamento: rebalanceia prioridade por domínio
   candidates = candidates.map((item) => {
     const domain = catalogItemDomain(item.id);
-    const delta = domain ? getEffectivePriorityDelta(domain as any) : 0;
+    const delta = domain ? getEffectivePriorityDelta(domain) : 0;
     if (delta === 0) return item;
     const idx = priorityLevels.indexOf(item.insight.priority);
     const adjusted = Math.max(0, Math.min(3, idx + delta));
@@ -732,8 +751,6 @@ export function getCentralInsights(ctx: UserContext): NexusInsight[] {
 }
 
 export function getOperationalInsight(ctx: UserContext): NexusInsight | null {
-  const free = ctx.sovereignFreeBalance ?? 0;
-
   const OPERATIONAL: CatalogItem[] = [
     {
       id: 'op-sovereign-deficit',

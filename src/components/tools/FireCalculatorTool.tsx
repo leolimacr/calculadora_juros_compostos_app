@@ -14,7 +14,7 @@ const PremiumInput = ({ label, icon: Icon, value, onChange, prefix = "R$" }: any
         type="number"
         value={value || ''}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full bg-white border border-slate-200 rounded-2xl py-4 pl-12 pr-4 text-slate-900 font-bold text-xl shadow-sm focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all placeholder:text-slate-300"
+        className="w-full bg-white border border-slate-200 rounded-2xl py-4 pl-12 pr-4 text-slate-900 font-bold text-xl shadow-sm focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all placeholder:text-slate-500"
         placeholder="0"
       />
     </div>

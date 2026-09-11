@@ -1,7 +1,7 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
-import { LogOut, Settings, Sparkles, Eye, EyeOff, Menu, Globe, CreditCard, Compass, ArrowLeft, Crown, Bell } from 'lucide-react';
+import { LogOut, Settings, Eye, EyeOff, Menu, Globe, ArrowLeft, Crown, Bell } from 'lucide-react';
 import { useNavigation } from '../hooks/useNavigation';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useEntitlement } from '../hooks/useEntitlement';
@@ -21,7 +21,7 @@ interface AppHeaderProps {
   showDesktopNav?: boolean;
 }
 
-const MAIN_ROUTES = ['/app/central', '/app/controla', '/app/mais', '/app/explorar', '/'];
+const MAIN_ROUTES = ['/app/central', '/app/controla', '/app/dashboard', '/app/mais', '/app/explorar', '/app/agenda', '/'];
 
 const AppHeader: React.FC<AppHeaderProps> = ({
   isAuthenticated,
@@ -31,7 +31,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   onTogglePrivacy,
   onLogout,
   onOpenMobileMenu,
-  isNotificationsOpen,
   onOpenNotifications,
   showDesktopNav = false,
 }) => {
@@ -46,7 +45,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   const hasProAccess = effectiveTier !== 'free';
   const hasPremiumAccess = effectiveTier === 'premium';
   const isProOnly = hasProAccess && !hasPremiumAccess;
-  const isStrictlyPro = isAuthenticated && hasProAccess;
 
   const handleSmartBack = useCallback(() => {
     // Se houver histórico de navegação na sessão atual, volta. 
@@ -95,7 +93,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                   Invest
                 </span>
               </div>
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] leading-none mt-1">
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em] leading-none mt-1">
                 Controle financeiro inteligente
               </span>
             </div>
@@ -113,7 +111,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                     onClick={handleOpenWebsite}
                     className="mt-1 flex items-center gap-1 text-slate-500 hover:text-slate-900 font-bold text-[9px] uppercase tracking-widest bg-slate-50 px-2 py-1 rounded-md border border-slate-100"
                   >
-                    <Globe size={10} className="text-emerald-500" /> Abrir Site
+                    <Globe size={10} className="text-emerald-600" /> Abrir Site
                   </button>
                 )}
               </div>
@@ -130,7 +128,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             >
                 <Bell size={20} />
                 {unreadCount > 0 && (
-                    <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-emerald-500 text-white text-[9px] font-black flex items-center justify-center rounded-full border-2 border-white animate-in zoom-in duration-300">
+                    <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-emerald-600 text-white text-[9px] font-black flex items-center justify-center rounded-full border-2 border-white animate-in zoom-in duration-300">
                         {unreadCount}
                     </span>
                 )}
@@ -150,21 +148,21 @@ const AppHeader: React.FC<AppHeaderProps> = ({
           <>
             {hasPremiumAccess && (
               <div 
-                className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 mr-4 animate-in fade-in zoom-in duration-300 shadow-[0_0_10px_rgba(16,185,129,0.1)]"
+                className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 mr-4 animate-in fade-in zoom-in duration-300 shadow-[0_0_10px_rgba(16,185,129,0.1)]"
                 role="status"
                 aria-label="Plano Premium"
               >
-                <Crown size={12} className="fill-emerald-500" />
+                <Crown size={12} className="fill-emerald-600" />
                 <span className="text-[10px] font-black uppercase tracking-wider">Premium</span>
               </div>
             )}
             {isProOnly && (
               <div 
-                className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-sky-50 border border-sky-200 text-sky-600 mr-4 animate-in fade-in zoom-in duration-300"
+                className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-sky-50 border border-sky-200 text-sky-700 mr-4 animate-in fade-in zoom-in duration-300"
                 role="status"
                 aria-label="Plano Pro"
               >
-                <Crown size={12} className="text-sky-500" />
+                <Crown size={12} className="text-sky-600" />
                 <span className="text-[10px] font-black uppercase tracking-wider">Pro</span>
               </div>
             )}
@@ -183,7 +181,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
 
             {hasPremiumAccess && (
               <div 
-                className="xl:hidden flex items-center justify-center w-6 h-6 rounded-lg bg-emerald-500 text-white shadow-lg shadow-emerald-200/50 mr-2"
+                className="xl:hidden flex items-center justify-center w-6 h-6 rounded-lg bg-emerald-600 text-white shadow-lg shadow-emerald-200/50 mr-2"
                 role="status"
                 aria-label="Plano Premium"
               >
@@ -192,7 +190,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             )}
             {isProOnly && (
               <div 
-                className="xl:hidden flex items-center justify-center w-6 h-6 rounded-lg bg-sky-500 text-white shadow-lg shadow-sky-200/50 mr-2"
+                className="xl:hidden flex items-center justify-center w-6 h-6 rounded-lg bg-sky-600 text-white shadow-lg shadow-sky-200/50 mr-2"
                 role="status"
                 aria-label="Plano Pro"
               >
@@ -212,17 +210,15 @@ const AppHeader: React.FC<AppHeaderProps> = ({
               <button onClick={onLogout} className="p-2 text-slate-500 hover:text-red-500 transition-colors"><LogOut size={18} /></button>
             </div>
 
-            {!isNative && (
-              <div className="lg:hidden flex items-center gap-2">
-                <button 
-                  onClick={onOpenMobileMenu} 
-                  className="relative text-slate-600 p-2.5 rounded-xl bg-white border border-slate-200 shadow-sm active:scale-95 transition-all" 
-                  aria-label="Menu"
-                >
-                  <Menu size={20} />
-                </button>
-              </div>
-            )}
+            <div className="lg:hidden flex items-center gap-2">
+              <button
+                onClick={onOpenMobileMenu}
+                className="relative text-slate-600 p-2.5 rounded-xl bg-white border border-slate-200 shadow-sm active:scale-95 transition-all"
+                aria-label="Menu"
+              >
+                <Menu size={20} />
+              </button>
+            </div>
           </>
         )}
       </div>

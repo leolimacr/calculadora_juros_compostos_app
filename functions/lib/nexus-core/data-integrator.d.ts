@@ -54,5 +54,15 @@ export declare class DataIntegrator {
     private static generateTransactionSummary;
     private static generateDataSummary;
     private static mapGoalCategory;
-    private static getPeriodByPlan;
 }
+export declare const NEXUS_TX_CAPS: Record<string, {
+    days: number;
+    max: number;
+}>;
+export declare function txCapsByPlan(plan?: string): {
+    days: number;
+    max: number;
+};
+export declare const MAX_PROMPT_SEGMENT_CHARS = 4000;
+export declare function truncatePromptSegment(text: string, max?: number): string;
+export declare const MAX_GOALS_LISTED = 20;

@@ -38,16 +38,12 @@ const defaultState: EntitlementState = {
 
 const EntitlementContext = createContext<EntitlementState>(defaultState);
 
-let entitlementInstanceCount = 0;
-
 export function EntitlementProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [effectiveTier, setEffectiveTier] = useState<BillingTier>('free');
   const [billingStatus, setBillingStatus] = useState<BillingStatus>(null);
   const [billing, setBilling] = useState<{ tier: BillingTier; status: BillingStatus } | null>(null);
-
-  const providerId = React.useRef(++entitlementInstanceCount);
 
   useEffect(() => {
     if (!user || !firestore) {
@@ -83,7 +79,9 @@ export function EntitlementProvider({ children }: { children: React.ReactNode })
               resolvedTier = legacyPlan === 'premium' ? 'premium' : 'pro';
             }
 
-            if (!resolvedTier || resolvedTier === 'free') {
+            // Cast explícito: o narrowing do TS não enxerga a atribuição
+            // condicional acima (pré-existente; sem mudança de runtime).
+            if (!resolvedTier || (resolvedTier as BillingTier) === 'free') {
               const subPlanId = (userData?.subscription as Record<string, unknown> | undefined)?.planId as string | undefined;
               if (subPlanId && subPlanId !== 'free' && subActive) {
                 const resolved = resolveLegacyPlanId(subPlanId);
@@ -93,7 +91,7 @@ export function EntitlementProvider({ children }: { children: React.ReactNode })
               }
             }
 
-            if (resolvedTier && resolvedTier !== 'free') {
+            if (resolvedTier && (resolvedTier as BillingTier) !== 'free') {
               setBilling({ tier: resolvedTier, status: subStatus as BillingStatus });
               setEffectiveTier(resolvedTier);
               setBillingStatus(subStatus as BillingStatus);
@@ -110,7 +108,7 @@ export function EntitlementProvider({ children }: { children: React.ReactNode })
         }
         setLoading(false);
       },
-      (error: any) => {
+      (error: { code?: string; message?: string }) => {
         console.error('Erro no listener de billing:', error?.code, error?.message);
         setEffectiveTier('free');
         setBillingStatus(null);

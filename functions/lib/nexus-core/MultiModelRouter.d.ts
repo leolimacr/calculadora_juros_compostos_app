@@ -41,6 +41,7 @@ export declare class MultiModelRouter {
             primaryIntent?: string;
             userName?: string;
         };
+        responseFormat?: 'json';
     }): Promise<RouterResponse>;
     private tryProvider;
     private callOpenAIFormat;

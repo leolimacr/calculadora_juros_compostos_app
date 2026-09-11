@@ -53,23 +53,23 @@ const MarginTrajectoryPanel: React.FC<MarginTrajectoryPanelProps> = ({
 
   const directionColor =
     summary.direction === 'up'
-      ? 'text-emerald-500'
+      ? 'text-emerald-600'
       : summary.direction === 'down'
-        ? 'text-rose-500'
+        ? 'text-rose-600'
         : isDark
           ? 'text-slate-500'
           : 'text-text-muted';
 
   const strokeColor =
-    summary.direction === 'down' ? '#e11d48' : summary.direction === 'up' ? '#059669' : '#0ea5e9';
+    summary.direction === 'down' ? '#be123c' : summary.direction === 'up' ? '#047857' : '#0284c7';
 
   if (!hasData) {
     return (
       <div
-        className={`rounded-3xl border p-5 ${
+        className={`rounded-section border p-5 ${
           isDark
             ? 'bg-slate-900/60 border-slate-700/80'
-            : 'bg-surface-primary border-surface-elevated shadow-soft'
+            : 'bg-surface-subtle border-slate-200'
         }`}
       >
         <p className={`text-xxs font-black uppercase tracking-ultra-wide ${isDark ? 'text-slate-500' : 'text-text-muted'}`}>
@@ -84,10 +84,10 @@ const MarginTrajectoryPanel: React.FC<MarginTrajectoryPanelProps> = ({
 
   return (
     <div
-      className={`rounded-3xl border p-4 md:p-5 space-y-3 ${
+      className={`rounded-section border p-4 md:p-5 space-y-3 ${
         isDark
           ? 'bg-slate-900/60 border-slate-700/80'
-          : 'bg-surface-primary border-surface-elevated shadow-soft'
+          : 'bg-surface-subtle border-slate-200'
       }`}
     >
       <div className="flex items-start justify-between gap-3">
@@ -128,16 +128,17 @@ const MarginTrajectoryPanel: React.FC<MarginTrajectoryPanelProps> = ({
             </defs>
             <XAxis
               dataKey="label"
-              tick={{ fontSize: 10, fill: isDark ? '#94a3b8' : '#64748b' }}
+              tick={{ fontSize: 10, fill: isDark ? '#cbd5e1' : '#475569' }}
               axisLine={false}
               tickLine={false}
             />
             <YAxis hide domain={['auto', 'auto']} />
-            <ReferenceLine y={0} stroke={isDark ? '#475569' : '#cbd5e1'} strokeDasharray="4 4" />
+            <ReferenceLine y={0} stroke={isDark ? '#475569' : '#94a3b8'} strokeDasharray="4 4" />
             <Tooltip
               contentStyle={{
                 borderRadius: '12px',
-                border: 'none',
+                border: '1px solid #e2e8f0',
+                boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.18)',
                 fontSize: '11px',
                 background: isDark ? '#1e293b' : '#fff',
                 color: isDark ? '#f1f5f9' : '#0f172a',

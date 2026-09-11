@@ -33,7 +33,9 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DataIntegrator = void 0;
+exports.MAX_GOALS_LISTED = exports.MAX_PROMPT_SEGMENT_CHARS = exports.NEXUS_TX_CAPS = exports.DataIntegrator = void 0;
+exports.txCapsByPlan = txCapsByPlan;
+exports.truncatePromptSegment = truncatePromptSegment;
 const database_1 = require("firebase-admin/database");
 const firestore_1 = require("firebase-admin/firestore");
 const logger = __importStar(require("firebase-functions/logger"));
@@ -103,13 +105,14 @@ class DataIntegrator {
                 const rtdb = (0, database_1.getDatabase)();
                 const path = `transactions/${userId}`;
                 const userTransactionsRef = rtdb.ref(path);
-                const daysToFetch = this.getPeriodByPlan(userPlan);
+                const caps = txCapsByPlan(userPlan);
                 const cutoffDate = new Date();
-                cutoffDate.setDate(cutoffDate.getDate() - daysToFetch);
+                cutoffDate.setDate(cutoffDate.getDate() - caps.days);
                 const cutoffStr = cutoffDate.toISOString().split('T')[0];
                 const snapshot = await userTransactionsRef
                     .orderByChild('date')
                     .startAt(cutoffStr)
+                    .limitToLast(caps.max)
                     .get();
                 clearTimeout(timeoutId);
                 if (!snapshot.exists()) {
@@ -131,7 +134,7 @@ class DataIntegrator {
                     });
                 });
                 transactions.sort((a, b) => b.date.getTime() - a.date.getTime());
-                logger.info(`[DataIntegrator] ${transactions.length} transações dos últimos ${daysToFetch} dias (Filtro: ${cutoffStr})`);
+                logger.info(`[DataIntegrator] ${transactions.length} transações dos últimos ${caps.days} dias (Filtro: ${cutoffStr}, teto: ${caps.max})`);
                 resolve(transactions);
             }
             catch (error) {
@@ -204,7 +207,9 @@ class DataIntegrator {
     static formatGoalsForPrompt(goals, _context) {
         if (!goals || goals.length === 0)
             return 'Nenhuma meta financeira registrada.';
-        return `**METAS ATIVAS (${goals.length}):**\n${goals.map(g => `• ${g.name}: R$ ${g.currentAmount}/${g.targetAmount}`).join('\n')}`;
+        const listed = goals.slice(0, exports.MAX_GOALS_LISTED);
+        const extra = goals.length - listed.length;
+        return `**METAS ATIVAS (${goals.length}):**\n${listed.map(g => `• ${g.name}: R$ ${g.currentAmount}/${g.targetAmount}`).join('\n')}${extra > 0 ? `\n(+${extra} metas omitidas pelo limite de contexto)` : ''}`;
     }
     static formatAssetsSummary(assets) {
         if (!assets || assets.length === 0)
@@ -288,15 +293,25 @@ class DataIntegrator {
         const valid = ['retirement', 'travel', 'property', 'education', 'emergency', 'investment'];
         return valid.includes(category) ? category : 'investment';
     }
-    static getPeriodByPlan(plan) {
-        switch (plan) {
-            case 'free': return 3;
-            case 'pro': return 30;
-            case 'premium': return 90;
-            case 'premium_anual': return 9999;
-            default: return 30;
-        }
-    }
 }
 exports.DataIntegrator = DataIntegrator;
+exports.NEXUS_TX_CAPS = {
+    free: { days: 3, max: 50 },
+    pro: { days: 30, max: 150 },
+    premium: { days: 90, max: 300 },
+    premium_anual: { days: 9999, max: 500 },
+};
+const DEFAULT_TX_CAP = { days: 30, max: 150 };
+function txCapsByPlan(plan) {
+    if (plan && plan in exports.NEXUS_TX_CAPS)
+        return exports.NEXUS_TX_CAPS[plan];
+    return DEFAULT_TX_CAP;
+}
+exports.MAX_PROMPT_SEGMENT_CHARS = 4000;
+function truncatePromptSegment(text, max = exports.MAX_PROMPT_SEGMENT_CHARS) {
+    if (text.length <= max)
+        return text;
+    return text.slice(0, max) + '\n[...trecho truncado por limite de contexto]';
+}
+exports.MAX_GOALS_LISTED = 20;
 //# sourceMappingURL=data-integrator.js.map

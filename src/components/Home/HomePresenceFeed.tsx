@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowRight, AlertTriangle } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { firestore } from '../../firebase';
-import { collection, query, where, orderBy, limit, onSnapshot, getDocs } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit, getDocs, writeBatch, doc, Timestamp } from 'firebase/firestore';
 import { PresenceEventService } from '../../services/PresenceEventService';
 import { FPI_COPY } from '../../theme/fpiVoiceGuide';
 
@@ -44,18 +44,32 @@ export const HomePresenceFeed: React.FC<Props> = ({ userId, isAuthenticated, onN
       return;
     }
 
-    let unsubscribe: (() => void) | null = null;
+    const seenKey = `fpi_seen_events_${userId}`;
+    const getSeenSet = (): Set<string> => {
+      try {
+        const raw = sessionStorage.getItem(seenKey);
+        return raw ? new Set(JSON.parse(raw)) : new Set();
+      } catch { return new Set(); }
+    };
+    const saveSeenSet = (s: Set<string>) => {
+      try { sessionStorage.setItem(seenKey, JSON.stringify([...s])); } catch {}
+    };
 
     const markSeen = (items: PresenceEvent[]) => {
-      items.forEach(ev => {
-        const alreadySeen = !!ev.seenAt?.seconds;
-        if (!ev.eventId.startsWith('static-') && userId && !alreadySeen) {
-          import('firebase/firestore').then(({ doc, updateDoc, Timestamp }) => {
-            const ref = doc(firestore, 'users', userId, 'presenceEvents', ev.eventId);
-            updateDoc(ref, { seenAt: Timestamp.now() }).catch(() => {});
-          });
-        }
+      const seen = getSeenSet();
+      const toMark = items.filter(ev =>
+        !ev.eventId.startsWith('static-') && !ev.seenAt?.seconds && !seen.has(ev.eventId)
+      );
+      if (toMark.length === 0) return;
+
+      const batch = writeBatch(firestore);
+      toMark.forEach(ev => {
+        const ref = doc(firestore, 'users', userId!, 'presenceEvents', ev.eventId);
+        batch.update(ref, { seenAt: Timestamp.now() });
+        seen.add(ev.eventId);
       });
+      batch.commit().catch(() => {});
+      saveSeenSet(seen);
     };
 
     const start = async () => {
@@ -120,10 +134,6 @@ export const HomePresenceFeed: React.FC<Props> = ({ userId, isAuthenticated, onN
     };
 
     start();
-
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
   }, [userId, isAuthenticated]);
 
   const staticFallbackByPersona: Record<string, PresenceEvent[]> = {

@@ -1,41 +1,43 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useFirebase } from '../../../hooks/useFirebase';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, addDoc, deleteDoc, limit } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, doc, updateDoc, addDoc, deleteDoc, limit } from 'firebase/firestore';
 import { firestore } from '../../../firebase';
 import { eventBus } from '../../../core/orchestration/event-bus';
 import { createDomainEvent, EVENT_TYPES } from '../../../core/orchestration/domainEvents';
-import type { DebtCreatedEvent, DebtUpdatedEvent, DebtAmortizedEvent, DebtDeletedEvent } from '../../../core/orchestration/domainEvents';
+import type { DebtCreatedEvent, DebtUpdatedEvent, DebtDeletedEvent } from '../../../core/orchestration/domainEvents';
 import {
-  Plus, Trash2, Pencil, X, Check,
-  CreditCard, Sparkles, HelpCircle,
-  TrendingUp, ShieldCheck, Target,
+  Plus, Trash2, Pencil, X,
+  Sparkles,
+  TrendingUp, ShieldCheck,
   LayoutGrid, List, History, ChevronRight, ChevronDown,
-  ArrowLeft, AlertCircle, Trophy, PartyPopper,
-  ArrowRight, BookOpen, Wallet
+  ArrowLeft, AlertCircle, BookOpen
 } from 'lucide-react';
-import { PresenceEventService } from '../../../services/PresenceEventService';
 import { DebtProjectionDrawer } from './DebtProjectionDrawer';
 import { DebtUpgradeModal } from './DebtUpgradeModal';
 import { DebtNexusFeed } from './DebtNexusFeed';
+import { DebtAmortizationModal } from './DebtAmortizationModal';
 import { useWealthData } from '../../../hooks/useWealthData';
 import { useWealthHistory } from '../../../hooks/useWealthHistory';
 import { useEntitlement } from '../../../hooks/useEntitlement';
 import { useSovereignSnapshot } from '../../../hooks/useSovereignSnapshot';
+import { useExclusionAmount } from '../../../contexts/ExclusionsContext';
 import { useDebtAdvisor } from '../../../hooks/useDebtAdvisor';
 import { useTransactions } from '../../../hooks/useTransactions';
 import { fetchCurrentSelicRate } from '../buy-cash-or-installments/selicService';
 import { DebtPlanSimulator } from '../DebtPlanSimulator';
 import type { DebtCommand } from '../../../services/debt/advisor.types';
-import { useDebts, amortizeDebts } from '../../../services/debt';
+import { useDebts, useAmortizeDebt } from '../../../services/debt';
 import type { DebtItem } from '../../../services/debt';
 import { revertRotativoConversion, settleRotativoConversion, amortizeRotativoDebt } from '../../../services/rotativoService';
 import { hasInterestBeenAppliedThisMonth, computeRotativoMonthlyInterest } from '../../../services/rotativo.math';
-import { rankDebts, computeMonthlyImpact } from '../../../services/debt/debt.math';
+import { rankDebts, computeMonthlyImpact, convertAnnualToMonthlyRate, InterestRatePeriod } from '../../../services/debt/debt.math';
 import { MANUAL_DEBT_TYPES, MANUAL_DEBT_TYPE_OPTIONS } from '../../../services/debt/debt.constants';
-import { FPI_COPY } from '../../../theme/fpiVoiceGuide';
 import { useToast } from '../../../contexts/ToastContext';
 import { RotativoInterestReport } from './RotativoInterestReport';
+import { DebtAdjustmentSelector } from './DebtAdjustmentSelector';
+import { DebtSeriesTable } from './DebtSeriesTable';
+import type { DebtAdjustmentType, DebtAdjustmentConfig, DebtSeries } from '../../../services/debt/debt.types';
 
 interface SavedDebtPlan {
   id: string;
@@ -92,7 +94,17 @@ const EMPTY_FORM: DebtItem = {
   parcelasRestantes: 0,
   valorParcela: 0,
   dataVencimento: null,
-  proposito: ''
+  proposito: '',
+  totalParcelas: 0,
+  parcelasPagas: 0,
+  historicoPagamentos: [],
+  adjustmentConfig: {
+    type: 'fixed',
+    series: [],
+    frequency: 'monthly',
+  },
+  currentSeriesIndex: 0,
+  nextAdjustmentDate: null,
 };
 
 export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, onNavigate }) => {
@@ -102,14 +114,18 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, onNa
   const [showUpgradeModal, setShowUpgradeModal] = useState<{title: string, description: string} | null>(null);
   
   const { transactions } = useTransactions(userId);
-  const sovereign = useSovereignSnapshot(transactions, userMeta);
+
+  const reserveTarget = userMeta?.financialProfile?.emergencyReserveTarget || 0;
+  const colchaoTarget = userMeta?.financialProfile?.colchaoInicialTarget || 0;
+  const exclusionAmount = useExclusionAmount(reserveTarget, colchaoTarget);
+
+  const sovereign = useSovereignSnapshot(transactions, userMeta, false, undefined, exclusionAmount);
   
   const { data: debtsData, isLoading } = useDebts(userId);
   const debts = debtsData || [];
   
   const commands = useDebtAdvisor(debts, sovereign);
 
-  const { saveFinancialProfile } = useFirebase(userId); 
   const { totalAssets, totalInvestments, totalProperty, patrimonioLiquido, totalDebts: realTotalDebts } = useWealthData();
 
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -119,6 +135,16 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, onNa
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<DebtItem>(EMPTY_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Adjustment config state (extracted for easier form handling)
+  const [adjustmentType, setAdjustmentType] = useState<DebtAdjustmentType>('fixed');
+  const [annualPercentRate, setAnnualPercentRate] = useState<number | undefined>(undefined);
+  const [frequency, setFrequency] = useState<'monthly' | 'quarterly' | 'semi_annual' | 'annual'>('monthly');
+  const [series, setSeries] = useState<DebtSeries[]>([]);
+
+  // Interest rate period state (monthly vs annual)
+  const [interestRatePeriod, setInterestRatePeriod] = useState<InterestRatePeriod>('monthly');
+  
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
     return (localStorage.getItem('debt_view_mode') as 'grid' | 'list') || 'list';
   });
@@ -126,6 +152,7 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, onNa
   const hasInitialized = useRef(false);
   const [showHistory, setShowHistory] = useState(false);
   const [selectedDebtForProjection, setSelectedDebtForProjection] = useState<DebtItem | null>(null);
+  const [selectedDebtForAmortization, setSelectedDebtForAmortization] = useState<DebtItem | null>(null);
   const [savedPlans, setSavedPlans] = useState<SavedDebtPlan[]>([]);
   const [selicRate, setSelicRate] = useState<number>(10.75);
   const [applyingInterestId, setApplyingInterestId] = useState<string | null>(null);
@@ -136,15 +163,17 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, onNa
 
   useEffect(() => {
     if (!userId) return;
-    const q = query(
-      collection(firestore, 'users', userId, 'nexusDebtPlans'),
-      orderBy('createdAt', 'desc'),
-      limit(10)
-    );
-    return onSnapshot(q, (snap) => {
-      const plans = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SavedDebtPlan));
+    const loadPlans = async () => {
+      const q = query(
+        collection(firestore, 'users', userId, 'nexusDebtPlans'),
+        orderBy('createdAt', 'desc'),
+        limit(10)
+      );
+      const snap = await getDocs(q);
+      const plans = snap.docs.map(d => ({ id: d.id, ...d.data() } as SavedDebtPlan));
       setSavedPlans(plans);
-    });
+    };
+    loadPlans();
   }, [userId]);
 
   useEffect(() => {
@@ -169,6 +198,12 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, onNa
     }
   };
 
+  const { isPending: isAmortizing } = useAmortizeDebt(userId || '');
+
+  const handleOpenAmortization = (debt: DebtItem) => {
+    setSelectedDebtForAmortization(debt);
+  };
+
   const handleAmortizeExtra = (amount: number) => {
       alert(`Fluxo para registrar pagamento de R$ ${amount} disparado!`);
       setSelectedDebtForProjection(null);
@@ -188,13 +223,51 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, onNa
 
     setIsSubmitting(true);
     try {
+      // Build adjustmentConfig from state
+      const buildAdjustmentConfig = (): DebtAdjustmentConfig | undefined => {
+        if (adjustmentType === 'fixed') {
+          return { type: 'fixed', series: [], frequency: 'monthly' };
+        }
+        if (adjustmentType === 'annual_percent') {
+          return {
+            type: 'annual_percent',
+            annualPercentRate,
+            series,
+            frequency,
+          };
+        }
+        if (adjustmentType === 'manual_series') {
+          return {
+            type: 'manual_series',
+            series,
+            frequency,
+          };
+        }
+        return undefined;
+      };
+
+      const totalParcelas = form.totalParcelas || form.parcelasRestantes;
+      const parcelasPagas = form.parcelasPagas || 0;
+      
+      // Convert annual rate to monthly if user entered annual rate
+      let taxaMensalToSave = form.taxaMensal;
+      if (interestRatePeriod === 'annual' && form.taxaMensal > 0) {
+        taxaMensalToSave = convertAnnualToMonthlyRate(form.taxaMensal);
+      }
+
       const debtData = {
         ...form,
         saldoDevedor: Math.max(0, form.saldoDevedor || 0),
         valorParcela: Math.max(0, form.valorParcela || 0),
         parcelasRestantes: Math.max(0, form.parcelasRestantes || 0),
+        totalParcelas,
+        parcelasPagas,
         updatedAt: new Date(),
-        proposito: form.proposito || ''
+        proposito: form.proposito || '',
+        taxaMensal: taxaMensalToSave,
+        adjustmentConfig: buildAdjustmentConfig(),
+        currentSeriesIndex: 0,
+        nextAdjustmentDate: null,
       };
 
       if (editingId) {
@@ -233,6 +306,11 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, onNa
       }
       setForm(EMPTY_FORM);
       setEditingId(null);
+      setAdjustmentType('fixed');
+      setAnnualPercentRate(undefined);
+      setFrequency('monthly');
+      setSeries([]);
+      setInterestRatePeriod('monthly');
       addToast(
         editingId
           ? 'Dívida atualizada. Continue monitorando sua evolução.'
@@ -250,6 +328,22 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, onNa
   const handleEdit = (debt: DebtItem) => {
     setForm({ ...debt, proposito: debt.proposito || '' });
     setEditingId(debt.id || null);
+    
+    // Populate adjustment config state
+    const config = debt.adjustmentConfig;
+    if (config) {
+      setAdjustmentType(config.type);
+      setAnnualPercentRate(config.annualPercentRate);
+      setFrequency(config.frequency ?? 'monthly');
+      setSeries(config.series ?? []);
+    } else {
+      setAdjustmentType('fixed');
+      setAnnualPercentRate(undefined);
+      setFrequency('monthly');
+      setSeries([]);
+      setInterestRatePeriod('monthly');
+    }
+    
     setTimeout(() => document.getElementById('wealth-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
   };
 
@@ -295,47 +389,6 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, onNa
     }
   };
 
-  const handleAmortizeAll = async () => {
-    if (!userId) return;
-    if (!window.confirm("Isso irá abater UMA parcela de todas as suas dívidas ativas. Deseja continuar?")) return;
-
-    const affectedDebts = debts.filter(d => d.saldoDevedor > 0 && d.parcelasRestantes > 0 && d.originType !== 'rotativo_cartao');
-    const snapshots = affectedDebts.map(d => ({
-      debtId: d.id!,
-      valorParcela: d.valorParcela,
-      previousSaldo: d.saldoDevedor,
-      previousParcelas: d.parcelasRestantes,
-    }));
-
-    try {
-      await amortizeDebts(userId);
-      
-      for (const snap of snapshots) {
-        const newSaldo = Math.max(0, snap.previousSaldo - snap.valorParcela);
-        const newParcelas = snap.previousParcelas - 1;
-        await eventBus.publish(createDomainEvent<DebtAmortizedEvent['payload']>(
-          'debt',
-          EVENT_TYPES.debt.amortized,
-          {
-            debtId: snap.debtId,
-            userId,
-            amount: snap.valorParcela,
-            previousSaldo: snap.previousSaldo,
-            newSaldo,
-            previousParcelas: snap.previousParcelas,
-            newParcelas,
-          },
-          'DebtManager.handleAmortizeAll'
-        ));
-      }
-
-      alert("Dívidas amortizadas com sucesso! Não esqueça de validar o saldo devedor final.");
-    } catch (err) {
-      console.error(err);
-      alert("Erro ao amortizar dívidas.");
-    }
-  };
-
   const handleConfirmSaldos = async () => {
     try {
       await saveSnapshot({
@@ -353,8 +406,7 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, onNa
     }
   };
 
-  const totalSaldo = debts.reduce((acc, d) => acc + (d.saldoDevedor || 0), 0);
-  const totalParcelas = debts.reduce((acc, d) => acc + (d.valorParcela || 0), 0);
+  const totalSaldo = debts.reduce((acc: number, d: DebtItem) => acc + (d.saldoDevedor || 0), 0);
 
   const criticalDebt = useMemo(() => {
     if (debts.length === 0) return null;
@@ -543,12 +595,12 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, onNa
             </div>
             <div className="flex items-center gap-2">
               {editingId && (
-                <button onClick={() => { setForm(EMPTY_FORM); setEditingId(null); }} className="text-xs font-black text-slate-500 hover:text-rose-500 uppercase tracking-widest flex items-center gap-1 transition-colors">
+                <button onClick={() => { setForm(EMPTY_FORM); setEditingId(null); setAdjustmentType('fixed'); setAnnualPercentRate(undefined); setFrequency('monthly'); setSeries([]); setInterestRatePeriod('monthly'); }} className="text-xs font-black text-slate-500 hover:text-rose-500 uppercase tracking-widest flex items-center gap-1 transition-colors">
                   <X size={14} /> Cancelar
                 </button>
               )}
               {!editingId && debts.length > 0 && (
-                <button onClick={() => setShowForm(false)} className="text-xs font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest flex items-center gap-1 transition-colors">
+                <button onClick={() => setShowForm(false)} className="text-xs font-black text-slate-500 hover:text-slate-700 uppercase tracking-widest flex items-center gap-1 transition-colors">
                   <X size={14} /> Fechar
                 </button>
               )}
@@ -572,23 +624,69 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, onNa
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Juros (% a.m.)</label>
-                <input type="number" step="0.01" required value={form.taxaMensal || ''} onChange={e => setForm({ ...form, taxaMensal: Number(e.target.value) })} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-rose-500 transition-all text-sm font-bold" />
+              <div className="space-y-2 md:col-span-2">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">
+                    Taxa de Juros
+                  </label>
+                  <select
+                    value={interestRatePeriod}
+                    onChange={e => setInterestRatePeriod(e.target.value as InterestRatePeriod)}
+                    className="px-3 py-1.5 text-xs font-black text-slate-700 bg-slate-50 border border-slate-200 rounded-xl focus:border-rose-500 focus:outline-none cursor-pointer"
+                  >
+                    <option value="monthly">% a.m.</option>
+                    <option value="annual">% a.a.</option>
+                  </select>
+                </div>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  value={form.taxaMensal || ''}
+                  onChange={e => setForm({ ...form, taxaMensal: Number(e.target.value) })}
+                  className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-rose-500 transition-all text-sm font-bold"
+                  placeholder={interestRatePeriod === 'annual' ? 'Ex: 12.00' : 'Ex: 1.00'}
+                />
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Parcela</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Parcela Atual</label>
                 <input type="number" step="0.01" required value={form.valorParcela || ''} onChange={e => setForm({ ...form, valorParcela: Number(e.target.value) })} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-rose-500 transition-all text-sm font-bold" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Restantes</label>
-                <input type="number" required value={form.parcelasRestantes || ''} onChange={e => setForm({ ...form, parcelasRestantes: Number(e.target.value) })} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-rose-500 transition-all text-sm font-bold" />
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Dia Vencimento</label>
                 <input type="number" value={form.dataVencimento || ''} onChange={e => setForm({ ...form, dataVencimento: e.target.value })} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-rose-500 transition-all text-sm font-bold" />
               </div>
             </div>
+
+            {/* Tipo de Reajuste + Séries */}
+            <DebtAdjustmentSelector
+              value={adjustmentType}
+              onChange={setAdjustmentType}
+              annualPercentRate={annualPercentRate}
+              onAnnualPercentRateChange={setAnnualPercentRate}
+              frequency={frequency}
+              onFrequencyChange={setFrequency}
+            />
+            
+            {adjustmentType !== 'fixed' && (
+              <DebtSeriesTable
+                series={series}
+                onChange={setSeries}
+                adjustmentType={adjustmentType}
+                annualPercentRate={annualPercentRate}
+                initialInstallmentValue={form.valorParcela}
+              />
+            )}
+
+            {adjustmentType === 'fixed' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Parcelas Restantes</label>
+                  <input type="number" required value={form.parcelasRestantes || ''} onChange={e => setForm({ ...form, parcelasRestantes: Number(e.target.value) })} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-rose-500 transition-all text-sm font-bold" />
+                </div>
+              </div>
+            )}
+
             <textarea value={form.proposito || ''} onChange={e => setForm({ ...form, proposito: e.target.value })} className="w-full px-6 py-4 rounded-2xl border border-slate-200 transition-all text-sm font-medium min-h-[100px] resize-none" placeholder="Propósito..." />
             <button type="submit" disabled={isSubmitting} className="w-full py-5 rounded-2xl bg-rose-600 text-white font-black uppercase tracking-widest text-xs hover:bg-rose-500 transition-all disabled:opacity-50">
               {isSubmitting ? 'Salvando...' : editingId ? 'Atualizar Dívida' : 'Salvar Nova Dívida'}
@@ -607,17 +705,23 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, onNa
           </div>
         </div>
 
-        {debts.length === 0 ? (
+{debts.length === 0 ? (
           <div className="bg-slate-50 border border-dashed rounded-[3rem] p-20 text-center">Vazio</div>
         ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {rankings.map(ranking => {
               const debt = ranking.debt;
               const isTopPriority = debt.id === topDebtId;
+              const totalParcelas = debt.totalParcelas || debt.parcelasRestantes + debt.parcelasPagas || debt.parcelasRestantes;
+              const parcelasPagas = debt.parcelasPagas || 0;
+              const progressoPercentual = totalParcelas > 0 ? Math.round((parcelasPagas / totalParcelas) * 100) : 0;
+              const proximaParcela = parcelasPagas + 1;
+              const podeAbater = debt.saldoDevedor > 0 && debt.parcelasRestantes > 0 && debt.originType !== 'rotativo_cartao';
+              
               return (
                   <div key={debt.id} id={`debt-${debt.id}`} className={`bg-white border rounded-[2.5rem] p-7 shadow-sm group relative overflow-hidden flex flex-col h-full ${debt.id === highlightDebtId ? 'ring-2 ring-amber-400 border-amber-300 shadow-amber-100/50' : 'border-slate-200'}`}>
                     <div className={`absolute top-0 left-0 w-full h-2 ${STRIPE_COLORS[debt.tipo] || 'bg-slate-400'}`} />
-                    <div className="flex justify-between items-start mb-6 mt-2">
+                    <div className="flex justify-between items-start mb-4 mt-2">
                       <div>
                         <span className="text-[9px] font-black text-slate-500 uppercase">{debt.tipo}</span>
                         <h4 className="text-lg font-black text-slate-900">
@@ -672,7 +776,7 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, onNa
                                     <button
                                       onClick={() => handleApplyInterest(debt)}
                                       disabled={applyingInterestId === debt.id}
-                                      className="px-2.5 py-1 rounded-lg bg-amber-500 text-white text-[8px] font-black uppercase tracking-wider hover:bg-amber-600 disabled:opacity-50 transition-all active:scale-95"
+                                      className="px-2.5 py-1 rounded-lg bg-amber-600 text-white text-[8px] font-black uppercase tracking-wider hover:bg-amber-700 disabled:opacity-50 transition-all active:scale-95"
                                     >
                                       {applyingInterestId === debt.id ? 'Aplicando...' : 'Aplicar'}
                                     </button>
@@ -693,98 +797,157 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, onNa
                           </div>
                         )}
                       </div>
-                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                    <button onClick={() => setSelectedDebtForProjection(debt)} className="p-2.5 rounded-xl bg-slate-50 text-slate-500 hover:text-emerald-600 transition-all border border-slate-100"><TrendingUp size={16} /></button>
-                    <button onClick={() => handleEdit(debt)} className="p-2.5 rounded-xl bg-slate-50 text-slate-500 hover:text-sky-600 transition-all border border-slate-100"><Pencil size={16} /></button>
-                    <button onClick={() => debt.id && handleDelete(debt.id)} className="p-2.5 rounded-xl bg-slate-50 text-slate-500 hover:text-rose-600 transition-all border border-slate-100"><Trash2 size={16} /></button>
+                    <div className="flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-all">
+                      <button onClick={() => setSelectedDebtForProjection(debt)} className="p-2.5 rounded-xl bg-slate-50 text-slate-500 hover:text-emerald-600 transition-all border border-slate-100"><TrendingUp size={16} /></button>
+                      <button onClick={() => handleEdit(debt)} className="p-2.5 rounded-xl bg-slate-50 text-slate-500 hover:text-sky-600 transition-all border border-slate-100"><Pencil size={16} /></button>
+                      <button onClick={() => debt.id && handleDelete(debt.id)} className="p-2.5 rounded-xl bg-slate-50 text-slate-500 hover:text-rose-600 transition-all border border-slate-100"><Trash2 size={16} /></button>
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-slate-100 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                        Progresso: {parcelasPagas}/{totalParcelas}
+                      </span>
+                      <span className="text-[10px] font-black text-slate-700">{progressoPercentual}%</span>
+                    </div>
+                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-rose-500 to-orange-500 transition-all duration-300"
+                        style={{ width: `${progressoPercentual}%` }}
+                      />
+                    </div>
+                    {podeAbater && (
+                      <button
+                        onClick={() => handleOpenAmortization(debt)}
+                        disabled={isAmortizing}
+                        className="w-full py-2.5 bg-rose-600 text-white rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-rose-500 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        <ShieldCheck size={14} />
+                        Abater Parcela {proximaParcela}/{totalParcelas}
+                      </button>
+                    )}
+                    {!podeAbater && debt.originType !== 'rotativo_cartao' && debt.saldoDevedor > 0 && (
+                      <div className="w-full py-2.5 bg-slate-100 text-slate-500 rounded-xl font-black uppercase tracking-widest text-[10px] text-center">
+                        Quitado
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-auto pt-4 border-t border-slate-100">
+                    <h3 className="text-2xl font-black text-slate-900">{formatCurrency(debt.saldoDevedor)}</h3>
                   </div>
                 </div>
-                <div className="mt-auto pt-6 border-t border-slate-100">
-                  <h3 className="text-2xl font-black text-slate-900">{formatCurrency(debt.saldoDevedor)}</h3>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
           </div>
         ) : (
           <div className="bg-white border rounded-[2.5rem] overflow-hidden shadow-sm">
              <table className="w-full text-left">
-               <tbody className="divide-y divide-slate-50">
-                  {rankings.map(ranking => {
-                    const debt = ranking.debt;
-                    const isTopPriority = debt.id === topDebtId;
-                    return (
-                     <tr key={debt.id} id={`debt-${debt.id}`} className={`hover:bg-slate-50/50 group ${debt.id === highlightDebtId ? 'bg-amber-50/50 ring-2 ring-amber-400 ring-inset' : ''}`}>
-                       <td className="px-8 py-5 font-black text-slate-900">
-                          <div className="flex flex-col">
-                            <span>
-                              {debt.nome}
-                              {isTopPriority && (
-                                <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-md bg-amber-100 border border-amber-200 text-[8px] font-black text-amber-700 uppercase tracking-widest">
-                                  Prioridade #1
-                                </span>
-                              )}
-                              {debt.originType === 'rotativo_cartao' && (
-                                <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-md bg-rose-100 border border-rose-200 text-[8px] font-black text-rose-700 uppercase tracking-widest">
-                                  Rotativo
-                                </span>
-                              )}
-                            </span>
-                            {(() => {
-                              const impact = computeMonthlyImpact(debt);
-                              if (impact <= 0) return null;
-                              const label = debt.originType === 'rotativo_cartao'
-                                ? `Juros: ${formatCurrency(impact)}/mês`
-                                : `Parcela: ${formatCurrency(impact)}/mês`;
-                              if (isTopPriority) {
-                                return (
-                                  <span className="text-[10px] font-black text-amber-600 mt-0.5">
-                                    🔥 Impacto: {label}
-                                  </span>
-                                );
-                              }
-                              return (
-                                <span className="text-[8px] text-slate-500 font-medium mt-0.5">
-                                  {label}
-                                </span>
-                              );
-                            })()}
-                            {debt.originType === 'rotativo_cartao' && debt.taxaMensal > 0 && (
-                              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                <span className="text-[9px] text-slate-500 font-medium">
-                                  {debt.taxaMensal}% a.m. · {formatCurrency(computeRotativoMonthlyInterest(debt.saldoDevedor, debt.taxaMensal))}/mês
-                                </span>
-                                {hasInterestBeenAppliedThisMonth(debt.lastInterestAppliedAt) ? (
-                                  <span className="text-[8px] text-emerald-600 font-black uppercase tracking-wider">
-                                    Juros aplicados
-                                  </span>
-                                ) : (
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="text-[8px] text-amber-600 font-black uppercase tracking-wider">
-                                      Pode aplicar
-                                    </span>
-                                    <button
-                                      onClick={() => handleApplyInterest(debt)}
-                                      disabled={applyingInterestId === debt.id}
-                                      className="px-2 py-0.5 rounded-md bg-amber-500 text-white text-[8px] font-black uppercase tracking-wider hover:bg-amber-600 disabled:opacity-50 transition-all active:scale-95"
-                                    >
-                                      {applyingInterestId === debt.id ? 'Aplicando...' : 'Aplicar'}
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                         </div>
-                       </td>
-                     <td className="px-8 py-5 text-right font-black text-rose-600">{formatCurrency(debt.saldoDevedor)}</td>
-                     <td className="px-8 py-5">
-                       <button onClick={() => handleEdit(debt)} className="p-2 text-slate-500 hover:text-sky-600"><Pencil size={14} /></button>
-                       <button onClick={() => debt.id && handleDelete(debt.id)} className="p-2 text-slate-500 hover:text-rose-600"><Trash2 size={14} /></button>
-                     </td>
-                    </tr>
-                  );
-                })}
-               </tbody>
+<tbody className="divide-y divide-slate-50">
+                   {rankings.map(ranking => {
+                     const debt = ranking.debt;
+                     const isTopPriority = debt.id === topDebtId;
+                     const totalParcelas = debt.totalParcelas || debt.parcelasRestantes + debt.parcelasPagas || debt.parcelasRestantes;
+                     const parcelasPagas = debt.parcelasPagas || 0;
+                     const progressoPercentual = totalParcelas > 0 ? Math.round((parcelasPagas / totalParcelas) * 100) : 0;
+                     const proximaParcela = parcelasPagas + 1;
+                     const podeAbater = debt.saldoDevedor > 0 && debt.parcelasRestantes > 0 && debt.originType !== 'rotativo_cartao';
+                     return (
+                      <tr key={debt.id} id={`debt-${debt.id}`} className={`hover:bg-slate-50/50 group ${debt.id === highlightDebtId ? 'bg-amber-50/50 ring-2 ring-amber-400 ring-inset' : ''}`}>
+                        <td className="px-8 py-5 font-black text-slate-900">
+                           <div className="flex flex-col">
+                             <span>
+                               {debt.nome}
+                               {isTopPriority && (
+                                 <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-md bg-amber-100 border border-amber-200 text-[8px] font-black text-amber-700 uppercase tracking-widest">
+                                   Prioridade #1
+                                 </span>
+                               )}
+                               {debt.originType === 'rotativo_cartao' && (
+                                 <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-md bg-rose-100 border border-rose-200 text-[8px] font-black text-rose-700 uppercase tracking-widest">
+                                   Rotativo
+                                 </span>
+                               )}
+                             </span>
+                             {(() => {
+                               const impact = computeMonthlyImpact(debt);
+                               if (impact <= 0) return null;
+                               const label = debt.originType === 'rotativo_cartao'
+                                 ? `Juros: ${formatCurrency(impact)}/mês`
+                                 : `Parcela: ${formatCurrency(impact)}/mês`;
+                               if (isTopPriority) {
+                                 return (
+                                   <span className="text-[10px] font-black text-amber-600 mt-0.5">
+                                     🔥 Impacto: {label}
+                                   </span>
+                                 );
+                               }
+                               return (
+                                 <span className="text-[8px] text-slate-500 font-medium mt-0.5">
+                                   {label}
+                                 </span>
+                               );
+                             })()}
+                             {debt.originType === 'rotativo_cartao' && debt.taxaMensal > 0 && (
+                               <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                 <span className="text-[9px] text-slate-500 font-medium">
+                                   {debt.taxaMensal}% a.m. · {formatCurrency(computeRotativoMonthlyInterest(debt.saldoDevedor, debt.taxaMensal))}/mês
+                                 </span>
+                                 {hasInterestBeenAppliedThisMonth(debt.lastInterestAppliedAt) ? (
+                                   <span className="text-[8px] text-emerald-600 font-black uppercase tracking-wider">
+                                     Juros aplicados
+                                   </span>
+                                 ) : (
+                                   <div className="flex items-center gap-1.5">
+                                     <span className="text-[8px] text-amber-600 font-black uppercase tracking-wider">
+                                       Pode aplicar
+                                     </span>
+                                     <button
+                                       onClick={() => handleApplyInterest(debt)}
+                                       disabled={applyingInterestId === debt.id}
+                                       className="px-2 py-0.5 rounded-md bg-amber-600 text-white text-[8px] font-black uppercase tracking-wider hover:bg-amber-700 disabled:opacity-50 transition-all active:scale-95"
+                                     >
+                                       {applyingInterestId === debt.id ? 'Aplicando...' : 'Aplicar'}
+                                     </button>
+                                   </div>
+                                 )}
+                               </div>
+                             )}
+                             {podeAbater && (
+                               <div className="mt-2 flex items-center gap-3">
+                                 <div className="flex-1 max-w-xs">
+                                   <div className="flex items-center justify-between text-[9px] mb-1">
+                                     <span className="font-black text-slate-500 uppercase tracking-widest">
+                                       {parcelasPagas}/{totalParcelas} ({progressoPercentual}%)
+                                     </span>
+                                   </div>
+                                   <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                     <div 
+                                       className="h-full bg-gradient-to-r from-rose-500 to-orange-500 transition-all duration-300"
+                                       style={{ width: `${progressoPercentual}%` }}
+                                     />
+                                   </div>
+                                 </div>
+                                 <button
+                                   onClick={() => handleOpenAmortization(debt)}
+                                   disabled={isAmortizing}
+                                   className="px-3 py-1.5 bg-rose-600 text-white rounded-xl font-black uppercase tracking-widest text-[9px] hover:bg-rose-500 transition-all disabled:opacity-50 flex items-center gap-1 shrink-0"
+                                 >
+                                   <ShieldCheck size={12} />
+                                   Abater {proximaParcela}
+                                 </button>
+                               </div>
+                             )}
+                          </div>
+                        </td>
+                      <td className="px-8 py-5 text-right font-black text-rose-600">{formatCurrency(debt.saldoDevedor)}</td>
+                      <td className="px-8 py-5">
+                        <button onClick={() => handleEdit(debt)} className="p-2 text-slate-500 hover:text-sky-600"><Pencil size={14} /></button>
+                        <button onClick={() => debt.id && handleDelete(debt.id)} className="p-2 text-slate-500 hover:text-rose-600"><Trash2 size={14} /></button>
+                      </td>
+                     </tr>
+                   );
+                 })}
+                </tbody>
              </table>
           </div>
         )}
@@ -793,7 +956,6 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, onNa
       <div className="mt-12 rounded-[3rem] bg-white border border-slate-200 p-10 flex flex-col md:flex-row items-center justify-between gap-10">
         <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Ritual de Governança</h3>
         <div className="flex gap-4">
-          <button onClick={handleAmortizeAll} className="px-8 py-4 bg-slate-900 text-white rounded-2xl text-[11px] font-black uppercase hover:bg-slate-800 transition-all">Abater Parcela</button>
           <button onClick={() => setShowConfirmModal(true)} className="px-10 py-4 bg-brand-primary text-white rounded-2xl text-[11px] font-black uppercase hover:bg-brand-primary/90 transition-all">Validar Dívidas</button>
         </div>
       </div>
@@ -814,6 +976,10 @@ export const DebtManager: React.FC<DebtManagerProps> = ({ userId, userMeta, onNa
 
       {selectedDebtForProjection && (
           <DebtProjectionDrawer debt={selectedDebtForProjection} isOpen={!!selectedDebtForProjection} onClose={() => setSelectedDebtForProjection(null)} onConfirmAmortization={handleAmortizeExtra} />
+      )}
+
+      {selectedDebtForAmortization && (
+          <DebtAmortizationModal debt={selectedDebtForAmortization} userId={userId || ''} isOpen={!!selectedDebtForAmortization} onClose={() => setSelectedDebtForAmortization(null)} />
       )}
 
       {showUpgradeModal && (

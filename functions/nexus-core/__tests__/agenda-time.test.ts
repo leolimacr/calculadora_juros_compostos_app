@@ -78,4 +78,18 @@ describe('agenda-time', () => {
     const now = new Date('2026-08-12T02:00:00.000Z');
     expect(todayYmdInProductTimezone(now)).toEqual({ y: 2026, m0: 7, d: 11 });
   });
+
+  it('resolve "todos os domingos do mês de setembro" para o primeiro domingo do mês', () => {
+    expect(resolveDateExpression('todos os domingos do mês de setembro', TODAY)).toEqual({
+      iso: '2026-09-06',
+      confidence: 'high',
+    });
+  });
+
+  it('resolve "todas as terças-feiras de dezembro de 2026" cruzando ano', () => {
+    expect(resolveDateExpression('todas as terças-feiras de dezembro de 2026', TODAY)).toEqual({
+      iso: '2026-12-01',
+      confidence: 'high',
+    });
+  });
 });

@@ -54,8 +54,8 @@ export class MultiModelRouter {
         apiKey: '',
         baseURL: 'https://api.groq.com/openai/v1',
         models: {
-          primary: 'llama-3.3-70b-versatile',
-          fallbacks: ['llama-3.1-8b-instant']
+          primary: 'llama-3.1-8b-instant',
+          fallbacks: ['llama-3.3-70b-versatile']
         },
         priority: 1,
         isAvailable: true,
@@ -107,6 +107,8 @@ export class MultiModelRouter {
         primaryIntent?: string;
         userName?: string;
       };
+      /** Exige saída JSON estruturada (response_format json_object) quando suportado. */
+      responseFormat?: 'json';
     }
   ): Promise<RouterResponse> {
     const cacheKey = this.generateCacheKey(messages);
@@ -159,7 +161,19 @@ export class MultiModelRouter {
     if (!provider.isAvailable) {
       throw new Error('Provider indisponível');
     }
-    return this.callOpenAIFormat(provider, provider.models.primary, messages, systemPrompt, options);
+    // Tenta o modelo primário e depois cada fallback do provider (mesma API key).
+    // A falha de um modelo (ex.: rota/modelo inexistente) não derruba o provider.
+    const candidates = [provider.models.primary, ...(provider.models.fallbacks ?? [])];
+    let lastError: unknown;
+    for (const modelName of candidates) {
+      try {
+        return await this.callOpenAIFormat(provider, modelName, messages, systemPrompt, options);
+      } catch (error: any) {
+        lastError = error;
+        logger.warn(`[Router] ${provider.name}/${modelName} falhou: ${error.message}`);
+      }
+    }
+    throw lastError ?? new Error(`Nenhum modelo de ${provider.name} respondeu`);
   }
 
   private async callOpenAIFormat(
@@ -180,6 +194,12 @@ export class MultiModelRouter {
       max_tokens: options?.maxTokens || provider.maxTokens,
       stream: false
     };
+
+    // response_format json_object: sempre para groq (API oficial suporta) e quando
+    // o chamador exigir JSON estruturado (options.responseFormat === 'json').
+    if (options?.responseFormat === 'json' || provider.name === 'groq') {
+      requestBody.response_format = { type: 'json_object' };
+    }
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',

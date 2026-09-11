@@ -5,37 +5,102 @@ const limit = pLimit(5); // Concurrency limit of 5
 import { useLocation } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { useAuth } from '../../../../contexts/AuthContext';
-import { useEntitlement } from '../../../../hooks/useEntitlement';
 import { useCards } from '../../../../hooks/useCards';
 import { useBills } from '../../../../hooks/useBills';
 import { useBudget } from '../../../../hooks/useBudget';
 import { useIsMobile } from '../../../../hooks/useIsMobile';
-import { isBillPaid } from '../../../../utils/invoiceUtils';
+import { isBillPaid, getCurrentInvoice } from '../../../../utils/invoiceUtils';
 import { useInvoicesByUser } from '../../../../hooks/useCardInvoices';
 import { getConsecutiveDays, getMonthlyConsistency } from '../../../../utils/streakUtils';
-import { generateFinancialReport } from '../../../../utils/reportGenerator';
 import { aggregateAllTimeFlow, buildSovereignSnapshot, calculateRealCashBalance } from '../../../../utils/calculations';
+import { useDebts } from '../../../../services/debt';
+import { useExclusionAmount } from '../../../../contexts/ExclusionsContext';
 import { getLocalDateString } from '../../../../utils/dateHelpers';
 import {
-  isCommandMode,
-  shouldOfferCalibration,
-  getCalibrationInviteCopy,
-  deferCalibration,
-  dismissCalibrationInvite,
-} from '../../../../services/personaCalibrationService';
-import {
-  canUseViewMode,
-  getCurrentMonthAnchor,
-  getCurrentMonthStartIso,
-  hasHistoryAccess as planHasHistoryAccess,
   isDateBeforeCurrentMonth,
   isMonthBeforeCurrent,
-  isPeriodRangeAllowed,
   isTransactionVisible,
-  type HistoryViewMode,
+  hasHistoryAccess as planHasHistoryAccess,
 } from '../../../../utils/historyTimeGate';
+import { isCommandMode } from '../../../../services/personaCalibrationService';
+import type { Transaction, Category, UserMeta, CreditCard, CardInvoice } from '../../../../types';
+import type { DebtItem } from '../../../../services/debt';
+import type { SovereignSnapshot } from '../../../../utils/calculations';
 
-export const useDashboardState = (props: any) => {
+interface DashboardStateProps {
+  transactions: Transaction[];
+  categories: Category[];
+  isLoading: boolean;
+  onDeleteTransaction: (id: string) => void;
+  onOpenForm: (mode: 'create' | 'edit', transaction?: Transaction) => void;
+  onSaveCategory: (category: Category) => void;
+  onDeleteCategory: (id: string) => void;
+  userMeta: UserMeta | null;
+  isPremium: boolean;
+  isPrivacyMode: boolean;
+  onTogglePrivacy: () => void;
+  onEditTransaction: (transaction: Transaction) => void;
+  onNavigate: (path: string, state?: Record<string, unknown>) => void;
+  fetchMonth: (year: number, month: number) => Promise<void>;
+  userMetaLoading: boolean;
+  lastActionTimestamp: number;
+  isSyncing: boolean;
+  isStale: boolean;
+}
+
+type DashboardTransaction = Transaction & {
+  isVirtual?: boolean;
+  dueDate?: string;
+  isFutureLaunch?: boolean;
+};
+
+type VirtualInvoiceTransaction = Transaction & {
+  isVirtual: true;
+  dueDate: string;
+  isFutureLaunch: true;
+  type: 'expense';
+  paymentMethod: 'money';
+};
+
+type TxLike = DashboardTransaction;
+
+interface HeavyStats {
+  income: number;
+  expenses: number;
+  cashExpenses: number;
+  creditExpenses: number;
+  virtualExpenses: number;
+  balance: number;
+  accumulatedBalance: number;
+  accumulatedIncome: number;
+  accumulatedExpenses: number;
+  accumulatedCashExpenses: number;
+  accumulatedCreditExpenses: number;
+  accumulatedVirtualExpenses: number;
+  projectedBalance: number;
+  freeBalance: number;
+  sovereignFreeBalance: number;
+  freedomDeficit: number;
+  protectionBuffer: number;
+  leewayDays: number;
+  freedomVelocity: number;
+  colchaoShortfall: number;
+  reserveShortfall: number;
+  sovereignSnapshot: SovereignSnapshot | null;
+  creditTransactions: CreditTransaction[];
+}
+
+interface CreditTransaction {
+  id: string;
+  description: string;
+  amount: number;
+  date: string;
+  paymentMethod?: Transaction['paymentMethod'];
+  isVirtual?: boolean;
+  cardName: string;
+}
+
+export const useDashboardState = (props: DashboardStateProps) => {
 
   const { 
     transactions = [], 
@@ -53,7 +118,6 @@ export const useDashboardState = (props: any) => {
     onNavigate,
     fetchMonth,
     userMetaLoading,
-    lastActionTimestamp,
     isSyncing,
     isStale
   } = props;
@@ -61,17 +125,24 @@ export const useDashboardState = (props: any) => {
   const isMobile = useIsMobile();
   const location = useLocation();
   const { user } = useAuth();
-  const { isPremium: isPremiumCanonical } = useEntitlement();
 
   const { cards: userCards } = useCards(user?.uid);
   const { bills: recurringBills } = useBills(user?.uid);
   const { budget: currentBudget, isLoading: budgetLoading } = useBudget(user?.uid);
   const { invoices: storedInvoices } = useInvoicesByUser(user?.uid);
+  const { data: userDebts = [] } = useDebts(user?.uid);
+
+  const reserveTarget = userMeta?.financialProfile?.emergencyReserveTarget || 0;
+  const colchaoTarget = userMeta?.financialProfile?.colchaoInicialTarget || 0;
+  const exclusionAmount = useExclusionAmount(reserveTarget, colchaoTarget);
   const udsCardRef = useRef(userCards);
   const udsBillRef = useRef(recurringBills);
   const udsBudgetRef = useRef(currentBudget);
   const udsInvoiceRef = useRef(storedInvoices);
-  void (udsCardRef, udsBillRef, udsBudgetRef, udsInvoiceRef);
+  void udsCardRef;
+  void udsBillRef;
+  void udsBudgetRef;
+  void udsInvoiceRef;
 
   const [isRecurringBillModalOpen, setIsRecurringBillModalOpen] = useState(false);
   const [isBudgetSetupOpen, setIsBudgetSetupOpen] = useState(false);
@@ -82,9 +153,6 @@ export const useDashboardState = (props: any) => {
   const [dontShowFor15Days, setDontShowFor15Days] = useState(false);
 
   const [showCalibrationModal, setShowCalibrationModal] = useState(false);
-  const [calibrationInviteVisible, setCalibrationInviteVisible] = useState(
-    () => !isCommandMode(userMeta)
-  );
   const [localCommandMode, setLocalCommandMode] = useState(() => isCommandMode(userMeta));
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -98,24 +166,35 @@ export const useDashboardState = (props: any) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [visibleCount, setVisibleCount] = useState(10);
   const [showHistoryPaywall, setShowHistoryPaywall] = useState(false);
-	const [filterCardId, setFilterCardId] = useState<string | null>(null);
+  const [filterCardId, setFilterCardId] = useState<string | null>(null);
   const [filterCardName, setFilterCardName] = useState('');
   const [filterPeriodStart, setFilterPeriodStart] = useState('');
   const [filterPeriodEnd, setFilterPeriodEnd] = useState('');
   const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
   const [cardManagerReason, setCardManagerReason] = useState<string | null>(null);
-  const [deferredHeavyStats, setDeferredHeavyStats] = useState<any>(null);
+  const [deferredHeavyStats, setDeferredHeavyStats] = useState<HeavyStats | null>(null);
 
   /** AppRoutes passa isPro||isPremium como isPremium — equivale a acesso ao histórico. */
   const hasHistoryAccess = !!isPremium;
   const historyLocked = !hasHistoryAccess;
   const historyPlan = hasHistoryAccess ? 'pro' : 'free';
 
-  const openHistoryPaywall = () => setShowHistoryPaywall(true);
-
   const safeTransactions = useMemo(() => Array.isArray(transactions) ? transactions : [], [transactions]);
   const deferredTransactions = useDeferredValue(safeTransactions);
   const [hasHydrated, setHasHydrated] = useState(false);
+
+  // Cache de Saldo Real: lê do localStorage no mount para exibição imediata
+  // no F5, evitando o skeleton de ~4min enquanto o preload carrega meses.
+  const BALANCE_CACHE_KEY = `fpi_real_cash_balance_${user?.uid || 'anon'}`;
+  const [cachedBalance] = useState<ReturnType<typeof calculateRealCashBalance> | null>(() => {
+    try {
+      const raw = localStorage.getItem(BALANCE_CACHE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (typeof parsed !== 'object' || parsed === null || typeof parsed.saldoReal !== 'number') return null;
+      return parsed as ReturnType<typeof calculateRealCashBalance>;
+    } catch { return null; }
+  });
 
   useEffect(() => {
     if (safeTransactions.length > 0 && !hasHydrated) {
@@ -195,26 +274,35 @@ export const useDashboardState = (props: any) => {
       for (let m = 1; m <= 12; m++) {
         promises.push(limit(() => fetchMonth(year, m)));
       }
+    } else if (viewMode === 'period' && hasHistoryAccess) {
+      const start = new Date(startDate.replace(/-/g, '/'));
+      const end = new Date(endDate.replace(/-/g, '/'));
+      let y = start.getFullYear();
+      let m = start.getMonth() + 1;
+      const endY = end.getFullYear();
+      const endM = end.getMonth() + 1;
+      while (y < endY || (y === endY && m <= endM)) {
+        promises.push(limit(() => fetchMonth(y, m)));
+        m++;
+        if (m > 12) { m = 1; y++; }
+      }
     }
     Promise.all(promises);
-  }, [currentDate, viewMode, user?.uid, fetchMonth, hasHistoryAccess, historyPlan]);
+  }, [currentDate, viewMode, startDate, endDate, user?.uid, fetchMonth, hasHistoryAccess, historyPlan]);
 
-  // PRÉ-CARGA: meses anteriores — executa UMA ÚNICA VEZ no mount
-  const preloadDoneRef = useRef(false);
+  // Flag de dados iniciais: TRUE quando a busca upfront de TODAS as transações
+  // completa (useTransactions.allData). O bridge RTDB traz apenas ~100 transações
+  // (limitToLast(100)); quando allData chega, safeTransactions pula para o total
+  // real. Enquanto isso, o saldo exibe o cache da sessão anterior.
+  const [isInitialDataReady, setIsInitialDataReady] = useState(false);
+  const initialDataDoneRef = useRef(false);
   useEffect(() => {
-    if (!user?.uid || !fetchMonth || !hasHistoryAccess) return;
-    if (preloadDoneRef.current) return;
-    preloadDoneRef.current = true;
-
-    const promises = [];
-    const today = new Date();
-    const depth = isCommandMode(userMeta) || localCommandMode ? 6 : 3;
-    for (let offset = 1; offset < depth; offset++) {
-      const d = new Date(today.getFullYear(), today.getMonth() - offset, 1);
-      promises.push(limit(() => fetchMonth(d.getFullYear(), d.getMonth() + 1)));
-    }
-    Promise.all(promises);
-  }, [user?.uid, fetchMonth, hasHistoryAccess]);
+    // Guard: bridge entrega ~100 tx; allData entrega TODAS (>100 para users ativos)
+    if (safeTransactions.length <= 100 || initialDataDoneRef.current) return;
+    initialDataDoneRef.current = true;
+    setIsInitialDataReady(true);
+    setHasHydrated(true);
+  }, [safeTransactions.length]);
 
   const checkIntroSuppression = () => {
     const skipUntil = localStorage.getItem('recurring_intro_skip_until');
@@ -250,7 +338,7 @@ export const useDashboardState = (props: any) => {
 
   // Índice O(1) de transações por cardId para activeInvoices
   const transactionsByCardId = useMemo(() => {
-    const map = new Map<string, import('../../../../types').Transaction[]>();
+    const map = new Map<string, TxLike[]>();
     for (let i = 0; i < deferredTransactions.length; i++) {
       const t = deferredTransactions[i];
       if (t.cardId) {
@@ -334,14 +422,38 @@ export const useDashboardState = (props: any) => {
     return pendingBills.reduce((acc, bill) => acc + bill.amount, 0);
   }, [pendingBills]);
 
+  // realCashData: retorna o cache até isInitialDataReady (preload completo),
+  // depois calcula com dados frescos. No F5, o cache exibe o saldo
+  // imediatamente sem esperar os ~4min do preload.
   const realCashData = useMemo(() => {
+    if (!isInitialDataReady) return cachedBalance;
     return calculateRealCashBalance(
       safeTransactions,
       storedInvoices,
       userCards,
       recurringBills,
     );
-  }, [safeTransactions, storedInvoices, userCards, recurringBills]);
+  }, [isInitialDataReady, cachedBalance, safeTransactions, storedInvoices, userCards, recurringBills]);
+
+  // Salva o saldo calculado no localStorage para cache entre sessões.
+  // Só grava quando isInitialDataReady (dados completos = saldo correto).
+  useEffect(() => {
+    if (realCashData && isInitialDataReady) {
+      try {
+        localStorage.setItem(BALANCE_CACHE_KEY, JSON.stringify({
+          saldoReal: realCashData.saldoReal,
+          totalReceitas: realCashData.totalReceitas,
+          totalDespesasAVista: realCashData.totalDespesasAVista,
+          receitasMes: realCashData.receitasMes,
+          despesasMes: realCashData.despesasMes,
+          faturasFechadas: realCashData.faturasFechadas,
+          faturasAbertas: realCashData.faturasAbertas,
+          gastosFuturosMes: realCashData.gastosFuturosMes,
+          contasFuturasMes: realCashData.contasFuturasMes,
+        }));
+      } catch {}
+    }
+  }, [realCashData, isInitialDataReady, BALANCE_CACHE_KEY]);
 
   const streak = useMemo(() => getConsecutiveDays(safeTransactions), [safeTransactions]);
   const monthlyConsistency = useMemo(() => getMonthlyConsistency(safeTransactions), [safeTransactions]);
@@ -362,8 +474,9 @@ export const useDashboardState = (props: any) => {
     const todayIso = getLocalDateString();
     return activeInvoices
       .filter((inv) => (inv.storedStatus || 'open') !== 'paid' && Math.max(0, inv.storedRemaining || inv.total || 0) > 0)
-      .map(inv => ({
+      .map((inv): VirtualInvoiceTransaction => ({
         id: `virtual-inv-${inv.cardId}`,
+        userId: '',
         description: `Lançamento futuro - Fatura ${inv.cardName}`,
         amount: inv.storedRemaining || inv.total,
         date: todayIso,
@@ -377,12 +490,12 @@ export const useDashboardState = (props: any) => {
       }));
   }, [activeInvoices, hasHydrated]);
 
-  const combinedTransactions = useMemo(() => {
+  const combinedTransactions = useMemo((): TxLike[] => {
     if (!hasHydrated) return [];
     return [...deferredTransactions, ...virtualInvoices];
   }, [deferredTransactions, virtualInvoices, hasHydrated]);
 
-  const filtered = useMemo(() => {
+  const filtered = useMemo((): TxLike[] => {
     if (!hasHydrated) return [];
     if (!isReady) return [];
 
@@ -391,7 +504,7 @@ export const useDashboardState = (props: any) => {
 
     const query = normalize(searchQuery.trim());
 
-    const base = combinedTransactions.filter((t: any) => {
+    const base = combinedTransactions.filter((t: TxLike) => {
       const categoryMatch = selectedCategories.length === 0 || selectedCategories.includes(t?.category);
       const typeMatch = typeFilter === 'all' || t?.type === typeFilter;
       if (!categoryMatch || !typeMatch || !t.date) return false;
@@ -402,10 +515,12 @@ export const useDashboardState = (props: any) => {
 
       if (filterPeriodStart && filterPeriodEnd && (t.date < filterPeriodStart || t.date > filterPeriodEnd)) return false;
 
-      if (query) {
-        return normalize(t.description || '').includes(query) ||
-               normalize(t.category || '').includes(query);
-      }
+      // Text match — when a search is active, combine with viewMode (never bypass viewMode)
+      const textMatch = !query
+        ? true
+        : normalize(t.description || '').includes(query) ||
+          normalize(t.category || '').includes(query);
+      if (!textMatch) return false;
 
       if (viewMode === 'all') return true;
 
@@ -424,7 +539,7 @@ export const useDashboardState = (props: any) => {
       return false;
     });
 
-    const result = [...base].sort((a: any, b: any) => {
+    const result = [...base].sort((a: TxLike, b: TxLike) => {
       const dateA = a?.date || '';
       const dateB = b?.date || '';
       const dateCmp = dateA.localeCompare(dateB);
@@ -441,7 +556,7 @@ export const useDashboardState = (props: any) => {
       return (b?.createdAtMs ?? 0) - (a?.createdAtMs ?? 0);
     });
     return result;
-  }, [combinedTransactions, selectedCategories, typeFilter, currentDate, viewMode, startDate, endDate, sortMode, searchQuery, isLoading, historyPlan, filterCardId, filterPeriodStart, filterPeriodEnd, hasHydrated]);
+  }, [combinedTransactions, selectedCategories, typeFilter, currentDate, viewMode, startDate, endDate, sortMode, searchQuery, isReady, historyPlan, filterCardId, filterPeriodStart, filterPeriodEnd, hasHydrated]);
 
   const deferredFiltered = useDeferredValue(filtered);
 
@@ -471,7 +586,7 @@ export const useDashboardState = (props: any) => {
         colchaoShortfall: 0,
         reserveShortfall: 0,
         sovereignSnapshot: null,
-        creditTransactions: [],
+        creditTransactions: [] as CreditTransaction[],
       };
     }
 
@@ -481,21 +596,23 @@ export const useDashboardState = (props: any) => {
     let creditExpenses = 0;
     let virtualExpenses = 0;
 
-    const statsTransactions = viewMode === 'all'
-      ? deferredTransactions
-      : deferredTransactions.filter((t: any) => {
-          if (!t.date) return false;
-          const [year, month, day] = t.date.split('-').map(Number);
-          if (!year) return false;
-          if (viewMode === 'year') return year === currentDate.getFullYear();
-          if (viewMode === 'month') return year === currentDate.getFullYear() && month === (currentDate.getMonth() + 1);
-          if (viewMode === 'day') return year === currentDate.getFullYear() && month === (currentDate.getMonth() + 1) && day === currentDate.getDate();
-          if (viewMode === 'period') return t.date >= startDate && t.date <= endDate;
-          return false;
-        });
+    const statsTransactions = combinedTransactions.filter((t: TxLike) => {
+      if (!t.date) return false;
+      if (!isTransactionVisible(t.date, historyPlan)) return false;
+
+      if (viewMode === 'all') return true;
+
+      const [year, month, day] = t.date.split('-').map(Number);
+      if (!year) return false;
+      if (viewMode === 'year') return year === currentDate.getFullYear();
+      if (viewMode === 'month') return year === currentDate.getFullYear() && month === (currentDate.getMonth() + 1);
+      if (viewMode === 'day') return year === currentDate.getFullYear() && month === (currentDate.getMonth() + 1) && day === currentDate.getDate();
+      if (viewMode === 'period') return t.date >= startDate && t.date <= endDate;
+      return false;
+    });
 
     for (let i = 0; i < statsTransactions.length; i++) {
-      const t = statsTransactions[i] as any;
+      const t = statsTransactions[i];
       const val = Number(t?.amount) || 0;
       const isCredit = t?.paymentMethod === 'credit';
 
@@ -519,7 +636,7 @@ export const useDashboardState = (props: any) => {
       cashExpenses,
       creditExpenses,
       virtualExpenses,
-      balance: income - expenses,
+      balance: income - cashExpenses,
       accumulatedBalance: 0,
       accumulatedIncome: 0,
       accumulatedExpenses: 0,
@@ -536,9 +653,9 @@ export const useDashboardState = (props: any) => {
       colchaoShortfall: 0,
       reserveShortfall: 0,
       sovereignSnapshot: null,
-      creditTransactions: [],
+      creditTransactions: [] as CreditTransaction[],
     };
-  }, [deferredTransactions, isLoading, viewMode, currentDate, startDate, endDate, hasHydrated]);
+  }, [combinedTransactions, viewMode, currentDate, startDate, endDate, hasHydrated, historyPlan]);
 
   // Heavy calculations (aggregateAllTimeFlow, buildSovereignSnapshot) em background via requestIdleCallback
   useEffect(() => {
@@ -548,9 +665,9 @@ export const useDashboardState = (props: any) => {
     const calculateHeavy = () => {
       const allTimeFlow = aggregateAllTimeFlow(safeTransactions);
 
-      const statsTransactions = viewMode === 'all'
+      const statsTransactions: TxLike[] = viewMode === 'all'
         ? safeTransactions
-        : safeTransactions.filter((t: any) => {
+        : safeTransactions.filter((t: TxLike) => {
             if (!t.date) return false;
             const [year, month, day] = t.date.split('-').map(Number);
             if (!year) return false;
@@ -564,13 +681,12 @@ export const useDashboardState = (props: any) => {
       let income = 0;
       let expenses = 0;
       let realBalance = 0;
-      let virtualImpact = 0;
       let cashExpenses = 0;
       let creditExpenses = 0;
       let virtualExpenses = 0;
 
       for (let i = 0; i < statsTransactions.length; i++) {
-        const t = statsTransactions[i] as any;
+        const t = statsTransactions[i];
         const val = Number(t?.amount) || 0;
         const isCredit = t?.paymentMethod === 'credit';
 
@@ -580,7 +696,6 @@ export const useDashboardState = (props: any) => {
         } else {
           expenses += val;
           if (t.isVirtual) {
-            virtualImpact += val;
             virtualExpenses += val;
           } else if (isCredit) {
             creditExpenses += val;
@@ -591,9 +706,9 @@ export const useDashboardState = (props: any) => {
         }
       }
 
-      const creditTransactions: any[] = [];
+      const creditTransactions: CreditTransaction[] = [];
       for (let i = 0; i < statsTransactions.length; i++) {
-        const t = statsTransactions[i] as any;
+        const t = statsTransactions[i];
         if (t.type === 'expense' && (t.paymentMethod === 'credit' || t.isVirtual)) {
           creditTransactions.push({
             id: t.id,
@@ -602,10 +717,31 @@ export const useDashboardState = (props: any) => {
             date: t.date,
             paymentMethod: t.paymentMethod,
             isVirtual: t.isVirtual,
-            cardName: ((userCards || []).find((c: any) => c.id === t.cardId))?.name || '',
+            cardName: ((userCards || []).find((c: CreditCard) => c.id === t.cardId))?.name || '',
           });
         }
       }
+
+      // Compute obligationPressure: card invoice remaining + rotativo debt balance
+      const safeTx = Array.isArray(safeTransactions) ? safeTransactions : [];
+      const cardInvoicePressure = (userCards || []).map((card: CreditCard) => {
+        const computedInvoice = getCurrentInvoice(card, safeTx);
+        if (!computedInvoice) return 0;
+        const storedInvoice = (storedInvoices || []).find(
+          (si: CardInvoice) => si.cardId === card.id && si.periodEnd === computedInvoice.periodEnd
+        );
+        if (storedInvoice?.rotativoConverted) return 0;
+        if (storedInvoice) return storedInvoice.remainingAmount;
+        const paidToThisCard = safeTx
+          .filter((t: TxLike) => t.isBillPayment && t.linkedCardId === card.id && t.date >= computedInvoice.periodStart && t.date <= computedInvoice.periodEnd)
+          .reduce((sum: number, t: TxLike) => sum + t.amount, 0);
+        return Math.max(0, computedInvoice.total - paidToThisCard);
+      });
+      const cardInvoiceRemaining = cardInvoicePressure.reduce((s: number, v: number) => s + v, 0);
+      const rotativoDebtBalance = (userDebts || [])
+        .filter((d: DebtItem) => d.originType === 'rotativo_cartao')
+        .reduce((sum: number, d: DebtItem) => sum + (d.saldoDevedor || 0), 0);
+      const obligationPressure = cardInvoiceRemaining + rotativoDebtBalance;
 
       const commandModeActive = isCommandMode(userMeta) || localCommandMode;
       const sovereign = buildSovereignSnapshot({
@@ -613,13 +749,14 @@ export const useDashboardState = (props: any) => {
         accumulatedBalance: allTimeFlow.realBalance,
         accumulatedIncome: allTimeFlow.income,
         accumulatedExpenses: allTimeFlow.expenses,
-        virtualImpact,
+        obligationPressure,
         pendingBills: totalPendingBills,
         financialProfile: userMeta?.financialProfile,
         commandMode: commandModeActive,
         income,
         expenses,
         monthlyAport: Math.max(0, income - expenses),
+        exclusions: exclusionAmount,
       });
 
       setDeferredHeavyStats({
@@ -651,7 +788,7 @@ export const useDashboardState = (props: any) => {
 
     const handle = requestIdleCallback(calculateHeavy, { timeout: 3000 });
     return () => cancelIdleCallback(handle);
-  }, [safeTransactions, hasHydrated, viewMode, currentDate, startDate, endDate, totalPendingBills, userMeta, localCommandMode, userCards]);
+  }, [safeTransactions, hasHydrated, viewMode, currentDate, startDate, endDate, totalPendingBills, userMeta, localCommandMode, userCards, exclusionAmount, storedInvoices, userDebts]);
 
   const finalStats = deferredHeavyStats ?? stats;
 
@@ -663,12 +800,10 @@ export const useDashboardState = (props: any) => {
   const handleDismissCalibrationInvite = () => {};
   const handleStartCalibration = () => {
     setShowCalibrationModal(true);
-    setCalibrationInviteVisible(false);
   };
   const handleCalibrationComplete = () => {
     setLocalCommandMode(true);
     setShowCalibrationModal(false);
-    setCalibrationInviteVisible(false);
   };
   const categoryStats = useMemo(() => {
     if (!isReady) return { data: [], gradient: '' };
@@ -737,9 +872,9 @@ export const useDashboardState = (props: any) => {
   }, [filtered, isReady, sortMode]);
 
   const categoryTransactionsMap = useMemo(() => {
-    if (!isReady) return new Map<string, any[]>();
+    if (!isReady) return new Map<string, TxLike[]>();
 
-    const transactionsByCategory = new Map<string, any[]>();
+    const transactionsByCategory = new Map<string, TxLike[]>();
     for (const transaction of filtered) {
       const category = (transaction?.category || 'Sem categoria').toString();
       const entries = transactionsByCategory.get(category) || [];
@@ -750,8 +885,8 @@ export const useDashboardState = (props: any) => {
     return transactionsByCategory;
   }, [filtered, isReady]);
   const categoryNames = useMemo(() => {
-    const fromDb = (categories || []).map((c: any) => c.name).filter(Boolean);
-    const fromTx = safeTransactions.map((t: any) => t?.category).filter(Boolean);
+    const fromDb = (categories || []).map((c: Category) => c.name).filter(Boolean);
+    const fromTx = safeTransactions.map((t: TxLike) => t?.category).filter(Boolean);
     return Array.from(new Set([...fromDb, ...fromTx])).sort();
   }, [categories, safeTransactions]);
   const handleExportPDF = () => {};
@@ -872,7 +1007,7 @@ export const useDashboardState = (props: any) => {
     setShowHistoryPaywall,
     hasHistoryAccess,
     historyVisibleTransactions,
-    currentMonthStartIso: getCurrentMonthStartIso(),
+    currentMonthStartIso: getLocalDateString(new Date(new Date().getFullYear(), new Date().getMonth(), 1)),
     filterCardId,
     filterCardName,
     filterPeriodStart,

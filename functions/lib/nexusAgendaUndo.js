@@ -6,6 +6,7 @@ exports.executeAgendaUndo = executeAgendaUndo;
 const firestore_1 = require("firebase-admin/firestore");
 const https_1 = require("firebase-functions/v2/https");
 const node_crypto_1 = require("node:crypto");
+const nexusAgendaCommit_1 = require("./nexusAgendaCommit");
 exports.UNDO_TTL_MS = 60 * 1000;
 exports.UNDO_BATCH_SIZE = 400;
 function requireUndoAuth(request) {
@@ -82,9 +83,17 @@ async function executeAgendaUndo(uid, request, dependencies, now = Date.now()) {
             undoError: message,
             idsRemoved: removed.map((document) => document.id),
         });
-        throw new https_1.HttpsError('internal', removed.length > 0
-            ? `O undo foi parcialmente concluído e precisa de reconciliação. (${message})`
-            : `Não foi possível desfazer a operação. (${message})`);
+        if (removed.length > 0) {
+            const partialResult = {
+                success: false,
+                actionId: request.actionId,
+                status: 'partial',
+                idsRemoved: removed.map((document) => document.id),
+                error: message,
+            };
+            return partialResult;
+        }
+        throw new https_1.HttpsError('internal', `Não foi possível desfazer a operação. (${message})`);
     }
 }
 function buildFirestoreDependencies(db) {
@@ -107,19 +116,19 @@ function buildFirestoreDependencies(db) {
                 const createdAtMs = millis(audit.createdAtMs) ?? millis(audit.createdAt);
                 if (!createdAtMs || nowMs - createdAtMs > exports.UNDO_TTL_MS)
                     return { kind: 'rejected', reason: 'O prazo para desfazer expirou.' };
-                transaction.update(ref, { status: 'undo_processing', undoId, undoStartedAt: firestore_1.Timestamp.fromMillis(nowMs) });
+                transaction.update(ref, (0, nexusAgendaCommit_1.sanitizeForFirestore)({ status: 'undo_processing', undoId, undoStartedAt: firestore_1.Timestamp.fromMillis(nowMs) }));
                 return { kind: 'claimed', audit: { ...audit, status: 'undo_processing', undoId } };
             });
         },
         async readOwnedDocuments(uid, ids, actionId, token) {
+            const snapshots = await (0, nexusAgendaCommit_1.getAllInBatches)(db, (ownerId, id) => db.doc(commitmentPath(ownerId, id)), uid, ids);
             const result = [];
-            for (const id of ids) {
-                const snapshot = await db.doc(commitmentPath(uid, id)).get();
+            for (const snapshot of snapshots) {
                 if (!snapshot.exists)
                     continue;
-                const data = snapshot.data();
+                const data = (snapshot.data() ?? {});
                 if (data.createdBy === 'nexus' && data.createdByActionId === actionId && data.createdByToken === token) {
-                    result.push({ id, data });
+                    result.push({ id: snapshot.id, data });
                 }
             }
             return result;
@@ -130,7 +139,7 @@ function buildFirestoreDependencies(db) {
             await batch.commit();
         },
         async finalizeAudit(uid, actionId, patch) {
-            await db.doc(auditPath(uid, actionId)).update({ ...patch, updatedAt: firestore_1.Timestamp.now() });
+            await db.doc(auditPath(uid, actionId)).update((0, nexusAgendaCommit_1.sanitizeForFirestore)({ ...patch, updatedAt: firestore_1.Timestamp.now() }));
         },
     };
 }

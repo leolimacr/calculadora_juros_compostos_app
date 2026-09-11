@@ -12,11 +12,13 @@ function setup(options: {
   audit?: Record<string, unknown>;
   owned?: Array<{ id: string; data: Record<string, unknown> }>;
   failDelete?: boolean;
+  failDeleteAtBatch?: number;
   claim?: UndoDependencies['claimAudit'];
 } = {}) {
   const deleted: Array<Array<{ id: string; data: Record<string, unknown> }>> = [];
   const finalized: Array<Record<string, unknown>> = [];
   let claimed = false;
+  let batchIndex = 0;
   const defaultClaim: UndoDependencies['claimAudit'] = vi.fn(async () => {
     if (claimed) return { kind: 'rejected' as const, reason: 'A ação já foi desfeita.' };
     claimed = true;
@@ -41,7 +43,9 @@ function setup(options: {
       data: { createdBy: 'nexus', createdByActionId: 'act-1', createdByToken: 'token-1' },
     }]),
     deleteBatch: vi.fn(async (_uid, documents) => {
+      batchIndex += 1;
       if (options.failDelete) throw new Error('delete failed');
+      if (options.failDeleteAtBatch === batchIndex) throw new Error('delete failed');
       deleted.push(documents);
     }),
     finalizeAudit: vi.fn(async (_uid, _actionId, patch) => {
@@ -85,6 +89,19 @@ describe('nexusAgendaUndo', () => {
     expect(test.finalized[0]).toMatchObject({ status: 'undone', idsRemoved: ['c-1'], undoneAt: expect.anything() });
   });
 
+  it('não oferece undo para edição (auditoria com before preenchido)', async () => {
+    const test = setup({ audit: { intent: 'edit', before: { id: 'c-1', title: 'Reunião' }, idsCreated: [] } });
+    await expect(executeAgendaUndo('user-1', { actionId: 'act-1' }, test.dependencies, NOW)).rejects.toThrow('restauração');
+    expect(test.deleted).toHaveLength(0);
+    expect(test.finalized).toHaveLength(0);
+  });
+
+  it('desfaz delete normalmente (auditoria com before nulo)', async () => {
+    const test = setup({ audit: { intent: 'delete', before: null, idsCreated: [] } });
+    const result = await executeAgendaUndo('user-1', { actionId: 'act-1' }, test.dependencies, NOW);
+    expect(result).toMatchObject({ success: true, status: 'undone' });
+  });
+
   it('desfaz série recorrente usando IDs da auditoria', async () => {
     const ids = Array.from({ length: 15 }, (_, index) => `c-${index}`);
     const test = setup({
@@ -117,6 +134,23 @@ describe('nexusAgendaUndo', () => {
     const test = setup({ failDelete: true });
     await expect(executeAgendaUndo('user-1', { actionId: 'act-1' }, test.dependencies, NOW)).rejects.toThrow('desfazer');
     expect(test.finalized[0]).toMatchObject({ status: 'failed', undoError: 'delete failed' });
+  });
+
+  it('retorna partial estruturado quando o segundo batch falha (B3)', async () => {
+    const ids = Array.from({ length: 401 }, (_, index) => `c-${index}`);
+    const test = setup({
+      audit: { idsCreated: ids },
+      owned: ids.map((id) => ({ id, data: { createdBy: 'nexus', createdByActionId: 'act-1', createdByToken: 'token-1' } })),
+      failDeleteAtBatch: 2,
+    });
+    const result = await executeAgendaUndo('user-1', { actionId: 'act-1' }, test.dependencies, NOW);
+
+    expect(result).toMatchObject({ success: false, status: 'partial', actionId: 'act-1' });
+    if (!result.success) {
+      expect(result.idsRemoved).toHaveLength(400);
+      expect(typeof result.error).toBe('string');
+    }
+    expect(test.finalized[0]).toMatchObject({ status: 'partial' });
   });
 
   it('impede dois undos simultâneos após claim atômico', async () => {

@@ -49,6 +49,29 @@ function buildSeed(): AgendaCommitment[] {
     time: '18:00',
     completed: false,
   });
+  // Cluster de mesmo dia (hoje): vários compromissos sem horário para exercitar
+  // a reordenação manual (setas ▲/▼) — o segundo adicionado não pode virar o
+  // primeiro; o fallback legado ordena por createdAt antes da 1ª reordenação.
+  const clusterDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  out.push({
+    id: 'seed-cluster-1',
+    date: Timestamp.fromDate(clusterDay),
+    title: 'Cluster mesmo dia — primeiro (mais antigo)',
+    completed: false,
+  });
+  out.push({
+    id: 'seed-cluster-2',
+    date: Timestamp.fromDate(clusterDay),
+    title: 'Cluster mesmo dia — segundo (deve vir depois)',
+    completed: false,
+  });
+  out.push({
+    id: 'seed-cluster-3',
+    date: Timestamp.fromDate(clusterDay),
+    title: 'Cluster mesmo dia — terceiro',
+    time: '17:00',
+    completed: false,
+  });
   return out;
 }
 

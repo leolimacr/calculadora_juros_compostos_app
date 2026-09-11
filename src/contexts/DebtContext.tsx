@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef, useState, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './AuthContext';
 import { queryKeys } from '../core/query/queryKeys';
@@ -13,26 +13,15 @@ const DebtContext = createContext<DebtContextValue>({
   hasConnectedAtLeastOnce: false,
 });
 
-let debtProviderInstanceCount = 0;
-
 export function DebtProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [debtBridgeReady, setDebtBridgeReady] = useState(false);
   const [hasConnectedAtLeastOnce, setHasConnectedAtLeastOnce] = useState(false);
-  const providerId = React.useRef(++debtProviderInstanceCount);
 
   const key = queryKeys.debts.byUser(user?.uid || 'anonymous');
 
-  // Watch the React Query cache for debt data (populated by FinanceContext's bridge)
-  const { data } = useQuery({
-    queryKey: key,
-    queryFn: () => queryClient.getQueryData(key) ?? undefined,
-    enabled: !!user?.uid,
-    staleTime: Infinity,
-  });
-
-  // Also seed from localStorage for instant readiness on cold start
+  // Seed from localStorage para cold start rápido
   const storageKey = useMemo(() => {
     if (!user?.uid) return null;
     const legacyKey = `fpi_debts_${user.uid}`;
@@ -56,7 +45,6 @@ export function DebtProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Try to hydrate from localStorage cache for instant readiness
     if (storageKey) {
       try {
         const raw = localStorage.getItem(storageKey);
@@ -72,7 +60,14 @@ export function DebtProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user?.uid, storageKey, queryClient, key]);
 
-  // React when cache is populated by FinanceContext's bridge
+  // Reage quando o cache é populado por qualquer fonte (getDocs do useDebts)
+  const { data } = useQuery({
+    queryKey: key,
+    queryFn: () => queryClient.getQueryData(key) ?? undefined,
+    enabled: !!user?.uid,
+    staleTime: Infinity,
+  });
+
   useEffect(() => {
     if (data !== undefined) {
       setDebtBridgeReady(true);

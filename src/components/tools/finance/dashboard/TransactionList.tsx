@@ -13,7 +13,6 @@ interface TransactionListProps {
   isPrivacyMode: boolean;
   isStale: boolean;
   invoiceLookup?: Map<string, { transacoes: Array<{ id: string; description: string; amount: number; date: string }>; total: number }>;
-  periodIncome?: number;
   periodLabel?: string;
 }
 
@@ -28,15 +27,22 @@ const TransactionList: React.FC<TransactionListProps> = ({
   isPrivacyMode,
   isStale,
   invoiceLookup,
-  periodIncome,
   periodLabel,
 }) => {
+  // Income computed from the SAME filtered list as expenses (not from external stats)
+  const periodIncome = useMemo(
+    () => transactions.reduce((sum, t) => t.type === 'income' ? sum + (Number(t.amount) || 0) : sum, 0),
+    [transactions],
+  );
   const expenseTransactions = useMemo(
     () => transactions.filter(t => t.type === 'expense' && !t.isBillPayment && !t.isVirtual),
     [transactions],
   );
   const expenseCount = expenseTransactions.length;
   const expenseSum = expenseTransactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+
+  // Rounded to 2 decimal places to avoid float precision artifacts
+  const fmt = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
     <>
@@ -59,16 +65,16 @@ const TransactionList: React.FC<TransactionListProps> = ({
                     Entradas
                   </span>
                   <span className="text-sm font-black text-status-success tabular-nums">
-                    R$ {periodIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R$ {fmt(periodIncome)}
                   </span>
                 </div>
                 <div className="flex flex-col items-end gap-0.5">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-status-danger/80">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-action-dangerDark">
                       Saídas
                     </span>
-                    <span className="text-base font-black text-status-danger tabular-nums">
-                      R$ {expenseSum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    <span className="text-base font-black text-action-dangerDark tabular-nums">
+                      R$ {fmt(expenseSum)}
                     </span>
                   </div>
                   {expenseCount > 0 && (

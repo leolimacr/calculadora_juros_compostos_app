@@ -17,11 +17,27 @@ const NexusInlineAdvisor: React.FC<Props> = ({ draft, context }) => {
   const insight = useMemo(() => {
     if (!context?.snapshot || draft.amount <= 0) return null;
 
+    // Registro formal (Etapa 5, sem reabrir a Etapa 2): `computeLaunchImpact`
+    // retorna null para crédito (sem impacto imediato no caixa) e seu contrato
+    // não cobre `voucher` — semanticamente distinto (saldo pré-pago de
+    // benefício, não dinheiro nem limite de crédito). Voucher recebe um
+    // informativo próprio em vez de passar pelo motor. Revisão futura
+    // (Etapa 2.1) pode modelar voucher explicitamente no motor.
+    if (draft.paymentMethod === 'voucher') {
+      return {
+        type: 'info',
+        icon: <AlertCircle className="text-violet-500" size={16} />,
+        title: 'Movimento no voucher',
+        body: 'Este valor consome o saldo do benefício — o caixa imediato não muda e não entra na fatura do cartão.',
+        color: 'bg-violet-50 border-violet-100 text-violet-700',
+      };
+    }
+
     const impact = computeLaunchImpact(
       context.snapshot,
       draft.amount,
       draft.type,
-      draft.paymentMethod ?? 'money'
+      draft.paymentMethod === 'credit' ? 'credit' : 'money'
     );
 
     if (impact) {
@@ -52,7 +68,7 @@ const NexusInlineAdvisor: React.FC<Props> = ({ draft, context }) => {
     }
 
     return null;
-  }, [draft.amount, draft.category, draft.type, draft.paymentMethod, context]);
+  }, [draft.amount, draft.type, draft.paymentMethod, context]);
 
   if (!insight) return null;
 

@@ -194,50 +194,49 @@ describe('rotativoService checkOverdueInvoices — rotativoSettled guard', () =>
 import { buildSovereignSnapshot } from '../../utils/calculations';
 
 describe('Snapshot integrity — rotativo + invoice', () => {
-  it('obligationsDeduction = cardInvoiceRemaining + rotativoDebtBalance', () => {
+  it('obligationsDeduction = obligationPressure + pendingBills', () => {
     const result = buildSovereignSnapshot({
       monthBalance: 10000,
       accumulatedBalance: 50000,
       accumulatedIncome: 100000,
       accumulatedExpenses: 50000,
-      virtualImpact: 2000,
-      rotativoDebtBalance: 1500,
+      obligationPressure: 3500, // card invoice (2000) + rotativo (1500) combined
       commandMode: true,
       income: 10000,
       expenses: 6000,
       monthlyAport: 4000,
     });
-    expect(result.obligationsDeduction).toBe(2000 + 1500);
+    expect(result.obligationsDeduction).toBe(3500);
+    expect(result.virtualImpact).toBe(3500);
   });
 
-  it('zero rotativoDebtBalance does not inflate obligations', () => {
+  it('zero obligationPressure does not inflate obligations', () => {
     const result = buildSovereignSnapshot({
       monthBalance: 10000,
       accumulatedBalance: 50000,
       accumulatedIncome: 100000,
       accumulatedExpenses: 50000,
-      virtualImpact: 2000,
+      obligationPressure: 0,
       commandMode: true,
       income: 10000,
       expenses: 6000,
       monthlyAport: 4000,
     });
-    expect(result.obligationsDeduction).toBe(2000);
+    expect(result.obligationsDeduction).toBe(0);
   });
 
-  it('undefined rotativoDebtBalance treated as zero', () => {
+  it('undefined obligationPressure treated as zero', () => {
     const result = buildSovereignSnapshot({
       monthBalance: 10000,
       accumulatedBalance: 50000,
       accumulatedIncome: 100000,
       accumulatedExpenses: 50000,
-      virtualImpact: 2000,
       commandMode: true,
       income: 10000,
       expenses: 6000,
       monthlyAport: 4000,
     });
-    expect(result.obligationsDeduction).toBe(2000);
+    expect(result.obligationsDeduction).toBe(0);
   });
 });
 

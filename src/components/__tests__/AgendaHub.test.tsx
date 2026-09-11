@@ -20,6 +20,10 @@ vi.mock('../../contexts/ToastContext', () => ({
   useToast: () => ({ addToast: vi.fn() }),
 }));
 
+vi.mock('../../hooks/useBills', () => ({
+  useBills: () => ({ bills: [] }),
+}));
+
 const mocks = vi.hoisted(() => ({
   fetchMonthCommitments: vi.fn(),
   fetchUpcomingCommitments: vi.fn(),

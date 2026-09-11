@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, AlertTriangle, ShieldCheck, TrendingDown, ArrowRight } from 'lucide-react';
+import { Sparkles, AlertTriangle, ShieldCheck, ArrowRight } from 'lucide-react';
 import type { DebtCommand } from '../../../services/debt/advisor.types';
 
 interface DebtNexusFeedProps {

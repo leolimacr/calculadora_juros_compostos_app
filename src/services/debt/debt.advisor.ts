@@ -1,11 +1,18 @@
 import type { DebtItem } from './debt.types';
 import type { SovereignSnapshotResult } from '../../hooks/useSovereignSnapshot';
-import type { DebtCommand, DebtCommandAction } from './advisor.types';
+import type { DebtCommand } from './advisor.types';
 
 // Constantes de Negócio (Configurações do Motor)
 const THRESHOLD_ABUSIVE_RATE = 4.0; // Taxa acima de 4% é considerada alerta prioritário
 const THRESHOLD_HYGIENE_DAYS = 15;  // Mais de 15 dias sem validar é sinal de desatualização
 const OPPORTUNITY_MULTIPLIER = 3.0; // Saldo Livre > 3x parcela para sugerir amortização extra
+
+function getTimestamp(date: Date | { toMillis?: () => number } | undefined): number {
+  if (!date) return 0;
+  if (date instanceof Date) return date.getTime();
+  if (typeof date.toMillis === 'function') return date.toMillis();
+  return 0;
+}
 
 export const analyzeDebtContext = (
   debts: DebtItem[],
@@ -31,14 +38,10 @@ export const analyzeDebtContext = (
 
   // 2. Comando: RITUAL DE INTEGRIDADE (Prioridade 80)
   const now = new Date().getTime();
-  const oldestDebt = [...debts].sort((a, b) => {
-    const timeA = a.updatedAt?.toMillis ? a.updatedAt.toMillis() : 0;
-    const timeB = b.updatedAt?.toMillis ? b.updatedAt.toMillis() : 0;
-    return timeA - timeB;
-  })[0];
+  const oldestDebt = [...debts].sort((a, b) => getTimestamp(a.updatedAt) - getTimestamp(b.updatedAt))[0];
 
   if (oldestDebt) {
-    const lastUpdate = oldestDebt.updatedAt?.toMillis ? oldestDebt.updatedAt.toMillis() : 0;
+    const lastUpdate = getTimestamp(oldestDebt.updatedAt);
     const daysSince = (now - lastUpdate) / (1000 * 60 * 60 * 24);
 
     if (daysSince > THRESHOLD_HYGIENE_DAYS) {

@@ -6,17 +6,26 @@ import type { FaturaDetalhe, LancamentoFuturoInfo } from '../../../../utils/calc
 import { getLocalDateString } from '../../../../utils/dateHelpers';
 import { payInvoice } from '../../../../services/payInvoiceService';
 import ComposicaoDrawer, { type ComposicaoItem } from './ComposicaoDrawer';
+import { useExclusions } from '../../../../contexts/ExclusionsContext';
+
+interface VoucherCardInfo {
+  id: string;
+  name: string;
+  balance: number;
+}
 
 interface SaldoAjustavelCardProps {
   isPrivacyMode: boolean;
-  saldoReal: number;
-  saldoComExclusoes: number;
+  saldoReal: number | null;
   faturasFechadas: FaturaDetalhe[];
   faturasAbertas: FaturaDetalhe[];
   gastosFuturosMes: LancamentoFuturoInfo[];
   contasFuturasMes: LancamentoFuturoInfo[];
   userId: string;
   queryClient: QueryClient;
+  reserveTarget: number;
+  colchaoTarget: number;
+  voucherCards: VoucherCardInfo[];
 }
 
 type CheckState = Record<string, boolean>;
@@ -24,17 +33,26 @@ type CheckState = Record<string, boolean>;
 const SaldoAjustavelCard: React.FC<SaldoAjustavelCardProps> = ({
   isPrivacyMode,
   saldoReal,
-  saldoComExclusoes,
   faturasFechadas,
   faturasAbertas,
   gastosFuturosMes,
   contasFuturasMes,
   userId,
   queryClient,
+  reserveTarget,
+  colchaoTarget,
+  voucherCards,
 }) => {
-  const LS_KEY = 'fpi-dash-usar-saldo-exclusoes';
-  const [usarSaldoComExclusoes, setUsarSaldoComExclusoes] = useState(() => localStorage.getItem(LS_KEY) === 'true');
-  const saldoBase = usarSaldoComExclusoes ? saldoComExclusoes : saldoReal;
+  const { excluirReserva, excluirColchao, excluirVoucherMap, computeExclusions } = useExclusions();
+  
+  // Ordena faturas abertas por vencimento: mais próxima primeiro (dueDate asc)
+  const sortedAbertas = useMemo(() => {
+    const copy = [...faturasAbertas];
+    copy.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+    return copy;
+  }, [faturasAbertas]);
+  
+  // SaldoAjustavelCard is a simulation tool - keeps its own local checkbox state for granular payment planning
   const [checked, setChecked] = useState<CheckState>(() => {
     const init: CheckState = {};
     for (const f of faturasFechadas) {
@@ -42,6 +60,9 @@ const SaldoAjustavelCard: React.FC<SaldoAjustavelCardProps> = ({
     }
     return init;
   });
+
+  const saldoComExclusoes = saldoReal != null ? saldoReal - computeExclusions(reserveTarget, colchaoTarget, voucherCards) : 0;
+  const saldoBase = saldoComExclusoes;
 
   const [drawerItem, setDrawerItem] = useState<ComposicaoItem | null>(null);
   const [payingFaturaKey, setPayingFaturaKey] = useState<string | null>(null);
@@ -53,23 +74,23 @@ const SaldoAjustavelCard: React.FC<SaldoAjustavelCardProps> = ({
   }, []);
 
   const temParceladas = useMemo(() => {
-    return faturasAbertas.some(f =>
+    return sortedAbertas.some(f =>
       f.transacoes.some(t => t.installments != null && t.installments > 1)
     );
-  }, [faturasAbertas]);
+  }, [sortedAbertas]);
 
   const [faturasAbertasExpanded, setFaturasAbertasExpanded] = useState(false);
 
   const handleSelectAllAbertas = useCallback(() => {
     setChecked(prev => {
-      const allChecked = faturasAbertas.every(f => !!prev[`fat-${f.cardId}-${f.periodEnd}`]);
+      const allChecked = sortedAbertas.every(f => !!prev[`fat-${f.cardId}-${f.periodEnd}`]);
       const next = { ...prev };
-      for (const f of faturasAbertas) {
+      for (const f of sortedAbertas) {
         next[`fat-${f.cardId}-${f.periodEnd}`] = !allChecked;
       }
       return next;
     });
-  }, [faturasAbertas]);
+  }, [sortedAbertas]);
 
   const [contasFuturasExpanded, setContasFuturasExpanded] = useState(false);
 
@@ -84,8 +105,6 @@ const SaldoAjustavelCard: React.FC<SaldoAjustavelCardProps> = ({
     });
   }, [contasFuturasMes]);
 
-  useEffect(() => { localStorage.setItem(LS_KEY, String(usarSaldoComExclusoes)); }, [usarSaldoComExclusoes]);
-
   const fmt = (n: number) => (isPrivacyMode ? '••••••' : maskCurrency(n));
 
   const totalDeducoes = useMemo(() => {
@@ -94,7 +113,7 @@ const SaldoAjustavelCard: React.FC<SaldoAjustavelCardProps> = ({
     for (const f of faturasFechadas) {
       if (checked[`fat-${f.cardId}-${f.periodEnd}`]) total += f.remainingAmount;
     }
-    for (const f of faturasAbertas) {
+    for (const f of sortedAbertas) {
       if (checked[`fat-${f.cardId}-${f.periodEnd}`]) total += f.remainingAmount;
     }
     for (const g of gastosFuturosMes) {
@@ -105,7 +124,7 @@ const SaldoAjustavelCard: React.FC<SaldoAjustavelCardProps> = ({
     }
 
     return total;
-  }, [faturasFechadas, faturasAbertas, gastosFuturosMes, contasFuturasMes, checked]);
+  }, [faturasFechadas, sortedAbertas, gastosFuturosMes, contasFuturasMes, checked]);
 
   const saldoAjustado = saldoBase - totalDeducoes;
   const isNegativo = saldoAjustado < 0;
@@ -143,15 +162,31 @@ const SaldoAjustavelCard: React.FC<SaldoAjustavelCardProps> = ({
     setPayingFaturaKey(null);
   }, [userId, paymentDate, queryClient, isPaying]);
 
+  // Loading skeleton — até os dados do mês corrente estarem carregados
+  if (saldoReal === null) {
+    return (
+      <div className="bg-surface-primary border border-slate-200 rounded-panel p-5 shadow-panel animate-pulse">
+        <div className="h-3 w-28 bg-surface-secondary rounded-full mb-3" />
+        <div className="h-4 w-16 bg-surface-secondary rounded-full mb-1" />
+        <div className="h-8 w-36 bg-surface-secondary rounded-xl mt-4" />
+        <div className="border-t border-surface-elevated pt-3 mt-4 space-y-2">
+          <div className="h-3 w-40 bg-surface-secondary rounded-full" />
+          <div className="h-3 w-36 bg-surface-secondary rounded-full" />
+          <div className="h-3 w-32 bg-surface-secondary rounded-full" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
-      <div className="bg-surface-primary border border-surface-elevated rounded-4xl p-5 shadow-card">
+      <div className="bg-surface-primary border border-slate-200 rounded-panel p-5 shadow-panel">
         {/* Saldo Atual (fixo no topo) */}
         <div className="flex items-baseline justify-between mb-4">
           <div>
-            <p className="text-text-muted text-xxs font-black uppercase tracking-ultra-wide">
+            <h2 className="text-sm font-black text-text-primary tracking-tight">
               Saldo Ajustável
-            </p>
+            </h2>
             <p className="text-[10px] text-text-muted font-medium leading-relaxed mt-0.5">
               Marque o que deseja abater do saldo atual.
             </p>
@@ -160,19 +195,6 @@ const SaldoAjustavelCard: React.FC<SaldoAjustavelCardProps> = ({
             {fmt(saldoBase)}
           </p>
         </div>
-
-        {/* Checkbox usar saldo com exclusões */}
-        <label className="flex items-center gap-2 cursor-pointer group mb-3 pb-3 border-b border-surface-elevated">
-          <input
-            type="checkbox"
-            checked={usarSaldoComExclusoes}
-            onChange={() => setUsarSaldoComExclusoes((p) => !p)}
-            className="h-3.5 w-3.5 rounded border-surface-elevated text-brand-primary focus:ring-brand-primary/30"
-          />
-          <span className="text-[10px] leading-snug text-text-muted group-hover:text-text-primary transition-colors">
-            Usar o Saldo Atual (com exclusões)
-          </span>
-        </label>
 
         {/* Seção: Faturas Fechadas */}
         <div className="mb-3">
@@ -190,14 +212,14 @@ const SaldoAjustavelCard: React.FC<SaldoAjustavelCardProps> = ({
                 return (
                   <div key={key}>
                     <div
-                      className={`flex items-center gap-2 px-3 py-2.5 rounded-2xl border transition-all cursor-pointer hover:shadow-sm ${
+                      className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all cursor-pointer ${
                         isOverdue
                           ? isChecked
                             ? 'bg-red-100 border-red-400'
                             : 'bg-red-50/40 border-red-300/60'
                           : isChecked
                             ? 'bg-red-50 border-red-200'
-                            : 'bg-surface-secondary border-surface-elevated opacity-70'
+                            : 'bg-surface-subtle border-slate-200'
                       }`}
                       onClick={() => abrirComposicao({ tipo: 'fatura', dados: f })}
                     >
@@ -209,7 +231,7 @@ const SaldoAjustavelCard: React.FC<SaldoAjustavelCardProps> = ({
                         className={`w-4 h-4 rounded cursor-pointer shrink-0 ${
                           isOverdue
                             ? 'border-red-400 text-red-600 focus:ring-red-500'
-                            : 'border-slate-300 text-red-500 focus:ring-red-400'
+                            : 'border-slate-300 text-red-600 focus:ring-red-500'
                         }`}
                       />
                       <div className="flex-1 min-w-0">
@@ -227,8 +249,8 @@ const SaldoAjustavelCard: React.FC<SaldoAjustavelCardProps> = ({
                         </p>
                         <p className={`text-[9px] mt-0.5 ${
                           isOverdue
-                            ? isChecked ? 'text-red-600' : 'text-red-500'
-                            : isChecked ? 'text-red-500' : 'text-text-muted'
+                            ? isChecked ? 'text-red-600' : 'text-red-600'
+                            : isChecked ? 'text-red-600' : 'text-text-muted'
                         }`}>
                           Venceu em {new Date(f.dueDate.replace(/-/g, '/')).toLocaleDateString('pt-BR')}
                         </p>
@@ -244,7 +266,7 @@ const SaldoAjustavelCard: React.FC<SaldoAjustavelCardProps> = ({
                       <button
                         type="button"
                         onClick={e => { e.stopPropagation(); handleStartPayment(key); }}
-                        className="text-[8px] font-black text-brand-primary uppercase tracking-widest hover:underline shrink-0 whitespace-nowrap"
+                        className="text-[8px] font-black text-action-primaryDark uppercase tracking-widest hover:underline shrink-0 whitespace-nowrap"
                       >
                         Pagar Agora
                       </button>
@@ -315,7 +337,7 @@ const SaldoAjustavelCard: React.FC<SaldoAjustavelCardProps> = ({
             )}
             <input
               type="checkbox"
-              checked={faturasAbertas.length > 0 && faturasAbertas.every(f => !!checked[`fat-${f.cardId}-${f.periodEnd}`])}
+              checked={sortedAbertas.length > 0 && sortedAbertas.every(f => !!checked[`fat-${f.cardId}-${f.periodEnd}`])}
               onChange={handleSelectAllAbertas}
               onClick={e => e.stopPropagation()}
               className="h-3.5 w-3.5 rounded border-surface-elevated text-amber-500 focus:ring-amber-400/30 shrink-0"
@@ -324,27 +346,27 @@ const SaldoAjustavelCard: React.FC<SaldoAjustavelCardProps> = ({
               <CreditCard size={12} />
               Faturas abertas (em curso)
             </p>
-            {faturasAbertas.length > 0 && (
+            {sortedAbertas.length > 0 && (
               <span className="text-[8px] font-bold text-text-muted ml-auto">
-                {faturasAbertas.length} {faturasAbertas.length === 1 ? 'fatura' : 'faturas'}
+                {sortedAbertas.length} {sortedAbertas.length === 1 ? 'fatura' : 'faturas'}
               </span>
             )}
           </div>
 
           {(!temParceladas || faturasAbertasExpanded) && (
-            faturasAbertas.length > 0 ? (
+            sortedAbertas.length > 0 ? (
               <div className="space-y-1">
-                {faturasAbertas.map(f => {
+                {sortedAbertas.map(f => {
                   const key = `fat-${f.cardId}-${f.periodEnd}`;
                   const isChecked = !!checked[key];
                   const isPayingThis = payingFaturaKey === key;
                   return (
                     <div key={key}>
                       <div
-                        className={`flex items-center gap-2 px-3 py-2.5 rounded-2xl border transition-all cursor-pointer hover:shadow-sm ${
+                      className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all cursor-pointer ${
                           isChecked
                             ? 'bg-amber-50 border-amber-200'
-                            : 'bg-surface-secondary border-surface-elevated opacity-70'
+                            : 'bg-surface-subtle border-slate-200'
                         }`}
                         onClick={() => abrirComposicao({ tipo: 'fatura', dados: f })}
                       >
@@ -362,7 +384,7 @@ const SaldoAjustavelCard: React.FC<SaldoAjustavelCardProps> = ({
                             </span>
                             {f.cardName}
                           </p>
-                          <p className={`text-[9px] mt-0.5 ${isChecked ? 'text-amber-500' : 'text-text-muted'}`}>
+                          <p className={`text-[9px] mt-0.5 ${isChecked ? 'text-amber-700' : 'text-text-muted'}`}>
                             Vence {new Date(f.dueDate.replace(/-/g, '/')).toLocaleDateString('pt-BR')}
                           </p>
                         </div>
@@ -373,7 +395,7 @@ const SaldoAjustavelCard: React.FC<SaldoAjustavelCardProps> = ({
                         <button
                           type="button"
                           onClick={e => { e.stopPropagation(); handleStartPayment(key); }}
-                          className="text-[8px] font-black text-brand-primary uppercase tracking-widest hover:underline shrink-0 whitespace-nowrap"
+                          className="text-[8px] font-black text-action-primaryDark uppercase tracking-widest hover:underline shrink-0 whitespace-nowrap"
                         >
                           Pagar Agora
                         </button>
@@ -445,10 +467,10 @@ const SaldoAjustavelCard: React.FC<SaldoAjustavelCardProps> = ({
                 return (
                   <div
                     key={key}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl border transition-all cursor-pointer hover:shadow-sm ${
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all cursor-pointer ${
                       isChecked
                         ? 'bg-amber-50 border-amber-200'
-                        : 'bg-surface-secondary border-surface-elevated opacity-70'
+                        : 'bg-surface-subtle border-slate-200'
                     }`}
                     onClick={() => abrirComposicao({ tipo: 'gasto-futuro', dados: g })}
                   >
@@ -521,10 +543,10 @@ const SaldoAjustavelCard: React.FC<SaldoAjustavelCardProps> = ({
                   return (
                     <div
                       key={key}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl border transition-all cursor-pointer hover:shadow-sm ${
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all cursor-pointer ${
                         isChecked
                           ? 'bg-purple-50 border-purple-200'
-                          : 'bg-surface-secondary border-surface-elevated opacity-70'
+                          : 'bg-surface-subtle border-slate-200'
                       }`}
                       onClick={() => abrirComposicao({ tipo: 'conta-futura', dados: c })}
                     >
@@ -539,7 +561,7 @@ const SaldoAjustavelCard: React.FC<SaldoAjustavelCardProps> = ({
                         <p className={`text-xs font-bold truncate ${isChecked ? 'text-purple-700' : 'text-text-muted'}`}>
                           {c.description}
                         </p>
-                        <p className={`text-[9px] mt-0.5 ${isChecked ? 'text-purple-500' : 'text-text-muted'}`}>
+                        <p className={`text-[9px] mt-0.5 ${isChecked ? 'text-purple-700' : 'text-text-muted'}`}>
                           Dia {new Date(c.date.replace(/-/g, '/')).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                         </p>
                       </div>

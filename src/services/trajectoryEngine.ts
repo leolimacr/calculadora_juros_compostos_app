@@ -23,7 +23,11 @@ type TxLike = {
   isVirtual?: boolean;
 };
 
-/** Série mensal da folga do mês (caixa do mês − estrutura protegida). */
+/** Série mensal da folga do mês (caixa do mês − estrutura protegida).
+ * Contrato: meses passados usam `flow.realBalance − protection` (base mensal);
+ * o mês corrente é sobrescrito por `currentMargin` quando fornecido, permitindo
+ * exibir a folga soberana acumulada (`sovereign.sovereignFreeBalance`) no último ponto.
+ * A quebra de base é intencional e fixada por teste. */
 export function buildMarginTrajectory(
   transactions: TxLike[],
   financialProfile?: FinancialProfile,

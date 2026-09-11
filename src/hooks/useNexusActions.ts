@@ -17,7 +17,7 @@ export const useNexusActions = () => {
     
     setIsExecuting(true);
     try {
-      console.log(`[NexusAction] Intenção registrada: ${action.type} para o insight ${insightId}`);
+      // Feedback de execução registrado via analytics (sem log de console em produção).
       
       if (action.type === 'reserve' && action.payload) {
         await createNexusReserve(
@@ -44,7 +44,23 @@ export const useNexusActions = () => {
       }
 
       if (action.type === 'convert_rotativo' && action.payload?.cardId) {
-        const result = await convertToDebt(userId, action.payload);
+        // OverdueInvoiceInfo exige todos os campos: valida antes de chamar
+        // (payloads vindos do LLM/eventos podem chegar incompletos).
+        const p = action.payload;
+        const cardId = p.cardId;
+        if (!cardId || !p.cardName || !p.invoiceId || !p.periodEnd || p.remainingAmount === undefined || !p.dueDate) {
+          setIsExecuting(false);
+          trackActionFailed(insightId, priority || 'alta', action.type, 'Dados da fatura incompletos para conversão.');
+          return { success: false, error: 'Dados da fatura incompletos para conversão.' };
+        }
+        const result = await convertToDebt(userId, {
+          cardId,
+          cardName: p.cardName,
+          invoiceId: p.invoiceId,
+          periodEnd: p.periodEnd,
+          remainingAmount: p.remainingAmount,
+          dueDate: p.dueDate,
+        });
 
         setIsExecuting(false);
         if (result.success) {

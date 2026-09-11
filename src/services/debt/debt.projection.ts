@@ -4,13 +4,33 @@ import * as math from './debt.math';
 export interface DebtProjectionParams {
   debt: DebtItem;
   extraPayment: number;
-  scenario: 'sac' | 'price' | 'rotativo';
+  scenario: 'sac' | 'price' | 'rotativo' | 'auto';
 }
+
+const getScenario = (debt: DebtItem): 'sac' | 'price' | 'rotativo' | 'series' => {
+  const config = debt.adjustmentConfig;
+  
+  if (!config || config.type === 'fixed') {
+    return debt.tipo === 'Cartão rotativo' || debt.originType === 'rotativo_cartao' ? 'rotativo' : 'price';
+  }
+  
+  return 'series';
+};
 
 export const projectDebt = (params: DebtProjectionParams) => {
   const { debt, extraPayment, scenario } = params;
+  const effectiveScenario = scenario === 'auto' ? getScenario(debt) : scenario;
 
-  if (scenario === 'sac') {
+  if (effectiveScenario === 'series') {
+    return math.buildInstallmentSchedule(
+      debt.saldoDevedor,
+      debt.taxaMensal,
+      debt.adjustmentConfig!,
+      extraPayment
+    );
+  }
+
+  if (effectiveScenario === 'sac') {
     return math.buildSacSchedule(
       debt.saldoDevedor,
       debt.taxaMensal,
@@ -19,7 +39,7 @@ export const projectDebt = (params: DebtProjectionParams) => {
     );
   }
 
-  if (scenario === 'price') {
+  if (effectiveScenario === 'price') {
     return math.buildPriceSchedule(
       debt.saldoDevedor,
       debt.taxaMensal,
@@ -28,7 +48,6 @@ export const projectDebt = (params: DebtProjectionParams) => {
     );
   }
 
-  // Rotativo usa o valor da parcela como pagamento fixo
   return math.buildRotativeSchedule(
     debt.saldoDevedor,
     debt.taxaMensal,

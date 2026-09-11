@@ -6,6 +6,7 @@ import { useWealthData } from '../../../hooks/useWealthData';
 import { useCards } from '../../../hooks/useCards';
 import { useWealthHistory } from '../../../hooks/useWealthHistory';
 import { useSovereignSnapshot } from '../../../hooks/useSovereignSnapshot';
+import { useExclusionAmount } from '../../../contexts/ExclusionsContext';
 import { useNexusEvents } from '../../../hooks/useNexusEvents';
 import { classifyFromSnapshot } from '../../../services/sovereignMap';
 
@@ -39,7 +40,12 @@ export const useCockpitData = (
   const { cards: userCards = [], isLoading: loadingCards } = useCards(user?.uid);
 
   const safeTx = useMemo(() => Array.isArray(transactions) ? transactions : [], [transactions]);
-  const sovereign = useSovereignSnapshot(safeTx, userMeta);
+
+  const reserveTarget = userMeta?.financialProfile?.emergencyReserveTarget || 0;
+  const colchaoTarget = userMeta?.financialProfile?.colchaoInicialTarget || 0;
+  const exclusionAmount = useExclusionAmount(reserveTarget, colchaoTarget);
+
+  const sovereign = useSovereignSnapshot(safeTx, userMeta, false, undefined, exclusionAmount);
 
   // Estágio do Mapa de Soberania
   const stage = useMemo(

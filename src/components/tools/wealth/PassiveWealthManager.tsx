@@ -338,7 +338,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
                 </button>
               )}
               {!editingId && assets.length > 0 && (
-                <button onClick={() => setShowForm(false)} className="text-xs font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1">
+                <button onClick={() => setShowForm(false)} className="text-xs font-bold text-slate-500 hover:text-slate-700 flex items-center gap-1">
                   <X size={14} /> Fechar
                 </button>
               )}
@@ -412,7 +412,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
                 <textarea
                   value={currentAsset.proposito || ''}
                   onChange={e => setCurrentAsset({ ...currentAsset, proposito: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-emerald-100 focus:ring-2 focus:ring-brand-primaryCta/30 focus:border-brand-primaryCta transition-all text-sm font-medium bg-white min-h-[80px] resize-none placeholder:text-slate-300"
+                  className="w-full px-4 py-3 rounded-xl border border-emerald-100 focus:ring-2 focus:ring-brand-primaryCta/30 focus:border-brand-primaryCta transition-all text-sm font-medium bg-white min-h-[80px] resize-none placeholder:text-slate-500"
                   placeholder="O que este bem representa para você? Qual a finalidade dele na sua vida?"
                 />
               </div>
@@ -552,7 +552,7 @@ export const PassiveWealthManager: React.FC<PassiveWealthManagerProps> = ({ user
                   </div>
                   
                   {/* Botões de Ação */}
-                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity">
                     <button 
                       onClick={() => handleSellAsset(asset)} 
                       className="text-emerald-600 hover:text-white p-2 rounded-lg bg-emerald-50 border border-emerald-200 hover:bg-emerald-600 transition-all flex items-center gap-1.5 shadow-sm"

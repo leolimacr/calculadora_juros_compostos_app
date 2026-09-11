@@ -26,11 +26,11 @@ export const PLANS: Record<string, StripePlanConfig> = {
     period: "/mês",
     description: "Para começar a organizar a casa.",
     features: [
-      "Controla com lançamentos ilimitados",
-      "Juros Compostos",
-      "Calculadora FIRE",
-      "Visão básica da Central",
-      "Sem exportação de dados"
+      "Lançamentos ilimitados no Controla",
+      "Mês atual e meses futuros",
+      "Base de Proteção — veja sua camada de segurança",
+      "Central — visão da sua evolução financeira",
+      "Ferramentas de simulação financeira"
     ]
   },
   PRO: {
@@ -46,7 +46,7 @@ export const PLANS: Record<string, StripePlanConfig> = {
     recommended: true,
     trialDays: 7,
     features: [
-      "Todas as 8 Ferramentas",
+      "Todas as 7 Ferramentas",
       "Nexus com histórico estendido",
       "Exportação CSV/PDF",
       "Relatórios Mensais",

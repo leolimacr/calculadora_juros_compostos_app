@@ -1,10 +1,14 @@
-import { type AgendaEnvelope } from './nexus-core/agenda-intent-schema';
+import { getFirestore } from 'firebase-admin/firestore';
+import { type AgendaEditSnapshot, type AgendaEnvelope } from './nexus-core/agenda-intent-schema';
+import { type AgendaSessionContext, type SessionStore } from './nexus-core/agenda-session';
+export declare function deleteScanCutoffMs(nowMs?: number): number;
 export interface InterpretRequestData {
     prompt: string;
     history?: Array<{
         role: string;
         text: string;
     }>;
+    sessionId?: string;
 }
 export interface StoredAgendaCommitment {
     id: string;
@@ -12,12 +16,18 @@ export interface StoredAgendaCommitment {
     time?: string | null;
     endTime?: string | null;
     dateMs: number;
+    seriesId?: string | null;
+    location?: string | null;
+    participants?: string[] | null;
+    notes?: string | null;
 }
 export interface AgendaReader {
     onDay(uid: string, isoDate: string): Promise<StoredAgendaCommitment[]>;
+    onPeriod(uid: string, startMs: number, endMs: number): Promise<StoredAgendaCommitment[]>;
     upcoming(uid: string, max: number): Promise<StoredAgendaCommitment[]>;
     searchByTitle(uid: string, title: string, opts?: {
         maxResults?: number;
+        sinceMs?: number;
     }): Promise<StoredAgendaCommitment[]>;
 }
 export interface PendingWriter {
@@ -34,7 +44,9 @@ export interface InterpretDependencies {
     router: AgendaRouter;
     agenda: AgendaReader;
     pending: PendingWriter;
+    session: SessionStore;
     now?: Date;
+    requestId?: string;
 }
 export interface AgendaWarning {
     type: 'conflict' | 'duplicate' | 'truncated';
@@ -63,8 +75,11 @@ export interface AgendaRecap {
         until?: string;
     };
     matchCount?: number;
+    scannedCount?: number;
     affectedItems?: AgendaAffectedItem[];
     truncated?: boolean;
+    before?: AgendaEditSnapshot;
+    after?: AgendaEditSnapshot;
     summary: string;
 }
 export interface AgendaRefinement {
@@ -83,6 +98,7 @@ export type InterpretResponse = {
     success: true;
     outcome: 'clarification';
     status: 'awaiting_clarification';
+    question: string | null;
     clarification: {
         missing: string[];
         ambiguous: string[];
@@ -108,5 +124,13 @@ export declare function requireAuth(request: {
         uid?: string;
     } | null;
 }): string;
+export declare function buildSystemPrompt(now: Date, context?: AgendaSessionContext): string;
+export declare function buildMessages(prompt: string, history: Array<{
+    role: string;
+    text: string;
+}>): unknown[];
+export declare function inferStartTimeFromTitle(title: string): string | null;
+export declare function rankByTitle(needle: string, candidate: string): number;
 export declare function orchestrateAgendaInterpret(uid: string, data: InterpretRequestData, dependencies: InterpretDependencies): Promise<InterpretResponse>;
+export declare function buildFirestoreDependencies(db: ReturnType<typeof getFirestore>): Omit<InterpretDependencies, 'router' | 'now'>;
 export declare const nexusAgendaInterpret: import("firebase-functions/v2/https").CallableFunction<any, Promise<InterpretResponse>, unknown>;

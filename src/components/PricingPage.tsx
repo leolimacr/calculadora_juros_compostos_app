@@ -8,6 +8,8 @@ import { useEntitlement } from '../hooks/useEntitlement';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigation } from '../hooks/useNavigation';
 import { PLANS } from '../../config/stripePlans';
+import { isBillingReady, purchaseViaGooglePlay, PLAY_STORE_PRODUCT_IDS } from '../services/purchaseService';
+import VipWaitlistModal from './Billing/VipWaitlistModal';
 import type { BillingTier, BillingStatus } from '../types/billing';
 
 const TIER_ORDER: Record<BillingTier, number> = { free: 0, pro: 1, premium: 2 };
@@ -20,13 +22,8 @@ const PLAN_META = [
     desc: 'O essencial para construir o hábito financeiro sem limite.',
     accent: 'slate',
     config: PLANS.FREE,
-    features: [
-      'Lançamentos ilimitados no Controla',
-      'Mês atual e meses futuros',
-      'Base de Proteção — veja sua camada de segurança',
-      'Central — visão da sua evolução financeira',
-      'Ferramentas de simulação financeira',
-    ],
+    // E7-11: copy de features em fonte única (config/stripePlans.ts).
+    features: PLANS.FREE.features,
     featureIcons: [Check, Check, Check, Check, Check],
   },
   {
@@ -36,14 +33,9 @@ const PLAN_META = [
     desc: 'Seus meses anteriores revelam sua verdadeira proteção.',
     accent: 'sky',
     config: PLANS.PRO,
-    features: [
-      'Histórico completo — todos os meses e anos',
-      'Compare períodos e veja suas médias ao longo do tempo',
-      'Relatórios PDF e exportação de períodos anteriores',
-      'Trajetória da sua margem nos últimos 6 meses',
-      'Nexus com contexto do seu histórico financeiro',
-    ],
-    featureIcons: [HistoryIcon, BarChart3, FileTextIcon, Zap, Check],
+    // E7-11: copy de features em fonte única (config/stripePlans.ts).
+    features: PLANS.PRO.features,
+    featureIcons: [Target, HistoryIcon, FileTextIcon, BarChart3, Check],
   },
   {
     tier: 'premium' as BillingTier,
@@ -52,14 +44,8 @@ const PLAN_META = [
     desc: 'Rotina, dívidas, investimentos e patrimônio conectados num só comando.',
     accent: 'emerald',
     config: PLANS.PREMIUM,
-    features: [
-      'Tudo do Pro incluído',
-      'Gestão de Dívidas com projeções e estratégia',
-      'Acompanhamento de investimentos e carteira',
-      'Patrimônio líquido consolidado',
-      'Central completa com módulos estratégicos',
-      'Nexus com visão de ecossistema',
-    ],
+    // E7-11: copy de features em fonte única (config/stripePlans.ts).
+    features: PLANS.PREMIUM.features,
     featureIcons: [CheckCircle, Target, Shield, BarChart3, Zap, Check],
   },
 ];
@@ -99,6 +85,14 @@ function getButtonConfig(
     return { label: 'Incluso', action: 'none', disabled: true };
   }
 
+  if (!isBillingReady()) {
+    return {
+      label: `Garantir Vaga • ${columnTier === 'pro' ? 'Pro' : 'Premium'}`,
+      action: 'checkout',
+      disabled: false,
+    };
+  }
+
   if (effectiveTier !== 'free' && userOrder < colOrder) {
     return { label: 'Fazer Upgrade', action: 'checkout', disabled: false };
   }
@@ -125,6 +119,8 @@ const PricingPage: React.FC = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
+  const [vipModalOpen, setVipModalOpen] = useState(false);
+  const [selectedVipTier, setSelectedVipTier] = useState<BillingTier>('pro');
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -136,24 +132,38 @@ const PricingPage: React.FC = () => {
     }
   }, []);
 
-  const handleCheckout = useCallback(async (planId: string) => {
+  const handleCheckout = useCallback(async (planId: string, tier: BillingTier) => {
     if (!user) {
       handleNavigate('login');
       return;
     }
+
+    if (!isBillingReady()) {
+      setSelectedVipTier(tier);
+      setVipModalOpen(true);
+      return;
+    }
+
     setActionLoading(true);
     setActionError(null);
     try {
-      const fn = httpsCallable(functions, 'createCheckoutSession');
-      const result = await fn({
-        planId,
-        successUrl: window.location.origin + '/app/mais/pricing?checkout=success',
-        cancelUrl: window.location.href,
-      });
-      const data = result.data as { sessionUrl: string };
       if (isNative) {
-        await Browser.open({ url: data.sessionUrl });
+        const playId = planId === 'premium_annual'
+          ? PLAY_STORE_PRODUCT_IDS.premium_yearly
+          : planId === 'premium_monthly'
+            ? PLAY_STORE_PRODUCT_IDS.premium_monthly
+            : PLAY_STORE_PRODUCT_IDS.pro_monthly;
+
+        await purchaseViaGooglePlay(playId);
+        setCheckoutSuccess(true);
       } else {
+        const fn = httpsCallable(functions, 'createCheckoutSession');
+        const result = await fn({
+          planId,
+          successUrl: window.location.origin + '/app/mais/pricing?checkout=success',
+          cancelUrl: window.location.href,
+        });
+        const data = result.data as { sessionUrl: string };
         window.open(data.sessionUrl, '_blank');
       }
     } catch (err) {
@@ -229,6 +239,13 @@ const PricingPage: React.FC = () => {
         <p className="text-slate-500 text-base max-w-2xl mx-auto leading-relaxed">
           No Free, você constrói o hábito e vê sua proteção. No Pro, seu passado revela sua verdadeira segurança. No Premium, rotina, dívidas e patrimônio se conectam num só comando.
         </p>
+
+        {!isBillingReady() && (
+          <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-4 py-1.5 text-xs font-bold text-amber-800 shadow-sm">
+            <Crown size={14} className="text-amber-600 shrink-0" />
+            <span>Acesso Antecipado • Assinaturas em liberação gradual via Lista VIP</span>
+          </div>
+        )}
       </div>
 
       {checkoutSuccess && (
@@ -348,7 +365,7 @@ const PricingPage: React.FC = () => {
                     const targetPlanId = plan.tier === 'premium'
                       ? (billingCycle === 'yearly' ? 'premium_annual' : 'premium_monthly')
                       : 'pro_monthly';
-                    handleCheckout(targetPlanId);
+                    handleCheckout(targetPlanId, plan.tier);
                   } else if (btn.action === 'portal') {
                     handlePortal();
                   }
@@ -388,6 +405,13 @@ const PricingPage: React.FC = () => {
           Dúvidas? <a href="mailto:contato@financasproinvest.com.br" className="text-emerald-600 font-bold hover:underline">contato@financasproinvest.com.br</a>
         </p>
       </div>
+
+      <VipWaitlistModal
+        isOpen={vipModalOpen}
+        onClose={() => setVipModalOpen(false)}
+        tier={selectedVipTier}
+        cycle={billingCycle}
+      />
     </div>
   );
 };

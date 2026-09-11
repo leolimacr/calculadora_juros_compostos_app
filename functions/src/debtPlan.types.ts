@@ -3,6 +3,26 @@
 
 import { z } from "zod";
 
+export type DebtAdjustmentType = 'fixed' | 'annual_percent' | 'manual_series';
+export type DebtSeriesFrequency = 'monthly' | 'quarterly' | 'semi_annual' | 'annual';
+
+export interface DebtSeries {
+  id: string;
+  year: number;
+  startMonth: number;
+  installmentsCount: number;
+  installmentValue: number;
+  adjustmentRate?: number;
+  effectiveRate?: number;
+}
+
+export interface DebtAdjustmentConfig {
+  type: DebtAdjustmentType;
+  annualPercentRate?: number;
+  series?: DebtSeries[];
+  frequency?: DebtSeriesFrequency;
+}
+
 // ---------- REQUEST (Simulador → Nexus) ----------
 
 export interface DebtItem {
@@ -15,6 +35,9 @@ export interface DebtItem {
   ehGarantida?: boolean;        // ex: financiamento com garantia
   observacoes?: string;         // algo relevante que o usuário informou
   proposito?: string;           // [NEXUS] Contexto emocional/estratégico da dívida
+  adjustmentConfig?: DebtAdjustmentConfig;
+  currentSeriesIndex?: number;
+  nextAdjustmentDate?: string | null;
 }
 
 export interface DebtSimulationSummary {
@@ -130,6 +153,23 @@ export interface DebtPlanResponse {
 
 // ---------- SCHEMAS ZOD PARA VALIDAÇÃO ----------
 
+export const DebtSeriesSchema = z.object({
+  id: z.string(),
+  year: z.number(),
+  startMonth: z.number().min(1).max(12),
+  installmentsCount: z.number().positive(),
+  installmentValue: z.number().positive(),
+  adjustmentRate: z.number().optional(),
+  effectiveRate: z.number().optional(),
+});
+
+export const DebtAdjustmentConfigSchema = z.object({
+  type: z.enum(['fixed', 'annual_percent', 'manual_series']),
+  annualPercentRate: z.number().positive().optional(),
+  series: z.array(DebtSeriesSchema).optional(),
+  frequency: z.enum(['monthly', 'quarterly', 'semi_annual', 'annual']).optional(),
+});
+
 export const DebtItemSchema = z.object({
   id: z.string(),
   nome: z.string(),
@@ -140,6 +180,9 @@ export const DebtItemSchema = z.object({
   ehGarantida: z.boolean().optional(),
   observacoes: z.string().optional(),
   proposito: z.string().optional(),
+  adjustmentConfig: DebtAdjustmentConfigSchema.optional(),
+  currentSeriesIndex: z.number().int().nonnegative().optional(),
+  nextAdjustmentDate: z.string().nullable().optional(),
 });
 
 export const DebtSimulationSummarySchema = z.object({

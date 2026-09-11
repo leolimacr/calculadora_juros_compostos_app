@@ -19,14 +19,14 @@ const SovereignMapCard: React.FC<SovereignMapCardProps> = ({ stage, onNavigate }
   const colorClass = STAGE_COLORS[stage.id] || STAGE_COLORS['indefinido'];
 
   return (
-    <div className={`rounded-[2rem] shadow-card border p-5 ${colorClass}`}>
+    <div className={`rounded-section border p-5 ${colorClass}`}>
       <div className="mb-3">
         <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">
           Leitura de Posição
         </h3>
       </div>
 
-      <p className="text-lg font-black tracking-tight mb-2">
+      <p className="text-base font-black tracking-tight mb-2">
         {stage.name}
       </p>
 
@@ -50,14 +50,7 @@ const SovereignMapCard: React.FC<SovereignMapCardProps> = ({ stage, onNavigate }
         </div>
       )}
 
-      <div className="border-t border-current border-opacity-20 pt-3">
-        <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">
-          Próximo passo
-        </p>
-        <p className="text-sm font-semibold">
-          {stage.nextStep}
-        </p>
-      </div>
+
 
       {onNavigate && stage.numericStage >= 4 && (
         <button

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
-import { Bell, BellOff, CalendarDays, ChevronLeft, ChevronRight, X, Check, Trash2, Sparkles } from 'lucide-react';
+import { Bell, BellOff, CalendarDays, ChevronLeft, ChevronRight, X, Check, Trash2, Sparkles, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -18,6 +18,7 @@ import {
   startAlarmChecker, stopAlarmChecker, setAlarmCallback, type AlarmInfo,
 } from '../services/alarmService';
 import { extendMonthStream, monthKey, monthsBetween, shiftMonth, type ScrollDirection } from '../agenda/monthMath';
+import { useBills } from '../hooks/useBills';
 import { resolveScrollContainer, scrollContainerBy } from '../agenda/scrollContainer';
 import { useInfiniteMonthScroll, type YearMonth } from '../agenda/useInfiniteMonthScroll';
 import AgendaNexusAssistant from './Agenda/AgendaNexusAssistant';
@@ -261,6 +262,8 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
   const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<{ id: string; title: string } | null>(null);
 
   const userId = user?.uid;
+  const { bills: recurringBills = [] } = useBills(userId);
+  const [isSyncingBills, setIsSyncingBills] = useState(false);
   const notebookRef = useRef<HTMLDivElement | null>(null);
   const loadedKeysRef = useRef<Set<string>>(new Set());
   const monthStreamRef = useRef(monthStream);
@@ -324,6 +327,34 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
       setCustomOpen(false);
     }
   }, [customInput, applyUpcomingLimit]);
+
+
+  const handleSyncBills = useCallback(async () => {
+    if (!userId) return;
+    if (!recurringBills || recurringBills.length === 0) {
+      addToast('Nenhuma conta fixa ativa encontrada no Controla.', 'info');
+      return;
+    }
+    setIsSyncingBills(true);
+    try {
+      const count = await syncBillsToAgenda(userId, recurringBills, activeYear, activeMonth);
+      if (count > 0) {
+        addToast(
+          `${count} ${count === 1 ? 'conta sincronizada' : 'contas sincronizadas'} com a Agenda!`,
+          'success'
+        );
+        await ensureMonthLoaded(activeYear, activeMonth, true);
+        await loadUpcoming(upcomingLimitRef.current);
+      } else {
+        addToast('Todas as contas deste mês já estão sincronizadas na Agenda.', 'info');
+      }
+    } catch (e) {
+      if (import.meta.env.DEV) console.error('[Agenda] Erro ao sincronizar contas', e);
+      addToast('Erro ao sincronizar contas com a Agenda.', 'error');
+    } finally {
+      setIsSyncingBills(false);
+    }
+  }, [userId, recurringBills, activeYear, activeMonth, ensureMonthLoaded, loadUpcoming, addToast]);
 
   const toggleUpcoming = useCallback(() => {
     setShowUpcoming((prev) => !prev);
@@ -515,13 +546,14 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
             title: c.title,
             dateStr: toDateInputStr(tsToDate(c.date)),
             alarmAt: d,
+            userId: userId || undefined,
           });
         }
       }
     }
     startAlarmChecker(alarms);
     return () => stopAlarmChecker();
-  }, [allMonths]);
+  }, [allMonths, userId]);
 
   // --- Navegação por mês (botões do cabeçalho) ---
   // Intenção pendente de navegação mensal: consumida pelo useLayoutEffect abaixo
@@ -535,7 +567,7 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
   // Devolve false se a seção ainda não existe — o chamador mantém a intenção.
   const scrollToMonthSection = useCallback((year: number, month: number): boolean => {
     const key = monthKey(year, month);
-    const section = notebookRef.current?.querySelector<HTMLElement>(`[data-month-section="${key}"]`);
+    const section = notebookRef.current?.querySelector<HTMLElement>(`[data-month-section="${key}"], [data-month-section="${year}-${month}"]`);
     if (!section) return false;
 
     // Alinha o topo da seção exatamente ao topo da área útil — logo abaixo do
@@ -824,6 +856,7 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
         title: alarmTarget.title,
         dateStr: toDateInputStr(alarmTarget.date),
         alarmAt: alarmDate,
+        userId,
       });
       reloadData();
     } catch (e) {
@@ -1194,6 +1227,20 @@ const AgendaHub: React.FC<AgendaHubProps> = ({ onNavigate, seedCommitments }) =>
                     <Sparkles size={15} aria-hidden="true" />
                     <span>Nexus na Agenda</span>
                   </button>
+                  {userId && (
+                    <button
+                      type="button"
+                      onClick={handleSyncBills}
+                      disabled={isSyncingBills}
+                      aria-label="Sincronizar contas do Controla"
+                      title="Sincronizar contas do Controla para este mês"
+                      data-testid="agenda-sync-bills"
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-1 active:scale-95 disabled:opacity-50 md:py-1.5"
+                    >
+                      <RefreshCw size={13} className={isSyncingBills ? 'animate-spin text-sky-600' : 'text-slate-500'} />
+                      <span className="hidden sm:inline">Sincronizar Contas</span>
+                    </button>
+                  )}
                   {userId && (
                     <button
                       type="button"

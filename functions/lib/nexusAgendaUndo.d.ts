@@ -24,6 +24,13 @@ export interface UndoResult {
     status: 'undone';
     idsRemoved: string[];
 }
+export interface PartialUndoResult {
+    success: false;
+    actionId: string;
+    status: 'partial';
+    idsRemoved: string[];
+    error: string;
+}
 export interface UndoDependencies {
     claimAudit(uid: string, actionId: string, nowMs: number, undoId: string): Promise<{
         kind: 'claimed';
@@ -47,6 +54,6 @@ export declare function requireUndoAuth(request: {
         uid?: string;
     } | null;
 }): string;
-export declare function executeAgendaUndo(uid: string, request: UndoRequest, dependencies: UndoDependencies, now?: number): Promise<UndoResult>;
-export declare const nexusAgendaUndo: import("firebase-functions/v2/https").CallableFunction<any, Promise<UndoResult>, unknown>;
+export declare function executeAgendaUndo(uid: string, request: UndoRequest, dependencies: UndoDependencies, now?: number): Promise<UndoResult | PartialUndoResult>;
+export declare const nexusAgendaUndo: import("firebase-functions/v2/https").CallableFunction<any, Promise<UndoResult | PartialUndoResult>, unknown>;
 export {};

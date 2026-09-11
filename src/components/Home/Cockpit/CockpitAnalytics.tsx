@@ -3,13 +3,26 @@ import { LineChart as LineChartIcon, ShieldCheck, AlertCircle, TrendingUp, Build
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { FPI_COPY } from '../../../theme/fpiVoiceGuide';
 
+interface EvolutionPoint {
+  name: string;
+  fullDate: string;
+  value: number;
+  investments: number;
+  debts: number;
+}
+
+interface CompositionSlice {
+  name?: string;
+  value: number;
+}
+
 interface CockpitAnalyticsProps {
-  evolutionData: any[];
-  investmentComposition: any[];
-  propertyComposition: any[];
-  debtComposition: any[];
+  evolutionData: EvolutionPoint[];
+  investmentComposition: CompositionSlice[];
+  propertyComposition: CompositionSlice[];
+  debtComposition: CompositionSlice[];
   isPrivacyMode: boolean;
-  validatedModules: any;
+  validatedModules: { investments?: boolean; debts?: boolean; property?: boolean } | null;
   totalInvestments: number;
   totalProperty: number;
   totalDebts: number;
@@ -33,7 +46,7 @@ const CockpitAnalytics: React.FC<CockpitAnalyticsProps> = ({
   return (
     <div className="space-y-6">
       {/* EVOLUÇÃO PATRIMONIAL */}
-      <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-soft overflow-hidden group relative">
+      <div className="bg-white border border-slate-200 rounded-section p-6 md:p-8 overflow-hidden group relative">
         {/* Imagem Lifestyle Future Horizon - Sutil e Elegante */}
         <div className="absolute right-0 top-0 w-64 h-full opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none z-0">
           <img 
@@ -47,7 +60,7 @@ const CockpitAnalytics: React.FC<CockpitAnalyticsProps> = ({
         <div className="relative z-10">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-brand-primary/10 rounded-2xl text-brand-primary">
+              <div className="p-3 bg-emerald-50 rounded-2xl text-emerald-700">
                 <LineChartIcon size={22} />
               </div>
               <div>
@@ -57,12 +70,12 @@ const CockpitAnalytics: React.FC<CockpitAnalyticsProps> = ({
             </div>
             <div className="flex items-center gap-2">
               {validatedModules?.investments && validatedModules?.debts && validatedModules?.property ? (
-                <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100 text-[10px] font-black uppercase tracking-widest">
+                <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl border border-emerald-200 text-[10px] font-black uppercase tracking-widest">
                   <ShieldCheck size={14} />
                   Dados Consolidados
                 </div>
               ) : (
-                <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-400 rounded-xl border border-slate-100 text-[10px] font-black uppercase tracking-widest">
+                <div className="flex items-center gap-2 px-4 py-2 bg-surface-subtle text-slate-500 rounded-xl border border-slate-200 text-[10px] font-black uppercase tracking-widest">
                   <AlertCircle size={14} />
                   Validação Pendente
                 </div>
@@ -70,7 +83,17 @@ const CockpitAnalytics: React.FC<CockpitAnalyticsProps> = ({
             </div>
           </div>
 
-          <div className={`relative h-[500px] w-full bg-slate-50/50 rounded-3xl p-4 border border-slate-100`}>
+          {/* E7-04: gráfico de evolução é Pro — free vê o upsell (fallback). */}
+          <FeatureGate
+            featureKey="historical_evolution"
+            fallback={
+              <div className="mt-6 p-4 bg-slate-50 border border-slate-100 rounded-2xl text-center">
+                <p className="text-xs text-slate-600 font-medium">A evolução histórica é exclusiva Pro.</p>
+                <button onClick={() => onNavigate('pricing')} className="mt-2 text-xs font-black text-emerald-700 uppercase tracking-widest hover:underline">Fazer Upgrade →</button>
+              </div>
+            }
+          >
+          <div className={`relative h-[500px] w-full bg-surface-subtle rounded-3xl p-4 border border-slate-200`}>
             {evolutionData.length > 0 && (
               <svg viewBox="0 0 1000 500" className="w-full h-full overflow-visible">
                 <defs>
@@ -127,15 +150,15 @@ const CockpitAnalytics: React.FC<CockpitAnalyticsProps> = ({
                           <circle cx={p.x} cy={p.debY} r="4" fill="#f43f5e" stroke="white" strokeWidth="2" />
 
                           <g transform={`translate(${p.x},${Math.min(p.plY, p.invY, p.debY) - 20})`}>
-                            <rect x="-55" y="-85" width="110" height="75" fill="white" rx="12" filter="url(#shadow)" stroke="#f1f5f9" strokeWidth="1" />
-                            <text x="0" y="-65" textAnchor="middle" fontSize="12" fontWeight="900" fill="#10b981">{isPrivacyMode ? '•••' : formatCurrency(p.data.value)}</text>
-                            <text x="0" y="-50" textAnchor="middle" fontSize="9" fontWeight="bold" fill="#f59e0b">Inv: {isPrivacyMode ? '•••' : formatCurrency(p.data.investments)}</text>
-                            <text x="0" y="-38" textAnchor="middle" fontSize="9" fontWeight="bold" fill="#f43f5e">Dív: {isPrivacyMode ? '•••' : formatCurrency(p.data.debts)}</text>
+                            <rect x="-55" y="-85" width="110" height="75" fill="white" rx="12" filter="url(#shadow)" stroke="#cbd5e1" strokeWidth="1" />
+                            <text x="0" y="-65" textAnchor="middle" fontSize="12" fontWeight="900" fill="#047857">{isPrivacyMode ? '•••' : formatCurrency(p.data.value)}</text>
+                            <text x="0" y="-50" textAnchor="middle" fontSize="9" fontWeight="bold" fill="#b45309">Inv: {isPrivacyMode ? '•••' : formatCurrency(p.data.investments)}</text>
+                            <text x="0" y="-38" textAnchor="middle" fontSize="9" fontWeight="bold" fill="#be123c">Dív: {isPrivacyMode ? '•••' : formatCurrency(p.data.debts)}</text>
                             <rect x="-30" y="-28" width="60" height="14" rx="4" fill="#f8fafc" />
                             <text x="0" y="-18" textAnchor="middle" fontSize="9" fontWeight="900" fill="#64748b">{p.data.fullDate}</text>
                             <line x1="0" y1="-5" x2="0" y2="15" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="2 2" />
                           </g>
-                          <text x={p.x} y={padding.top + height + 25} textAnchor="middle" fontSize="10" fontWeight="bold" fill="#94a3b8">{p.data.name}</text>
+                           <text x={p.x} y={padding.top + height + 25} textAnchor="middle" fontSize="10" fontWeight="bold" fill="#475569">{p.data.name}</text>
                         </g>
                       ))}
                     </g>
@@ -144,18 +167,13 @@ const CockpitAnalytics: React.FC<CockpitAnalyticsProps> = ({
               </svg>
             )}
           </div>
-        </div>
-        <FeatureGate featureKey="historical_evolution">
-            <div className="mt-6 p-4 bg-slate-50 border border-slate-100 rounded-2xl text-center">
-              <p className="text-xs text-slate-600 font-medium">A evolução histórica é exclusiva Pro.</p>
-              <button onClick={() => onNavigate('pricing')} className="mt-2 text-xs font-black text-brand-primary uppercase tracking-widest hover:underline">Fazer Upgrade →</button>
-            </div>
           </FeatureGate>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* COMPOSIÇÃO DE INVESTIMENTOS */}
-        <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-soft overflow-hidden group">
+        <div className="bg-white border border-slate-200 rounded-section p-6 md:p-8 overflow-hidden group">
           <div className="flex items-center gap-3 mb-8">
             <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl"><TrendingUp size={22} /></div>
             <div>
@@ -169,16 +187,16 @@ const CockpitAnalytics: React.FC<CockpitAnalyticsProps> = ({
                 <PieChart>
                   <Pie data={investmentComposition} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
                     {investmentComposition.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={['#10b981', '#6366f1', '#f59e0b', '#ec4899', '#06b6d4', '#8b5cf6'][index % 6]} stroke="none" />
+                      <Cell key={`cell-${index}`} fill={['#10b981', '#6366f1', '#f59e0b', '#ec4899', '#06b6d4', '#8b5cf6'][index % 6]} stroke="#ffffff" strokeWidth={1} />
                     ))}
                   </Pie>
-                  <Tooltip contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} formatter={(val: number) => [isPrivacyMode ? '•••' : formatCurrency(val), 'Total']} />
+                  <Tooltip contentStyle={{ borderRadius: '1rem', border: '1px solid #e2e8f0', boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.18)', background: '#fff', color: '#0f172a', fontSize: '11px' }} formatter={(val: number) => [isPrivacyMode ? '•••' : formatCurrency(val), 'Total']} />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex flex-col items-center justify-center text-center space-y-3 opacity-40">
-                <div className="p-4 bg-slate-50 rounded-full"><Target size={32} className="text-slate-300" /></div>
-                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Nenhum investimento <br/> cadastrado</p>
+              <div className="h-full flex flex-col items-center justify-center text-center space-y-3 w-full">
+                <div className="p-4 bg-surface-subtle rounded-full"><Target size={32} className="text-slate-400" /></div>
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Nenhum investimento <br/> cadastrado</p>
               </div>
             )}
           </div>
@@ -193,7 +211,7 @@ const CockpitAnalytics: React.FC<CockpitAnalyticsProps> = ({
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-[10px] font-bold text-slate-900">{isPrivacyMode ? '•••' : formatCurrency(item.value)}</span>
-                      <span className="text-[10px] font-bold text-slate-400">{((item.value / totalInvestments) * 100).toFixed(1)}%</span>
+                      <span className="text-[10px] font-bold text-slate-500">{((item.value / totalInvestments) * 100).toFixed(1)}%</span>
                     </div>
                   </div>
                 ))}
@@ -203,7 +221,7 @@ const CockpitAnalytics: React.FC<CockpitAnalyticsProps> = ({
         </div>
 
         {/* COMPOSIÇÃO DE BENS */}
-        <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-soft overflow-hidden group">
+        <div className="bg-white border border-slate-200 rounded-section p-6 md:p-8 overflow-hidden group">
           <div className="flex items-center gap-3 mb-8">
             <div className="p-3 bg-sky-50 text-sky-600 rounded-2xl"><Building2 size={22} /></div>
             <div>
@@ -217,16 +235,16 @@ const CockpitAnalytics: React.FC<CockpitAnalyticsProps> = ({
                 <PieChart>
                   <Pie data={propertyComposition} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
                     {propertyComposition.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={['#0ea5e9', '#8b5cf6', '#f43f5e', '#f59e0b', '#10b981', '#6366f1'][index % 6]} stroke="none" />
+                      <Cell key={`cell-${index}`} fill={['#0ea5e9', '#8b5cf6', '#f43f5e', '#f59e0b', '#10b981', '#6366f1'][index % 6]} stroke="#ffffff" strokeWidth={1} />
                     ))}
                   </Pie>
-                  <Tooltip contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} formatter={(val: number) => [isPrivacyMode ? '•••' : formatCurrency(val), 'Total']} />
+                  <Tooltip contentStyle={{ borderRadius: '1rem', border: '1px solid #e2e8f0', boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.18)', background: '#fff', color: '#0f172a', fontSize: '11px' }} formatter={(val: number) => [isPrivacyMode ? '•••' : formatCurrency(val), 'Total']} />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex flex-col items-center justify-center text-center space-y-3 opacity-40">
-                <div className="p-4 bg-slate-50 rounded-full"><Target size={32} className="text-slate-300" /></div>
-                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Nenhum bem <br/> cadastrado</p>
+              <div className="h-full flex flex-col items-center justify-center text-center space-y-3 w-full">
+                <div className="p-4 bg-surface-subtle rounded-full"><Target size={32} className="text-slate-400" /></div>
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Nenhum bem <br/> cadastrado</p>
               </div>
             )}
           </div>
@@ -241,7 +259,7 @@ const CockpitAnalytics: React.FC<CockpitAnalyticsProps> = ({
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-[10px] font-bold text-slate-900">{isPrivacyMode ? '•••' : formatCurrency(item.value)}</span>
-                      <span className="text-[10px] font-bold text-slate-400">{((item.value / totalProperty) * 100).toFixed(1)}%</span>
+                      <span className="text-[10px] font-bold text-slate-500">{((item.value / totalProperty) * 100).toFixed(1)}%</span>
                     </div>
                   </div>
                 ))}
@@ -251,7 +269,7 @@ const CockpitAnalytics: React.FC<CockpitAnalyticsProps> = ({
         </div>
 
         {/* COMPOSIÇÃO DE DÍVIDAS */}
-        <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-soft overflow-hidden group">
+        <div className="bg-white border border-slate-200 rounded-section p-6 md:p-8 overflow-hidden group">
           <div className="flex items-center gap-3 mb-8">
             <div className="p-3 bg-rose-50 text-rose-600 rounded-2xl"><AlertCircle size={22} /></div>
             <div>
@@ -265,16 +283,16 @@ const CockpitAnalytics: React.FC<CockpitAnalyticsProps> = ({
                 <PieChart>
                   <Pie data={debtComposition} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
                     {debtComposition.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={['#f43f5e', '#f59e0b', '#8b5cf6', '#6366f1', '#0ea5e9', '#10b981'][index % 6]} stroke="none" />
+                      <Cell key={`cell-${index}`} fill={['#f43f5e', '#f59e0b', '#8b5cf6', '#6366f1', '#0ea5e9', '#10b981'][index % 6]} stroke="#ffffff" strokeWidth={1} />
                     ))}
                   </Pie>
-                  <Tooltip contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} formatter={(val: number) => [isPrivacyMode ? '•••' : formatCurrency(val), 'Total']} />
+                  <Tooltip contentStyle={{ borderRadius: '1rem', border: '1px solid #e2e8f0', boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.18)', background: '#fff', color: '#0f172a', fontSize: '11px' }} formatter={(val: number) => [isPrivacyMode ? '•••' : formatCurrency(val), 'Total']} />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-center space-y-4">
-                <p className="text-xs font-bold uppercase tracking-widest text-emerald-600">{FPI_COPY.noDebtsTitle}</p>
-                <p className="text-[10px] font-bold text-slate-400 px-4">{FPI_COPY.noDebtsBody}</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">{FPI_COPY.noDebtsTitle}</p>
+                <p className="text-[10px] font-bold text-slate-500 px-4">{FPI_COPY.noDebtsBody}</p>
               </div>
             )}
           </div>
@@ -289,7 +307,7 @@ const CockpitAnalytics: React.FC<CockpitAnalyticsProps> = ({
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-[10px] font-bold text-slate-900">{isPrivacyMode ? '•••' : formatCurrency(item.value)}</span>
-                      <span className="text-[10px] font-bold text-slate-400">{((item.value / totalDebts) * 100).toFixed(1)}%</span>
+                      <span className="text-[10px] font-bold text-slate-500">{((item.value / totalDebts) * 100).toFixed(1)}%</span>
                     </div>
                   </div>
                 ))}

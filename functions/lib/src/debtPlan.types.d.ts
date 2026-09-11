@@ -1,4 +1,21 @@
 import { z } from "zod";
+export type DebtAdjustmentType = 'fixed' | 'annual_percent' | 'manual_series';
+export type DebtSeriesFrequency = 'monthly' | 'quarterly' | 'semi_annual' | 'annual';
+export interface DebtSeries {
+    id: string;
+    year: number;
+    startMonth: number;
+    installmentsCount: number;
+    installmentValue: number;
+    adjustmentRate?: number;
+    effectiveRate?: number;
+}
+export interface DebtAdjustmentConfig {
+    type: DebtAdjustmentType;
+    annualPercentRate?: number;
+    series?: DebtSeries[];
+    frequency?: DebtSeriesFrequency;
+}
 export interface DebtItem {
     id: string;
     nome: string;
@@ -9,6 +26,9 @@ export interface DebtItem {
     ehGarantida?: boolean;
     observacoes?: string;
     proposito?: string;
+    adjustmentConfig?: DebtAdjustmentConfig;
+    currentSeriesIndex?: number;
+    nextAdjustmentDate?: string | null;
 }
 export interface DebtSimulationSummary {
     rendaMensalEstimada?: number;
@@ -106,6 +126,38 @@ export interface DebtPlanResponse {
     alertasImportantes: string[];
     tomGeral?: 'calmo' | 'direto' | 'motivador';
 }
+export declare const DebtSeriesSchema: z.ZodObject<{
+    id: z.ZodString;
+    year: z.ZodNumber;
+    startMonth: z.ZodNumber;
+    installmentsCount: z.ZodNumber;
+    installmentValue: z.ZodNumber;
+    adjustmentRate: z.ZodOptional<z.ZodNumber>;
+    effectiveRate: z.ZodOptional<z.ZodNumber>;
+}, z.core.$strip>;
+export declare const DebtAdjustmentConfigSchema: z.ZodObject<{
+    type: z.ZodEnum<{
+        fixed: "fixed";
+        annual_percent: "annual_percent";
+        manual_series: "manual_series";
+    }>;
+    annualPercentRate: z.ZodOptional<z.ZodNumber>;
+    series: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        id: z.ZodString;
+        year: z.ZodNumber;
+        startMonth: z.ZodNumber;
+        installmentsCount: z.ZodNumber;
+        installmentValue: z.ZodNumber;
+        adjustmentRate: z.ZodOptional<z.ZodNumber>;
+        effectiveRate: z.ZodOptional<z.ZodNumber>;
+    }, z.core.$strip>>>;
+    frequency: z.ZodOptional<z.ZodEnum<{
+        annual: "annual";
+        monthly: "monthly";
+        quarterly: "quarterly";
+        semi_annual: "semi_annual";
+    }>>;
+}, z.core.$strip>;
 export declare const DebtItemSchema: z.ZodObject<{
     id: z.ZodString;
     nome: z.ZodString;
@@ -116,6 +168,31 @@ export declare const DebtItemSchema: z.ZodObject<{
     ehGarantida: z.ZodOptional<z.ZodBoolean>;
     observacoes: z.ZodOptional<z.ZodString>;
     proposito: z.ZodOptional<z.ZodString>;
+    adjustmentConfig: z.ZodOptional<z.ZodObject<{
+        type: z.ZodEnum<{
+            fixed: "fixed";
+            annual_percent: "annual_percent";
+            manual_series: "manual_series";
+        }>;
+        annualPercentRate: z.ZodOptional<z.ZodNumber>;
+        series: z.ZodOptional<z.ZodArray<z.ZodObject<{
+            id: z.ZodString;
+            year: z.ZodNumber;
+            startMonth: z.ZodNumber;
+            installmentsCount: z.ZodNumber;
+            installmentValue: z.ZodNumber;
+            adjustmentRate: z.ZodOptional<z.ZodNumber>;
+            effectiveRate: z.ZodOptional<z.ZodNumber>;
+        }, z.core.$strip>>>;
+        frequency: z.ZodOptional<z.ZodEnum<{
+            annual: "annual";
+            monthly: "monthly";
+            quarterly: "quarterly";
+            semi_annual: "semi_annual";
+        }>>;
+    }, z.core.$strip>>;
+    currentSeriesIndex: z.ZodOptional<z.ZodNumber>;
+    nextAdjustmentDate: z.ZodOptional<z.ZodNullable<z.ZodString>>;
 }, z.core.$strip>;
 export declare const DebtSimulationSummarySchema: z.ZodObject<{
     rendaMensalEstimada: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
@@ -197,6 +274,31 @@ export declare const NexusDebtPlanRequestSchema: z.ZodObject<{
         ehGarantida: z.ZodOptional<z.ZodBoolean>;
         observacoes: z.ZodOptional<z.ZodString>;
         proposito: z.ZodOptional<z.ZodString>;
+        adjustmentConfig: z.ZodOptional<z.ZodObject<{
+            type: z.ZodEnum<{
+                fixed: "fixed";
+                annual_percent: "annual_percent";
+                manual_series: "manual_series";
+            }>;
+            annualPercentRate: z.ZodOptional<z.ZodNumber>;
+            series: z.ZodOptional<z.ZodArray<z.ZodObject<{
+                id: z.ZodString;
+                year: z.ZodNumber;
+                startMonth: z.ZodNumber;
+                installmentsCount: z.ZodNumber;
+                installmentValue: z.ZodNumber;
+                adjustmentRate: z.ZodOptional<z.ZodNumber>;
+                effectiveRate: z.ZodOptional<z.ZodNumber>;
+            }, z.core.$strip>>>;
+            frequency: z.ZodOptional<z.ZodEnum<{
+                annual: "annual";
+                monthly: "monthly";
+                quarterly: "quarterly";
+                semi_annual: "semi_annual";
+            }>>;
+        }, z.core.$strip>>;
+        currentSeriesIndex: z.ZodOptional<z.ZodNumber>;
+        nextAdjustmentDate: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     }, z.core.$strip>>;
     simulacao: z.ZodObject<{
         rendaMensalEstimada: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;

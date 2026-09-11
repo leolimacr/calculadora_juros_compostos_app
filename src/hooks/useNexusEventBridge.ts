@@ -28,9 +28,12 @@ import {
 import { prepareEventInsight } from '../services/prepareEventInsight';
 import { setEventInsight } from '../services/eventInsightStore';
 import { trackInsightShown } from '../services/nexusAnalyticsService';
+import { PresenceEventService } from '../services/PresenceEventService';
 
 function generateInsightId(eventType: string, correlationId: string): string {
-  return `nexus-event-${eventType.replace(/\./g, '-')}-${correlationId}`;
+  // Separador duplo: o correlationId pode conter traços (ex.: uuid), então a
+  // família (`nexus-event-<tipo>`) é extraída até o `--` (ver extractEventFamily).
+  return `nexus-event-${eventType.replace(/\./g, '-') }--${correlationId}`;
 }
 
 export function useNexusEventBridge(userId?: string, archetype: Archetype = 'guardian'): void {
@@ -41,7 +44,7 @@ export function useNexusEventBridge(userId?: string, archetype: Archetype = 'gua
       evaluate: () => NexusInsight | null,
       eventType: string,
       correlationId: string,
-      templateVars: Record<string, number>,
+      templateVars: Record<string, number | string>,
     ) => {
       const raw = evaluate();
       if (!raw) return;
@@ -63,12 +66,48 @@ export function useNexusEventBridge(userId?: string, archetype: Archetype = 'gua
     const unsubs = [
       eventBus.subscribe<TransactionCreatedEvent['payload']>(
         EVENT_TYPES.transaction.created,
-        (ev) => showInsight(
-          () => evaluateTransactionCreated(ev.payload),
-          ev.type,
-          ev.correlationId,
-          { value: ev.payload.transaction.amount || 0 },
-        ),
+        (ev) => {
+          showInsight(
+            () => evaluateTransactionCreated(ev.payload),
+            ev.type,
+            ev.correlationId,
+            { value: ev.payload.transaction.amount || 0 },
+          );
+
+          // Consultor CFP®: Consequência Imediata de Compras Relevantes e Parcelamentos
+          const tx = ev.payload.transaction;
+          if (tx.type === 'expense') {
+            const installments = Number(tx.installmentsCount || 1);
+            const amount = Number(tx.amount || 0);
+
+            if (installments >= 2) {
+              const totalCommitted = amount * installments;
+              const formattedParcela = amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+              const formattedTotal = totalCommitted.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+              void PresenceEventService.createNexusAdvisorAlert(userId, {
+                id: `nexus-alert-installment-${tx.id || ev.correlationId}`,
+                title: 'Parcelamento Registrado',
+                body: `Novo parcelamento em ${installments}x de ${formattedParcela} registrado (total ${formattedTotal}). Esse valor fará parte do seu planejamento mensal pelos próximos ${installments} meses.`,
+                ctaLabel: 'Ver no Controla',
+                deepLink: 'manager',
+                urgency: 'medium',
+                cooldownHours: 24,
+              });
+            } else if (amount >= 1500) {
+              const formattedAmount = amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+              void PresenceEventService.createNexusAdvisorAlert(userId, {
+                id: `nexus-alert-expense-${tx.id || ev.correlationId}`,
+                title: 'Despesa Relevante Registrada',
+                body: `Saída de ${formattedAmount} registrada. Acompanhe seu saldo livre no Controla para manter suas contas do mês em dia com tranquilidade.`,
+                ctaLabel: 'Acompanhar Fluxo',
+                deepLink: 'manager',
+                urgency: 'low',
+                cooldownHours: 24,
+              });
+            }
+          }
+        },
       ),
       eventBus.subscribe<TransactionUpdatedEvent['payload']>(
         EVENT_TYPES.transaction.updated,
@@ -111,7 +150,7 @@ export function useNexusEventBridge(userId?: string, archetype: Archetype = 'gua
           () => evaluateCardInvoiceOverdue(ev.payload),
           ev.type,
           ev.correlationId,
-          { remainingAmount: ev.payload.remainingAmount, cardName: ev.payload.cardName },
+          { remainingAmount: ev.payload.remainingAmount, cardName: ev.payload.cardName, dueDate: ev.payload.dueDate },
         ),
       ),
       eventBus.subscribe<DebtCreatedEvent['payload']>(

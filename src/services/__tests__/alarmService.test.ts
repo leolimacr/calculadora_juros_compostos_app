@@ -21,6 +21,7 @@ import {
   cancelAlarm,
   startAlarmChecker,
   stopAlarmChecker,
+  resetAlarmState,
   setAlarmCallback,
 } from '../alarmService';
 import type { AlarmInfo } from '../alarmService';
@@ -39,12 +40,14 @@ describe('alarmService', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
+    resetAlarmState();
     onAlarmSpy = vi.fn();
     setAlarmCallback(onAlarmSpy as (info: AlarmInfo) => void);
   });
 
   afterEach(() => {
     stopAlarmChecker();
+    resetAlarmState();
     vi.useRealTimers();
     setAlarmCallback(() => {});
   });

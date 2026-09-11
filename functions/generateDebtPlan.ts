@@ -297,9 +297,30 @@ Regras:
       - Contexto econômico e estratégico: ${oportunidadeStatus}
 
       DÍVIDAS CADASTRADAS:
-      ${dados.dividas.map((d, i) =>
-        `${i + 1}. ${d.nome} — Saldo: R$ ${d.saldoAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} | Taxa: ${d.taxaJurosMes}% a.m.${d.parcelaMensal ? ` | Parcela: R$ ${d.parcelaMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ''}${d.ehGarantida ? ' | Dívida garantida: sim' : ''}${d.atrasoEmDias ? ` | Atraso: ${d.atrasoEmDias} dias` : ''}${d.observacoes ? ` | Observações: ${d.observacoes}` : ''}`
-      ).join('\n')}
+      ${dados.dividas.map((d, i) => {
+        let debtInfo = `${i + 1}. ${d.nome} — Saldo: R$ ${d.saldoAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} | Taxa: ${d.taxaJurosMes}% a.m.${d.parcelaMensal ? ` | Parcela atual: R$ ${d.parcelaMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ''}${d.ehGarantida ? ' | Dívida garantida: sim' : ''}${d.atrasoEmDias ? ` | Atraso: ${d.atrasoEmDias} dias` : ''}${d.observacoes ? ` | Observações: ${d.observacoes}` : ''}`;
+        
+        // Adicionar informações de reajuste/séries se existirem
+        if (d.adjustmentConfig && d.adjustmentConfig.type !== 'fixed' && d.adjustmentConfig.series && d.adjustmentConfig.series.length > 0) {
+          const config = d.adjustmentConfig;
+          const series = config.series!; // Non-null assertion since we checked above
+          if (config.type === 'annual_percent' && config.annualPercentRate) {
+            debtInfo += ` | Reajuste anual: ${config.annualPercentRate}% a.a.`;
+          }
+          debtInfo += ` | Séries (${series.length}): ` + series.map((s, si) => 
+            `Série ${si + 1} (${s.year}): ${s.installmentsCount}x de R$ ${s.installmentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}${s.adjustmentRate ? ` (reajuste ${s.adjustmentRate}%)` : ''}`
+          ).join('; ');
+          if (d.currentSeriesIndex !== undefined && d.currentSeriesIndex < series.length) {
+            const currentSeries = series[d.currentSeriesIndex];
+            debtInfo += ` | Série atual: ${d.currentSeriesIndex + 1} (${currentSeries.year})`;
+          }
+          if (d.nextAdjustmentDate) {
+            debtInfo += ` | Próximo reajuste: ${new Date(d.nextAdjustmentDate).toLocaleDateString('pt-BR')}`;
+          }
+        }
+        
+        return debtInfo;
+      }).join('\n')}
 
       CAIXA REAL DO USUÁRIO — USE ESTES NÚMEROS COMO BASE PRINCIPAL:
       - Renda mensal declarada: ${typeof dados.simulacao.rendaMensalEstimada === 'number'

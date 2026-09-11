@@ -1,8 +1,12 @@
 /**
  * ACTION REGISTRY - Catálogo Canônico de Ações Contextuais do Nexus
  * Garante que o modelo não invente rotas ou payloads inválidos.
+ *
+ * N8: rotas alinhadas ao roteador real (AppRoutes `/app/*`). As rotas
+ * antigas (`/dividas`, `/reserva`, `/extrato`) não existiam — o clique caía
+ * no fallback `*` (redirect para `/`). Reserva e extrato vivem no Controla
+ * (Etapa 6 pode refinar destinos quando houver telas dedicadas).
  */
-
 export interface ContextualAction {
   id: string;
   label: string;
@@ -14,19 +18,19 @@ export const ACTION_REGISTRY: Record<string, ContextualAction> = {
   'NAV_DEBTS': {
     id: 'NAV_DEBTS',
     label: 'Ver minhas dívidas',
-    route: '/dividas',
+    route: '/app/minhas-dividas',
     icon: 'credit_card'
   },
   'NAV_RESERVE': {
     id: 'NAV_RESERVE',
     label: 'Configurar reserva',
-    route: '/reserva',
+    route: '/app/controla',
     icon: 'shield'
   },
   'NAV_CASHFLOW': {
     id: 'NAV_CASHFLOW',
     label: 'Ver extrato',
-    route: '/extrato',
+    route: '/app/controla',
     icon: 'account_balance'
   }
 };
@@ -40,7 +44,7 @@ export class ActionManager {
     const actionRegex = /\[ACTION:(.*?)\]/g;
     const foundActions: ContextualAction[] = [];
     
-    const cleanText = text.replace(actionRegex, (match, actionId) => {
+    const cleanText = text.replace(actionRegex, (_match, actionId) => {
       const id = actionId.trim();
       if (ACTION_REGISTRY[id]) {
         foundActions.push(ACTION_REGISTRY[id]);

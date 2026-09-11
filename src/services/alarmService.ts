@@ -6,6 +6,9 @@ export interface AlarmInfo {
   title: string;
   dateStr: string;
   alarmAt: Date;
+  /** Modo de aviso gravado no compromisso: notificação e/ou alarme sonoro. */
+  mode?: 'notification' | 'notification_alarm';
+  userId?: string;
 }
 
 let scheduledInterval: ReturnType<typeof setInterval> | null = null;
@@ -72,12 +75,21 @@ export function startAlarmChecker(commitments: AlarmInfo[]) {
   scheduledInterval = setInterval(tick, 30000);
 }
 
-/** Stop periodic check and reset internal state */
+/** Stop periodic check WITHOUT clearing fired state.
+ * Parar o intervalo (ex.: recarga de dados) não pode esquecer o que já
+ * disparou — senão um reload dentro da janela ([−1s,+30s]) re-dispara o
+ * alarme e a navegação. A memória de disparo tem ciclo próprio: só
+ * `resetAlarmState` (troca de usuário/unmount) a apaga; fora da janela, o
+ * próprio tick esquece o id (TTL natural). */
 export function stopAlarmChecker() {
   if (scheduledInterval) {
     clearInterval(scheduledInterval);
     scheduledInterval = null;
   }
+}
+
+/** Apaga a memória de disparos — chamar apenas em troca de usuário/unmount. */
+export function resetAlarmState() {
   firedIds.clear();
 }
 
@@ -96,7 +108,63 @@ function fireAlarm(info: AlarmInfo) {
       // fallback
     }
   }
+  if (info.mode === 'notification_alarm') attemptAlarmFeedback();
   if (onAlarmDue) onAlarmDue(info);
+
+  if (info.userId) {
+    import('./PresenceEventService')
+      .then(({ PresenceEventService }) => {
+        void PresenceEventService.create({
+          uid: info.userId!,
+          eventType: 'agenda.alarm_due',
+          persona: 'wealth',
+          urgency: 'high',
+          message: {
+            title: `Lembrete da Agenda: ${info.title}`,
+            body: `Compromisso agendado para ${info.dateStr}.`,
+            ctaLabel: 'Abrir Agenda',
+          },
+          deepLink: 'agenda',
+          cooldownHours: 6,
+          expiresInHours: 48,
+          resourceId: info.commitmentId,
+        });
+      })
+      .catch(() => {});
+  }
+}
+
+
+/**
+ * Sinal de alarme além da notificação visual (modo 'notification_alarm'):
+ * vibração + tom curto. Totalmente feature-detectado — sem suporte no
+ * dispositivo ou com exceção, não faz nada em silêncio.
+ */
+export function attemptAlarmFeedback(): void {
+  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+    try {
+      navigator.vibrate?.([200, 100, 200]);
+    } catch {
+      // sem vibração disponível
+    }
+  }
+  if (typeof window === 'undefined' || typeof window.AudioContext !== 'function') return;
+  try {
+    const context = new window.AudioContext();
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = 'sine';
+    oscillator.frequency.value = 880;
+    gain.gain.setValueAtTime(0.08, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.5);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start();
+    oscillator.stop(context.currentTime + 0.5);
+    oscillator.addEventListener('ended', () => { void context.close(); });
+  } catch {
+    // áudio indisponível
+  }
 }
 
 /** Request notification permission (desktop web) */

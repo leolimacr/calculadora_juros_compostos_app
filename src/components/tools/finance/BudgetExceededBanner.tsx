@@ -29,7 +29,7 @@ const BudgetExceededBanner: React.FC<BudgetExceededBannerProps> = ({ progress, o
           </p>
           <p className="text-xxs text-red-700 font-medium leading-relaxed">
             {exceededCategories.length === 1
-              ? `A categoria "${exceededCategories[0].categoryName}" já gastou R$ ${exceededCategories[0].spent.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} do limite de R$ ${exceededCategories[0].limit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`
+              ? `A categoria "${exceededCategories[0].categoryName}" já gastou R$ ${exceededCategories[0].spent.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} do limite de R$ ${exceededCategories[0].limit.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`
               : `${exceededCategories.length} categorias ultrapassaram o limite do orçamento este mês.`}
           </p>
           <button

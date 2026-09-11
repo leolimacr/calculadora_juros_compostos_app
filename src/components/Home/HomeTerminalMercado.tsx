@@ -49,7 +49,7 @@ export const HomeTerminalMercado: React.FC<Props> = ({ marketData, indicesComInd
     const accent = Object.entries(accentMap).find(([k]) => title.includes(k))?.[1] || 'bg-sky-500';
     
     return (
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col h-[320px] relative overflow-hidden group hover:border-slate-300 transition-colors shadow-sm">
+      <div className="bg-surface-subtle border border-slate-200 rounded-section p-4 md:p-5 flex flex-col h-[320px] relative overflow-hidden group hover:border-slate-300 transition-colors">
         <div className={`absolute top-0 left-0 w-full h-[2px] ${accent} opacity-50 group-hover:opacity-100 transition-opacity`} />
         
         <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4 pb-3 border-b border-slate-200 flex items-center gap-2">
@@ -62,7 +62,7 @@ export const HomeTerminalMercado: React.FC<Props> = ({ marketData, indicesComInd
             <div 
               key={idx} 
               onClick={() => onSetSelectedAsset({ symbol: item.symbol, category: item.type })} 
-              className="flex justify-between items-center p-3 bg-surface-secondary border border-slate-200 rounded-xl cursor-pointer hover:border-slate-300 transition-all"
+              className="flex justify-between items-center p-3 bg-white border border-slate-200 rounded-item cursor-pointer hover:border-slate-300 transition-all"
             >
               <div>
                 <span className="font-bold text-slate-900 text-xs block">{item.symbol}</span>
@@ -145,7 +145,7 @@ export const HomeTerminalMercado: React.FC<Props> = ({ marketData, indicesComInd
         {(searchPreview || cryptoPreview) && (
           <div 
             onClick={() => { const p = searchPreview || cryptoPreview; if (p) onSetSelectedAsset({ symbol: p.symbol, category: p.type }); }} 
-            className="bg-white border border-slate-200 hover:border-slate-300 p-5 rounded-2xl mb-8 flex items-center justify-between shadow-lg cursor-pointer transition-all"
+            className="bg-surface-subtle border border-slate-200 hover:border-slate-300 p-5 rounded-section mb-8 flex items-center justify-between cursor-pointer transition-all"
           >
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 font-bold text-xs">

@@ -85,7 +85,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
   const isAllCategories = selectedCategories.length === 0;
 
   return (
-    <div className="flex flex-col gap-4 bg-surface-primary p-4 rounded-4xl border border-surface-elevated mb-4 shadow-sm">
+    <div className="flex flex-col gap-4 bg-surface-primary p-4 md:p-5 rounded-panel border border-slate-200 mb-4 shadow-panel">
       
       {/* BUSCA GLOBAL */}
       <div className="relative">
@@ -129,9 +129,9 @@ const FilterBar: React.FC<FilterBarProps> = ({
                         onClick={() => setViewMode(mode)}
                         className={`flex-1 sm:flex-none px-3 py-2 rounded-full text-xxs font-black uppercase transition-all duration-200 flex items-center justify-center gap-1 ${
                             viewMode === mode 
-                            ? 'bg-brand-primary text-text-onBrand shadow-soft scale-105' 
+                            ? 'bg-emerald-700 text-text-onBrand shadow-panel scale-105' 
                             : isRestricted
-                              ? 'text-text-muted/70 hover:text-brand-secondary'
+                              ? 'text-text-muted hover:text-brand-secondary'
                               : 'text-text-secondary hover:text-text-primary'
                         }`}
                     >
@@ -144,7 +144,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
 
              {/* 1.2 Navegação Rápida com Calendário ao Clicar */}
              {viewMode !== 'all' && viewMode !== 'period' && (
-                                <div className="flex items-center justify-between w-full sm:w-auto bg-surface-primary p-1.5 rounded-3xl border border-surface-elevated px-3 shadow-soft relative">
+                                <div className="flex items-center justify-between w-full sm:w-auto bg-surface-subtle p-1.5 rounded-section border border-slate-200 px-3 relative">
                                         <button onClick={() => changeDate(-1)} className="p-2 hover:bg-surface-secondary rounded-2xl text-text-muted hover:text-text-primary transition-colors z-10">
                         <ChevronLeft size={20}/>
                     </button>
@@ -192,7 +192,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
             className="flex items-center justify-center gap-2 px-5 py-3 rounded-3xl font-black bg-surface-primary text-text-secondary hover:text-text-primary hover:bg-surface-secondary border border-surface-elevated transition-all active:scale-95 shadow-soft w-full lg:w-auto"
             title="Gerar Relatório PDF"
           >
-            <FileText size={16} className="text-brand-primary shrink-0" />
+            <FileText size={16} className="text-action-primaryDark shrink-0" />
             <span className="text-xxs uppercase tracking-ultra-wide">Relatório PDF</span>
           </button>
       </div>
@@ -206,7 +206,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
                     onClick={() => setTypeFilter('all')} 
                     className={`px-5 py-3 rounded-2xl text-xs font-black uppercase whitespace-nowrap border-2 transition-all duration-200 ${
                         typeFilter === 'all' 
-                        ? 'bg-brand-secondary/10 border-brand-secondary/30 text-brand-secondary shadow-soft' 
+                        ? 'bg-brand-secondary/10 border-brand-secondary/30 text-sky-700 shadow-panel' 
                         : 'bg-surface-primary border-surface-elevated text-text-secondary hover:border-text-muted'
                     }`}
                 >
@@ -216,7 +216,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
                     onClick={() => setTypeFilter('income')} 
                     className={`px-5 py-3 rounded-2xl text-xs font-black uppercase whitespace-nowrap border-2 transition-all duration-200 ${
                         typeFilter === 'income' 
-                        ? 'bg-status-success/10 border-brand-primary/30 text-brand-primary shadow-soft' 
+                        ? 'bg-status-success/10 border-brand-primary/30 text-action-primaryDark shadow-panel' 
                         : 'bg-surface-elevated/50 border-surface-elevated text-text-secondary hover:bg-surface-secondary hover:text-text-primary'
                     }`}
                 >
@@ -226,7 +226,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
                     onClick={() => setTypeFilter('expense')} 
                     className={`px-5 py-3 rounded-2xl text-xs font-black uppercase whitespace-nowrap border-2 transition-all duration-200 ${
                         typeFilter === 'expense' 
-                        ? 'bg-status-danger/10 border-status-danger/30 text-status-danger shadow-soft' 
+                        ? 'bg-status-danger/10 border-status-danger/30 text-action-dangerDark shadow-panel' 
                         : 'bg-surface-elevated/50 border-surface-elevated text-text-secondary hover:bg-surface-secondary hover:text-text-primary'
                     }`}
                 >
@@ -247,7 +247,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
                       onClick={() => setSortMode(opt.key as any)}
                       className={`px-4 py-2.5 rounded-2xl text-xxs font-black uppercase whitespace-nowrap border transition-all duration-200 ${
                           sortMode === opt.key
-                          ? 'bg-brand-accent/10 border-brand-accent/30 text-brand-accent shadow-soft'
+                          ? 'bg-brand-accent/10 border-brand-accent/30 text-action-amber shadow-soft'
                           : 'bg-surface-elevated/50 border-surface-elevated text-text-secondary hover:bg-surface-secondary hover:text-text-primary'
                       }`}
                   >
@@ -262,7 +262,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
             <div className="flex flex-wrap items-center gap-2">
                 <button 
                     onClick={onOpenCategoryManager}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xxs font-black uppercase bg-surface-primary border border-surface-elevated text-brand-primary hover:bg-brand-primary/10 transition-all"
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xxs font-black uppercase bg-surface-primary border border-surface-elevated text-action-primaryDark hover:bg-brand-primary/10 transition-all"
                 >
                     <FolderOpen size={16} />
                     <span>Categorias</span>
@@ -276,7 +276,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
                     <span>{showCategories ? 'Ocultar filtro' : 'Filtrar por categoria'}</span>
                 </button>
                 {!isAllCategories && (
-                    <span className="px-3 py-2 rounded-2xl text-xxs font-black uppercase border border-brand-primary/20 bg-brand-primary/10 text-brand-primary">
+                    <span className="px-3 py-2 rounded-2xl text-xxs font-black uppercase border border-brand-primary/20 bg-brand-primary/10 text-action-primaryDark">
                         {selectedCategories.length} selecionada{selectedCategories.length !== 1 ? 's' : ''}
                     </span>
                 )}
@@ -287,7 +287,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
                     <button 
                         onClick={() => setSelectedCategories([])} 
                         className={`px-4 py-2.5 rounded-2xl text-xxs font-black uppercase whitespace-nowrap border transition-all duration-200 ${
-                            isAllCategories ? 'bg-brand-primary/10 border-brand-primary/30 text-brand-primary shadow-soft' : 'bg-surface-elevated/50 border-surface-elevated text-text-secondary hover:bg-surface-secondary hover:text-text-primary'
+                            isAllCategories ? 'bg-brand-primary/10 border-brand-primary/30 text-action-primaryDark shadow-soft' : 'bg-surface-elevated/50 border-surface-elevated text-text-secondary hover:bg-surface-secondary hover:text-text-primary'
                         }`}
                     >
                         Todas
@@ -298,7 +298,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
                             key={cat} 
                             onClick={() => toggleCategory(cat)} 
                             className={`px-4 py-2.5 rounded-2xl text-xxs font-black uppercase whitespace-nowrap border transition-all duration-200 ${
-                                selectedCategories.includes(cat) ? 'bg-brand-primary/10 border-brand-primary/30 text-brand-primary shadow-soft' : 'bg-surface-elevated/50 border-surface-elevated text-text-secondary hover:bg-surface-secondary hover:text-text-primary'
+                                selectedCategories.includes(cat) ? 'bg-brand-primary/10 border-brand-primary/30 text-action-primaryDark shadow-soft' : 'bg-surface-elevated/50 border-surface-elevated text-text-secondary hover:bg-surface-secondary hover:text-text-primary'
                             }`}
                         >
                             {cat}

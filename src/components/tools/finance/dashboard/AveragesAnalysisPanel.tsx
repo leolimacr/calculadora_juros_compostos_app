@@ -299,13 +299,13 @@ const AveragesAnalysisPanel: React.FC<AveragesAnalysisPanelProps> = ({
   }, [safeTransactions, yearlyHistory, averagesWindow, includeCurrentMonth, includeCurrentMonthTotal, averageMode, customPeriodStart, customPeriodEnd, isReady, showAverages, selectedYear]);
 
   return (
-    <div className="bg-surface-primary border border-surface-elevated rounded-4xl p-5 shadow-soft">
+    <div className="bg-surface-primary border border-slate-200 rounded-section p-5">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h3 className="text-text-primary font-black text-xxs uppercase tracking-ultra-wide flex items-center gap-2">
+          <h3 className="text-text-primary font-black text-sm tracking-tight flex items-center gap-2">
             Análise de Médias
             {!hasHistoryAccess && (
-              <span className="text-[8px] px-1.5 py-0.5 bg-brand-secondary/10 text-brand-secondary rounded-full font-bold tracking-normal normal-case">
+              <span className="text-[8px] px-1.5 py-0.5 bg-brand-secondary/10 text-sky-700 rounded-full font-bold tracking-normal normal-case">
                 Histórico multi-mês no Pro
               </span>
             )}
@@ -326,7 +326,7 @@ const AveragesAnalysisPanel: React.FC<AveragesAnalysisPanelProps> = ({
           className={`px-4 py-2.5 rounded-2xl text-xxs font-black uppercase border transition-all ${
             showAverages
               ? 'bg-surface-elevated border-surface-elevated text-text-secondary hover:bg-surface-secondary'
-              : 'bg-status-info/10 border-brand-secondary/30 text-brand-secondary hover:bg-status-info/20'
+              : 'bg-status-info/10 border-brand-secondary/30 text-action-sky hover:bg-status-info/20'
           }`}
         >
           {showAverages ? 'Ocultar Análise' : 'Mostrar Análise de Médias'}
@@ -368,7 +368,7 @@ const AveragesAnalysisPanel: React.FC<AveragesAnalysisPanelProps> = ({
                           type="button"
                           onClick={() => setSelectedYear(y => Math.min(y + 1, new Date().getFullYear()))}
                           disabled={selectedYear >= new Date().getFullYear()}
-                          className="w-6 h-6 flex items-center justify-center rounded-lg bg-surface-elevated hover:bg-surface-secondary text-text-muted hover:text-text-primary transition-all text-xxs font-black disabled:opacity-30 disabled:cursor-not-allowed"
+                          className="w-6 h-6 flex items-center justify-center rounded-lg bg-surface-elevated hover:bg-surface-secondary text-text-muted hover:text-text-primary transition-all text-xxs font-black disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           ▶
                         </button>
@@ -379,7 +379,7 @@ const AveragesAnalysisPanel: React.FC<AveragesAnalysisPanelProps> = ({
                       <div className="bg-surface-elevated rounded-2xl p-3">
                         <p className="text-[9px] font-black text-text-muted uppercase tracking-ultra-wide">Total acumulado</p>
                         <p className="text-sm font-black text-text-primary mt-0.5">
-                          {isPrivacyMode ? '••••' : `R$ ${te.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                          {isPrivacyMode ? '••••' : `R$ ${te.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                         </p>
                         {te.totalMonthsInWindow > 0 && (
                           <p className="text-[9px] font-bold text-text-muted mt-0.5">
@@ -390,13 +390,13 @@ const AveragesAnalysisPanel: React.FC<AveragesAnalysisPanelProps> = ({
                       <div className="bg-surface-elevated rounded-2xl p-3">
                         <p className="text-[9px] font-black text-text-muted uppercase tracking-ultra-wide">Média mensal</p>
                         <p className="text-sm font-black text-brand-secondary mt-0.5">
-                          {isPrivacyMode ? '••••' : `R$ ${ytdActiveAvg.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                          {isPrivacyMode ? '••••' : `R$ ${ytdActiveAvg.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                         </p>
                       </div>
                       <div className="bg-surface-elevated rounded-2xl p-3">
                         <p className="text-[9px] font-black text-text-muted uppercase tracking-ultra-wide">Projeção anual</p>
                         <p className="text-sm font-black mt-0.5" style={{ color: '#f59e0b' }}>
-                          {isPrivacyMode ? '••••' : `R$ ${(te.projectedYearTotal ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                          {isPrivacyMode ? '••••' : `R$ ${(te.projectedYearTotal ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                         </p>
                       </div>
                       <div className="bg-surface-elevated rounded-2xl p-3">
@@ -410,7 +410,7 @@ const AveragesAnalysisPanel: React.FC<AveragesAnalysisPanelProps> = ({
                           </span>
                         </p>
                         {te.trend ? (
-                          <p className={`text-sm font-black mt-0.5 flex items-center gap-1 ${te.trend.direction === 'up' ? 'text-status-danger' : te.trend.direction === 'down' ? 'text-status-success' : 'text-text-muted'}`}>
+                          <p className={`text-sm font-black mt-0.5 flex items-center gap-1 ${te.trend.direction === 'up' ? 'text-action-dangerDark' : te.trend.direction === 'down' ? 'text-action-primaryDark' : 'text-text-muted'}`}>
                             {te.trend.direction === 'up' ? '▲' : te.trend.direction === 'down' ? '▼' : '→'} {te.trend.percentage.toFixed(0)}%
                           </p>
                         ) : (
@@ -425,19 +425,19 @@ const AveragesAnalysisPanel: React.FC<AveragesAnalysisPanelProps> = ({
                       <div className="flex flex-wrap gap-2 mb-4">
                         {te.highestMonth && te.highestMonth.value > 0 && (
                           <div className="flex items-center gap-1.5 bg-status-danger/10 rounded-xl px-3 py-1.5">
-                            <span className="text-[9px] font-black text-status-danger">▲ Mês mais alto</span>
+                            <span className="text-[9px] font-black text-action-dangerDark">▲ Mês mais alto</span>
                             <span className="text-xxs font-black text-text-primary">{te.highestMonth.label}</span>
                             <span className="text-xxs font-black text-text-secondary">
-                              {isPrivacyMode ? '••••' : `R$ ${te.highestMonth.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                              {isPrivacyMode ? '••••' : `R$ ${te.highestMonth.value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                             </span>
                           </div>
                         )}
                         {te.lowestMonth && te.lowestMonth.value > 0 && (
                           <div className="flex items-center gap-1.5 bg-status-success/10 rounded-xl px-3 py-1.5">
-                            <span className="text-[9px] font-black text-status-success">▼ Mês mais baixo</span>
+                            <span className="text-[9px] font-black text-action-primaryDark">▼ Mês mais baixo</span>
                             <span className="text-xxs font-black text-text-primary">{te.lowestMonth.label}</span>
                             <span className="text-xxs font-black text-text-secondary">
-                              {isPrivacyMode ? '••••' : `R$ ${te.lowestMonth.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                              {isPrivacyMode ? '••••' : `R$ ${te.lowestMonth.value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                             </span>
                           </div>
                         )}
@@ -455,7 +455,7 @@ const AveragesAnalysisPanel: React.FC<AveragesAnalysisPanelProps> = ({
                             key={`${m.year}-${m.month}`}
                             className={`rounded-2xl p-2.5 text-center border transition-all ${
                               isFuture || isCurrentInactive
-                                ? 'bg-surface-elevated/40 border-surface-elevated/30 opacity-40'
+                                ? 'bg-surface-elevated/40 border-surface-elevated/30'
                                 : isAbove
                                   ? 'bg-status-danger/10 border-status-danger/20'
                                   : isBelow
@@ -468,12 +468,12 @@ const AveragesAnalysisPanel: React.FC<AveragesAnalysisPanelProps> = ({
                             <p className="text-[8px] font-black text-text-muted uppercase tracking-wide">{m.label}</p>
                             <p className={`text-xs font-black mt-0.5 ${isFuture || isCurrentInactive ? 'text-text-muted' : 'text-text-primary'}`}>
                               {isFuture || isCurrentInactive ? '—' : isPrivacyMode ? '••••' : m.value > 0
-                                ? `R$ ${m.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                ? `R$ ${m.value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                                 : 'R$ 0,00'
                               }
                             </p>
                             {!isFuture && !isCurrentInactive && m.deviation !== null && (
-                              <p className={`text-[9px] font-black mt-0.5 ${isAbove ? 'text-status-danger' : isBelow ? 'text-status-success' : 'text-text-muted'}`}>
+                              <p className={`text-[9px] font-black mt-0.5 ${isAbove ? 'text-action-dangerDark' : isBelow ? 'text-action-primaryDark' : 'text-text-muted'}`}>
                                 {isAbove ? '▲' : isBelow ? '▼' : '•'} {Math.abs(Math.round(m.deviation))}%
                               </p>
                             )}
@@ -536,13 +536,13 @@ const AveragesAnalysisPanel: React.FC<AveragesAnalysisPanelProps> = ({
                               </div>
                               <div className="w-28 shrink-0 flex items-center gap-1.5">
                                 <span className="text-[9px] font-black text-text-secondary">
-                                  {isPrivacyMode ? '••••' : `R$ ${m.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                                  {isPrivacyMode ? '••••' : `R$ ${m.value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                                 </span>
                                 {m.isCurrentMonth && m.projection && !isPrivacyMode && (
                                   <span className="text-[8px] text-text-muted font-bold">→R$ {m.projection.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</span>
                                 )}
                                 {!isCurrentInactive && m.deviation !== null && (
-                                  <span className={`text-[8px] font-black ${isAbove ? 'text-status-danger' : 'text-brand-primary'}`}>
+                                  <span className={`text-[8px] font-black ${isAbove ? 'text-action-dangerDark' : 'text-action-primaryDark'}`}>
                                     {isAbove ? '▲' : '▼'} {Math.abs(Math.round(m.deviation))}%
                                   </span>
                                 )}
@@ -570,7 +570,7 @@ const AveragesAnalysisPanel: React.FC<AveragesAnalysisPanelProps> = ({
                           }`} />
                         </div>
                         <span className={`text-xxs font-black uppercase tracking-ultra-wide transition-all ${
-                          includeCurrentMonthTotal ? 'text-status-success' : 'text-status-info'
+                          includeCurrentMonthTotal ? 'text-action-primaryDark' : 'text-action-sky'
                         }`}>
                           Incluir mês atual na média
                         </span>
@@ -705,7 +705,7 @@ const AveragesAnalysisPanel: React.FC<AveragesAnalysisPanelProps> = ({
                           )}
 
                           {customPeriodStart && customPeriodEnd && customPeriodStart > customPeriodEnd && (
-                            <span className="text-xxs font-black text-status-danger uppercase tracking-ultra-wide">
+                            <span className="text-xxs font-black text-action-dangerDark uppercase tracking-ultra-wide">
                               ⚠ Data final anterior à inicial
                             </span>
                           )}
@@ -723,7 +723,7 @@ const AveragesAnalysisPanel: React.FC<AveragesAnalysisPanelProps> = ({
                             onClick={() => setAverageMode(opt.key)}
                             className={`px-3 py-1.5 rounded-xl text-xxs font-black uppercase transition-all ${
                               averageMode === opt.key
-                                ? 'bg-brand-secondary text-text-onBrand shadow-soft'
+                                ? 'bg-action-sky text-text-onBrand shadow-soft'
                                 : 'text-text-secondary hover:text-text-primary'
                             }`}
                           >
@@ -783,7 +783,7 @@ const AveragesAnalysisPanel: React.FC<AveragesAnalysisPanelProps> = ({
                               <div>
                                 <p className="text-xxs font-black text-text-muted uppercase">Total no período</p>
                                 <p className="text-sm font-black text-text-secondary">
-                                  {isPrivacyMode ? '••••' : `R$ ${totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                                  {isPrivacyMode ? '••••' : `R$ ${totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                                 </p>
                               </div>
                               <div>
@@ -793,7 +793,7 @@ const AveragesAnalysisPanel: React.FC<AveragesAnalysisPanelProps> = ({
                                     : `Média de ocorrência · ${monthsWithValue} ${monthsWithValue === 1 ? 'mês' : 'meses'}`}
                                 </p>
                                 <p className="text-sm font-black text-brand-secondary">
-                                  {isPrivacyMode ? '••••' : `R$ ${activeAverage.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                                  {isPrivacyMode ? '••••' : `R$ ${activeAverage.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                                 </p>
                               </div>
                             </div>
@@ -833,15 +833,15 @@ const AveragesAnalysisPanel: React.FC<AveragesAnalysisPanelProps> = ({
                                   </div>
                                   <div className="w-40 shrink-0 flex items-center gap-2">
                                     <span className="text-xxs font-black text-text-secondary">
-                                      {isPrivacyMode ? '••••' : `R$ ${m.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                                      {isPrivacyMode ? '••••' : `R$ ${m.value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                                     </span>
                                     {m.isCurrentMonth && m.projection && !isPrivacyMode && (
                                       <span className="text-xxs text-text-muted font-bold">
-                                        {`→ R$ ${m.projection.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                                        {`→ R$ ${m.projection.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                                       </span>
                                     )}
                                     {m.deviation !== null && (
-                                      <span className={`text-xxs font-black ${isAbove ? 'text-status-danger' : 'text-brand-primary'}`}>
+                                      <span className={`text-xxs font-black ${isAbove ? 'text-action-dangerDark' : 'text-action-primaryDark'}`}>
                                         {isAbove ? '▲' : '▼'} {Math.abs(Math.round(m.deviation))}%
                                       </span>
                                     )}

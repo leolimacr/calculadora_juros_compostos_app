@@ -1,5 +1,7 @@
-import React from 'react';
-import { maskCurrency } from '../../../../utils/calculations';
+import React, { useMemo } from 'react';
+import { maskCurrency, calculatePreviousMonthClose } from '../../../../utils/calculations';
+import { useExclusions } from '../../../../contexts/ExclusionsContext';
+import { FinanceLine, FinanceTotal, FinanceCheckLine } from './FinanceLine';
 
 interface VoucherCardInfo {
   id: string;
@@ -9,18 +11,13 @@ interface VoucherCardInfo {
 
 interface BalanceCardsProps {
   isPrivacyMode: boolean;
-  saldoReal: number;
-  receitasMes: number;
-  despesasMes: number;
+  saldoReal: number | null;
+  receitasMes: number | null;
+  despesasMes: number | null;
   reserveTarget: number;
   colchaoTarget: number;
-  excluirReserva: boolean;
-  excluirColchao: boolean;
-  onToggleReserva: () => void;
-  onToggleColchao: () => void;
   voucherCards: VoucherCardInfo[];
-  excluirVoucherMap: Record<string, boolean>;
-  onToggleVoucherCard: (cardId: string) => void;
+  transactions: any[];
 }
 
 const MESES = [
@@ -35,20 +32,29 @@ const BalanceCards: React.FC<BalanceCardsProps> = ({
   despesasMes,
   reserveTarget,
   colchaoTarget,
-  excluirReserva,
-  excluirColchao,
-  onToggleReserva,
-  onToggleColchao,
   voucherCards,
-  excluirVoucherMap,
-  onToggleVoucherCard,
+  transactions,
 }) => {
+  const { excluirReserva, excluirColchao, excluirVoucherMap, toggleReserva, toggleColchao, toggleVoucherCard, computeExclusions } = useExclusions();
   const fmt = (n: number) => (isPrivacyMode ? '••••••' : maskCurrency(n));
 
-  const exclusaoVoucher = voucherCards
-    .filter(c => excluirVoucherMap[c.id])
-    .reduce((s, c) => s + c.balance, 0);
-  const exclusaoTotal = (excluirReserva ? reserveTarget : 0) + (excluirColchao ? colchaoTarget : 0) + exclusaoVoucher;
+  // Loading skeleton — exibido até os dados do mês corrente estarem carregados
+  if (saldoReal === null) {
+    return (
+      <div className="bg-surface-primary border border-border-strong rounded-panel p-5 shadow-panel border-l-4 border-l-brand-primary/40 animate-pulse">
+        <div className="h-3 w-24 bg-surface-secondary rounded-full mb-3" />
+        <div className="h-4 w-16 bg-surface-secondary rounded-full mb-1" />
+        <div className="h-8 w-36 bg-surface-secondary rounded-xl mt-4" />
+        <div className="border-t border-surface-elevated pt-3 mt-4 space-y-2">
+          <div className="flex justify-between"><div className="h-3 w-28 bg-surface-secondary rounded-full" /><div className="h-4 w-20 bg-surface-secondary rounded-full" /></div>
+          <div className="flex justify-between"><div className="h-3 w-24 bg-surface-secondary rounded-full" /><div className="h-4 w-20 bg-surface-secondary rounded-full" /></div>
+          <div className="flex justify-between"><div className="h-3 w-32 bg-surface-secondary rounded-full" /><div className="h-4 w-20 bg-surface-secondary rounded-full" /></div>
+        </div>
+      </div>
+    );
+  }
+
+  const exclusaoTotal = computeExclusions(reserveTarget, colchaoTarget, voucherCards);
   const saldoDisplay = saldoReal - exclusaoTotal;
   const isNegative = saldoDisplay < 0;
   const hasExclusao = excluirReserva || excluirColchao || Object.values(excluirVoucherMap).some(Boolean);
@@ -62,17 +68,20 @@ const BalanceCards: React.FC<BalanceCardsProps> = ({
   const labelAnterior = `${MESES[mesAnterior]}/${anoAnterior}`;
   const labelAtual = `${MESES[mesAtual]}/${anoAtual}`;
 
-  const saldoAnterior = saldoReal - receitasMes + despesasMes - exclusaoTotal;
+  const saldoAnterior = calculatePreviousMonthClose(transactions, new Date());
 
   return (
-    <div className="bg-surface-primary border border-surface-elevated rounded-4xl p-5 shadow-card border-l-4 border-l-brand-primary/40">
+    <div className="bg-surface-primary border border-border-strong rounded-panel p-5 shadow-panel border-l-4 border-l-brand-primary/40">
       <div className="flex flex-col gap-4">
         {/* Título */}
-        <p className="text-text-muted text-xxs font-black uppercase tracking-ultra-wide">
+        <h2 className="text-sm font-black text-text-primary tracking-tight">
           Saldo Atual
-        </p>
+        </h2>
         <p className="text-[10px] text-text-muted font-medium -mt-2 leading-relaxed">
           Dinheiro que realmente está na sua conta bancária hoje.
+          <span className="block mt-0.5 text-[9px] text-text-muted italic">
+            Reflete o fluxo de caixa efetivado em conta: receitas menos despesas à vista e pagamentos de cartão. Compras no cartão de crédito e obrigações a prazo não são deduzidas aqui.
+          </span>
         </p>
 
         {/* Valor principal */}
@@ -87,91 +96,64 @@ const BalanceCards: React.FC<BalanceCardsProps> = ({
         </div>
 
         {/* Decomposição mensal */}
-        <div className="border-t border-surface-elevated pt-3 space-y-2">
-          <div className="flex justify-between items-center">
-            <span className="text-xxs font-bold text-text-muted uppercase tracking-wider">
-              Saldo anterior de {labelAnterior}
-            </span>
-            <span className="text-sm font-black tabular-nums">
-              {fmt(saldoAnterior)}
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-xxs font-bold text-text-muted uppercase tracking-wider">
-              Receitas de {labelAtual}
-            </span>
-            <span className="text-sm font-black text-brand-primary tabular-nums">
-              + {fmt(receitasMes)}
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-xxs font-bold text-text-muted uppercase tracking-wider">
-              Despesas já pagas de {labelAtual}
-            </span>
-            <span className="text-sm font-black text-status-danger tabular-nums">
-              − {fmt(despesasMes)}
-            </span>
-          </div>
-          <p className="text-[9px] text-text-muted/80 font-medium leading-relaxed -mt-1 mb-2">
-            Compras feitas no cartão de crédito não entram nas despesas — apenas os pagamentos das faturas estão neste total.
-          </p>
+        <div className="border-t border-surface-elevated pt-1" role="group" aria-label="Decomposição do saldo: Saldo anterior + Receitas do mês − Despesas do mês = Saldo Atual">
+          <FinanceLine
+            label={`Saldo anterior de ${labelAnterior}`}
+            value={fmt(saldoAnterior)}
+          />
+          <FinanceLine
+            label={`Receitas de ${labelAtual}`}
+            value={`+ ${fmt(receitasMes ?? 0)}`}
+            tone="positive"
+          />
+          <FinanceLine
+            label={`Despesas já pagas de ${labelAtual}`}
+            hint="Compras feitas no cartão de crédito não entram nas despesas — apenas os pagamentos das faturas estão neste total."
+            value={`− ${fmt(despesasMes ?? 0)}`}
+            tone="negative"
+          />
 
           {/* Checkboxes de exclusão */}
-          <div className="pt-1 space-y-2">
-            <label className="flex items-start gap-2 cursor-pointer group">
-              <input
-                type="checkbox"
-                checked={excluirReserva}
-                onChange={onToggleReserva}
-                className="mt-0.5 h-3.5 w-3.5 rounded border-surface-elevated text-brand-primary focus:ring-brand-primary/30"
-              />
-              <span className="text-[10px] leading-snug text-text-muted group-hover:text-text-primary transition-colors">
-                Retirar minha reserva de emergência no valor de <strong className="text-text-primary">{fmt(reserveTarget)}</strong> do SALDO ATUAL
-              </span>
-            </label>
-            <label className="flex items-start gap-2 cursor-pointer group">
-              <input
-                type="checkbox"
-                checked={excluirColchao}
-                onChange={onToggleColchao}
-                className="mt-0.5 h-3.5 w-3.5 rounded border-surface-elevated text-brand-primary focus:ring-brand-primary/30"
-              />
-              <span className="text-[10px] leading-snug text-text-muted group-hover:text-text-primary transition-colors">
-                Retirar o meu Colchão emergencial no valor de <strong className="text-text-primary">{fmt(colchaoTarget)}</strong> do SALDO ATUAL
-              </span>
-            </label>
+          <div className="pt-1">
+            <FinanceCheckLine
+              checked={excluirReserva}
+              onChange={toggleReserva}
+              title="Retirar minha reserva de emergência"
+              hint={`Simulação: ${fmt(reserveTarget)} abatidos do SALDO ATUAL. Valor separado para proteção — não é despesa do mês.`}
+              value={fmt(reserveTarget)}
+            />
+            <FinanceCheckLine
+              checked={excluirColchao}
+              onChange={toggleColchao}
+              title="Retirar o meu Colchão emergencial"
+              hint={`Simulação: ${fmt(colchaoTarget)} abatidos do SALDO ATUAL. Valor separado para proteção — não é despesa do mês.`}
+              value={fmt(colchaoTarget)}
+            />
             {voucherCards.filter(c => c.balance > 0).map(card => (
-              <label key={card.id} className="flex items-start gap-2 cursor-pointer group">
-                <input
-                  type="checkbox"
-                  checked={!!excluirVoucherMap[card.id]}
-                  onChange={() => onToggleVoucherCard(card.id)}
-                  className="mt-0.5 h-3.5 w-3.5 rounded border-surface-elevated text-emerald-600 focus:ring-emerald-400/30"
-                />
-                <span className="text-[10px] leading-snug text-text-muted group-hover:text-text-primary transition-colors">
-                  Retirar o saldo do Cartão Voucher (<strong className="text-text-primary">{card.name}</strong>) no valor de <strong className="text-emerald-600">{fmt(card.balance)}</strong> do SALDO ATUAL
-                </span>
-              </label>
+              <FinanceCheckLine
+                key={card.id}
+                checked={!!excluirVoucherMap[card.id]}
+                onChange={() => toggleVoucherCard(card.id)}
+                title={`Retirar o saldo do Cartão Voucher (${card.name})`}
+                hint="Simulação: valor abatido do SALDO ATUAL."
+                value={fmt(card.balance)}
+              />
             ))}
           </div>
 
-          <div className="border-t border-surface-elevated pt-2 flex justify-between items-center">
-            <span className="text-xs font-black text-text-primary uppercase tracking-ultra-wide">
-              {hasExclusao ? 'Saldo Atual (com exclusões)' : 'Saldo Atual'}
-            </span>
-            <span
-              className={`text-lg font-black tabular-nums ${
-                isNegative ? 'text-status-danger' : 'text-text-primary'
-              }`}
-            >
-              {fmt(saldoDisplay)}
-            </span>
-          </div>
+          <FinanceTotal
+            label={hasExclusao ? 'Saldo Atual (com exclusões)' : 'Saldo Atual'}
+            value={fmt(saldoDisplay)}
+            tone={isNegative ? 'negative' : 'neutral'}
+          />
         </div>
 
         {/* Nota explicativa */}
         <p className="text-[9px] text-text-muted font-medium leading-relaxed">
           O saldo do fechamento de {labelAnterior} forma o saldo atual de {labelAtual}.
+          <span className="block mt-0.5 text-text-muted">
+            O Extrato / filtragem geral inclui o fluxo bruto (todas as despesas), enquanto o Saldo Atual reflete apenas o fluxo de caixa efetivado em conta.
+          </span>
         </p>
       </div>
     </div>

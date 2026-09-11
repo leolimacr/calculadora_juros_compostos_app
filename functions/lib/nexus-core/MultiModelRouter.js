@@ -54,8 +54,8 @@ class MultiModelRouter {
             apiKey: '',
             baseURL: 'https://api.groq.com/openai/v1',
             models: {
-                primary: 'llama-3.3-70b-versatile',
-                fallbacks: ['llama-3.1-8b-instant']
+                primary: 'llama-3.1-8b-instant',
+                fallbacks: ['llama-3.3-70b-versatile']
             },
             priority: 1,
             isAvailable: true,
@@ -131,7 +131,18 @@ class MultiModelRouter {
         if (!provider.isAvailable) {
             throw new Error('Provider indisponível');
         }
-        return this.callOpenAIFormat(provider, provider.models.primary, messages, systemPrompt, options);
+        const candidates = [provider.models.primary, ...(provider.models.fallbacks ?? [])];
+        let lastError;
+        for (const modelName of candidates) {
+            try {
+                return await this.callOpenAIFormat(provider, modelName, messages, systemPrompt, options);
+            }
+            catch (error) {
+                lastError = error;
+                logger.warn(`[Router] ${provider.name}/${modelName} falhou: ${error.message}`);
+            }
+        }
+        throw lastError ?? new Error(`Nenhum modelo de ${provider.name} respondeu`);
     }
     async callOpenAIFormat(provider, modelName, messages, systemPrompt, options) {
         const fullMessages = systemPrompt
@@ -144,6 +155,9 @@ class MultiModelRouter {
             max_tokens: options?.maxTokens || provider.maxTokens,
             stream: false
         };
+        if (options?.responseFormat === 'json' || provider.name === 'groq') {
+            requestBody.response_format = { type: 'json_object' };
+        }
         const headers = {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${provider.apiKey}`,

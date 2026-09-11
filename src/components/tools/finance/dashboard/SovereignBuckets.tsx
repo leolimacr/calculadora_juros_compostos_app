@@ -62,7 +62,7 @@ const BUCKET_META: BucketMetaItem[] = [
     actionId: 'falta-reserva',
     label: 'Falta na Reserva',
     sub: 'Meta pendente',
-    color: '#a78bfa',
+    color: '#7c3aed',
     icon: Target,
   },
   {
@@ -118,7 +118,7 @@ const SovereignBuckets: React.FC<SovereignBucketsProps> = ({
     if (buckets.marcoZero > 0) items.push({ value: buckets.marcoZero, color: '#0ea5e9', label: 'Colchão' });
     if (buckets.reserve > 0) items.push({ value: buckets.reserve, color: '#10b981', label: 'Reserva' });
     if (buckets.colchaoShortfall > 0) items.push({ value: buckets.colchaoShortfall, color: '#8b5cf6', label: 'Falta Colchão' });
-    if (buckets.reserveShortfall > 0) items.push({ value: buckets.reserveShortfall, color: '#a78bfa', label: 'Falta Reserva' });
+    if (buckets.reserveShortfall > 0) items.push({ value: buckets.reserveShortfall, color: '#7c3aed', label: 'Falta Reserva' });
     if (buckets.livre > 0) items.push({ value: buckets.livre, color: '#059669', label: 'Disponível' });
     if (buckets.freedomDeficit > 0) items.push({ value: buckets.freedomDeficit, color: '#e11d48', label: 'Déficit' });
     return items;
@@ -144,10 +144,10 @@ const SovereignBuckets: React.FC<SovereignBucketsProps> = ({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-3xl border p-4 md:p-5 space-y-4 ${
+      className={`relative overflow-hidden rounded-section border p-4 md:p-5 space-y-4 ${
         isDark
           ? 'bg-slate-900/60 border-slate-700/80'
-          : 'bg-surface-primary border-surface-elevated shadow-soft'
+          : 'bg-surface-subtle border-slate-200'
       } group`}
     >
       <div className="absolute right-0 top-0 w-32 h-full opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none">
@@ -175,11 +175,15 @@ const SovereignBuckets: React.FC<SovereignBucketsProps> = ({
       </div>
 
       {!isPrivacyMode && barTotal > 0 && (
-        <div className="flex h-2.5 rounded-full overflow-hidden bg-slate-200/30">
+        <div
+          className="flex h-2.5 rounded-full overflow-hidden bg-slate-200 ring-1 ring-slate-200"
+          role="img"
+          aria-label={`Composição: ${barItems.map((i) => `${i.label} ${maskCurrency(i.value)}`).join(', ')}`}
+        >
           {barItems.map((item, i) => (
             <div
               key={i}
-              className="h-full transition-all duration-500"
+              className="h-full transition-all duration-500 ring-1 ring-white/60"
               style={{ width: `${getWidth(item.value)}%`, backgroundColor: item.color }}
               title={`${item.label}: ${maskCurrency(item.value)}`}
             />
@@ -198,12 +202,21 @@ const SovereignBuckets: React.FC<SovereignBucketsProps> = ({
           return (
             <div
               key={key}
+              role="button"
+              tabIndex={0}
+              aria-label={`${label}: ${format(value)}. ${sub}. Ativar para ver detalhes.`}
               onClick={() => handleBucketClick(actionId)}
-              className={`rounded-2xl p-3 border transition-all cursor-pointer hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.98] ${
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleBucketClick(actionId);
+                }
+              }}
+              className={`rounded-item p-3 border transition-all cursor-pointer hover:border-slate-300 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-action-sky ${
                 isDark
                   ? 'bg-slate-800/50 border-slate-700/60'
-                  : 'bg-surface-secondary border-surface-elevated'
-              } ${invaded ? 'ring-1 ring-rose-500/40' : ''} ${isShortfall ? 'opacity-85' : ''}`}
+                  : 'bg-white border-slate-200'
+              } ${invaded ? 'ring-1 ring-rose-500/40 border-rose-300 border-dashed' : ''} ${isShortfall ? 'border-dashed' : ''}`}
             >
               <div className="flex items-center gap-1.5 mb-2">
                 <div
@@ -223,7 +236,7 @@ const SovereignBuckets: React.FC<SovereignBucketsProps> = ({
               <p
                 className={`text-sm font-black tracking-tight ${
                   invaded
-                    ? 'text-rose-500'
+                    ? 'text-rose-600'
                     : isDark
                       ? 'text-white'
                       : 'text-text-primary'

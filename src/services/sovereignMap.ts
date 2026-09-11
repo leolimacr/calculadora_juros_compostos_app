@@ -48,8 +48,8 @@ const STAGE_META: Record<StageId, { name: string; explanation: (i: ClassifyInput
     nextStep: 'Registrar movimentações regularmente para ativar o Mapa de Soberania',
   },
   'pressao': {
-    name: 'Pressão',
-    explanation: (i) => `Sua disponibilidade real está negativa em R$ ${Math.abs(i.sovereignFreeBalance).toFixed(2)}. As obrigações do mês consomem mais do que você acumulou — a estrutura de proteção está sendo usada para cobrir despesas correntes.`,
+    name: 'Atenção no Fluxo',
+    explanation: (i) => `Sua disponibilidade real está em R$ -${Math.abs(i.sovereignFreeBalance).toFixed(2)}. Os compromissos do mês superam as entradas do período — a reserva de proteção está sendo usada para cobrir despesas correntes.`,
     blockers: (i) => {
       const b: string[] = [];
       if (i.freedomDeficit > 0) b.push(`Déficit de R$ ${i.freedomDeficit.toFixed(2)} na folga do mês`);
@@ -88,6 +88,10 @@ const STAGE_META: Record<StageId, { name: string; explanation: (i: ClassifyInput
   },
 };
 
+/** Contrato: launchCount < 5 força "indefinido" apenas quando sovereignFreeBalance >= 0;
+ *  com freeBalance negativo, classifica como "pressao" mesmo com poucas transações.
+ *  leewayDays é derivado de sovereignFreeBalance/expenses; quando expenses = 0,
+ *  leewayDays = 0, tornando "solido"/"expansao" inalcançáveis — intencional (sem custo diário não há folga). */
 export function classifyStage(input: ClassifyInput): StageInfo {
   if (input.launchCount < 5 && input.sovereignFreeBalance >= 0) {
     const m = STAGE_META['indefinido'];

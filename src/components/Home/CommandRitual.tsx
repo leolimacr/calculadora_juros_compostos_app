@@ -19,11 +19,13 @@ interface CommandRitualProps {
   freeBalance: number;
   shortfall: number;
   launchCount: number;
+  urgentCount?: number;
+  projectedBalance?: number;
 }
 
 const STAGE_LABEL: Record<string, string> = {
   'indefinido': 'Indefinido',
-  'pressao': 'Pressão',
+  'pressao': 'Atenção no Fluxo',
   'colchao-incompleto': 'Colchão Incompleto',
   'estavel': 'Estável',
   'solido': 'Sólido',
@@ -46,7 +48,7 @@ function fmtCurrency(n: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
 }
 
-const CommandRitual: React.FC<CommandRitualProps> = ({ stage, event, onNavigate, freeBalance, shortfall, launchCount }) => {
+const CommandRitual: React.FC<CommandRitualProps> = ({ stage, event, onNavigate, freeBalance, shortfall, launchCount, urgentCount = 0, projectedBalance = 0 }) => {
   // Frozen baseline captured synchronously on first render — never changes mid-session
   const [metricsBaseline] = useState<RitualMetrics | null>(() => {
     try {
@@ -82,11 +84,25 @@ const CommandRitual: React.FC<CommandRitualProps> = ({ stage, event, onNavigate,
   const attentionLine = useMemo(() => {
     if (event?.message?.title) return event.message.title;
     if (stage.blockers.length > 0) return stage.blockers[0];
-    if (stage.id === 'indefinido') return 'Você ainda não registrou movimentações suficientes. Continue para ativar o Mapa de Soberania.';
+    if (stage.id === 'indefinido') return 'Aguardando base mínima de 5 lançamentos para calibrar o Mapa de Soberania.';
     return null;
   }, [event, stage.blockers, stage.id]);
 
   const action = COMMAND_ACTIONS[stage.id];
+
+  // Justificativa curta do comando, só com dados já disponíveis (sem regra nova).
+  const commandReason = useMemo(() => {
+    if (urgentCount > 0) {
+      return `Há ${urgentCount} ${urgentCount === 1 ? 'conta vencendo' : 'contas vencendo'} hoje ou amanhã.`;
+    }
+    if (shortfall > 0) {
+      return `Faltam ${fmtCurrency(shortfall)} para completar sua proteção.`;
+    }
+    if (projectedBalance < 0) {
+      return `Seu fluxo previsto está em déficit de ${fmtCurrency(Math.abs(projectedBalance))}.`;
+    }
+    return null;
+  }, [urgentCount, shortfall, projectedBalance]);
 
   const continuityLine = useMemo(() => {
     if (!metricsBaseline) return null;
@@ -118,7 +134,7 @@ const CommandRitual: React.FC<CommandRitualProps> = ({ stage, event, onNavigate,
   }, [metricsBaseline, freeBalance, shortfall, launchCount]);
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+    <div className="bg-white border border-border-strong border-l-4 border-l-emerald-600 rounded-panel p-5 md:p-6 shadow-panel">
       <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 mb-3">
         SEU COMANDO
       </div>
@@ -150,6 +166,10 @@ const CommandRitual: React.FC<CommandRitualProps> = ({ stage, event, onNavigate,
           <span className="text-xs text-slate-500 w-14 shrink-0">Comando</span>
           <span className="text-sm font-semibold text-slate-800">{stage.nextStep}</span>
         </div>
+
+        {commandReason && (
+          <p className="text-xs text-slate-600 leading-snug pt-1">{commandReason}</p>
+        )}
       </div>
 
       {action && (
@@ -162,7 +182,7 @@ const CommandRitual: React.FC<CommandRitualProps> = ({ stage, event, onNavigate,
               onNavigate(action.route);
             }
           }}
-          className="mt-4 w-full text-sm font-bold py-2.5 px-4 rounded-xl bg-slate-800 text-white hover:bg-slate-700 transition-colors"
+          className="mt-4 w-full text-sm font-bold py-3 md:py-2.5 px-4 rounded-xl bg-slate-800 text-white hover:bg-slate-700 transition-colors min-h-[44px]"
         >
           {action.label}
         </button>

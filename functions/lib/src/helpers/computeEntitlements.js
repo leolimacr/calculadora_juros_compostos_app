@@ -13,6 +13,7 @@ const FEATURE_DEFINITIONS = {
     nexus_chat: { tier: 'free' },
     nexus_history: { tier: 'pro' },
     transaction_history: { tier: 'pro' },
+    historical_evolution: { tier: 'pro' },
     export_csv_pdf: { tier: 'pro' },
     backup_cloud: { tier: 'pro' },
     debts: { tier: 'premium' },

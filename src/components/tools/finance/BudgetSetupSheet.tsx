@@ -282,7 +282,7 @@ const BudgetSetupSheet: React.FC<BudgetSetupSheetProps> = ({
                       <p className="text-xs font-bold text-text-primary truncate">{name}</p>
                       {spent > 0 && (
                         <p className="text-[10px] font-medium text-text-muted">
-                          Gasto atual: R$ {spent.toFixed(2)}
+                          Gasto atual: R$ {spent.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
                       )}
                     </div>
@@ -376,7 +376,7 @@ const BudgetSetupSheet: React.FC<BudgetSetupSheetProps> = ({
               R$ {Object.entries(categoryLimits)
                 .filter(([name]) => categoryEnabled[name])
                 .reduce((sum, [, limit]) => sum + (Number(limit) || 0), 0)
-                .toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                .toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
 

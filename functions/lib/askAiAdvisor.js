@@ -33,7 +33,12 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.testMistral = exports.askAiAdvisor = void 0;
+exports.askAiAdvisor = exports.NEXUS_QUOTA_INTERIM = void 0;
+exports.getUserPlan = getUserPlan;
+exports.nexusQuotaDay = nexusQuotaDay;
+exports.nexusQuotaForPlan = nexusQuotaForPlan;
+exports.checkNexusQuota = checkNexusQuota;
+exports.checkTavilyQuota = checkTavilyQuota;
 const firestore_1 = require("firebase-admin/firestore");
 const https_1 = require("firebase-functions/v2/https");
 const logger = __importStar(require("firebase-functions/logger"));
@@ -50,19 +55,54 @@ async function getUserPlan(userId) {
         const userDoc = await db.collection('users').doc(userId).get();
         if (userDoc.exists) {
             const data = userDoc.data();
-            const plan = data?.subscription?.plan;
-            if (plan) {
-                logger.info(`[Subscription] Plano do usuário ${userId}: ${plan}`);
-                return plan;
+            const sub = data?.subscription;
+            const active = !sub?.status || sub.status === 'active' || sub.status === 'trialing';
+            if (typeof sub?.plan === 'string' && sub.plan && (active || sub.plan === 'free')) {
+                return sub.plan;
+            }
+            if (typeof sub?.planId === 'string' && active) {
+                const legacy = sub.planId.toLowerCase();
+                if (['free', 'pro', 'premium', 'premium_anual'].includes(legacy))
+                    return legacy;
+            }
+            if (typeof sub?.plan === 'string' && sub.plan && !active) {
+                logger.info(`[Subscription] Plano ${sub.plan} com status inativo (${sub.status}); usando padrão`);
+                return undefined;
             }
         }
-        logger.info(`[Subscription] Usuário ${userId} sem plano definido (usando padrão)`);
+        logger.info(`[Subscription] Usuário sem plano definido (usando padrão)`);
         return undefined;
     }
     catch (error) {
         logger.error(`[Subscription] Erro ao buscar plano: ${error.message}`);
         return undefined;
     }
+}
+exports.NEXUS_QUOTA_INTERIM = {
+    free: 5,
+    pro: 100,
+    premium: 500,
+    premium_anual: 1000,
+};
+const NEXUS_QUOTA_DEFAULT = 5;
+function nexusQuotaDay(now = new Date()) {
+    return now.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+}
+function nexusQuotaForPlan(plan) {
+    if (plan && plan in exports.NEXUS_QUOTA_INTERIM)
+        return exports.NEXUS_QUOTA_INTERIM[plan];
+    return NEXUS_QUOTA_DEFAULT;
+}
+async function checkNexusQuota(db, uid, plan, dayStr) {
+    const quota = nexusQuotaForPlan(plan);
+    const day = dayStr ?? nexusQuotaDay();
+    const ref = db.collection(`users/${uid}/nexusQuota`).doc(day);
+    const snap = await ref.get();
+    const used = typeof snap.data()?.count === 'number' ? snap.data().count : 0;
+    if (used >= quota)
+        return { allowed: false, used, quota };
+    await ref.set({ count: used + 1, updatedAt: new Date().toISOString() }, { merge: true });
+    return { allowed: true, used: used + 1, quota };
 }
 async function getUserDebts(userId) {
     try {
@@ -112,16 +152,23 @@ function describeHistoryWindow(plan) {
         default: return 'analiso um recorte recente do seu histórico, definido pelo seu plano';
     }
 }
-let tavilyUsageCount = 0;
 const TAVILY_MONTHLY_LIMIT = 1000;
+function tavilyPeriodKey(now = new Date()) {
+    return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+async function checkTavilyQuota(db, now = new Date()) {
+    const ref = db.collection('system').doc(`apiUsage_tavily_${tavilyPeriodKey(now)}`);
+    const snap = await ref.get();
+    const used = typeof snap.data()?.count === 'number' ? snap.data().count : 0;
+    if (used >= TAVILY_MONTHLY_LIMIT) {
+        logger.warn(`[Tavily] Cota mensal esgotada (${used}/${TAVILY_MONTHLY_LIMIT})`);
+        return false;
+    }
+    await ref.set({ count: firestore_1.FieldValue.increment(1), updatedAt: new Date().toISOString() }, { merge: true });
+    return true;
+}
 async function searchWebTavily(query, apiKey) {
     try {
-        tavilyUsageCount++;
-        logger.info(`[Tavily] Busca #${tavilyUsageCount}/1000: "${query}"`);
-        if (tavilyUsageCount > TAVILY_MONTHLY_LIMIT) {
-            logger.warn(`[Tavily] Limite mensal atingido (${TAVILY_MONTHLY_LIMIT})`);
-            return null;
-        }
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 8000);
         const response = await fetch('https://api.tavily.com/search', {
@@ -154,52 +201,19 @@ async function searchWebTavily(query, apiKey) {
         return null;
     }
 }
-async function searchWebScraping(query) {
+async function searchWebCascade(query, tavilyKey) {
+    logger.info(`[WebSearch] Busca Tavily para: "${query}"`);
     try {
-        logger.info(`[Scraping] Tentando: "${query}"`);
-        const url = `https://www.google.com/search?q=${encodeURIComponent(query)}&hl=pt-BR`;
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
-        const response = await fetch(url, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-            signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-        if (!response.ok) {
-            logger.warn(`[Scraping] HTTP ${response.status}`);
-            return null;
+        if (await checkTavilyQuota((0, firestore_1.getFirestore)())) {
+            const tavilyResult = await searchWebTavily(query, tavilyKey);
+            if (tavilyResult)
+                return tavilyResult;
         }
-        const html = await response.text();
-        const snippetRegex = /<div class="BNeawe">([^<]+)<\/div>/gi;
-        const matches = [];
-        let match;
-        while ((match = snippetRegex.exec(html)) !== null && matches.length < 3) {
-            const text = match[1].replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '"').trim();
-            if (text.length > 20 && !text.includes('...'))
-                matches.push(text);
-        }
-        if (matches.length > 0) {
-            logger.info(`[Scraping] ✅ ${matches.length} resultados extraídos`);
-            return matches.join('\n\n');
-        }
-        logger.warn('[Scraping] Nenhum resultado extraído');
-        return null;
     }
     catch (error) {
-        logger.error('[Scraping] Erro:', error.message);
-        return null;
+        logger.error('[WebSearch] Falha na cota/busca Tavily:', error?.message);
     }
-}
-async function searchWebCascade(query, tavilyKey) {
-    logger.info(`[WebSearch] Iniciando cascata para: "${query}"`);
-    const tavilyResult = await searchWebTavily(query, tavilyKey);
-    if (tavilyResult)
-        return tavilyResult;
-    logger.info('[WebSearch] Tavily falhou, tentando scraping...');
-    const scrapingResult = await searchWebScraping(query);
-    if (scrapingResult)
-        return scrapingResult;
-    logger.warn('[WebSearch] Todas tentativas falharam');
+    logger.warn('[WebSearch] Sem resultado de busca disponível');
     return "Não consegui obter informações atualizadas no momento. Tente novamente em alguns instantes.";
 }
 async function fetchSafe(url, timeout = 8000) {
@@ -368,7 +382,6 @@ exports.askAiAdvisor = (0, https_1.onCall)({
         secrets_1.GEMINI_API_KEY,
         secrets_1.OPENROUTER_API_KEY,
         secrets_1.GROQ_API_KEY,
-        secrets_1.MISTRAL_API_KEY,
         secrets_1.BRAPI_TOKEN,
         secrets_1.TAVILY_API_KEY,
     ],
@@ -383,9 +396,6 @@ exports.askAiAdvisor = (0, https_1.onCall)({
             throw new https_1.HttpsError("unauthenticated", "Login necessário.");
         const { prompt, userName, history = [], isFirstInteraction, context: frontendContext = {} } = request.data;
         const { assets = [], passives = [], goals = [] } = frontendContext;
-        console.log("🔍 assets recebidos:", JSON.stringify(assets));
-        console.log("🔍 passives recebidos:", JSON.stringify(passives));
-        console.log("🔍 goals recebidos do frontend:", JSON.stringify(goals));
         const safeUserName = (userName || "Investidor").split(' ')[0];
         const userId = request.auth.uid;
         let isFirst;
@@ -423,16 +433,14 @@ exports.askAiAdvisor = (0, https_1.onCall)({
         let serverDebts = [];
         let serverAssets = [];
         let serverPassives = [];
+        let userPlan;
         try {
-            const userPlan = await getUserPlan(userId);
+            userPlan = await getUserPlan(userId);
             serverDebts = await getUserDebts(userId);
             serverAssets = await getUserAssets(userId);
             serverPassives = await getUserPassives(userId);
-            logger.info(`🔍 [DEBUG] userId: ${userId}`);
-            logger.info(`🔍 [DEBUG] Plano retornado: "${userPlan}"`);
-            logger.info(`🔍 [DEBUG] Tipo: ${typeof userPlan}`);
             historyDescription = describeHistoryWindow(userPlan);
-            logger.info(`🔍 [DEBUG] historyDescription: "${historyDescription}"`);
+            logger.info(`[DEBUG] Plano retornado: "${userPlan}" (tipo: ${typeof userPlan})`);
             userData = await data_integrator_1.DataIntegrator.gatherUserData(userId, userPlan);
         }
         catch (dataError) {
@@ -441,24 +449,14 @@ exports.askAiAdvisor = (0, https_1.onCall)({
         }
         const resolvedAssets = (assets && assets.length > 0) ? assets : serverAssets;
         const resolvedPassives = (passives && passives.length > 0) ? passives : serverPassives;
-        console.log("🔍 DEBUG - INÍCIO DO PROCESSAMENTO DE METAS");
-        console.log("🔍 userData existe?", !!userData);
-        console.log("🔍 userData.goals é array?", Array.isArray(userData?.goals));
-        console.log("🔍 Quantidade de goals em userData:", userData?.goals?.length || 0);
-        if (userData?.goals?.length > 0)
-            console.log("🔍 Primeira goal:", JSON.stringify(userData.goals[0]));
-        console.log("🔍 userData.hasData:", userData?.hasData);
+        logger.info(`[DEBUG] Metas em userData: ${userData?.goals?.length || 0}; hasData: ${userData?.hasData}`);
         const assetsSummary = data_integrator_1.DataIntegrator.formatAssetsSummary(resolvedAssets);
         const passivesSummary = data_integrator_1.DataIntegrator.formatPassivesSummary(resolvedPassives);
-        const debtsSummary = data_integrator_1.DataIntegrator.formatDebtsSummary(serverDebts);
+        const debtsSummary = (0, data_integrator_1.truncatePromptSegment)(data_integrator_1.DataIntegrator.formatDebtsSummary(serverDebts));
         const patrimonioVisaoGerencialStr = data_integrator_1.DataIntegrator.formatPatrimonioVisaoGerencial(resolvedAssets, resolvedPassives);
         const assetsSource = (assets && assets.length > 0) ? 'frontend' : 'server';
         const passivesSource = (passives && passives.length > 0) ? 'frontend' : 'server';
-        console.log(`🔍 resolvedAssets (${assetsSource}):`, JSON.stringify(resolvedAssets));
-        console.log(`🔍 resolvedPassives (${passivesSource}):`, JSON.stringify(resolvedPassives));
-        console.log("🔍 assetsSummary:", assetsSummary);
-        console.log("🔍 passivesSummary:", passivesSummary);
-        console.log("🔍 patrimonioVisaoGerencialStr:", patrimonioVisaoGerencialStr);
+        logger.info(`[DEBUG] Resolvidos via ${assetsSource}/${passivesSource}: ${resolvedAssets.length} ativos, ${resolvedPassives.length} passivos`);
         const validHistory = Array.isArray(history) ? history.filter((h) => h && h.text && h.text.trim()) : [];
         let marketData = "";
         const extracted = extractTickersFallback(prompt);
@@ -480,12 +478,11 @@ exports.askAiAdvisor = (0, https_1.onCall)({
         });
         let transactionsForPrompt = "Nenhuma transação registrada.";
         if (userData.recentTransactions && userData.recentTransactions.length > 0) {
-            transactionsForPrompt = data_integrator_1.DataIntegrator.formatTransactionsForPrompt(userData.recentTransactions, {
+            transactionsForPrompt = (0, data_integrator_1.truncatePromptSegment)(data_integrator_1.DataIntegrator.formatTransactionsForPrompt(userData.recentTransactions, {
                 ...context,
                 requestedFocus: context.intent === 'cashflow_query' ? 'cashflow' : context.intent === 'patrimony_query' ? 'patrimony' : 'general'
-            });
+            }));
         }
-        console.log("🔍 transactionsForPrompt:", transactionsForPrompt);
         let goalsForPrompt = "Nenhuma meta definida.";
         if (goals && goals.length > 0) {
             const mappedGoals = goals.map((g) => {
@@ -495,17 +492,11 @@ exports.askAiAdvisor = (0, https_1.onCall)({
                 const frequencia = g.frequencia || g.frequency || 'N/A';
                 return `• ${nome}: R$ ${valorNumerico.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${frequencia})`;
             }).join('\n');
-            goalsForPrompt = `**METAS DO USUÁRIO (${goals.length}):**\n${mappedGoals}`;
-            console.log("🔍 goalsForPrompt GERADO (frontend):", goalsForPrompt);
+            goalsForPrompt = (0, data_integrator_1.truncatePromptSegment)(`**METAS DO USUÁRIO (${goals.length}):**\n${mappedGoals}`);
         }
         else if (userData.goals && userData.goals.length > 0) {
-            goalsForPrompt = data_integrator_1.DataIntegrator.formatGoalsForPrompt(userData.goals, context);
-            console.log("🔍 goalsForPrompt GERADO (DataIntegrator):", goalsForPrompt);
+            goalsForPrompt = (0, data_integrator_1.truncatePromptSegment)(data_integrator_1.DataIntegrator.formatGoalsForPrompt(userData.goals, context));
         }
-        else {
-            console.log("🔍 goalsForPrompt permaneceu como padrão: 'Nenhuma meta definida.'");
-        }
-        console.log("🔍 goalsForPrompt:", goalsForPrompt);
         let avoidRepetition = "";
         if (validHistory.length >= 2) {
             const lastTwoUserMessages = validHistory.filter((h) => h.role === 'user').slice(-2);
@@ -541,6 +532,11 @@ exports.askAiAdvisor = (0, https_1.onCall)({
             { role: "user", content: prompt }
         ];
         logger.info('[Router] Primeira chamada para análise...');
+        const quota = await checkNexusQuota((0, firestore_1.getFirestore)(), userId, userPlan);
+        if (!quota.allowed) {
+            logger.warn(`[Quota] Cota diária esgotada (${quota.used}/${quota.quota})`);
+            throw new https_1.HttpsError('resource-exhausted', 'Limite diário de mensagens do Nexus atingido para o seu plano. Tente novamente amanhã.');
+        }
         const firstResponse = await router.routeRequest(messages, enhancedSystemPrompt, {
             temperature: 0.6,
             maxTokens: 1200,
@@ -592,62 +588,6 @@ exports.askAiAdvisor = (0, https_1.onCall)({
     catch (error) {
         logger.error("Erro Nexus:", error);
         return { success: false, answer: "Desculpe, ocorreu um erro temporário. Por favor, tente novamente.", error: error.message };
-    }
-});
-exports.testMistral = (0, https_1.onCall)({
-    timeoutSeconds: 30,
-    region: "us-central1",
-    secrets: [secrets_1.MISTRAL_API_KEY],
-}, async (request) => {
-    logger.info("🧪 TESTE MISTRAL - Iniciando...");
-    const apiKey = process.env.MISTRAL_API_KEY;
-    if (!apiKey) {
-        logger.error("❌ MISTRAL_API_KEY não configurada!");
-        return { success: false, error: "API Key não encontrada", details: "Configure MISTRAL_API_KEY no Firebase" };
-    }
-    logger.info("✅ API Key encontrada");
-    const testMessages = [
-        { role: "system", content: "Você é um assistente útil. Responda em português." },
-        { role: "user", content: "Diga apenas: 'Mistral funcionando corretamente!'" }
-    ];
-    const requestBody = { model: "mistral-small-latest", messages: testMessages, temperature: 0.7, max_tokens: 100 };
-    logger.info("📤 Enviando requisição para Mistral...");
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
-        const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-            body: JSON.stringify(requestBody),
-            signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-        logger.info(`📥 Response Status: ${response.status}`);
-        if (!response.ok) {
-            const errorText = await response.text();
-            logger.error(`❌ Mistral HTTP ${response.status}: ${errorText}`);
-            return { success: false, error: `HTTP ${response.status}`, details: errorText.substring(0, 500) };
-        }
-        const data = await response.json();
-        const content = data.choices?.[0]?.message?.content;
-        if (!content) {
-            logger.error("❌ Resposta sem conteúdo");
-            return { success: false, error: "Resposta vazia", details: JSON.stringify(data) };
-        }
-        logger.info("✅ MISTRAL FUNCIONANDO!");
-        logger.info(`Resposta: ${content}`);
-        return {
-            success: true,
-            message: "✅ Mistral funcionando corretamente!",
-            response: content,
-            model: data.model || "mistral-small-latest",
-            tokensUsed: data.usage?.total_tokens || 0,
-            details: { promptTokens: data.usage?.prompt_tokens, completionTokens: data.usage?.completion_tokens }
-        };
-    }
-    catch (error) {
-        logger.error(`❌ Erro na requisição: ${error.message}`);
-        return { success: false, error: error.name, message: error.message, details: "Verifique se a API key é válida e se o modelo existe" };
     }
 });
 //# sourceMappingURL=askAiAdvisor.js.map

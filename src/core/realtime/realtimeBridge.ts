@@ -1,6 +1,6 @@
 import type { QueryKey } from '@tanstack/react-query';
 import { queryClient } from '../query/queryClient';
-import type { Query, DocumentSnapshot, QuerySnapshot, DocumentReference } from 'firebase/firestore';
+import type { Query, DocumentSnapshot, QuerySnapshot, DocumentReference, FirestoreError } from 'firebase/firestore';
 import { onSnapshot } from 'firebase/firestore';
 import type { DataSnapshot, Query as RTDBQuery } from 'firebase/database';
 import { onValue } from 'firebase/database';
@@ -71,15 +71,19 @@ export const createRealtimeBridge = <T>(options: RealtimeBridgeOptions<T>) => {
       if (options.type === 'firestore') {
         const { query, mapSnapshot, queryKey } = options;
         unsubscribe = onSnapshot(
+          // O SDK expõe overloads separados para Query e DocumentReference;
+          // o cast pontual preserva o union suportado por FirestoreBridgeOptions.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           query as any,
-          (snapshot: any) => {
+          (snapshot: QuerySnapshot | DocumentSnapshot) => {
             const data = mapSnapshot(snapshot);
-            if (!shouldSkipSetQueryData(queryKey, data)) {
+            const changed = !shouldSkipSetQueryData(queryKey, data);
+            if (changed) {
               queryClient.setQueryData(queryKey, data);
+              onUpdate(data);
             }
-            onUpdate(data);
           },
-          (error: any) => {
+          (error: FirestoreError) => {
             console.error(`Firestore listener error [${JSON.stringify(queryKey)}]:`, error?.code, error?.message);
           },
         );
@@ -87,10 +91,11 @@ export const createRealtimeBridge = <T>(options: RealtimeBridgeOptions<T>) => {
         const { query, mapSnapshot, queryKey } = options;
         unsubscribe = onValue(query, (snapshot) => {
           const data = mapSnapshot(snapshot);
-          if (!shouldSkipSetQueryData(queryKey, data)) {
+          const changed = !shouldSkipSetQueryData(queryKey, data);
+          if (changed) {
             queryClient.setQueryData(queryKey, data);
+            onUpdate(data);
           }
-          onUpdate(data);
         });
       }
 

@@ -1,5 +1,9 @@
 import type { FinancialProfile } from '../types';
 
+/** Safe rounding to 2 decimal places using exponential notation.
+ *  Avoids IEEE-754 representation errors that Number.EPSILON strategies can miss. */
+const r2 = (n: number): number => Number(Math.round(Number(n + 'e2')) + 'e-2');
+
 export type SovereignMode = 'rotina' | 'comando';
 
 export interface SovereignMetrics {
@@ -25,6 +29,10 @@ export interface SovereignSnapshot extends SovereignMetrics {
   accumulatedIncome: number;
   accumulatedExpenses: number;
   obligationsDeduction: number;
+  /** Card invoice remaining + rotativo debt balance (NOT isVirtual expenses).
+   *  Input parameter is named 'obligationPressure' to avoid confusion with
+   *  flow.virtualImpact from aggregateMonthFlow. */
+  virtualImpact: number;
   totalCreditUsed?: number;
   totalDebtBalance?: number;
 }
@@ -75,6 +83,15 @@ type TxLike = {
   paymentMethod?: string;
   date: string;
   isVirtual?: boolean;
+  id?: string;
+  description?: string;
+  cardId?: string;
+  isBillPayment?: boolean;
+  linkedCardId?: string;
+  linkedRecurringBillId?: string;
+  installments?: number;
+  currentInstallment?: number;
+  installmentId?: string;
 };
 
 export function aggregateMonthFlow(
@@ -119,8 +136,9 @@ export function aggregateMonthFlow(
     }
   }
 
-  return { income, expenses, realBalance, virtualImpact, cashExpenses, creditExpenses, virtualExpenses };
+  return { income: r2(income), expenses: r2(expenses), realBalance: r2(realBalance), virtualImpact: r2(virtualImpact), cashExpenses: r2(cashExpenses), creditExpenses: r2(creditExpenses), virtualExpenses: r2(virtualExpenses) };
 }
+
 
 export function aggregateAllTimeFlow(transactions: TxLike[]): MonthFlow {
   let income = 0;
@@ -153,7 +171,7 @@ export function aggregateAllTimeFlow(transactions: TxLike[]): MonthFlow {
     }
   }
 
-  return { income, expenses, realBalance, virtualImpact, cashExpenses, creditExpenses, virtualExpenses };
+  return { income: r2(income), expenses: r2(expenses), realBalance: r2(realBalance), virtualImpact: r2(virtualImpact), cashExpenses: r2(cashExpenses), creditExpenses: r2(creditExpenses), virtualExpenses: r2(virtualExpenses) };
 }
 
 export function getProtectionBuffer(financialProfile?: FinancialProfile): number {
@@ -177,14 +195,16 @@ export function computeSovereignMetrics(
   virtualImpact: number,
   pendingBills: number,
   accumulatedBalance: number,
-  financialProfile?: FinancialProfile
+  financialProfile?: FinancialProfile,
+  exclusions?: number
 ): SovereignMetrics {
   const colchaoShortfall = getColchaoShortfall(financialProfile);
   const reserveShortfall = getReserveShortfall(financialProfile);
   const protectionShortfall = colchaoShortfall + reserveShortfall;
   const protectionBuffer = getProtectionBuffer(financialProfile);
   const projectedBalance = monthBalance - virtualImpact - pendingBills;
-  const sovereignFreeBalance = accumulatedBalance - virtualImpact - pendingBills - protectionShortfall;
+  const exclusionsAmount = exclusions ?? 0;
+  const sovereignFreeBalance = accumulatedBalance - virtualImpact - pendingBills - protectionShortfall - exclusionsAmount;
   const freedomDeficit = sovereignFreeBalance < 0 ? Math.abs(sovereignFreeBalance) : 0;
 
   return {
@@ -200,12 +220,36 @@ export function computeSovereignMetrics(
   };
 }
 
+export interface ObligationPressureSource {
+  computedTotal: number;
+  paidAmount: number;
+  storedRemaining?: number | null;
+  rotativoConverted?: boolean;
+}
+
+/** Compõe a pressão de obrigações (faturas + rotativo) a partir de fontes por cartão.
+ *  Fonte única de verdade do cálculo; camadas de dados (Etapa 3) fornecem as entradas. */
+export function resolveObligationPressure(
+  sources: ObligationPressureSource[],
+  rotativoDebtBalance: number
+): number {
+  const invoices = sources.reduce((sum, s) => {
+    if (s.rotativoConverted) return sum;
+    if (s.storedRemaining !== undefined && s.storedRemaining !== null) return sum + s.storedRemaining;
+    return sum + Math.max(0, s.computedTotal - s.paidAmount);
+  }, 0);
+  return invoices + (rotativoDebtBalance || 0);
+}
+
 export interface BuildSovereignSnapshotParams {
   monthBalance: number;
   accumulatedBalance: number;
   accumulatedIncome: number;
   accumulatedExpenses: number;
-  virtualImpact?: number;
+  /** Total of card invoice remaining + rotativo debt balance.
+   *  Named 'obligationPressure' to distinguish from flow.virtualImpact
+   *  (isVirtual expenses in aggregateMonthFlow). */
+  obligationPressure?: number;
   pendingBills?: number;
   financialProfile?: FinancialProfile;
   commandMode: boolean;
@@ -213,21 +257,22 @@ export interface BuildSovereignSnapshotParams {
   monthlyAport?: number;
   income?: number;
   expenses?: number;
-  rotativoDebtBalance?: number;
+  exclusions?: number;
 }
 
 export function buildSovereignSnapshot(params: BuildSovereignSnapshotParams): SovereignSnapshot {
-  const virtualImpact = (params.virtualImpact ?? 0) + (params.rotativoDebtBalance ?? 0);
+  const obligationPressure = params.obligationPressure ?? 0;
   const pendingBills = params.pendingBills ?? 0;
   const income = params.income ?? 0;
   const expenses = params.expenses ?? params.monthlyExpenses ?? 0;
 
   const metrics = computeSovereignMetrics(
     params.monthBalance,
-    virtualImpact,
+    obligationPressure,
     pendingBills,
     params.accumulatedBalance,
-    params.financialProfile
+    params.financialProfile,
+    params.exclusions
   );
 
   const mode: SovereignMode = params.commandMode ? 'comando' : 'rotina';
@@ -253,7 +298,8 @@ export function buildSovereignSnapshot(params: BuildSovereignSnapshotParams): So
     expenses,
     accumulatedIncome: params.accumulatedIncome,
     accumulatedExpenses: params.accumulatedExpenses,
-    obligationsDeduction: virtualImpact + pendingBills,
+    obligationsDeduction: obligationPressure + pendingBills,
+    virtualImpact: obligationPressure,
   };
 }
 
@@ -264,6 +310,9 @@ export interface LaunchImpactPreview {
   newValue: number;
 }
 
+/** Contrato: despesa no crédito retorna `null` (sem impacto imediato no caixa;
+ *  o efeito aparece na pressão futura da fatura). A superfície chamadora
+ *  (ex.: NexusInlineAdvisor) exibe copy alternativa para esse caso. */
 export function computeLaunchImpact(
   snapshot: SovereignSnapshot,
   draftAmount: number,
@@ -323,7 +372,21 @@ export const calculateFreedomVelocity = (
   return parseFloat(velocity.toFixed(1));
 };
 
-export const calculateCompoundInterest = () => ({ total: 0 });
+export function calculatePreviousMonthClose(transactions: TxLike[], refDate: Date): number {
+  const prevMonth = refDate.getMonth() === 0 ? 11 : refDate.getMonth() - 1;
+  const prevYear = refDate.getMonth() === 0 ? refDate.getFullYear() - 1 : refDate.getFullYear();
+  const endOfPrevMonth = new Date(prevYear, prevMonth + 1, 0).getDate();
+  const endPrefix = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-${String(endOfPrevMonth).padStart(2, '0')}`;
+  
+  let balance = 0;
+  for (const t of transactions) {
+    if (!t.date || t.date > endPrefix) continue;
+    const val = Number(t.amount) || 0;
+    if (t.type === 'income') balance += val;
+    else if (t.paymentMethod !== 'credit' && !t.isVirtual) balance -= val;
+  }
+  return r2(balance);
+}
 
 export const maskCurrency = (val: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
@@ -485,15 +548,15 @@ export function calculateRealCashBalance(
       const cardTxs = [];
       for (let i = 0; i < transactions.length; i++) {
         const t = transactions[i];
-        if ((t as any).cardId === card.id && t.type === 'expense' && t.date >= ps && t.date <= pe) {
+        if (t.cardId === card.id && t.type === 'expense' && t.date >= ps && t.date <= pe) {
           cardTxs.push({
-            id: (t as any).id || '',
-            description: (t as any).description || '',
+            id: t.id || '',
+            description: t.description || '',
             amount: Number(t.amount) || 0,
             date: t.date,
-            installments: (t as any).installments,
-            currentInstallment: (t as any).currentInstallment,
-            installmentId: (t as any).installmentId,
+            installments: t.installments,
+            currentInstallment: t.currentInstallment,
+            installmentId: t.installmentId,
           });
         }
       }
@@ -521,15 +584,15 @@ export function calculateRealCashBalance(
       const txs = [];
       for (let i = 0; i < transactions.length; i++) {
         const t = transactions[i];
-        if ((t as any).cardId === fat.cardId && t.type === 'expense' && t.date >= fat.periodStart && t.date <= fat.periodEnd) {
+        if (t.cardId === fat.cardId && t.type === 'expense' && t.date >= fat.periodStart && t.date <= fat.periodEnd) {
           txs.push({
-            id: (t as any).id || '',
-            description: (t as any).description || '',
+            id: t.id || '',
+            description: t.description || '',
             amount: Number(t.amount) || 0,
             date: t.date,
-            installments: (t as any).installments,
-            currentInstallment: (t as any).currentInstallment,
-            installmentId: (t as any).installmentId,
+            installments: t.installments,
+            currentInstallment: t.currentInstallment,
+            installmentId: t.installmentId,
           });
         }
       }
@@ -544,14 +607,15 @@ export function calculateRealCashBalance(
     else faturasAbertas.push(fat);
   }
 
+
   /* ─── Gastos futuros no mês (à vista, data > hoje) ─── */
   const gastosFuturosMes: LancamentoFuturoInfo[] = [];
   for (let i = 0; i < transactions.length; i++) {
     const t = transactions[i];
     if (t.date > hojeStr && t.date <= mesEnd && t.type === 'expense' && t.paymentMethod !== 'credit' && !t.isVirtual) {
       gastosFuturosMes.push({
-        id: (t as any).id || '',
-        description: (t as any).description || '',
+        id: t.id || '',
+        description: t.description || '',
         amount: Number(t.amount) || 0,
         date: t.date,
       });
@@ -568,7 +632,7 @@ export function calculateRealCashBalance(
     let jaPaga = false;
     for (let j = 0; j < transactions.length; j++) {
       const t = transactions[j];
-      if (t.type === 'expense' && (t as any).isBillPayment && (t as any).linkedRecurringBillId === bill.id) {
+      if (t.type === 'expense' && t.isBillPayment && t.linkedRecurringBillId === bill.id) {
         if (t.date >= `${currentYear}-${String(currentMonth).padStart(2, '0')}-01` && t.date <= hojeStr) {
           jaPaga = true;
           break;
@@ -595,11 +659,11 @@ export function calculateRealCashBalance(
   }
 
   return {
-    saldoReal,
-    totalReceitas,
-    totalDespesasAVista,
-    receitasMes,
-    despesasMes,
+    saldoReal: r2(saldoReal),
+    totalReceitas: r2(totalReceitas),
+    totalDespesasAVista: r2(totalDespesasAVista),
+    receitasMes: r2(receitasMes),
+    despesasMes: r2(despesasMes),
     faturasFechadas,
     faturasAbertas,
     gastosFuturosMes,

@@ -9,10 +9,12 @@ export interface YearMonth {
 // (useInfiniteMonthScroll), pelo AgendaHub e pelos testes sem duplicação.
 export type ScrollDirection = 'forward' | 'backward';
 
-// Chave canônica de mês — mesmo formato usado em groupSeedByMonth e no
-// Record<string, AgendaCommitment[]> de meses carregados.
+// Chave canônica de mês — formato com zero-pad (`2026-05`), usado em
+// groupSeedByMonth, no Record<string, AgendaCommitment[]> de meses carregados,
+// no atributo `data-month-section` do render e em todas as buscas por seção.
+// Fonte única: nunca monte a chave com template literal fora daqui.
 export function monthKey(year: number, month: number): string {
-  return `${year}-${month}`;
+  return `${year}-${String(month).padStart(2, '0')}`;
 }
 
 // Avança/recua `offset` meses a partir de (year, month), cruzando fronteiras de

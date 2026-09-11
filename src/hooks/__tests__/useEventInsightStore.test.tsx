@@ -106,7 +106,7 @@ describe('useEventInsightStore', () => {
     const { result } = renderHook(() => useEventInsightStore());
 
     act(() => {
-      setEventInsight(makeInsight('first', { priority: 'media' }));
+      setEventInsight(makeInsight('first', 'media'));
     });
 
     act(() => {
@@ -114,7 +114,7 @@ describe('useEventInsightStore', () => {
     });
 
     act(() => {
-      setEventInsight(makeInsight('second', { priority: 'media' }));
+      setEventInsight(makeInsight('second', 'media'));
     });
 
     expect(result.current.feed).toHaveLength(2);

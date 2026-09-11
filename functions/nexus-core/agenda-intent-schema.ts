@@ -46,10 +46,21 @@ export const dateResolutionSchema = z.object({
 });
 export type DateResolution = z.infer<typeof dateResolutionSchema>;
 
+/**
+ * Dia da semana da recorrência: 1=segunda até 7=domingo. Aceita um número
+ * ÚNICO (canônico, o que todo o pipeline downstream usa) OU um array de
+ * números (ex.: [1] para segundas) — o interpret normaliza o array para o
+ * primeiro elemento em normalizeEnvelopeDates antes da validação. Obrigatório
+ * quando freq === 'weekly' (validado em validateAgendaEnvelope).
+ */
 export const recurrenceSchema = z.object({
   freq: z.enum(RECURRENCE_FREQS),
-  /** 1..7, seg=1. Obrigatório quando freq === 'weekly' (validado em validateAgendaEnvelope). */
-  byDay: z.number().int().min(1).max(7).optional(),
+  byDay: z
+    .union([
+      z.number().int().min(1).max(7),
+      z.array(z.number().int().min(1).max(7)).min(1).max(7),
+    ])
+    .optional(),
   until: dateResolutionSchema.optional(),
 });
 export type RecurrenceSpec = z.infer<typeof recurrenceSchema>;
@@ -71,15 +82,25 @@ export const entitiesSchema = z
   .object({
     title: z.string().min(1).max(200).optional(),
     date: dateResolutionSchema.optional(),
-    /** Horário de início, formato HH:mm. */
+    /**
+     * Horário de início, formato HH:mm. Aceita null (ausência) — o LLM real
+     * emite "startTime": null quando não há horário; o interpret normaliza
+     * null → undefined antes das regras de negócio.
+     */
     startTime: z
       .string()
       .regex(ISO_TIME_REGEX, 'startTime deve estar no formato HH:mm')
+      .nullable()
       .optional(),
-    /** Horário de término (duração), formato HH:mm. */
+    /**
+     * Horário de término (duração), formato HH:mm. Aceita null (ausência) — o
+     * LLM real emite "endTime": null quando não há duração; o interpret
+     * normaliza null → undefined antes das regras de negócio.
+     */
     endTime: z
       .string()
       .regex(ISO_TIME_REGEX, 'endTime deve estar no formato HH:mm')
+      .nullable()
       .optional(),
     recurrence: recurrenceSchema.optional(),
     location: z
@@ -129,6 +150,21 @@ export const agendaEnvelopeSchema = z
   })
   .strict();
 export type AgendaEnvelope = z.infer<typeof agendaEnvelopeSchema>;
+
+/**
+ * Estado editável de um compromisso na fase de edição (v1: compromisso único).
+ * `date` é o dia civil em America/Sao_Paulo (YYYY-MM-DD). `null` representa a
+ * ausência intencional de um campo opcional ("sem local", "sem participantes").
+ */
+export interface AgendaEditSnapshot {
+  title: string;
+  date: string;
+  startTime?: string | null;
+  endTime?: string | null;
+  location?: string | null;
+  participants?: string[] | null;
+  notes?: string | null;
+}
 
 // ─────────────────────────── Bom pareamento intenção/ação ─────────────────
 
@@ -202,10 +238,14 @@ export function validateAgendaEnvelope(env: AgendaEnvelope): EnvelopeValidation 
     if (!env.entities.title) {
       errors.push('entities.title é obrigatório para create/edit.');
     }
-    if (!env.entities.date) {
-      errors.push('entities.date é obrigatório para create/edit.');
-    } else if (env.entities.date.confidence === 'low') {
+    if (env.intent === 'create' && !env.entities.date) {
+      errors.push('entities.date é obrigatório para create.');
+    }
+    if (env.entities.date && env.entities.date.confidence === 'low') {
       errors.push('entities.date tem confiança baixa — solicite confirmação da data antes de gravar.');
+    }
+    if (env.intent === 'edit' && env.entities.recurrence) {
+      errors.push('entities.recurrence não é suportado em edição de compromissos.');
     }
     if (env.entities.location !== undefined && env.entities.location === '') {
       errors.push('entities.location não pode ser uma string vazia; use null para ausência.');

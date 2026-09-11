@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { getCurrentInvoice } from '../invoiceUtils';
-import type { CreditCard, Transaction } from '../../types';
+import { getCurrentInvoice, isBillPaid } from '../invoiceUtils';
+import type { CreditCard, Transaction, RecurringBill } from '../../types';
 
 describe('invoiceUtils - getCurrentInvoice', () => {
   const mockCard: CreditCard = {
@@ -68,5 +68,84 @@ describe('invoiceUtils - getCurrentInvoice', () => {
 
     const result = getCurrentInvoice(mockCard, mixedTransactions);
     expect(result?.total).toBe(100);
+  });
+});
+
+describe('invoiceUtils - isBillPaid (contrato seguro)', () => {
+  const bill: RecurringBill = {
+    id: 'b1',
+    userId: 'u1',
+    name: 'Conta de Luz',
+    amount: 120,
+    dueDay: 10,
+    category: 'Casa',
+    isActive: true,
+    type: 'fixed',
+  };
+
+  const tx = (over: Partial<Transaction>): Transaction => ({
+    id: 'x',
+    userId: 'u1',
+    type: 'expense',
+    date: '2026-05-12',
+    description: 'Conta de Luz',
+    category: 'Casa',
+    amount: 120,
+    ...over,
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('Regra 1: linkedRecurringBillId exato marca como paga mesmo com descrição/valor divergentes', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-20T12:00:00Z'));
+    expect(isBillPaid(bill, [tx({ linkedRecurringBillId: 'b1', description: 'outra coisa', amount: 999 })])).toBe(true);
+  });
+
+  it('link para outra conta não marca como paga, mesmo com nome exato', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-20T12:00:00Z'));
+    expect(isBillPaid(bill, [tx({ linkedRecurringBillId: 'b9' })])).toBe(false);
+  });
+
+  it('nome parcial nunca marca como paga', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-20T12:00:00Z'));
+    expect(isBillPaid(bill, [tx({ description: 'Luz' })])).toBe(false);
+    expect(isBillPaid(bill, [tx({ description: 'Conta de Luzerne' })])).toBe(false);
+  });
+
+  it('categoria sozinha nunca marca como paga', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-20T12:00:00Z'));
+    expect(isBillPaid(bill, [tx({ description: 'Aluguel mensal' })])).toBe(false);
+  });
+
+  it('legado: nome normalizado exato + valor compatível marca como paga', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-20T12:00:00Z'));
+    expect(isBillPaid(bill, [tx({ description: '  conta DE luz  ', amount: 120.5 })])).toBe(true);
+  });
+
+  it('legado: nome exato com valor divergente permanece pendente', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-20T12:00:00Z'));
+    expect(isBillPaid(bill, [tx({ amount: 300 })])).toBe(false);
+  });
+
+  it('legado: nomes vazios nunca casam', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-20T12:00:00Z'));
+    const emptyBill = { ...bill, name: '' };
+    expect(isBillPaid(emptyBill, [tx({ description: '' })])).toBe(false);
+  });
+
+  it('ignora receitas e lançamentos de outro mês', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-20T12:00:00Z'));
+    expect(isBillPaid(bill, [tx({ type: 'income', linkedRecurringBillId: 'b1' })])).toBe(false);
+    expect(isBillPaid(bill, [tx({ date: '2026-04-12', linkedRecurringBillId: 'b1' })])).toBe(false);
   });
 });

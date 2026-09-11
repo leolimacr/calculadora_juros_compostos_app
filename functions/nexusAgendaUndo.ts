@@ -1,6 +1,7 @@
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { randomUUID } from 'node:crypto';
+import { sanitizeForFirestore, getAllInBatches } from './nexusAgendaCommit';
 
 export const UNDO_TTL_MS = 60 * 1000;
 export const UNDO_BATCH_SIZE = 400;
@@ -30,6 +31,15 @@ export interface UndoResult {
   actionId: string;
   status: 'undone';
   idsRemoved: string[];
+}
+
+/** Undo parcial estruturado: parte dos documentos foi removida antes da falha. */
+export interface PartialUndoResult {
+  success: false;
+  actionId: string;
+  status: 'partial';
+  idsRemoved: string[];
+  error: string;
 }
 
 export interface UndoDependencies {
@@ -71,7 +81,7 @@ export async function executeAgendaUndo(
   request: UndoRequest,
   dependencies: UndoDependencies,
   now = Date.now(),
-): Promise<UndoResult> {
+): Promise<UndoResult | PartialUndoResult> {
   if (!request.actionId || typeof request.actionId !== 'string') {
     throw new HttpsError('invalid-argument', 'actionId é obrigatório.');
   }
@@ -122,9 +132,18 @@ export async function executeAgendaUndo(
       undoError: message,
       idsRemoved: removed.map((document) => document.id),
     });
-    throw new HttpsError('internal', removed.length > 0
-      ? `O undo foi parcialmente concluído e precisa de reconciliação. (${message})`
-      : `Não foi possível desfazer a operação. (${message})`);
+    if (removed.length > 0) {
+      // Parcial é resposta estruturada (não exceção), espelhando o commit.
+      const partialResult: PartialUndoResult = {
+        success: false,
+        actionId: request.actionId,
+        status: 'partial',
+        idsRemoved: removed.map((document) => document.id),
+        error: message,
+      };
+      return partialResult;
+    }
+    throw new HttpsError('internal', `Não foi possível desfazer a operação. (${message})`);
   }
 }
 
@@ -144,18 +163,23 @@ function buildFirestoreDependencies(db: ReturnType<typeof getFirestore>): UndoDe
         if (audit.status !== 'committed') return { kind: 'rejected' as const, reason: 'A ação não está disponível para undo.' };
         const createdAtMs = millis(audit.createdAtMs) ?? millis(audit.createdAt);
         if (!createdAtMs || nowMs - createdAtMs > UNDO_TTL_MS) return { kind: 'rejected' as const, reason: 'O prazo para desfazer expirou.' };
-        transaction.update(ref, { status: 'undo_processing', undoId, undoStartedAt: Timestamp.fromMillis(nowMs) });
+        transaction.update(ref, sanitizeForFirestore({ status: 'undo_processing', undoId, undoStartedAt: Timestamp.fromMillis(nowMs) }) as Record<string, unknown>);
         return { kind: 'claimed' as const, audit: { ...audit, status: 'undo_processing', undoId } };
       });
     },
     async readOwnedDocuments(uid, ids, actionId, token) {
+      const snapshots = await getAllInBatches(
+        db as unknown as Parameters<typeof getAllInBatches>[0],
+        (ownerId, id) => db.doc(commitmentPath(ownerId, id)),
+        uid,
+        ids,
+      );
       const result: OwnedDocument[] = [];
-      for (const id of ids) {
-        const snapshot = await db.doc(commitmentPath(uid, id)).get();
+      for (const snapshot of snapshots) {
         if (!snapshot.exists) continue;
-        const data = snapshot.data() as Record<string, unknown>;
+        const data = (snapshot.data() ?? {}) as Record<string, unknown>;
         if (data.createdBy === 'nexus' && data.createdByActionId === actionId && data.createdByToken === token) {
-          result.push({ id, data });
+          result.push({ id: snapshot.id, data });
         }
       }
       return result;
@@ -166,7 +190,7 @@ function buildFirestoreDependencies(db: ReturnType<typeof getFirestore>): UndoDe
       await batch.commit();
     },
     async finalizeAudit(uid, actionId, patch) {
-      await db.doc(auditPath(uid, actionId)).update({ ...patch, updatedAt: Timestamp.now() });
+      await db.doc(auditPath(uid, actionId)).update(sanitizeForFirestore({ ...patch, updatedAt: Timestamp.now() }) as Record<string, unknown>);
     },
   };
 }

@@ -1,4 +1,5 @@
-import type { Transaction, DebtItem, CreditCard, CardInvoice } from '../../types';
+import type { Transaction, CreditCard, CardInvoice } from '../../types';
+import type { DebtItem } from '../../services/debt';
 
 export interface DomainEvent<T = any> {
   timestamp: number;

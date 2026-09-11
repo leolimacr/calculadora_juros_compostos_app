@@ -5,6 +5,10 @@ import type { Transaction } from '../types';
 import { createRealtimeBridge } from '../core/realtime/realtimeBridge';
 import { queryKeys } from '../core/query/queryKeys';
 
+/** Bridge RTDB para transações do mês corrente.
+ *  limitToLast(100) — cap por sessão. Transações antigos são carregados
+ *  via fetchMonth (get) sob demanda no useTransactions. Se o usuário tiver
+ *  >100 transações no mês corrente, a cauda não aparece neste snapshot. */
 export const createTransactionsRealtimeBridge = (userId: string) => {
   return createRealtimeBridge<Transaction[]>({
     queryKey: queryKeys.transactions.byUser(userId),

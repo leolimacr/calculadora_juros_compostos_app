@@ -13,6 +13,21 @@ interface PendingObligationsProps {
   onNavigate?: (tool: string, state?: any) => void;
 }
 
+/** Formata DD/MM de forma segura: data ausente/inválida retorna null (nunca "Invalid Date"). */
+export function formatCycleDate(dueDate: string | undefined | null): string | null {
+  if (!dueDate) return null;
+  const parsed = new Date(dueDate.replace(/-/g, '/'));
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
+/** Grade de faturas pelo volume, sem trilhas vazias. Exportada para testes. */
+export function invoiceGridClass(count: number): string {
+  if (count <= 1) return 'grid grid-cols-1 md:max-w-md gap-4';
+  if (count === 2) return 'grid grid-cols-1 md:grid-cols-2 gap-4';
+  return 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4';
+}
+
 const PendingObligations: React.FC<PendingObligationsProps> = ({
   activeInvoices,
   pendingBills,
@@ -26,7 +41,7 @@ const PendingObligations: React.FC<PendingObligationsProps> = ({
 
   if (activeInvoices.length === 0 && pendingBills.length === 0 && recurringBills.length === 0) return null;
 
-  const fmt = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  const fmt = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const hasPendencies = activeInvoices.length > 0 || pendingBills.length > 0;
   const anyOverdue = activeInvoices.some(inv => {
@@ -44,11 +59,25 @@ const PendingObligations: React.FC<PendingObligationsProps> = ({
       ? 'border-l-4 border-l-brand-accent/40'
       : '';
 
+  const invoiceCount = activeInvoices.length;
+  // Grade pelo volume, sem trilhas vazias (ver invoiceGridClass).
+  const gridClass = invoiceGridClass(invoiceCount);
+
   return (
-    <div className={`bg-surface-primary border border-surface-elevated rounded-4xl p-5 shadow-card space-y-4 ${sectionBorder}`}>
+    <div className={`bg-surface-primary border border-slate-200 rounded-panel p-5 shadow-panel space-y-4 ${sectionBorder}`}>
+      <div>
+        <h2 className="text-sm font-black text-text-primary tracking-tight">Obrigações do mês</h2>
+        <p className="text-[11px] text-text-muted font-medium mt-0.5">
+          Faturas do ciclo e contas fixas recorrentes
+        </p>
+      </div>
       {/* SEÇÃO DE FATURAS */}
-      {activeInvoices.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {invoiceCount > 0 && (
+        <div className="space-y-2.5">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-text-muted px-1">
+            Faturas do ciclo
+          </p>
+          <div className={gridClass}>
           {activeInvoices.map((inv) => (
             <div
               key={inv.cardId}
@@ -62,53 +91,63 @@ const PendingObligations: React.FC<PendingObligationsProps> = ({
                   onNavigate?.('manager', { openCards: true, focusedCardId: inv.cardId });
                 }
               }}
-              className="bg-surface-primary border border-surface-elevated p-4 rounded-3xl shadow-soft flex items-center gap-4 group cursor-pointer hover:border-brand-secondary/40 hover:shadow-md transition-all active:scale-[0.98]"
+              className="bg-surface-subtle border border-slate-200 p-4 rounded-section flex items-center gap-4 group cursor-pointer hover:border-slate-300 transition-all active:scale-[0.98]"
             >
               <div className="p-3 bg-brand-secondary/10 rounded-2xl text-brand-secondary group-hover:scale-110 transition-transform">
                 <CardIcon size={20} />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-text-muted text-[10px] font-black uppercase tracking-widest truncate">
-                  Fatura do ciclo • {inv.cardName}
+                  {inv.cardName}
                 </p>
-                <h3 className="text-lg font-black text-text-primary mt-0.5">
+                <h3 className="text-lg font-black text-text-primary mt-0.5 tabular-nums break-words">
                   {isPrivacyMode ? '••••' : `R$ ${fmt(inv.total)}`}
                 </h3>
-                <p className="text-xxs font-bold text-text-muted uppercase tracking-tighter mt-1">
-                  Sai da folga do mês em {new Date(inv.dueDate?.replace(/-/g, '/') || '').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                </p>
+                {formatCycleDate(inv.dueDate) ? (
+                  <p className="text-[11px] font-bold text-text-muted mt-1">
+                    Sai da folga do mês{' '}
+                    <span className="font-black text-slate-700">
+                      em {formatCycleDate(inv.dueDate)}
+                    </span>
+                  </p>
+                ) : (
+                  <p className="text-[11px] font-medium text-text-muted mt-1">
+                    Vencimento a definir
+                  </p>
+                )}
               </div>
             </div>
           ))}
+          </div>
         </div>
       )}
 
       {/* SEÇÃO DE CONTAS RECORRENTES */}
       {recurringBills.length > 0 && (
-        <div className="space-y-3">
+        <div className={`space-y-3 ${invoiceCount > 0 ? 'border-t border-slate-200 pt-4' : ''}`}>
           <button
             type="button"
             onClick={() => setBillsExpanded((prev) => !prev)}
-            className="w-full flex items-center justify-between gap-3 py-2.5 border-b border-surface-elevated hover:border-brand-primary/30 transition-colors group"
+            className="w-full flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-3 border-b border-surface-elevated hover:border-brand-primary/30 transition-colors group min-h-[44px]"
             aria-expanded={billsExpanded}
           >
-            <div className="flex items-center gap-2.5">
-              <Clock size={15} className="text-text-muted group-hover:text-brand-primary transition-colors" />
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Clock size={15} className="text-text-muted group-hover:text-brand-primary transition-colors shrink-0" />
               <p className="text-[11px] font-black uppercase tracking-ultra-wide text-text-muted group-hover:text-text-primary transition-colors">
                 Contas Fixas Recorrentes
               </p>
-              <span className="text-[10px] font-bold text-text-muted bg-surface-elevated/60 px-2 py-0.5 rounded-lg">
+              <span className="text-[10px] font-bold text-text-muted bg-surface-elevated/60 px-2 py-0.5 rounded-lg whitespace-nowrap">
                 {pendingBills.length} pendente{pendingBills.length !== 1 ? 's' : ''}
               </span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 ml-auto">
               {pendingBills.length > 0 && (
-                <span className="text-xs font-black text-text-muted">
+                <span className="text-xs font-black text-text-muted tabular-nums whitespace-nowrap">
                   {isPrivacyMode ? '••••' : `R$ ${fmt(pendingBills.reduce((s, b) => s + b.amount, 0))}`}
                 </span>
               )}
               <ChevronDown
-                size={14}
+                size={16}
                 className={`text-text-muted transition-transform duration-200 ${billsExpanded ? 'rotate-180' : ''}`}
               />
             </div>
@@ -153,25 +192,25 @@ const PendingObligations: React.FC<PendingObligationsProps> = ({
                 let iconStyle: string;
                 let statusBadgeStyle: string;
                 if (inactive) {
-                  rowStyle = 'bg-surface-secondary/50 border-surface-elevated/50 opacity-60';
+                  rowStyle = 'bg-surface-secondary/50 border-surface-elevated/50';
                   iconStyle = 'bg-surface-elevated/50 text-text-muted';
                   statusBadgeStyle = 'text-text-muted bg-surface-elevated/70';
                 } else if (paid) {
                   rowStyle = 'bg-status-success/5 border-status-success/20';
-                  iconStyle = 'bg-status-success/10 text-status-success';
-                  statusBadgeStyle = 'text-status-success bg-status-success/10';
+                  iconStyle = 'bg-status-success/10 text-action-primaryDark';
+                  statusBadgeStyle = 'text-action-primaryDark bg-status-success/10';
                 } else if (dueDay < today) {
                   rowStyle = 'bg-status-danger/5 border-status-danger/20';
-                  iconStyle = 'bg-status-danger/10 text-status-danger';
-                  statusBadgeStyle = 'text-status-danger bg-status-danger/10';
+                  iconStyle = 'bg-status-danger/10 text-action-dangerDark';
+                  statusBadgeStyle = 'text-action-dangerDark bg-status-danger/10';
                 } else {
-                  rowStyle = 'bg-surface-primary border-surface-elevated hover:border-brand-primary/30';
-                  iconStyle = 'bg-brand-primary/10 text-brand-primary';
-                  statusBadgeStyle = 'text-amber-600 bg-amber-50';
+                  rowStyle = 'bg-surface-subtle border-slate-200 hover:border-slate-300';
+                  iconStyle = 'bg-brand-primary/10 text-action-primaryDark';
+                  statusBadgeStyle = 'text-amber-700 bg-amber-50';
                 }
 
                 return (
-                  <div key={bill.id} className={`flex items-center gap-3 rounded-2xl border p-3.5 transition-colors ${rowStyle}`}>
+                  <div key={bill.id} className={`flex items-center gap-3 rounded-item border p-3.5 transition-colors ${rowStyle}`}>
                     <div className={`p-2 rounded-xl shrink-0 ${iconStyle}`}>
                       {bill.type === 'subscription' ? <Check size={16} /> : <Clock size={16} />}
                     </div>
@@ -202,7 +241,7 @@ const PendingObligations: React.FC<PendingObligationsProps> = ({
                             date: getLocalDateString(),
                             autoFocusAmount: true,
                           })}
-                          className="p-1.5 bg-surface-secondary hover:bg-brand-primary/10 text-brand-primary rounded-xl transition-colors shadow-sm"
+                          className="p-1.5 bg-surface-secondary hover:bg-brand-primary/10 text-action-primaryDark rounded-xl transition-colors shadow-sm"
                           title="Pagar agora"
                         >
                           <Check size={14} />

@@ -49,9 +49,10 @@ describe('monthMath — monthsBetween', () => {
 });
 
 describe('monthMath — monthKey', () => {
-  it('gera a chave `${year}-${month}` (sem padding)', () => {
+  it('gera a chave `${year}-${month}` com zero-pad (fonte única, A4)', () => {
     expect(monthKey(2026, 11)).toBe('2026-11');
-    expect(monthKey(2026, 0)).toBe('2026-0');
+    expect(monthKey(2026, 0)).toBe('2026-00');
+    expect(monthKey(2026, 4)).toBe('2026-04');
   });
 });
 

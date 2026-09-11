@@ -176,6 +176,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       }
     }
     
+    const isVoucherRecharge = type === 'income' && cardId && userCards.find(c => c.id === cardId)?.type === 'voucher';
+    const finalPaymentMethod = isVoucherRecharge ? 'voucher' : paymentMethod;
+
     setIsSaving(true);
     await onSave({ 
       id: initialData?.id,
@@ -184,9 +187,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       type, 
       category, 
       date,
-      paymentMethod,
-      cardId: paymentMethod === 'credit' || paymentMethod === 'voucher' || (type === 'income' && cardId) ? (cardId || null) : null,
-      installments: paymentMethod === 'credit' ? installments : 1,
+      paymentMethod: finalPaymentMethod,
+      cardId: finalPaymentMethod === 'credit' || finalPaymentMethod === 'voucher' || (type === 'income' && cardId) ? (cardId || null) : null,
+      installments: finalPaymentMethod === 'credit' ? installments : 1,
       linkedDebtId: showDebtSelector ? linkedDebtId : null
     });
 
@@ -238,14 +241,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           <button 
             disabled={isLocked}
             onClick={() => setType('expense')} 
-            className={`flex-1 py-2 rounded-xl font-black uppercase text-xxs transition-all ${type === 'expense' ? 'bg-status-danger text-text-onBrand shadow-soft' : 'text-text-muted'} ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`flex-1 py-2 rounded-xl font-black uppercase text-xxs transition-all ${type === 'expense' ? 'bg-rose-600 text-text-onBrand shadow-soft' : 'text-text-muted'} ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             {voice.expenseSingular}
           </button>
           <button 
             disabled={isLocked}
             onClick={() => setType('income')} 
-            className={`flex-1 py-2 rounded-xl font-black uppercase text-xxs transition-all ${type === 'income' ? 'bg-brand-primary text-text-onBrand shadow-soft' : 'text-text-muted'} ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`flex-1 py-2 rounded-xl font-black uppercase text-xxs transition-all ${type === 'income' ? 'bg-emerald-600 text-text-onBrand shadow-soft' : 'text-text-muted'} ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             {voice.incomeSingular}
           </button>
@@ -255,7 +258,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         {showDebtSelector && (
           <div className="bg-sky-50 border border-brand-secondary/30 p-4 rounded-2xl space-y-3 animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between">
-              <label className="text-xxs font-black text-brand-secondary uppercase tracking-widest">
+              <label className="text-xxs font-black text-sky-700 uppercase tracking-widest">
                 Vincular a uma dívida?
               </label>
               <span className="text-[9px] font-bold text-sky-600 px-2 py-0.5 bg-sky-100 rounded-lg">
@@ -270,7 +273,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               <option value="">Não vincular (Lançamento avulso)</option>
               {activeDebts.filter(d => d.saldoDevedor > 0).map(debt => (
                 <option key={debt.id} value={debt.id}>
-                  {debt.nome} (Saldo: R$ {debt.saldoDevedor.toLocaleString('pt-BR')})
+                  {debt.nome} (Saldo: R$ {debt.saldoDevedor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
                 </option>
               ))}
             </select>
@@ -375,7 +378,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                     <button 
                       type="button"
                       onClick={() => setIsCardModalOpen(true)}
-                      className="text-[9px] font-black text-brand-primary uppercase tracking-widest hover:underline"
+                      className="text-[9px] font-black text-action-primaryDark uppercase tracking-widest hover:underline"
                     >
                       + Gerenciar
                     </button>
@@ -402,7 +405,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                     <button 
                       type="button"
                       onClick={() => setIsCardModalOpen(true)}
-                      className="text-[9px] font-black text-brand-primary uppercase tracking-widest hover:underline"
+                      className="text-[9px] font-black text-action-primaryDark uppercase tracking-widest hover:underline"
                     >
                       + Gerenciar
                     </button>
@@ -426,7 +429,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                     if (!numAmount) return null;
                     const insufficient = numAmount > selectedCard.voucherBalance;
                     return (
-                      <div className={`text-[10px] font-bold px-1 ${insufficient ? 'text-red-500' : 'text-emerald-600'}`}>
+                      <div className={`text-[10px] font-bold px-1 ${insufficient ? 'text-red-600' : 'text-emerald-700'}`}>
                         {insufficient
                           ? `Saldo insuficiente — disponível: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedCard.voucherBalance)}`
                           : `Saldo disponível: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedCard.voucherBalance)}`
@@ -520,7 +523,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         <button 
           type="button"
           onClick={() => setIsCategoryModalOpen(true)}
-          className="mt-1 w-full py-3 rounded-2xl bg-surface-secondary hover:bg-brand-primary/10 border border-surface-elevated hover:border-brand-primary/30 text-text-secondary hover:text-brand-primary font-bold text-xxs uppercase tracking-ultra-wide transition-all flex items-center justify-center gap-2"
+          className="mt-1 w-full py-3 rounded-2xl bg-surface-secondary hover:bg-brand-primary/10 border border-surface-elevated hover:border-brand-primary/30 text-text-secondary hover:text-action-primaryDark font-bold text-xxs uppercase tracking-ultra-wide transition-all flex items-center justify-center gap-2"
         >
           <FolderPlus size={16} />
           <span>Gerenciar Categorias</span>

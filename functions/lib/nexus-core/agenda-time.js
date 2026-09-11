@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.DEFAULT_RECURRENCE_HORIZON_DAYS = exports.MAX_OCCURRENCES = exports.STABLE_SP_OFFSET_MS = exports.STABLE_SP_OFFSET_HOURS = exports.PRODUCT_TIMEZONE = void 0;
 exports.ymdToIso = ymdToIso;
 exports.isoToYmd = isoToYmd;
+exports.isoFromDateMs = isoFromDateMs;
 exports.weekdayOf = weekdayOf;
 exports.todayYmdInProductTimezone = todayYmdInProductTimezone;
 exports.nextWeekday = nextWeekday;
@@ -14,6 +15,7 @@ exports.resolveDateExpression = resolveDateExpression;
 exports.resolveWindowExpression = resolveWindowExpression;
 exports.expandRecurrence = expandRecurrence;
 exports.saoPauloDayRangeMillis = saoPauloDayRangeMillis;
+exports.resolvePeriodRange = resolvePeriodRange;
 exports.sha1Hex = sha1Hex;
 exports.generateSeriesId = generateSeriesId;
 exports.generateCommitmentId = generateCommitmentId;
@@ -80,6 +82,9 @@ function ymdToIso(ymd) {
 function isoToYmd(iso) {
     const [y, m, d] = iso.split('-').map(Number);
     return { y, m0: m - 1, d };
+}
+function isoFromDateMs(dateMs) {
+    return new Date(dateMs + exports.STABLE_SP_OFFSET_MS).toISOString().slice(0, 10);
 }
 function addDays(ymd, days) {
     const ms = Date.UTC(ymd.y, ymd.m0, ymd.d) + days * 86400000;
@@ -184,7 +189,9 @@ function normalizeText(raw) {
         .trim();
 }
 function resolveDateExpression(raw, today) {
-    const t = normalizeText(raw).replace(/^(na|no|em|para|dia|aos|as|ate)\s+/, '');
+    const t = normalizeText(raw)
+        .replace(/^(?:at[eé]|no|na|em|para|aos|as|o|a)\s+(?:o\s+)?dia\s+(?:de\s+)?/, '')
+        .replace(/^(na|no|em|para|dia|aos|as|ate)\s+/, '');
     const todayIso = ymdToIso(today);
     let m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
     if (m)
@@ -235,6 +242,17 @@ function resolveDateExpression(raw, today) {
             if (month) {
                 const year = m[2] ? Number(m[2]) : today.y;
                 return { iso: ymdToIso(lastDayOfMonthYmd(year, month - 1)), confidence: 'high' };
+            }
+        }
+    }
+    if (t.startsWith('todos') || t.startsWith('todas')) {
+        const weekday = weekdayNameToNumber(t);
+        if (weekday) {
+            const month = monthNameToNumber(t);
+            if (month) {
+                const year = /\b(\d{4})\b/.exec(t);
+                const ymd = firstWeekdayOfMonth(year ? Number(year[1]) : today.y, month - 1, weekday);
+                return { iso: ymdToIso(ymd), confidence: confidenceFor(ymd, todayIso) };
             }
         }
     }
@@ -338,6 +356,34 @@ function expandRecurrence(opts, maxOccurrences = exports.MAX_OCCURRENCES) {
 function saoPauloDayRangeMillis(ymd) {
     const startMs = Date.UTC(ymd.y, ymd.m0, ymd.d) - exports.STABLE_SP_OFFSET_MS;
     return { startMs, endMs: startMs + 86400000 };
+}
+function resolvePeriodRange(raw, today) {
+    const t = normalizeText(raw).trim();
+    if (!t)
+        return null;
+    if (/(^|\s)m(es|e)s?\s+que\s+vem($|\s)/.test(t)) {
+        const next = addMonthsClamped(today, 1);
+        const first = { y: next.y, m0: next.m0, d: 1 };
+        const after = addMonthsClamped(first, 1);
+        return {
+            startMs: saoPauloDayRangeMillis(first).startMs,
+            endMs: saoPauloDayRangeMillis({ y: after.y, m0: after.m0, d: 1 }).startMs,
+        };
+    }
+    const monthMatch = /^(?:(?:em|no|na|nesse|neste)\s+)?([a-z]+)(?:\s+de\s+(\d{4}))?$/.exec(t);
+    if (monthMatch) {
+        const month = monthNameToNumber(monthMatch[1]);
+        if (month) {
+            const year = monthMatch[2] ? Number(monthMatch[2]) : today.y;
+            const first = { y: year, m0: month - 1, d: 1 };
+            const after = addMonthsClamped(first, 1);
+            return {
+                startMs: saoPauloDayRangeMillis(first).startMs,
+                endMs: saoPauloDayRangeMillis({ y: after.y, m0: after.m0, d: 1 }).startMs,
+            };
+        }
+    }
+    return null;
 }
 function sha1Hex(input) {
     return (0, node_crypto_1.createHash)('sha1').update(input).digest('hex');

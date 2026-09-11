@@ -214,7 +214,7 @@ export const Input = ({ label, value, onChange, prefix, placeholder, help }: any
             value={displayValue}
             placeholder={placeholder}
             onChange={(e) => onChange(parseMoneyDigitsToNumber(e.target.value))}
-            className={`w-full bg-white border border-slate-200 rounded-2xl p-5 text-slate-900 font-black text-lg focus:border-sky-400 focus:ring-2 focus:ring-sky-100 outline-none transition-all placeholder:text-slate-300 ${prefix ? 'pl-12' : ''}`}
+            className={`w-full bg-white border border-slate-200 rounded-2xl p-5 text-slate-900 font-black text-lg focus:border-sky-400 focus:ring-2 focus:ring-sky-100 outline-none transition-all placeholder:text-slate-500 ${prefix ? 'pl-12' : ''}`}
           />
         ) : (
           <input
@@ -223,7 +223,7 @@ export const Input = ({ label, value, onChange, prefix, placeholder, help }: any
             value={value}
             placeholder={placeholder}
             onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))}
-            className={`w-full bg-white border border-slate-200 rounded-2xl p-5 text-slate-900 font-black text-lg focus:border-sky-400 focus:ring-2 focus:ring-sky-100 outline-none transition-all placeholder:text-slate-300 ${prefix ? 'pl-12' : ''}`}
+            className={`w-full bg-white border border-slate-200 rounded-2xl p-5 text-slate-900 font-black text-lg focus:border-sky-400 focus:ring-2 focus:ring-sky-100 outline-none transition-all placeholder:text-slate-500 ${prefix ? 'pl-12' : ''}`}
           />
         )}
       </div>

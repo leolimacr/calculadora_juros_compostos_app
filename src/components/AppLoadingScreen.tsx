@@ -48,7 +48,7 @@ const AppLoadingScreen: React.FC<AppLoadingScreenProps> = ({ loadingTime = 0 }) 
 
         <div className="mt-4 h-5">
           {showSubtitle && (
-            <p className="loading-subtitle text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+            <p className="loading-subtitle text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
               {subtitleText}
             </p>
           )}
@@ -58,7 +58,7 @@ const AppLoadingScreen: React.FC<AppLoadingScreenProps> = ({ loadingTime = 0 }) 
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="mt-4 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400 transition-colors hover:text-sky-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-4 rounded-sm"
+            className="mt-4 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 transition-colors hover:text-sky-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-4 rounded-sm"
           >
             Demorando muito? Recarregar aplicação
           </button>

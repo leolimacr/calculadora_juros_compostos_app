@@ -5,9 +5,10 @@ import { db, firestore } from '../firebase';
 import { queryKeys } from '../core/query/queryKeys';
 import type { Transaction, Category, CreditCard } from '../types';
 import { useTransactionsContext } from '../contexts/TransactionsContext';
-import { useMemo, useCallback, useRef } from 'react';
+import { useMemo, useCallback, useRef, useEffect } from 'react';
 import { useDebts } from './useDebts';
 import { useCards } from './useCards';
+import { validateTransaction } from '../utils/transactionValidation';
 import { updateDebt } from '../services/debt/debtService';
 import { updateCard } from '../services/cardService';
 import { useEntitlement } from './useEntitlement';
@@ -84,12 +85,46 @@ export const useTransactions = (userId?: string) => {
     staleTime: Infinity,
   });
 
+  // 2b. Busca completa de todas as transações (1 query RTDB sem limitToLast).
+  //     O bridge (limitToLast(100)) só traz as 100 mais recentes — para o Saldo Atual
+  //     (que precisa de TODAS as transações para calcular receitas − despesas à vista
+  //     de todo o histórico), fazemos 1 get() sem limite no mount. Uma única query.
+  const allDataKey = useMemo(
+    () => ['transactions_all', userId || 'anonymous'] as const,
+    [userId]
+  );
+  const allDataFetchedRef = useRef(false);
+  const { data: allData } = useQuery<Transaction[]>({
+    queryKey: allDataKey,
+    queryFn: async () => {
+      if (!userId) return [];
+      const snap = await get(ref(db, `transactions/${userId}`));
+      if (!snap.exists()) return [];
+      const all: Transaction[] = [];
+      snap.forEach((child) => {
+        const val = child.val();
+        if (val) all.push({ id: child.key!, ...val } as Transaction);
+      });
+      return all.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    },
+    enabled: !!userId,
+    staleTime: Infinity,
+    gcTime: Infinity,
+  });
+  // Marca como concluído para não re-buscar
+  useEffect(() => {
+    if (allData && allData.length > 0 && !allDataFetchedRef.current) {
+      allDataFetchedRef.current = true;
+    }
+  }, [allData]);
+
   // 3. Mesclagem Inteligente (Realtime + Histórico + Deduplicação)
   const transactionsRef = useRef<Transaction[]>([]);
   const transactions = useMemo(() => {
     const base = realtimeData || [];
     const extra = extraData || [];
-    const merged = [...base, ...extra];
+    const all = allData || [];
+    const merged = [...base, ...all, ...extra];
     
     // Deduplica por ID para evitar problemas se um item do realtime já existir no extra
     const uniqueMap = new Map();
@@ -117,7 +152,7 @@ export const useTransactions = (userId?: string) => {
     }
     transactionsRef.current = result;
     return result;
-  }, [realtimeData, extraData]);
+  }, [realtimeData, extraData, allData]);
 
   // Cache local para fetchMonth (localStorage)
   const MONTH_CACHE_PREFIX = 'fpi_month_cache_';
@@ -336,6 +371,14 @@ export const useTransactions = (userId?: string) => {
 
   saveLancamentoRef.current = async (transaction: Omit<Transaction, 'id' | 'userId'> & { id?: string }) => {
     if (!userId) return;
+
+    // Validação centralizada — rejeita antes de qualquer write
+    const validationErrors = validateTransaction(transaction);
+    if (validationErrors.length > 0) {
+      const msg = validationErrors.map(e => e.message).join('; ');
+      console.error('[useTransactions] Validação falhou:', msg);
+      throw new Error(`Dados inválidos: ${msg}`);
+    }
     
     const now = Date.now();
     const dateClean = transaction.date.replace(/-/g, '');

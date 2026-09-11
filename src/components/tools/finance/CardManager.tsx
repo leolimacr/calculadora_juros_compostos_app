@@ -341,7 +341,7 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
             </div>
             <div>
               {contextualReason && (
-                <p className="text-[10px] font-black text-brand-primary uppercase tracking-wider mb-0.5 animate-in fade-in duration-300">
+                <p className="text-[10px] font-black text-action-primaryDark uppercase tracking-wider mb-0.5 animate-in fade-in duration-300">
                   ↳ {contextualReason}
                 </p>
               )}
@@ -556,14 +556,14 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
                                   {isVoucher ? (
                                     <div className="flex items-center gap-1.5 text-emerald-600">
                                       <WalletIcon size={12} />
-                                      <span className="text-[10px] font-black uppercase tracking-tighter">Saldo: R$ {(card.voucherBalance || 0).toLocaleString()}</span>
+                                      <span className="text-[10px] font-black uppercase tracking-tighter">Saldo: R$ {(card.voucherBalance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                     </div>
                                   ) : (
                                     <>
                                       {card.limit ? (
                                         <div className="flex items-center gap-1.5 text-brand-primary">
                                           <Check size={12} />
-                                          <span className="text-[10px] font-black uppercase tracking-tighter">Limite: R$ {card.limit.toLocaleString()}</span>
+                                          <span className="text-[10px] font-black uppercase tracking-tighter">Limite: R$ {card.limit.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                         </div>
                                       ) : null}
                                       {card.taxaJuros ? (
@@ -724,7 +724,7 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
 
                                       <div className="flex items-center justify-between">
                                         <div>
-                                          <h4 className={`text-[11px] font-black uppercase tracking-widest ${group.isCurrent ? 'text-brand-primary' : 'text-text-primary'}`}>
+                                          <h4 className={`text-[11px] font-black uppercase tracking-widest ${group.isCurrent ? 'text-action-primaryDark' : 'text-text-primary'}`}>
                                             Fatura de {new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(new Date(group.year, group.month))}
                                           </h4>
                                           <p className="text-[9px] font-bold text-text-muted uppercase tracking-tighter mt-0.5">
@@ -732,11 +732,11 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
                                           </p>
                                         </div>
                                         <div className="text-right">
-                                          <p className="text-xs font-black text-text-primary">R$ {group.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                          <p className="text-xs font-black text-text-primary">R$ {group.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                           {group.isCurrent && (
                                             <button
                                               onClick={() => handleStartPaymentFlow({ total: group.total, dueDate: group.dueDate, periodEnd: group.periodEnd, invoiceId: `${card.id}_${group.periodEnd}`, cardName: card.name, cardId: card.id })}
-                                              className="text-[8px] font-black text-brand-primary uppercase tracking-widest mt-1 hover:underline"
+                                              className="text-[8px] font-black text-action-primaryDark uppercase tracking-widest mt-1 hover:underline"
                                             >
                                               Pagar Agora
                                             </button>
@@ -751,7 +751,7 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
                                               <div className="flex items-center gap-2">
                                                 <span className="font-bold text-text-primary text-[11px]">{t.description}</span>
                                                 {t.installments && t.installments > 1 && (
-                                                  <span className="px-1.5 py-0.5 bg-brand-primary/10 text-brand-primary text-[8px] font-black rounded-md uppercase">
+                                                  <span className="px-1.5 py-0.5 bg-brand-primary/10 text-action-primaryDark text-[8px] font-black rounded-md uppercase">
                                                     {t.currentInstallment}/{t.installments}
                                                   </span>
                                                 )}
@@ -761,10 +761,10 @@ const CardManager: React.FC<CardManagerProps> = ({ isOpen, onClose, userId, tran
                                               </span>
                                             </div>
                                             <div className="flex items-center gap-3">
-                                              <span className="font-black text-text-primary">R$ {Number(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                                 <span className="font-black text-text-primary">R$ {Number(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                               <button 
                                                 onClick={() => { onClose(); onEditTransaction(t); }} 
-                                                className="p-2 text-text-muted hover:text-brand-primary hover:bg-brand-primary/10 rounded-xl transition-all opacity-0 group-hover/item:opacity-100"
+                                                className="p-2 text-text-muted hover:text-brand-primary hover:bg-brand-primary/10 rounded-xl transition-all opacity-100 md:opacity-0 md:group-hover/item:opacity-100 md:group-focus-within/item:opacity-100"
                                               >
                                                 <Edit2 size={14}/>
                                               </button>

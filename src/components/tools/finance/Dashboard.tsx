@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { RefreshCw, Plus, ChevronUp, ChevronDown, PiggyBank, X, CreditCard } from 'lucide-react';
+import { useExclusions } from '../../../contexts/ExclusionsContext';
 
 // Hooks e Componentes Originais Reutilizados
 import FilterBar from './FilterBar';
@@ -40,37 +41,10 @@ const Dashboard: React.FC<any> = (props) => {
 
   const voice = getFlowLabels(state.commandMode);
   const [showCategoryRecovery, setShowCategoryRecovery] = useState(true);
-  const LS_RESERVA = 'fpi-dash-excluir-reserva';
-  const LS_COLCHAO = 'fpi-dash-excluir-colchao';
-  const LS_VOUCHER = 'fpi-dash-excluir-voucher';
-  const [excluirReserva, setExcluirReserva] = useState(() => localStorage.getItem(LS_RESERVA) === 'true');
-  const [excluirColchao, setExcluirColchao] = useState(() => localStorage.getItem(LS_COLCHAO) === 'true');
-  const [excluirVoucherMap, setExcluirVoucherMap] = useState<Record<string, boolean>>(() => {
-    try { return JSON.parse(localStorage.getItem(LS_VOUCHER) || '{}'); }
-    catch { return {}; }
-  });
-  const toggleReserva = () => setExcluirReserva((p) => !p);
-  const toggleColchao = () => {
-    const next = !excluirColchao;
-    if (next) setExcluirReserva(true);
-    setExcluirColchao(next);
-  };
-  const toggleVoucherCard = (cardId: string) =>
-    setExcluirVoucherMap((prev) => ({ ...prev, [cardId]: !prev[cardId] }));
-  useEffect(() => { localStorage.setItem(LS_RESERVA, String(excluirReserva)); }, [excluirReserva]);
-  useEffect(() => { localStorage.setItem(LS_COLCHAO, String(excluirColchao)); }, [excluirColchao]);
-  useEffect(() => { localStorage.setItem(LS_VOUCHER, JSON.stringify(excluirVoucherMap)); }, [excluirVoucherMap]);
 
   const voucherCards = (state.userCards || [])
     .filter((c: any) => c.type === 'voucher')
     .map((c: any) => ({ id: c.id, name: c.name, balance: c.voucherBalance || 0 }));
-
-  const saldoComExclusoes = state.realCashData.saldoReal
-    - (excluirReserva ? state.reserveTarget : 0)
-    - (excluirColchao ? state.colchaoTarget : 0)
-    - Object.entries(excluirVoucherMap)
-      .filter(([_, excluir]) => excluir)
-      .reduce((sum, [id]) => sum + (voucherCards.find(c => c.id === id)?.balance || 0), 0);
 
   const budgetProgress = useMemo(
     () => (state.currentBudget ? calcBudgetProgress(state.currentBudget, state.safeTransactions) : null),
@@ -85,7 +59,6 @@ const Dashboard: React.FC<any> = (props) => {
     const allCards = new Map<string, any>();
     for (const c of userCardsArr) allCards.set(c.id, c);
 
-    // 1) Current active invoices (already computed with correct periodStart)
     for (const inv of (state.activeInvoices || [])) {
       const key = `${inv.cardId}-${inv.periodEnd}`;
       map.set(key, {
@@ -99,7 +72,6 @@ const Dashboard: React.FC<any> = (props) => {
       });
     }
 
-    // 2) Past invoices referenced by bill payments but not in activeInvoices
     for (const t of safeTxs) {
       if (!t.isBillPayment || !t.linkedCardId || !t.linkedInvoicePeriodEnd) continue;
       const key = `${t.linkedCardId}-${t.linkedInvoicePeriodEnd}`;
@@ -107,7 +79,6 @@ const Dashboard: React.FC<any> = (props) => {
       const card = allCards.get(t.linkedCardId);
       if (!card || !card.closingDay) continue;
 
-      // Compute periodStart using same logic as activeInvoices / calculateRealCashBalance
       const [peY, peM, peD] = t.linkedInvoicePeriodEnd.split('-').map(Number);
       const peDate = new Date(peY, peM - 1, peD);
       const psDate = new Date(peDate);
@@ -176,7 +147,7 @@ const Dashboard: React.FC<any> = (props) => {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 md:px-8 pt-14 md:pt-6 pb-32 space-y-10 animate-in fade-in slide-in-from-bottom-2 duration-700 bg-surface-secondary rounded-5xl border border-surface-elevated shadow-card">
+      <div className="max-w-7xl mx-auto px-4 md:px-8 pt-14 md:pt-6 pb-32 space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-700">
         
         {/* Cabeçalho superior */}
         <DashboardHeader
@@ -208,30 +179,27 @@ const Dashboard: React.FC<any> = (props) => {
 
         <BalanceCards
           isPrivacyMode={state.isPrivacyMode}
-          saldoReal={state.realCashData.saldoReal}
-          receitasMes={state.realCashData.receitasMes}
-          despesasMes={state.realCashData.despesasMes}
+          saldoReal={state.realCashData?.saldoReal ?? null}
+          receitasMes={state.realCashData?.receitasMes ?? null}
+          despesasMes={state.realCashData?.despesasMes ?? null}
           reserveTarget={state.reserveTarget}
           colchaoTarget={state.colchaoTarget}
-          excluirReserva={excluirReserva}
-          excluirColchao={excluirColchao}
-          onToggleReserva={toggleReserva}
-          onToggleColchao={toggleColchao}
           voucherCards={voucherCards}
-          excluirVoucherMap={excluirVoucherMap}
-          onToggleVoucherCard={toggleVoucherCard}
+          transactions={state.safeTransactions}
         />
 
         <SaldoAjustavelCard
           isPrivacyMode={state.isPrivacyMode}
-          saldoReal={state.realCashData.saldoReal}
-          saldoComExclusoes={saldoComExclusoes}
-          faturasFechadas={state.realCashData.faturasFechadas}
-          faturasAbertas={state.realCashData.faturasAbertas}
-          gastosFuturosMes={state.realCashData.gastosFuturosMes}
-          contasFuturasMes={state.realCashData.contasFuturasMes}
+          saldoReal={state.realCashData?.saldoReal ?? null}
+          faturasFechadas={state.realCashData?.faturasFechadas ?? []}
+          faturasAbertas={state.realCashData?.faturasAbertas ?? []}
+          gastosFuturosMes={state.realCashData?.gastosFuturosMes ?? []}
+          contasFuturasMes={state.realCashData?.contasFuturasMes ?? []}
           userId={state.user?.uid || ''}
           queryClient={queryClient}
+          reserveTarget={state.reserveTarget}
+          colchaoTarget={state.colchaoTarget}
+          voucherCards={voucherCards}
         />
 
         {/* Obrigações pendentes (Contas fixas e faturas ativas) */}
@@ -260,7 +228,7 @@ const Dashboard: React.FC<any> = (props) => {
           </>
         )}
         {!state.isFirstAccess && !state.budgetLoading && !state.currentBudget && (
-          <div className="bg-surface-primary border border-surface-elevated rounded-4xl p-5 shadow-soft">
+          <div className="bg-surface-primary border border-slate-200 rounded-panel p-5 shadow-panel">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-brand-secondary/10 rounded-2xl text-brand-secondary flex-shrink-0">
                 <PiggyBank size={22} />
@@ -326,6 +294,9 @@ const Dashboard: React.FC<any> = (props) => {
         {!state.isFirstAccess && (
           <div className="space-y-6">
             <div className="space-y-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-text-muted px-1">
+                Filtros e controles
+              </p>
               <FilterBar 
                 selectedCategories={state.selectedCategories} 
                 setSelectedCategories={state.setSelectedCategories}
@@ -392,7 +363,7 @@ const Dashboard: React.FC<any> = (props) => {
                   className={`flex items-center justify-center gap-2 px-5 py-3 rounded-3xl text-xxs font-black uppercase tracking-ultra-wide border transition-all active:scale-95 w-full sm:w-auto ${
                     state.showTransactions
                       ? 'bg-surface-elevated border-surface-elevated text-text-secondary hover:bg-surface-secondary'
-                      : 'bg-status-success/10 border-brand-primary/30 text-brand-primary hover:bg-status-success/20'
+                      : 'bg-status-success/10 border-brand-primary/30 text-action-primaryDark hover:bg-status-success/20'
                   }`}
                 >
                   {state.showTransactions ? 'Recolher lançamentos' : 'Mostrar lançamentos'}
@@ -404,39 +375,53 @@ const Dashboard: React.FC<any> = (props) => {
                 </div>
               </div>
 
+            {/* Lista de lançamentos do período */}
+            <section className="bg-surface-primary border border-slate-200 rounded-panel shadow-panel p-4 md:p-6 space-y-4">
+              <div className="flex items-center justify-between px-1">
+                <h2 className="text-sm font-black text-text-primary tracking-tight">Lançamentos</h2>
+                <span className="text-xxs font-bold text-text-muted uppercase tracking-ultra-wide">
+                  {state.filtered.length} no período
+                </span>
+              </div>
                <TransactionList
-                transactions={state.filtered}
-                visibleCount={state.visibleCount}
-                setVisibleCount={state.setVisibleCount}
-                showTransactions={state.showTransactions}
-                setShowTransactions={state.setShowTransactions}
-                onDelete={state.onDeleteTransaction}
-                onEdit={state.onEditTransaction}
-                isPrivacyMode={state.isPrivacyMode}
-                isStale={state.isStale}
-                invoiceLookup={invoiceLookup}
-                periodIncome={state.stats.income}
-                periodLabel={state.periodLabel}
-              />
+                 transactions={state.filtered}
+                 visibleCount={state.visibleCount}
+                 setVisibleCount={state.setVisibleCount}
+                 showTransactions={state.showTransactions}
+                 setShowTransactions={state.setShowTransactions}
+                 onDelete={state.onDeleteTransaction}
+                 onEdit={state.onEditTransaction}
+                 isPrivacyMode={state.isPrivacyMode}
+                 isStale={state.isStale}
+                 invoiceLookup={invoiceLookup}
+                 periodLabel={state.periodLabel}
+               />
+            </section>
             </div>
 
-            {/* Painel de Resumo por Categoria */}
-            <CategorySummaryPanel 
-              categorySummary={state.categorySummary} 
-              categoryTransactionsMap={state.categoryTransactionsMap} 
-              isPrivacyMode={state.isPrivacyMode}
-              commandMode={state.commandMode}
-            />
+            {/* Resumos e análises complementares */}
+            <section className="space-y-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-text-muted px-1">
+                Resumos e análises
+              </p>
+              {/* Painel de Resumo por Categoria */}
+              <CategorySummaryPanel 
+                categorySummary={state.categorySummary} 
+                categoryTransactionsMap={state.categoryTransactionsMap} 
+                isPrivacyMode={state.isPrivacyMode}
+                commandMode={state.commandMode}
+              />
 
-            {/* Painel de Análise de Médias */}
-            <AveragesAnalysisPanel 
-              userUid={state.user?.uid} 
-              isReady={state.isReady} 
-              safeTransactions={state.historyVisibleTransactions} 
-              isPrivacyMode={state.isPrivacyMode} 
-              hasHistoryAccess={state.hasHistoryAccess}
-              onHistoryBlocked={() => state.setShowHistoryPaywall(true)}
-            />
+              {/* Painel de Análise de Médias */}
+              <AveragesAnalysisPanel 
+                userUid={state.user?.uid} 
+                isReady={state.isReady} 
+                safeTransactions={state.historyVisibleTransactions} 
+                isPrivacyMode={state.isPrivacyMode} 
+                hasHistoryAccess={state.hasHistoryAccess}
+                onHistoryBlocked={() => state.setShowHistoryPaywall(true)}
+              />
+            </section>
 
 
           </div>
@@ -516,7 +501,7 @@ const Dashboard: React.FC<any> = (props) => {
         onSaved={() => state.setIsBudgetSetupOpen(false)}
       />
     </div>
-  );
+);
 };
 
 export default React.memo(Dashboard);

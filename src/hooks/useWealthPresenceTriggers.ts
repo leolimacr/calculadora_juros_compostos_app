@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { Goal } from '../services/goalService';
-import type { ActiveAsset } from '../components/tools/wealth/ActiveWealthManager';
+import type { ActiveAsset } from '../types';
 import { PresenceEventService } from '../services/PresenceEventService';
 
 interface UseWealthPresenceTriggersParams {
@@ -22,12 +22,20 @@ export const useWealthPresenceTriggers = ({
   assetsLoading,
   lastWealthReviewAt,
 }: UseWealthPresenceTriggersParams) => {
-  const firedRef = useRef(false);
+  const firedSignatureRef = useRef('');
 
   useEffect(() => {
     if (!userId || goalsLoading || assetsLoading) return;
-    if (firedRef.current) return;
-    firedRef.current = true;
+
+    // Re-fire quando a assinatura dos dados muda (evita stale closure)
+    const signature = [
+      goals.map(g => `${g.id}:${g.currentAmount}:${g.targetAmount}`).join('|'),
+      assets.map(a => a.id).join('|'),
+      lastWealthReviewAt?.getTime() ?? 'none',
+    ].join('::');
+
+    if (firedSignatureRef.current === signature) return;
+    firedSignatureRef.current = signature;
 
     const evaluate = async () => {
       const now = new Date();
@@ -55,7 +63,6 @@ export const useWealthPresenceTriggers = ({
           }).catch(() => {});
         }
       } else if (assets.length > 0) {
-        // Tem ativos mas nunca revisou — trata como overdue
         await PresenceEventService.create({
           uid: userId,
           eventType: 'wealth.review_overdue_14d',
@@ -78,15 +85,15 @@ export const useWealthPresenceTriggers = ({
       for (const goal of goals) {
         if (!goal.id) continue;
 
-        const targetDate: Date | null = goal.targetDate
-          ? (goal.targetDate as any).toDate?.() ?? new Date(goal.targetDate as any)
-          : null;
+        const rawTarget: unknown = goal.targetDate;
+        const targetDate: Date | null = typeof rawTarget === 'string' || rawTarget instanceof Date
+          ? new Date(rawTarget as string | Date)
+          : (rawTarget as { toDate?: () => Date } | null)?.toDate?.() ?? null;
 
         if (!targetDate) continue;
 
         const daysToTarget = (targetDate.getTime() - now.getTime()) / MS_PER_DAY;
 
-        // Meta com prazo em ≤ 30 dias
         if (daysToTarget > 0 && daysToTarget <= 30) {
           await PresenceEventService.create({
             uid: userId,
@@ -112,9 +119,6 @@ export const useWealthPresenceTriggers = ({
           }).catch(() => {});
         }
 
-        // Aporte próximo: meta com aporte recorrente esperado nos próximos 3 dias
-        // Regra: se a meta tem progresso (currentAmount > 0) e o prazo está entre 3 e 90 dias
-        // e hoje é dia 1–5 do mês (janela típica de aporte), dispara o lembrete
         const today = now.getDate();
         const isAportWindow = today >= 1 && today <= 5;
         const hasProgress = (goal.currentAmount ?? 0) > 0;
@@ -147,5 +151,5 @@ export const useWealthPresenceTriggers = ({
     };
 
     evaluate();
-  }, [userId, goalsLoading, assetsLoading]);
+  }, [userId, goals, assets, goalsLoading, assetsLoading, lastWealthReviewAt]);
 };

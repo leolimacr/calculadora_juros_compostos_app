@@ -1,26 +1,29 @@
 import React, { useState } from 'react';
 import { Loader2, Check } from 'lucide-react';
-import type { NexusInsight } from '../../services/nexusInsightEngine';
+import type { NexusInsight, NexusPlanTier } from '../../services/nexusInsightEngine';
 import { useNexusActions } from '../../hooks/useNexusActions';
+import { useEntitlement } from '../../hooks/useEntitlement';
 import PaywallModal from '../PaywallModal';
 
 interface NexusActionButtonProps {
   insight: NexusInsight;
   userId: string;
-  userPlan: 'free' | 'pro' | 'premium';
   onActionExecuted?: () => void;
   onNavigate?: (route: string) => void;
+  variant?: 'primary' | 'secondary';
 }
 
 const NexusActionButton: React.FC<NexusActionButtonProps> = ({
   insight,
   userId,
-  userPlan,
   onActionExecuted,
   onNavigate,
+  variant = 'primary',
 }) => {
   const { action } = insight;
   const { executeAction, isExecuting } = useNexusActions();
+  // E7-10: tier de fonte única (entitlement canônico), sem prop drilling.
+  const { effectiveTier } = useEntitlement();
   const [showPaywall, setShowPaywall] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [reservedAmount, setReservedAmount] = useState<number | null>(null);
@@ -28,10 +31,10 @@ const NexusActionButton: React.FC<NexusActionButtonProps> = ({
   if (!action) return null;
 
   const handleAction = async () => {
-    // Verificação de plano
+    // Verificação de plano contra o entitlement canônico (E7-10).
     if (action.requiresPlan) {
-      const planHierarchy = { free: 0, pro: 1, premium: 2 };
-      if (planHierarchy[userPlan] < planHierarchy[action.requiresPlan]) {
+      const planHierarchy: Record<NexusPlanTier, number> = { free: 0, pro: 1, premium: 2 };
+      if (planHierarchy[effectiveTier] < planHierarchy[action.requiresPlan]) {
         setShowPaywall(true);
         return;
       }
@@ -67,10 +70,12 @@ const NexusActionButton: React.FC<NexusActionButtonProps> = ({
       <button
         onClick={handleAction}
         disabled={isExecuting || isSuccess}
-        className={`mt-3 w-full sm:w-auto px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-sm ${
+        className={`mt-2 w-full sm:w-auto px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 border ${
           isSuccess
-            ? 'bg-emerald-500 text-white'
-            : 'bg-sky-600 hover:bg-sky-700 text-white active:scale-95'
+            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+            : variant === 'secondary'
+              ? 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-none'
+              : 'bg-sky-600 hover:bg-sky-700 text-white border-transparent shadow-sm active:scale-95'
         } disabled:opacity-80`}
       >
         {isExecuting ? (

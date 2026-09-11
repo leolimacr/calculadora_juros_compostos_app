@@ -32,14 +32,17 @@ import {
 } from '../../../services/chatHistoryService';
 import { Preferences } from '@capacitor/preferences';
 import { NEXUS_COPY } from '../../../theme/fpiVoiceGuide';
+import type { Transaction, ActiveAsset, PassiveAsset } from '../../../types';
+import type { DebtItem } from '../../../services/debt/debt.types';
+import type { Goal } from '../../../services/goalService';
 
 interface AiAdvisorProps {
-  transactions: any[];
-  currentCalcResult: any[];
-  goals: any[];
-  assets?: any[];
-  passives?: any[];
-  debts?: any[];
+  transactions: Transaction[];
+  currentCalcResult: unknown;
+  goals: Goal[];
+  assets?: ActiveAsset[];
+  passives?: PassiveAsset[];
+  debts?: DebtItem[];
   currentTool: string;
 }
 
@@ -218,6 +221,71 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
     }
   ]);
 
+  const incrementDailyCount = useCallback(async () => {
+    if (isPro || isPremium || !user?.uid) return;
+    const today = getLocalDateString();
+    // Lê o valor atual do storage (não do state) para evitar perda por
+    // stale closure em envios rápidos sucessivos.
+    const { value } = await Preferences.get({ key: `nexus_count_${user.uid}_${today}` });
+    const newCount = (value ? parseInt(value) : 0) + 1;
+    setDailyCount(newCount);
+    await Preferences.set({
+      key: `nexus_count_${user?.uid}_${today}`,
+      value: newCount.toString()
+    });
+  }, [isPro, isPremium, user?.uid]);
+
+  const refreshHistory = useCallback(async () => {
+    if (!user?.uid) return;
+
+    try {
+      const history = await loadUserChatHistory(user.uid);
+      let daysLimit = 3;
+
+      if (isPremium) daysLimit = 90;
+      else if (isPro) daysLimit = 30;
+
+      const cutoff = Date.now() - daysLimit * 24 * 60 * 60 * 1000;
+      setConversationHistory(history.filter((item) => item.createdAt > cutoff));
+    } catch {
+      // Histórico indisponível — o chat segue sem ele.
+    }
+  }, [user?.uid, isPro, isPremium]);
+
+  const saveToHistory = useCallback(async (title: string, messagesToSave: Message[]) => {
+    if (messagesToSave.length <= 1 || !user?.uid) return;
+
+    const historyItem: Omit<ChatHistoryItem, 'id'> = {
+      userId: user.uid,
+      title: title || `Conversa ${new Date().toLocaleDateString()}`,
+      messages: messagesToSave.map((msg) => ({
+        role: msg.role,
+        text: msg.text,
+        timestamp: msg.timestamp.getTime()
+      })),
+      createdAt: Date.now(),
+      lastUpdated: Date.now(),
+      toolContext: currentTool
+    };
+
+    const newChatId = await saveChatHistory(user.uid, historyItem);
+    setCurrentChatId(newChatId);
+    await refreshHistory();
+  }, [user?.uid, currentTool, refreshHistory]);
+
+  const updateCurrentChat = useCallback(async (updatedMessages: Message[]) => {
+    if (!currentChatId || !user?.uid) return;
+
+    await updateChatHistory(user.uid, currentChatId, {
+      messages: updatedMessages.map((msg) => ({
+        role: msg.role,
+        text: msg.text,
+        timestamp: msg.timestamp.getTime()
+      })),
+      lastUpdated: Date.now()
+    });
+  }, [currentChatId, user?.uid]);
+
   const handleSend = useCallback(async (customText?: unknown) => {
     const rawValue =
       typeof customText === 'string'
@@ -306,7 +374,10 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
     currentTool,
     capitalizedName,
     currentChatId,
-    sendToNexus
+    sendToNexus,
+    incrementDailyCount,
+    saveToHistory,
+    updateCurrentChat
   ]);
 
   useEffect(() => {
@@ -344,35 +415,9 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
     checkLimit();
   }, [user]);
 
-  const incrementDailyCount = async () => {
-    if (isPro || isPremium) return;
-    const today = getLocalDateString();
-    const newCount = dailyCount + 1;
-    setDailyCount(newCount);
-    await Preferences.set({
-      key: `nexus_count_${user?.uid}_${today}`,
-      value: newCount.toString()
-    });
-  };
-
-  const refreshHistory = async () => {
-    if (!user?.uid) return;
-
-    try {
-      const history = await loadUserChatHistory(user.uid);
-      let daysLimit = 3;
-
-      if (isPremium) daysLimit = 90;
-      else if (isPro) daysLimit = 30;
-
-      const cutoff = Date.now() - daysLimit * 24 * 60 * 60 * 1000;
-      setConversationHistory(history.filter((item) => item.createdAt > cutoff));
-    } catch (e) {}
-  };
-
   useEffect(() => {
     refreshHistory();
-  }, [user, isPro, isPremium]);
+  }, [refreshHistory]);
 
   const loadFromHistory = async (historyItem: ChatHistoryItem) => {
     if (!user?.uid) return;
@@ -396,40 +441,6 @@ const AiAdvisor: React.FC<AiAdvisorProps> = ({
       if (currentChatId === chatId) startNewConversation();
       await refreshHistory();
     }
-  };
-
-  const saveToHistory = async (title: string, messagesToSave: Message[]) => {
-    if (messagesToSave.length <= 1 || !user?.uid) return;
-
-    const historyItem: Omit<ChatHistoryItem, 'id'> = {
-      userId: user.uid,
-      title: title || `Conversa ${new Date().toLocaleDateString()}`,
-      messages: messagesToSave.map((msg) => ({
-        role: msg.role,
-        text: msg.text,
-        timestamp: msg.timestamp.getTime()
-      })),
-      createdAt: Date.now(),
-      lastUpdated: Date.now(),
-      toolContext: currentTool
-    };
-
-    const newChatId = await saveChatHistory(user.uid, historyItem);
-    setCurrentChatId(newChatId);
-    await refreshHistory();
-  };
-
-  const updateCurrentChat = async (updatedMessages: Message[]) => {
-    if (!currentChatId || !user?.uid) return;
-
-    await updateChatHistory(user.uid, currentChatId, {
-      messages: updatedMessages.map((msg) => ({
-        role: msg.role,
-        text: msg.text,
-        timestamp: msg.timestamp.getTime()
-      })),
-      lastUpdated: Date.now()
-    });
   };
 
   const startNewConversation = () => {

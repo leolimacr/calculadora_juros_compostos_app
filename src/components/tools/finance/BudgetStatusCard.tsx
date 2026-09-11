@@ -42,7 +42,7 @@ const BudgetStatusCard: React.FC<BudgetStatusCardProps> = ({ budget, transaction
       : '';
 
   return (
-    <div className={`bg-surface-primary border border-surface-elevated rounded-4xl p-5 shadow-soft ${budgetBorder}`}>
+    <div className={`bg-surface-primary border border-slate-200 rounded-panel p-5 shadow-panel ${budgetBorder}`}>
       <div className="flex items-center justify-between gap-4 mb-3">
         <div className="flex items-center gap-3 min-w-0">
           <div className="p-3 bg-brand-secondary/10 rounded-2xl text-brand-secondary flex-shrink-0">
@@ -87,9 +87,9 @@ const BudgetStatusCard: React.FC<BudgetStatusCardProps> = ({ budget, transaction
             Total gasto
           </span>
           <span className="text-xs font-black text-text-primary">
-            R$ {progress.totalSpent.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            R$ {progress.totalSpent.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             <span className="text-text-muted font-medium">
-              {' / '}R$ {progress.totalBudget.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              {' / '}R$ {progress.totalBudget.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </span>
         </div>
@@ -110,7 +110,7 @@ const BudgetStatusCard: React.FC<BudgetStatusCardProps> = ({ budget, transaction
             {progress.totalPercentage.toFixed(0)}%
           </span>
           {exceededCategories.length > 0 && (
-            <span className="text-xxs font-bold text-red-500 uppercase tracking-ultra-wide">
+            <span className="text-xxs font-bold text-red-600 uppercase tracking-ultra-wide">
               {exceededCategories.length} categoria{exceededCategories.length > 1 ? 's' : ''} acima do limite
             </span>
           )}
@@ -124,7 +124,7 @@ const BudgetStatusCard: React.FC<BudgetStatusCardProps> = ({ budget, transaction
             Por categoria
           </p>
           {visibleCategories.map((cat) => (
-            <div key={cat.categoryKey} className="space-y-1">
+            <div key={cat.categoryKey} className="space-y-1 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 min-w-0">
                   <StatusDot status={cat.status} />
@@ -133,9 +133,9 @@ const BudgetStatusCard: React.FC<BudgetStatusCardProps> = ({ budget, transaction
                   </span>
                 </div>
                 <span className="text-xxs font-bold text-text-muted flex-shrink-0 ml-2">
-                  R$ {cat.spent.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R$ {cat.spent.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   <span className="font-medium">
-                    {' / '}R$ {cat.limit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    {' / '}R$ {cat.limit.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </span>
               </div>
@@ -156,7 +156,7 @@ const BudgetStatusCard: React.FC<BudgetStatusCardProps> = ({ budget, transaction
                   {cat.percentage.toFixed(0)}%
                 </span>
                 {cat.status === 'red' && (
-                  <span className="text-xxs font-bold text-red-500 uppercase tracking-ultra-wide">
+                  <span className="text-xxs font-bold text-red-600 uppercase tracking-ultra-wide">
                     Estouro
                   </span>
                 )}
@@ -189,8 +189,8 @@ const BudgetStatusCard: React.FC<BudgetStatusCardProps> = ({ budget, transaction
                   Meta de poupança
                 </span>
               </div>
-              <p className="text-xs font-black text-brand-primary mt-1">
-                R$ {progress.savingsGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <p className="text-xs font-black text-action-primaryDark mt-1">
+                R$ {progress.savingsGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
           )}
@@ -201,8 +201,8 @@ const BudgetStatusCard: React.FC<BudgetStatusCardProps> = ({ budget, transaction
               <span className="text-xxs font-bold text-text-muted uppercase tracking-ultra-wide">
                 Renda prevista
               </span>
-              <span className="text-xs font-black text-green-600">
-                R$ {progress.totalIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <span className="text-xs font-black text-emerald-700">
+                R$ {progress.totalIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
           )}

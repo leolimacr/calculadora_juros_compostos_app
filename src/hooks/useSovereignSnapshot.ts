@@ -7,7 +7,7 @@ import { useInvoicesByUser } from './useCardInvoices';
 import type { Transaction, UserMeta } from '../types';
 import { getCurrentInvoice, isBillPaid } from '../utils/invoiceUtils';
 import type { SovereignSnapshot } from '../utils/calculations';
-import { aggregateMonthFlow, aggregateAllTimeFlow, buildSovereignSnapshot } from '../utils/calculations';
+import { aggregateMonthFlow, aggregateAllTimeFlow, buildSovereignSnapshot, resolveObligationPressure } from '../utils/calculations';
 import { isCommandMode } from '../services/personaCalibrationService';
 
 export interface SovereignSnapshotResult extends SovereignSnapshot {
@@ -23,7 +23,8 @@ export function useSovereignSnapshot(
   transactions: Transaction[],
   userMeta?: UserMeta | null,
   localCommandMode = false,
-  refDate?: Date
+  refDate?: Date,
+  exclusions?: number
 ): SovereignSnapshotResult {
   const { user } = useAuth();
   const { cards: userCards } = useCards(user?.uid);
@@ -42,29 +43,34 @@ export function useSovereignSnapshot(
 
     const cardInvoicePressure = userCards.map((card) => {
       const computedInvoice = getCurrentInvoice(card, safeTx);
-      if (!computedInvoice) return { remainingAmount: 0, periodTotal: 0 };
+      if (!computedInvoice) {
+        return {
+          remainingAmount: 0,
+          periodTotal: 0,
+          source: { computedTotal: 0, paidAmount: 0, storedRemaining: null as number | null, rotativoConverted: false },
+        };
+      }
 
       const storedInvoice = storedInvoices.find(
         si => si.cardId === card.id && si.periodEnd === computedInvoice.periodEnd
       );
 
-      if (storedInvoice) {
-        if (storedInvoice.rotativoConverted) {
-          return { remainingAmount: 0, periodTotal: 0 };
-        }
-        return {
-          remainingAmount: storedInvoice.remainingAmount,
-          periodTotal: storedInvoice.total,
-        };
-      }
-
       const paidToThisCard = safeTx
         .filter(t => t.isBillPayment && t.linkedCardId === card.id && t.date >= computedInvoice.periodStart && t.date <= computedInvoice.periodEnd)
         .reduce((sum, t) => sum + t.amount, 0);
 
+      const source = {
+        computedTotal: computedInvoice.total,
+        paidAmount: paidToThisCard,
+        storedRemaining: storedInvoice?.remainingAmount ?? null,
+        rotativoConverted: storedInvoice?.rotativoConverted ?? false,
+      };
+
       return {
-        remainingAmount: Math.max(0, computedInvoice.total - paidToThisCard),
-        periodTotal: computedInvoice.total,
+        // Regra única centralizada em resolveObligationPressure (sem duplicar a lógica aqui).
+        remainingAmount: resolveObligationPressure([source], 0),
+        periodTotal: storedInvoice?.rotativoConverted ? 0 : (storedInvoice?.total ?? computedInvoice.total),
+        source,
       };
     });
 
@@ -72,6 +78,13 @@ export function useSovereignSnapshot(
     const rotativoDebtBalance = userDebts
       .filter(d => d.originType === 'rotativo_cartao')
       .reduce((sum, d) => sum + (d.saldoDevedor || 0), 0);
+    /** Combined card invoice + rotativo debt pressure.
+     *  Distinct from flow.virtualImpact (isVirtual expenses in aggregateMonthFlow).
+     *  Passed as 'obligationPressure' to buildSovereignSnapshot. */
+    const obligationPressure = resolveObligationPressure(
+      cardInvoicePressure.map(c => c.source),
+      rotativoDebtBalance
+    );
     const cardFuturePressure = Math.max(0, totalCreditUsed - cardInvoiceRemaining - rotativoDebtBalance);
 
     const pendingBillItems = recurringBills.filter(
@@ -88,20 +101,20 @@ export function useSovereignSnapshot(
       accumulatedBalance: allTimeFlow.realBalance,
       accumulatedIncome: allTimeFlow.income,
       accumulatedExpenses: allTimeFlow.expenses,
-      virtualImpact: cardInvoiceRemaining,
+      obligationPressure,
       pendingBills: totalPendingBills,
       financialProfile: userMeta?.financialProfile,
       commandMode,
       income: flow.income,
       expenses: flow.expenses,
       monthlyAport: Math.max(0, flow.income - flow.expenses),
-      rotativoDebtBalance,
+      exclusions,
     });
 
     return {
       ...snapshot,
       totalPendingBills,
-      virtualImpact: cardInvoiceRemaining,
+      virtualImpact: obligationPressure,
       commandMode,
       totalCreditUsed,
       totalDebtBalance,
@@ -109,5 +122,5 @@ export function useSovereignSnapshot(
       cardFuturePressure,
       rotativoDebtBalance,
     };
-  }, [transactions, userCards, recurringBills, userDebts, storedInvoices, userMeta, localCommandMode, refDate]);
+  }, [transactions, userCards, recurringBills, userDebts, storedInvoices, userMeta, localCommandMode, refDate, exclusions]);
 }

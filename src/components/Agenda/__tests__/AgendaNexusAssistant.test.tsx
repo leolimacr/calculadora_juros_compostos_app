@@ -111,6 +111,38 @@ describe('AgendaNexusAssistant', () => {
     expect(screen.getByText('Levar relatório')).toBeInTheDocument();
   });
 
+  it('mostra o horário em chip imediatamente após o título e a caixinha "Mostrar o horário da agenda" marcada por padrão', () => {
+    configure({ stage: 'done', proposal });
+    render(<AgendaNexusAssistant />);
+
+    const checkbox = screen.getByRole('checkbox', { name: 'Mostrar o horário da agenda' });
+    expect(checkbox).toBeChecked();
+    const titleElement = screen.getByText('Reunião com o coordenador');
+    expect(titleElement.nextElementSibling).toHaveTextContent('17:00 às 18:00');
+  });
+
+  it('desmarcar a caixinha omite o horário no cartão, mas o título permanece', () => {
+    configure({ stage: 'done', proposal });
+    render(<AgendaNexusAssistant />);
+
+    const checkbox = screen.getByRole('checkbox', { name: 'Mostrar o horário da agenda' });
+    fireEvent.click(checkbox);
+
+    expect(checkbox).not.toBeChecked();
+    expect(screen.queryByText('17:00 às 18:00')).not.toBeInTheDocument();
+    expect(screen.getByText('Reunião com o coordenador')).toBeInTheDocument();
+  });
+
+  it('a caixinha é apenas exibição: confirmar continua enviando o mesmo payload de commit', () => {
+    configure({ stage: 'done', proposal });
+    render(<AgendaNexusAssistant />);
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Mostrar o horário da agenda' }));
+    fireEvent.click(screen.getByRole('button', { name: /confirmar criação/i }));
+
+    expect(mockNexus.commit).toHaveBeenCalledWith(undefined, { reminderMode: 'none' });
+  });
+
   it('exibe campos ausentes, ambiguidades, assumptions e alertas', () => {
     configure({
       stage: 'clarify',
@@ -215,13 +247,66 @@ describe('AgendaNexusAssistant', () => {
     expect(screen.queryByRole('button', { name: /editar|excluir/i })).not.toBeInTheDocument();
   });
 
-  it('não oferece confirmação para propostas que não sejam create', () => {
+  it('exibe erro de edição indisponível (semântico) sem botão de confirmação', () => {
+    configure({ stage: 'error', error: 'A edição de séries recorrentes ainda não está disponível no Nexus na Agenda.' });
+    render(<AgendaNexusAssistant />);
+    expect(screen.getByRole('alert')).toHaveTextContent('edição de séries recorrentes ainda não está disponível');
+    expect(screen.queryByRole('button', { name: /confirmar/i })).not.toBeInTheDocument();
+  });
+
+  it('não oferece confirmação para proposta de edição sem antes/depois', () => {
     configure({
       stage: 'done',
       proposal: { ...proposal, intent: 'edit', action: 'edit_commitment' },
     });
     render(<AgendaNexusAssistant />);
+    expect(screen.queryByRole('button', { name: /confirmar/i })).not.toBeInTheDocument();
+  });
+
+  it('renderiza plano de edição com diff antes→depois e confirma sem alarme', () => {
+    const editProposal = {
+      intent: 'edit',
+      action: 'edit_commitment',
+      title: 'Reunião com o coordenador',
+      firstDate: '2026-08-18',
+      lastDate: '2026-08-18',
+      occurrenceCount: 1,
+      summary: 'Entendi! Vou editar "Reunião com o coordenador" alterando o início para 19:00. Confirma?',
+      before: { title: 'Reunião com o coordenador', date: '2026-08-18', startTime: '17:00', endTime: '18:00', location: 'Sala 3', participants: ['Ana'], notes: 'Levar relatório' },
+      after: { title: 'Reunião com o coordenador', date: '2026-08-18', startTime: '19:00', endTime: '20:00', location: 'Sala 3', participants: ['Ana'], notes: 'Levar relatório' },
+    };
+    configure({ stage: 'done', proposal: editProposal });
+    render(<AgendaNexusAssistant />);
+
+    expect(screen.getByRole('button', { name: /confirmar edição/i })).toBeInTheDocument();
+    expect(screen.getByLabelText('Alterações da edição')).toBeInTheDocument();
+    expect(screen.getByText('17:00')).toBeInTheDocument();
+    expect(screen.getByText('19:00')).toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: 'Sem aviso' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /confirmar criação/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /confirmar edição/i }));
+    expect(mockNexus.commit).toHaveBeenCalledWith(undefined, { reminderMode: 'none' });
+  });
+
+  it('exibe sucesso de edição sem oferecer desfazer', () => {
+    const editProposal = {
+      intent: 'edit',
+      action: 'edit_commitment',
+      title: 'Reunião com o coordenador',
+      summary: 'Entendi! Vou editar.',
+      before: { title: 'Reunião com o coordenador', date: '2026-08-18', startTime: '17:00' },
+      after: { title: 'Reunião com o coordenador', date: '2026-08-18', startTime: '19:00' },
+    };
+    configure({
+      stage: 'success',
+      proposal: editProposal,
+      commitResult: { success: true, status: 'committed', intent: 'edit', actionId: 'act-edit', idsEdited: ['c1'], occurrenceCount: 1 },
+      canUndo: false,
+    });
+    render(<AgendaNexusAssistant />);
+    expect(screen.getByRole('status')).toHaveTextContent('Compromisso atualizado com sucesso.');
+    expect(screen.queryByRole('button', { name: 'Desfazer' })).not.toBeInTheDocument();
   });
 
   it('permite navegação por teclado no formulário', () => {
@@ -232,27 +317,38 @@ describe('AgendaNexusAssistant', () => {
     expect(document.activeElement).toBe(input);
   });
 
-  it('pergunta sobre alarme/anotação na proposta e confirma com "apenas anotar" por padrão', () => {
+  it('pergunta sobre o aviso na proposta e confirma com "sem aviso" por padrão', () => {
     configure({ stage: 'done', proposal });
     render(<AgendaNexusAssistant />);
-    expect(screen.getByRole('radio', { name: 'Ativar alarme' })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: 'Apenas anotar' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Sem aviso' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Notificação' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Notificação + alarme' })).toBeInTheDocument();
+    expect(screen.getByText(/O alarme sonoro depende das permissões do dispositivo/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /confirmar criação/i }));
-    expect(mockNexus.commit).toHaveBeenCalledWith(undefined, { alarm: false });
+    expect(mockNexus.commit).toHaveBeenCalledWith(undefined, { reminderMode: 'none' });
   });
 
-  it('envia alarm true ao confirmar quando o usuário escolhe ativar o alarme', () => {
+  it('envia notificação + alarme ao confirmar quando o usuário escolhe o modo completo', () => {
     configure({ stage: 'done', proposal });
     render(<AgendaNexusAssistant />);
-    fireEvent.click(screen.getByRole('radio', { name: 'Ativar alarme' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Notificação + alarme' }));
+    expect(screen.getAllByText('Notificação + alarme').length).toBeGreaterThanOrEqual(2);
     fireEvent.click(screen.getByRole('button', { name: /confirmar criação/i }));
-    expect(mockNexus.commit).toHaveBeenCalledWith(undefined, { alarm: true });
+    expect(mockNexus.commit).toHaveBeenCalledWith(undefined, { reminderMode: 'notification_alarm' });
   });
 
-  it('não oferece a escolha de alarme quando não há proposta confirmável', () => {
+  it('envia apenas notificação ao confirmar quando o usuário escolhe o modo visual', () => {
+    configure({ stage: 'done', proposal });
+    render(<AgendaNexusAssistant />);
+    fireEvent.click(screen.getByRole('radio', { name: 'Notificação' }));
+    fireEvent.click(screen.getByRole('button', { name: /confirmar criação/i }));
+    expect(mockNexus.commit).toHaveBeenCalledWith(undefined, { reminderMode: 'notification' });
+  });
+
+  it('não oferece a escolha de aviso quando não há proposta confirmável', () => {
     configure({ stage: 'clarify', proposal: { ...proposal, summary: undefined }, missing: ['date'] });
     render(<AgendaNexusAssistant />);
-    expect(screen.queryByRole('radio', { name: 'Ativar alarme' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: 'Sem aviso' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /confirmar criação/i })).not.toBeInTheDocument();
   });
 
@@ -275,11 +371,11 @@ describe('AgendaNexusAssistant', () => {
     expect(screen.getByLabelText('Itens que serão excluídos')).toBeInTheDocument();
     expect(screen.getByText('2 compromissos serão excluídos')).toBeInTheDocument();
     expect(screen.getAllByText('Reunião com o coordenador de campo').length).toBeGreaterThan(0);
-    expect(screen.queryByRole('radio', { name: 'Ativar alarme' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: 'Sem aviso' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /confirmar criação/i })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /confirmar exclusão/i }));
-    expect(mockNexus.commit).toHaveBeenCalledWith(undefined, { alarm: false });
+    expect(mockNexus.commit).toHaveBeenCalledWith(undefined, { reminderMode: 'none' });
   });
 
   it('exibe sucesso de exclusão sem oferecer desfazer', () => {
@@ -344,7 +440,7 @@ describe('AgendaNexusAssistant', () => {
     expect(mockNexus.interpret).toHaveBeenCalledWith({ prompt: 'Sem prazo máximo' });
   });
 
-  it('no modo diálogo usa placeholder contextual e botão Responder', () => {
+  it('no modo diálogo usa placeholder contextual e botão Enviar', () => {
     const question = 'Você quer até uma data limite?';
     configure({
       stage: 'clarify',
@@ -357,8 +453,7 @@ describe('AgendaNexusAssistant', () => {
       'placeholder',
       'Digite sua resposta ou complemente a informação...',
     );
-    expect(screen.getByRole('button', { name: /responder/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /enviar/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /enviar/i })).toBeInTheDocument();
   });
 
   it('empilha múltiplas trocas do diálogo como mini-histórico', () => {
@@ -382,7 +477,134 @@ describe('AgendaNexusAssistant', () => {
     expect(screen.getByText(secondQuestion)).toBeInTheDocument();
   });
 
-  it('sai do modo diálogo ao apresentar proposta e volta ao placeholder padrão', () => {
+  it('mantém a thread visível quando a proposta chega e inclui o resumo do assistente', () => {
+    configure({
+      stage: 'done',
+      proposal,
+      dialogue: [
+        { role: 'user', text: 'reunião toda terça' },
+        { role: 'assistant', text: 'Entendi que você quer uma recorrência.' },
+        { role: 'user', text: 'até o fim de setembro' },
+        { role: 'assistant', text: 'Criar reunião recorrente.' },
+      ],
+    });
+    render(<AgendaNexusAssistant />);
+
+    expect(screen.getByText(/Diálogo com o Nexus/)).toBeInTheDocument();
+    expect(screen.getByText('Criar reunião recorrente.')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Comando para o Nexus' })).toHaveAttribute(
+      'placeholder',
+      'Digite sua resposta ou complemente a informação...',
+    );
+  });
+
+  it('prioriza a thread de diálogo e oculta os painéis técnicos na clarificação', () => {
+    configure({
+      stage: 'clarify',
+      missing: ['title'],
+      ambiguous: ['data não identificada'],
+      dialogue: [
+        { role: 'user', text: 'marque algo' },
+        { role: 'assistant', text: 'data não identificada' },
+      ],
+    });
+    render(<AgendaNexusAssistant />);
+
+    expect(screen.getByText(/Diálogo com o Nexus/)).toBeInTheDocument();
+    expect(screen.getByText('marque algo')).toBeInTheDocument();
+    expect(screen.getAllByText(/data não identificada/)).toHaveLength(1);
+    expect(screen.queryByText(/Faltam informações/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Preciso esclarecer/)).not.toBeInTheDocument();
+  });
+
+  it('não mostra a pergunta técnica (ex.: "Informe title.") em nenhuma superfície', () => {
+    configure({
+      stage: 'clarify',
+      missing: ['title'],
+      ambiguous: [],
+      dialogue: [
+        { role: 'user', text: 'marque algo' },
+        { role: 'assistant', text: 'Informe, por favor, o título do compromisso.' },
+      ],
+    });
+    render(<AgendaNexusAssistant />);
+
+    expect(screen.queryByText(/Informe title\./)).not.toBeInTheDocument();
+    expect(screen.queryByText(/title/)).not.toBeInTheDocument();
+    expect(screen.getByText('Informe, por favor, o título do compromisso.')).toBeInTheDocument();
+  });
+
+  it('fluxo real: pergunta natural de horário sem erro nem painel técnico e campo ativo', () => {
+    const timeQuestion = 'Você quer inserir o horário neste compromisso?';
+    configure({
+      stage: 'clarify',
+      missing: ['startTime'],
+      ambiguous: [],
+      dialogue: [
+        { role: 'user', text: 'Agende uma reunião para mim para amanhã.' },
+        { role: 'assistant', text: timeQuestion },
+      ],
+    });
+    render(<AgendaNexusAssistant />);
+
+    expect(screen.getByText(timeQuestion)).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Faltam informações/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Informe title\./)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Não consegui estruturar esse comando de agenda\./)).not.toBeInTheDocument();
+    const input = screen.getByRole('textbox', { name: 'Comando para o Nexus' });
+    expect(input).toBeEnabled();
+    expect(input).toHaveAttribute('placeholder', 'Digite sua resposta ou complemente a informação...');
+  });
+
+  it('fluxo real: após "Às 20h." exibe proposta confirmável com o horário', () => {
+    const timeQuestion = 'Você quer inserir o horário neste compromisso?';
+    const twoTurnProposal = {
+      intent: 'create',
+      action: 'create_commitment',
+      title: 'Reunião 20h',
+      firstDate: '2026-08-13',
+      lastDate: '2026-08-13',
+      startTime: '20:00',
+      endTime: undefined,
+      occurrenceCount: 1,
+      summary: 'Agendar reunião.',
+    };
+    configure({
+      stage: 'done',
+      proposal: twoTurnProposal,
+      dialogue: [
+        { role: 'user', text: 'Agende uma reunião para mim para amanhã.' },
+        { role: 'assistant', text: timeQuestion },
+        { role: 'user', text: 'Às 20h.' },
+      ],
+    });
+    render(<AgendaNexusAssistant />);
+
+    expect(screen.getByRole('heading', { name: 'Revise antes de confirmar' })).toBeInTheDocument();
+    expect(screen.getByText('Reunião 20h')).toBeInTheDocument();
+    expect(screen.getByText('13/08/2026')).toBeInTheDocument();
+    expect(screen.getByText('20:00')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /confirmar/i })).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('rola a thread até o fim quando o diálogo muda', () => {
+    const scrollTo = vi.fn();
+    Element.prototype.scrollTo = scrollTo as unknown as typeof Element.prototype.scrollTo;
+    try {
+      configure({
+        stage: 'clarify',
+        dialogue: [{ role: 'user', text: 'marque algo' }],
+      });
+      render(<AgendaNexusAssistant />);
+      expect(scrollTo).toHaveBeenCalledWith({ top: expect.any(Number), behavior: 'smooth' });
+    } finally {
+      delete (Element.prototype as { scrollTo?: unknown }).scrollTo;
+    }
+  });
+
+  it('sem thread, uma proposta mostra o placeholder padrão e botão Enviar', () => {
     configure({ stage: 'done', proposal });
     render(<AgendaNexusAssistant />);
 

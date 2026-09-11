@@ -26,7 +26,12 @@ exports.dateResolutionSchema = zod_1.z.object({
 });
 exports.recurrenceSchema = zod_1.z.object({
     freq: zod_1.z.enum(exports.RECURRENCE_FREQS),
-    byDay: zod_1.z.number().int().min(1).max(7).optional(),
+    byDay: zod_1.z
+        .union([
+        zod_1.z.number().int().min(1).max(7),
+        zod_1.z.array(zod_1.z.number().int().min(1).max(7)).min(1).max(7),
+    ])
+        .optional(),
     until: exports.dateResolutionSchema.optional(),
 });
 exports.agendaFilterSchema = zod_1.z
@@ -42,10 +47,12 @@ exports.entitiesSchema = zod_1.z
     startTime: zod_1.z
         .string()
         .regex(ISO_TIME_REGEX, 'startTime deve estar no formato HH:mm')
+        .nullable()
         .optional(),
     endTime: zod_1.z
         .string()
         .regex(ISO_TIME_REGEX, 'endTime deve estar no formato HH:mm')
+        .nullable()
         .optional(),
     recurrence: exports.recurrenceSchema.optional(),
     location: zod_1.z
@@ -123,11 +130,14 @@ function validateAgendaEnvelope(env) {
         if (!env.entities.title) {
             errors.push('entities.title é obrigatório para create/edit.');
         }
-        if (!env.entities.date) {
-            errors.push('entities.date é obrigatório para create/edit.');
+        if (env.intent === 'create' && !env.entities.date) {
+            errors.push('entities.date é obrigatório para create.');
         }
-        else if (env.entities.date.confidence === 'low') {
+        if (env.entities.date && env.entities.date.confidence === 'low') {
             errors.push('entities.date tem confiança baixa — solicite confirmação da data antes de gravar.');
+        }
+        if (env.intent === 'edit' && env.entities.recurrence) {
+            errors.push('entities.recurrence não é suportado em edição de compromissos.');
         }
         if (env.entities.location !== undefined && env.entities.location === '') {
             errors.push('entities.location não pode ser uma string vazia; use null para ausência.');

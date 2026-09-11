@@ -35,18 +35,29 @@ const CHECKS = [
   ['status.warning',     /warning:\s*'(\#f59e0b)/,       /warning:\s*'(\#f59e0b)/,       '#f59e0b'],
   ['status.info',        /info:\s*'(\#3b82f6)/,          /info:\s*'(\#3b82f6)/,          '#3b82f6'],
 
-  // Surface
+  // Surface (LIGHT/CLEAR é o tema canônico — sem tokens dark)
   ['surface.primary',    /primary:\s*'(\#ffffff)/,       /primary:\s*'(\#ffffff)/,       '#ffffff'],
   ['surface.secondary',  /secondary:\s*'(\#f8fafc)/,    /secondary:\s*'(\#f8fafc)/,    '#f8fafc'],
   ['surface.elevated',   /elevated:\s*'(\#f1f5f9)/,     /elevated:\s*'(\#f1f5f9)/,     '#f1f5f9'],
-  ['surface.dark',       /dark:\s*'(\#0f172a)/,          /dark:\s*'(\#0f172a)/,          '#0f172a'],
-  ['surface.deep',       /deep:\s*'(\#020617)/,          /deep:\s*'(\#020617)/,          '#020617'],
-  ['surface.pageDark',   /pageDark:\s*'(\#0B0F17)/,     /pageDark:\s*'(\#0B0F17)/,     '#0B0F17'],
+  ['surface.subtle',     /subtle:\s*'(\#eef2f7)/,       /subtle:\s*'(\#eef2f7)/,       '#eef2f7'],
+  ['surface.canvas',     /canvas:\s*'(\#dbe3ed)/,       /canvas:\s*'(\#dbe3ed)/,       '#dbe3ed'],
+
+  // Border
+  ['border.subtle',      /subtle:\s*'(\#e2e8f0)/,        /subtle:\s*'(\#e2e8f0)/,        '#e2e8f0'],
+  ['border.strong',      /strong:\s*'(\#cbd5e1)/,        /strong:\s*'(\#cbd5e1)/,        '#cbd5e1'],
+
+  // Action (fundos/textos com contraste p/ texto pequeno e branco)
+  ['action.sky',         /sky:\s*'(\#0284c7)/,           /sky:\s*'(\#0284c7)/,           '#0284c7'],
+  ['action.amber',       /amber:\s*'(\#b45309)/,         /amber:\s*'(\#b45309)/,         '#b45309'],
+  ['action.primaryDark', /primaryDark:\s*'(\#047857)/,   /primaryDark:\s*'(\#047857)/,   '#047857'],
+  ['action.dangerDark',  /dangerDark:\s*'(\#be123c)/,    /dangerDark:\s*'(\#be123c)/,    '#be123c'],
 
   // Text
   ['text.primary',       /primary:\s*'(\#0f172a)/,       /primary:\s*'(\#0f172a)/,       '#0f172a'],
   ['text.secondary',     /secondary:\s*'(\#475569)/,     /secondary:\s*'(\#475569)/,     '#475569'],
+  ['text.support',       /support:\s*'(\#334155)/,       /support:\s*'(\#334155)/,       '#334155'],
   ['text.muted',         /muted:\s*'(\#64748b)/,         /muted:\s*'(\#64748b)/,         '#64748b'],
+  ['text.placeholder',   /placeholder:\s*'(\#64748b)/,   /placeholder:\s*'(\#64748b)/,   '#64748b'],
   ['text.onBrand',       /onBrand:\s*'(\#ffffff)/,       /onBrand:\s*'(\#ffffff)/,       '#ffffff'],
 ];
 

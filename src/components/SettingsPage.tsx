@@ -6,8 +6,7 @@ import {
   House, LayoutGrid, Crown, Brain
 } from 'lucide-react';
 import { FPI_COPY } from '../theme/fpiVoiceGuide';
-import { auth, db, functions } from '../firebase';
-import { ref, update } from 'firebase/database';
+import { auth, functions } from '../firebase';
 import { deleteUser } from 'firebase/auth';
 import { httpsCallable } from 'firebase/functions';
 import { Browser } from '@capacitor/browser';
@@ -22,7 +21,11 @@ import { useSecuritySettings } from '../hooks/useSecuritySettings';
 import CommandCalibration from './tools/nexus/CommandCalibration';
 import { seedPersonaFromIntent } from '../services/personaService';
 
-const SettingsPage: React.FC<any> = ({ onBack }) => {
+interface SettingsPageProps {
+  onBack: () => void;
+}
+
+const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { userMeta, saveFinancialProfile, wipeUserData } = useFirebase(user?.uid);
@@ -46,12 +49,6 @@ const SettingsPage: React.FC<any> = ({ onBack }) => {
    * effectiveTier === 'free' significa que não há cobrança em vigor.
    * billingStatus duplica a verificação para capturar inconsistências. */
   const isSafeToDelete = effectiveTier === 'free' && (!billingStatus || billingStatus === 'expired' || billingStatus === 'incomplete');
-
-  const handleOpenExternal = async (path: string) => {
-    const url = `https://www.financasproinvest.com.br${path}`;
-    if (isNative) await Browser.open({ url });
-    else window.open(url, '_blank');
-  };
 
   /* ── ABRIR PORTAL STRIPE ── */
   const handleOpenPortal = async () => {
@@ -99,9 +96,9 @@ const SettingsPage: React.FC<any> = ({ onBack }) => {
         alert("Sua conta e todos os dados associados foram removidos com sucesso.");
       }
       setDeleteStep('idle');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Erro ao excluir conta:", error);
-      if (error.code === 'auth/requires-recent-login') {
+      if ((error as { code?: string }).code === 'auth/requires-recent-login') {
         setDeleteError("Por segurança, a exclusão de conta exige um login recente. Faça login novamente e tente excluir em seguida.");
         await logout();
       } else {
@@ -117,7 +114,7 @@ const SettingsPage: React.FC<any> = ({ onBack }) => {
     setDeleteError(null);
   };
 
-  const Toggle = ({ active, onClick }: any) => (
+  const Toggle = ({ active, onClick }: { active: boolean; onClick: () => void }) => (
     <div
       onClick={onClick}
       className={`w-12 h-7 rounded-full flex items-center px-1 transition-colors duration-300 cursor-pointer ${
@@ -253,7 +250,7 @@ const SettingsPage: React.FC<any> = ({ onBack }) => {
                     <p className="text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">{label}</p>
                     <input
                       type="number"
-                      value={(settings.profileForm as any)[key] ?? ''}
+                      value={(settings.profileForm as unknown as Record<string, number | undefined>)[key] ?? ''}
                       onChange={(e) => settings.setProfileProfileForm({ ...settings.profileForm, [key]: Number(e.target.value) })}
                       placeholder={placeholder}
                       className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-brand-primaryCta"
@@ -439,7 +436,7 @@ const SettingsPage: React.FC<any> = ({ onBack }) => {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <button
-                onClick={() => security.handleStartupHomeChange('home', isPremium, handleOpenExternal)}
+                onClick={() => security.handleStartupHomeChange('home', isPremium, () => navigate('/app/mais/pricing'))}
                 className={`rounded-2xl border p-5 text-left transition-all ${
                   security.startupHome === 'home'
                     ? 'border-amber-400 bg-amber-50 shadow-sm'
@@ -460,7 +457,7 @@ const SettingsPage: React.FC<any> = ({ onBack }) => {
                 </p>
               </button>
               <button
-                onClick={() => security.handleStartupHomeChange('central', isPremium, handleOpenExternal)}
+                onClick={() => security.handleStartupHomeChange('central', isPremium, () => navigate('/app/mais/pricing'))}
                 className={`rounded-2xl border p-5 text-left transition-all ${
                   security.startupHome === 'central'
                     ? 'border-sky-400 bg-sky-50 shadow-sm'
@@ -603,26 +600,6 @@ const SettingsPage: React.FC<any> = ({ onBack }) => {
             </div>
           </div>
 
-          {/* Horário de Disponibilidade */}
-          <div className="pt-4 border-t border-slate-100">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Horário de Disponibilidade</p>
-            <p className="text-sm font-bold text-slate-800 mb-4">Em quais horários o Nexus pode te notificar?</p>
-            <div className="flex flex-wrap gap-2">
-              {[
-                { label: 'Horário Comercial', value: 'business' },
-                { label: 'Dia Inteiro', value: 'all-day' },
-                { label: 'Personalizado', value: 'custom' },
-              ].map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => console.log('Presence hour option:', opt.value)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:border-teal-500 hover:text-teal-600 transition-all"
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
 
@@ -772,7 +749,7 @@ const SettingsPage: React.FC<any> = ({ onBack }) => {
             <div className="flex flex-col gap-4">
               <button
                 onClick={() => {
-                  handleOpenExternal('/termos');
+                  navigate('/termos');
                   security.setActiveModal(null);
                 }}
                 className="w-full py-5 bg-slate-100 hover:bg-slate-200 text-slate-900 rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-slate-200"
@@ -782,7 +759,7 @@ const SettingsPage: React.FC<any> = ({ onBack }) => {
 
               <button
                 onClick={() => {
-                  handleOpenExternal('/privacidade');
+                  navigate('/privacidade');
                   security.setActiveModal(null);
                 }}
                 className="w-full py-5 bg-slate-100 hover:bg-slate-200 text-slate-900 rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-slate-200"

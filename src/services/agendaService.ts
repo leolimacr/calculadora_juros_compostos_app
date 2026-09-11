@@ -13,10 +13,20 @@ import {
   orderBy,
   limit,
   serverTimestamp,
+  writeBatch,
 } from 'firebase/firestore';
 import { firestore } from '../firebase';
+import type { RecurringBill } from '../types';
 
 export type RecurrenceFreq = 'daily' | 'weekly' | 'monthly';
+
+/**
+ * Modo de aviso de um compromisso (gravado pelo Nexus na confirmação):
+ * 'notification' = apenas notificação visual; 'notification_alarm' = notificação
+ * + som/vibração quando o dispositivo permitir. Ausência (undefined) significa
+ * que o compromisso não tem aviso ativo.
+ */
+export type AgendaReminderMode = 'notification' | 'notification_alarm';
 
 /**
  * Regra de recorrência de uma série de compromissos (espelho do que o Nexus
@@ -38,6 +48,8 @@ export interface AgendaCommitment {
   endTime?: string;
   completed: boolean;
   alarmAt?: Timestamp;
+  /** Modo de aviso ativo quando alarmAt existe (default implícito: 'notification'). */
+  reminderMode?: AgendaReminderMode;
   /** Vínculo com a série original. Todos os membros de uma recorrência compartilham o mesmo id. */
   seriesId?: string;
   /** Regra de recorrência da qual este compromisso faz parte. */
@@ -48,6 +60,9 @@ export interface AgendaCommitment {
   location?: string;
   participants?: string[];
   notes?: string;
+  /** Ordem manual dentro do dia (reordenação pela UI). Ausente em compromissos
+   * legados — estes caem no fallback (time → createdAt) ao ordenar. */
+  order?: number;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }
@@ -60,6 +75,7 @@ export interface AgendaCommitmentInput {
   endTime?: string;
   completed: boolean;
   alarmAt?: Date;
+  reminderMode?: AgendaReminderMode;
   seriesId?: string;
   recurrence?: AgendaRecurrence;
   detached?: boolean;
@@ -67,6 +83,7 @@ export interface AgendaCommitmentInput {
   location?: string;
   participants?: string[];
   notes?: string;
+  order?: number;
 }
 
 const getCollection = (userId: string): CollectionReference<DocumentData> => {
@@ -128,6 +145,7 @@ export const addCommitment = async (
   docData.time = data.time ?? null;
   docData.endTime = data.endTime ?? null;
   if (data.alarmAt) docData.alarmAt = Timestamp.fromDate(data.alarmAt);
+  if (data.reminderMode !== undefined) docData.reminderMode = data.reminderMode;
   if (data.seriesId !== undefined) docData.seriesId = data.seriesId;
   if (data.recurrence !== undefined) docData.recurrence = data.recurrence;
   if (data.detached !== undefined) docData.detached = data.detached;
@@ -135,6 +153,7 @@ export const addCommitment = async (
   if (data.location !== undefined) docData.location = data.location;
   if (data.participants !== undefined) docData.participants = data.participants;
   if (data.notes !== undefined) docData.notes = data.notes;
+  docData.order = data.order ?? null;
   const docRef = await addDoc(getCollection(userId), docData);
   return docRef.id;
 };
@@ -163,4 +182,62 @@ export const toggleCommitment = async (
 ): Promise<void> => {
   const ref = doc(firestore, `users/${userId}/agenda`, commitmentId);
   await updateDoc(ref, { completed, updatedAt: serverTimestamp() });
+};
+
+/** Reordena os compromissos de um dia: grava o `order` re-normalizado de cada
+ * item num único lote atômico (semântica de reordenação manual da Agenda). */
+export const reorderDayCommitments = async (
+  userId: string,
+  ordered: Array<{ id: string; order: number }>
+): Promise<void> => {
+  const batch = writeBatch(firestore);
+  for (const item of ordered) {
+    batch.update(doc(firestore, `users/${userId}/agenda`, item.id), {
+      order: item.order,
+      updatedAt: serverTimestamp(),
+    });
+  }
+  await batch.commit();
+};
+
+export const syncBillsToAgenda = async (
+  userId: string,
+  bills: RecurringBill[],
+  year: number,
+  month: number
+): Promise<number> => {
+  const existing = await fetchMonthCommitments(userId, year, month);
+  const existingTitles = new Set(existing.map((c) => c.title.toLowerCase().trim()));
+
+  let addedCount = 0;
+  for (const bill of bills) {
+    if (!bill.isActive) continue;
+
+    const title = `Pagar ${bill.name}`;
+    if (existingTitles.has(title.toLowerCase().trim())) continue;
+
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const day = Math.min(Math.max(1, bill.dueDay), lastDay);
+    const date = new Date(year, month, day, 9, 0, 0, 0);
+    const alarmAt = new Date(date);
+
+    const formattedAmount = (bill.amount || 0).toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    });
+
+    await addCommitment(userId, {
+      date,
+      title,
+      time: '09:00',
+      completed: false,
+      alarmAt,
+      reminderMode: 'notification',
+      notes: `Conta do Controla no valor de ${formattedAmount}.`,
+    });
+
+    addedCount++;
+  }
+
+  return addedCount;
 };

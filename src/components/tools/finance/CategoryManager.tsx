@@ -109,14 +109,14 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({
                 <button 
                   type="button"
                   onClick={() => setType('expense')}
-                  className={`flex-1 py-2.5 rounded-2xl text-xxs font-black uppercase border transition-all ${type === 'expense' ? 'bg-status-danger/10 border-status-danger/30 text-status-danger' : 'bg-surface-primary border-surface-elevated text-text-muted'}`}
+                  className={`flex-1 py-2.5 rounded-2xl text-xxs font-black uppercase border transition-all ${type === 'expense' ? 'bg-status-danger/10 border-status-danger/30 text-action-dangerDark' : 'bg-surface-primary border-surface-elevated text-text-muted'}`}
                 >
                   {voice.expenseSingular}
                 </button>
                 <button 
                   type="button"
                   onClick={() => setType('income')}
-                  className={`flex-1 py-2.5 rounded-2xl text-xxs font-black uppercase border transition-all ${type === 'income' ? 'bg-status-success/10 border-brand-primary/30 text-brand-primary' : 'bg-surface-primary border-surface-elevated text-text-muted'}`}
+                  className={`flex-1 py-2.5 rounded-2xl text-xxs font-black uppercase border transition-all ${type === 'income' ? 'bg-status-success/10 border-brand-primary/30 text-action-primaryDark' : 'bg-surface-primary border-surface-elevated text-text-muted'}`}
                 >
                   {voice.incomeSingular}
                 </button>

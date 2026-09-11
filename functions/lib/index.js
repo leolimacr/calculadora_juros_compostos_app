@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.nexusAgendaUndo = exports.nexusAgendaCommit = exports.nexusAgendaInterpret = exports.createPortalSession = exports.expireCanceledSubscriptions = exports.createCheckoutSession = exports.handleStripeWebhook = exports.getMarketData = exports.getAssetQuote = exports.monthlyRotativoInterest = exports.dailyPresenceCheck = exports.generateDebtPlan = exports.testMistral = exports.askAiAdvisor = void 0;
+exports.nexusAgendaUndo = exports.nexusAgendaCommit = exports.nexusAgendaInterpret = exports.createPortalSession = exports.expireCanceledSubscriptions = exports.createCheckoutSession = exports.handleStripeWebhook = exports.getMarketData = exports.getAssetQuote = exports.monthlyRotativoInterest = exports.dailyPresenceCheck = exports.generateDebtPlan = exports.askAiAdvisor = void 0;
 process.on('uncaughtException', (err) => {
     console.error('UNCAUGHT EXCEPTION:', err);
     process.exit(1);
@@ -13,7 +13,6 @@ const app_1 = require("firebase-admin/app");
 (0, app_1.initializeApp)();
 var askAiAdvisor_1 = require("./askAiAdvisor");
 Object.defineProperty(exports, "askAiAdvisor", { enumerable: true, get: function () { return askAiAdvisor_1.askAiAdvisor; } });
-Object.defineProperty(exports, "testMistral", { enumerable: true, get: function () { return askAiAdvisor_1.testMistral; } });
 var generateDebtPlan_1 = require("./generateDebtPlan");
 Object.defineProperty(exports, "generateDebtPlan", { enumerable: true, get: function () { return generateDebtPlan_1.generateDebtPlan; } });
 var presenceCheck_1 = require("./presenceCheck");

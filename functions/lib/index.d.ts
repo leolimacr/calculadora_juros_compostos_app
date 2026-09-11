@@ -1,4 +1,4 @@
-export { askAiAdvisor, testMistral } from './askAiAdvisor';
+export { askAiAdvisor } from './askAiAdvisor';
 export { generateDebtPlan } from './generateDebtPlan';
 export { dailyPresenceCheck } from './presenceCheck';
 export { monthlyRotativoInterest } from './monthlyRotativo';

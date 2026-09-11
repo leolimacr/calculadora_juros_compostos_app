@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { NexusInsight } from '../nexusInsightEngine';
 import {
+  extractEventFamily,
   getEventInsight,
   getEventFeed,
   setEventInsight,
@@ -252,10 +253,55 @@ describe('eventInsightStore', () => {
       setEventInsight(makeInsight({ id: 'nexus-event-card-pressure-def', priority: 'media' }));
       expect(getEventInsight()?.id).toBe('nexus-event-large-income-abc');
     });
+
+    it('extractEventFamily usa o separador duplo (correlationId com traços)', () => {
+      expect(extractEventFamily('nexus-event-bill-payment--a1b2-c3d4')).toBe('nexus-event-bill-payment');
+      expect(extractEventFamily('nexus-event-large-income-abc123')).toBeNull();
+      expect(extractEventFamily('home-sovereign-deficit')).toBeNull();
+    });
   });
 
-  describe('localStorage dedup', () => {
-    it('does not show an insight already in localStorage', () => {
+  describe('supressão por família de evento (N14)', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-09-07T12:00:00Z'));
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('mesma família em sequência não troca o card atual', () => {
+      setEventInsight(makeInsight({ id: 'nexus-event-bill-payment--evt-1', priority: 'media' }));
+      const second = setEventInsight(makeInsight({ id: 'nexus-event-bill-payment--evt-2', priority: 'media' }));
+      expect(second).toBe(false);
+      expect(getEventInsight()?.id).toBe('nexus-event-bill-payment--evt-1');
+    });
+
+    it('família volta a exibir após a janela de 5 min', () => {
+      setEventInsight(makeInsight({ id: 'nexus-event-bill-payment--evt-1', priority: 'media' }));
+      vi.advanceTimersByTime(6 * 60 * 1000);
+      const second = setEventInsight(makeInsight({ id: 'nexus-event-bill-payment--evt-2', priority: 'media' }));
+      expect(second).toBe(true);
+      expect(getEventInsight()?.id).toBe('nexus-event-bill-payment--evt-2');
+    });
+
+    it('prioridade alta ignora a supressão da família', () => {
+      setEventInsight(makeInsight({ id: 'nexus-event-debt-paid-off--evt-1', priority: 'media' }));
+      const second = setEventInsight(makeInsight({ id: 'nexus-event-debt-paid-off--evt-2', priority: 'alta' }));
+      expect(second).toBe(true);
+      expect(getEventInsight()?.id).toBe('nexus-event-debt-paid-off--evt-2');
+    });
+
+    it('famílias diferentes não se suprimem', () => {
+      setEventInsight(makeInsight({ id: 'nexus-event-bill-payment--evt-1', priority: 'media' }));
+      acknowledgeCurrentInsight();
+      const second = setEventInsight(makeInsight({ id: 'nexus-event-card-pressure--evt-9', priority: 'media' }));
+      expect(second).toBe(true);
+    });
+  });
+
+  describe('localStorage dedup', () => {    it('does not show an insight already in localStorage', () => {
       const SEEN_KEY = 'nexus-event-driven-seen-v1';
       localStorage.setItem(SEEN_KEY, JSON.stringify(['nexus-event-large-income-test-123']));
       setEventInsight(makeInsight({ id: 'nexus-event-large-income-test-123' }));

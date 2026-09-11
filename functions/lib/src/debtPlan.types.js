@@ -1,7 +1,22 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DebtPlanResponseSchema = exports.DecisaoPorDividaSchema = exports.AnaliseCustoOportunidadeSchema = exports.DiagnosticoFinanceiroSchema = exports.PriorityExplanationSchema = exports.ActionStepSchema = exports.NexusDebtPlanRequestSchema = exports.CustoOportunidadeContextoSchema = exports.PatrimonioContextoSchema = exports.PerfilContextoSchema = exports.DebtSimulationSummarySchema = exports.DebtItemSchema = void 0;
+exports.DebtPlanResponseSchema = exports.DecisaoPorDividaSchema = exports.AnaliseCustoOportunidadeSchema = exports.DiagnosticoFinanceiroSchema = exports.PriorityExplanationSchema = exports.ActionStepSchema = exports.NexusDebtPlanRequestSchema = exports.CustoOportunidadeContextoSchema = exports.PatrimonioContextoSchema = exports.PerfilContextoSchema = exports.DebtSimulationSummarySchema = exports.DebtItemSchema = exports.DebtAdjustmentConfigSchema = exports.DebtSeriesSchema = void 0;
 const zod_1 = require("zod");
+exports.DebtSeriesSchema = zod_1.z.object({
+    id: zod_1.z.string(),
+    year: zod_1.z.number(),
+    startMonth: zod_1.z.number().min(1).max(12),
+    installmentsCount: zod_1.z.number().positive(),
+    installmentValue: zod_1.z.number().positive(),
+    adjustmentRate: zod_1.z.number().optional(),
+    effectiveRate: zod_1.z.number().optional(),
+});
+exports.DebtAdjustmentConfigSchema = zod_1.z.object({
+    type: zod_1.z.enum(['fixed', 'annual_percent', 'manual_series']),
+    annualPercentRate: zod_1.z.number().positive().optional(),
+    series: zod_1.z.array(exports.DebtSeriesSchema).optional(),
+    frequency: zod_1.z.enum(['monthly', 'quarterly', 'semi_annual', 'annual']).optional(),
+});
 exports.DebtItemSchema = zod_1.z.object({
     id: zod_1.z.string(),
     nome: zod_1.z.string(),
@@ -12,6 +27,9 @@ exports.DebtItemSchema = zod_1.z.object({
     ehGarantida: zod_1.z.boolean().optional(),
     observacoes: zod_1.z.string().optional(),
     proposito: zod_1.z.string().optional(),
+    adjustmentConfig: exports.DebtAdjustmentConfigSchema.optional(),
+    currentSeriesIndex: zod_1.z.number().int().nonnegative().optional(),
+    nextAdjustmentDate: zod_1.z.string().nullable().optional(),
 });
 exports.DebtSimulationSummarySchema = zod_1.z.object({
     rendaMensalEstimada: zod_1.z.number().optional().nullable(),

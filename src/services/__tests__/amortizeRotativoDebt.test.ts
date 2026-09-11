@@ -25,6 +25,9 @@ const makeRotativoDebt = (overrides: Partial<DebtItem> = {}): DebtItem => ({
   originCardId: 'card-1',
   originInvoiceId: 'inv-1',
   originInvoicePeriodEnd: '2026-06',
+  totalParcelas: 1,
+  parcelasPagas: 0,
+  historicoPagamentos: [],
   ...overrides,
 });
 

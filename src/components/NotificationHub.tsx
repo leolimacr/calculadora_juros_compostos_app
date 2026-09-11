@@ -16,6 +16,7 @@ const NotificationHub: React.FC<NotificationHubProps> = ({ isOpen, onClose, onNa
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   const isRecurringBillEvent = (event: NexusEvent) => event.eventType === 'finance.recurring_bill_due_today';
+  const isNexusAdvisorEvent = (event: NexusEvent) => event.eventType === 'nexus.insight_ready';
 
   if (!isOpen) return null;
 
@@ -55,6 +56,8 @@ const NotificationHub: React.FC<NotificationHubProps> = ({ isOpen, onClose, onNa
       className={`group relative bg-white border rounded-[2rem] p-6 shadow-sm hover:shadow-md transition-all active:scale-[0.99] overflow-hidden ${
         isRecurringBillEvent(event)
           ? 'border-amber-200 bg-amber-50/60 ring-1 ring-amber-100'
+          : isNexusAdvisorEvent(event)
+          ? 'border-emerald-200 bg-emerald-50/30 ring-1 ring-emerald-100/60'
           : 'border-slate-200'
       } ${
         !event.read && event.urgency === 'high' ? 'border-l-4 border-l-rose-500' : 
@@ -66,7 +69,7 @@ const NotificationHub: React.FC<NotificationHubProps> = ({ isOpen, onClose, onNa
       {!event.read && (
           <button 
             onClick={() => dismiss(event.id)}
-            className="absolute top-4 right-4 p-1 text-slate-300 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"
+            className="absolute top-4 right-4 p-1 text-slate-400 hover:text-rose-600 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
           >
             <X size={16} />
           </button>
@@ -75,11 +78,13 @@ const NotificationHub: React.FC<NotificationHubProps> = ({ isOpen, onClose, onNa
       <div className="flex items-start gap-4">
         <div className={`mt-1 p-2.5 rounded-xl text-white ${
              isRecurringBillEvent(event)
-               ? 'bg-amber-500'
-               : event.read ? 'bg-slate-300' :
-               event.urgency === 'high' ? 'bg-rose-500' : 
-               event.urgency === 'medium' ? 'bg-amber-500' : 
-               'bg-sky-500'
+               ? 'bg-amber-600'
+               : isNexusAdvisorEvent(event)
+               ? 'bg-gradient-to-br from-emerald-600 to-teal-700 shadow-md shadow-emerald-500/20'
+               : event.read ? 'bg-slate-400' :
+               event.urgency === 'high' ? 'bg-rose-600' : 
+               event.urgency === 'medium' ? 'bg-amber-600' : 
+               'bg-sky-600'
         }`}>
           {isRecurringBillEvent(event) ? <CalendarCheck2 size={18} /> : <Sparkles size={18} />}
         </div>
@@ -93,8 +98,19 @@ const NotificationHub: React.FC<NotificationHubProps> = ({ isOpen, onClose, onNa
                 <CalendarCheck2 size={10} /> Pendente
               </span>
             )}
+            {isNexusAdvisorEvent(event) && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100/80 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-[0.15em] text-emerald-800 border border-emerald-200">
+                <Sparkles size={10} className="fill-emerald-700" /> Consultor Nexus
+              </span>
+            )}
           </div>
-          <p className={`text-xs font-medium leading-relaxed mb-4 ${isRecurringBillEvent(event) ? 'text-amber-900/80' : 'text-slate-500'}`}>
+          <p className={`text-xs font-medium leading-relaxed mb-4 ${
+            isRecurringBillEvent(event)
+              ? 'text-amber-900/80'
+              : isNexusAdvisorEvent(event)
+              ? 'text-slate-700'
+              : 'text-slate-500'
+          }`}>
             {event.message.body}
           </p>
           
@@ -104,6 +120,8 @@ const NotificationHub: React.FC<NotificationHubProps> = ({ isOpen, onClose, onNa
               className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-colors ${
                 isRecurringBillEvent(event)
                   ? 'text-amber-700 hover:text-amber-800'
+                  : isNexusAdvisorEvent(event)
+                  ? 'text-emerald-700 hover:text-emerald-800'
                   : 'text-sky-600 hover:text-sky-700'
               }`}
             >
@@ -130,6 +148,7 @@ const NotificationHub: React.FC<NotificationHubProps> = ({ isOpen, onClose, onNa
         {/* Header */}
         <div className="bg-white px-6 pt-4 pb-1 border-b border-slate-200 flex flex-col shadow-sm shrink-0">
           <div className="flex items-center justify-between mb-4">
+
             <div className="flex items-center gap-3">
                 <div className="relative">
                     <Bell size={24} className="text-slate-900" />

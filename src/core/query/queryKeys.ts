@@ -38,6 +38,11 @@ export const queryKeys = {
     all: ['recurring_bills'] as const,
     byUser: (userId: string) => ['recurring_bills', userId] as const,
   },
+  agenda: {
+    all: ['agenda'] as const,
+    upcoming: (userId: string, limit: number) => ['agenda', userId, 'upcoming', limit] as const,
+    byMonth: (userId: string, year: number, month: number) => ['agenda', userId, 'month', year, month] as const,
+  },
   presence: {
     all: ['presence'] as const,
     byUser: (userId: string) => ['presence', userId] as const,

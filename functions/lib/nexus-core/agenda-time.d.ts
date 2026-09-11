@@ -22,6 +22,7 @@ export interface RecurrenceExpansion {
 }
 export declare function ymdToIso(ymd: YMD): string;
 export declare function isoToYmd(iso: string): YMD;
+export declare function isoFromDateMs(dateMs: number): string;
 export declare function weekdayOf(ymd: YMD): WeekdayNumber;
 export declare function todayYmdInProductTimezone(now?: Date): YMD;
 export declare function nextWeekday(anchor: YMD, weekday: WeekdayNumber, opts?: {
@@ -42,6 +43,10 @@ export declare function saoPauloDayRangeMillis(ymd: YMD): {
     startMs: number;
     endMs: number;
 };
+export declare function resolvePeriodRange(raw: string, today: YMD): {
+    startMs: number;
+    endMs: number;
+} | null;
 export declare function sha1Hex(input: string): string;
 export declare function generateSeriesId(title: string, startIso: string): string;
 export declare function generateCommitmentId(seriesId: string | null, dateIso: string, time: string): string;

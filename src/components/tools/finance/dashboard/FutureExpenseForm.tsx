@@ -138,7 +138,7 @@ const FutureExpenseForm: React.FC<FutureExpenseFormProps> = ({ userId, categorie
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 shadow-soft"
+          className="flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 shadow-soft"
         >
           {saving ? <Loader size={12} className="animate-spin" /> : <Check size={12} />}
           Agendar

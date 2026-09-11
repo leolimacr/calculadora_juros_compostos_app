@@ -18,10 +18,13 @@ import { useTransactionsContext } from '../contexts/TransactionsContext';
 import { useDebtContext } from '../contexts/DebtContext';
 import { useFinanceContext } from '../contexts/FinanceContext';
 import { useWealthData } from '../hooks/useWealthData';
+import { Capacitor } from '@capacitor/core';
 import { lazy } from 'react';
 
+const MobilePublicHome = lazy(() => import('../components/MobilePublicHome'));
 const AppLayout = lazy(() => import('../layouts/AppLayout'));
 const AppCockpit = lazy(() => import('../components/Home/AppCockpit'));
+const DashboardPage = lazy(() => import('../pages/Dashboard'));
 const ExplorarHub = lazy(() => import('../components/ExplorarHub').then((mod) => ({ default: mod.ExplorarHub })));
 const AgendaHub = lazy(() => import('../components/AgendaHub').then((mod) => ({ default: mod.AgendaHub })));
 import { ControlaPage } from '../components/tools/finance/ControlaPage';
@@ -128,8 +131,8 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
 
   return (
     <Routes>
-      {/* REDIRECTS LEGADOS */}
-      <Route path="/dashboard" element={<Navigate to="/app/controla" replace />} />
+      {/* REDIRECT LEGADO — Etapa 8 (E8-01): /dashboard agora é o Dashboard Principal */}
+      <Route path="/dashboard" element={<Navigate to="/app/dashboard" replace />} />
 
       {/* ROTAS PÚBLICAS (COM HEADER) */}
       <Route element={<PublicLayout />}>
@@ -138,6 +141,13 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
           element={
             isAuthenticated ? (
               <Navigate to="/app/central" replace />
+            ) : Capacitor.isNativePlatform() ? (
+              <React.Suspense fallback={<AppLoadingScreen />}>
+                <MobilePublicHome
+                  onLogin={() => handleNavigate('login')}
+                  onRegister={() => handleNavigate('register')}
+                />
+              </React.Suspense>
             ) : (
               <React.Suspense fallback={<AppLoadingScreen />}>
                 <PublicHome
@@ -230,6 +240,9 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ state }) => {
         />
 
         <Route path="home" element={<Navigate to="/app/central" replace />} />
+
+        {/* Etapa 8 (E8-01): Dashboard Principal — visão geral do mês */}
+        <Route path="dashboard" element={<React.Suspense fallback={<DashboardSkeleton />}><DashboardPage /></React.Suspense>} />
 
         <Route
           path="controla"

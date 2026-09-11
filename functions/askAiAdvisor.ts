@@ -1,10 +1,10 @@
-import { getFirestore } from "firebase-admin/firestore";
+import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import { NexusIdentity } from "./nexus-core/identity";
 import { DiscretionEngine } from "./nexus-core/discretion-engine";
 import type { UserDataResult } from "./nexus-core/data-integrator";
-import { DataIntegrator } from "./nexus-core/data-integrator";
+import { DataIntegrator, truncatePromptSegment } from "./nexus-core/data-integrator";
 import { MultiModelRouter } from "./nexus-core/MultiModelRouter";
 import { PromptBuilder } from "./nexus-core/prompt-builder";
 import { ActionManager } from "./nexus-core/action-registry";
@@ -12,7 +12,6 @@ import {
   GEMINI_API_KEY as GEMINI_API_KEY_SECRET,
   OPENROUTER_API_KEY as OPENROUTER_API_KEY_SECRET,
   GROQ_API_KEY as GROQ_API_KEY_SECRET,
-  MISTRAL_API_KEY as MISTRAL_API_KEY_SECRET,
   BRAPI_TOKEN as BRAPI_TOKEN_SECRET,
   TAVILY_API_KEY as TAVILY_API_KEY_SECRET,
 } from './secrets';
@@ -20,24 +19,74 @@ import {
 interface CryptoPriceData { price: number; lastUpdated: string; }
 interface CryptoPriceDataDual { priceUSD: number; priceBRL: number; lastUpdated: string; }
 
-async function getUserPlan(userId: string): Promise<string | undefined> {
+export async function getUserPlan(userId: string): Promise<string | undefined> {
   try {
     const db = getFirestore();
     const userDoc = await db.collection('users').doc(userId).get();
     if (userDoc.exists) {
       const data = userDoc.data();
-      const plan = data?.subscription?.plan;
-      if (plan) {
-        logger.info(`[Subscription] Plano do usuário ${userId}: ${plan}`);
-        return plan;
+      const sub = data?.subscription as { plan?: string; planId?: string; status?: string } | undefined;
+      // N10: legado lê `plan`, mas cnova verdade inclui `planId` + `status`.
+      // Plano pago só vale com assinatura ativa (ou sem status = legado sem billing).
+      const active = !sub?.status || sub.status === 'active' || sub.status === 'trialing';
+      if (typeof sub?.plan === 'string' && sub.plan && (active || sub.plan === 'free')) {
+        return sub.plan;
+      }
+      if (typeof sub?.planId === 'string' && active) {
+        const legacy = sub.planId.toLowerCase();
+        if (['free', 'pro', 'premium', 'premium_anual'].includes(legacy)) return legacy;
+      }
+      // Fallback: campo `plan` presente mas com status inativo explícito → trata como ausente.
+      if (typeof sub?.plan === 'string' && sub.plan && !active) {
+        logger.info(`[Subscription] Plano ${sub.plan} com status inativo (${sub.status}); usando padrão`);
+        return undefined;
       }
     }
-    logger.info(`[Subscription] Usuário ${userId} sem plano definido (usando padrão)`);
+    logger.info(`[Subscription] Usuário sem plano definido (usando padrão)`);
     return undefined;
   } catch (error: any) {
     logger.error(`[Subscription] Erro ao buscar plano: ${error.message}`);
     return undefined;
   }
+}
+
+/**
+ * Cota diária do Nexus por plano, imposta no servidor (N3). O limite do app
+ * (Preferences local) é burlável por dispositivo; sem isto, qualquer cliente
+ * autenticado chama o LLM sem teto. Valores INTERINOS (política definitiva na
+ * Etapa 7); o free espelha o teto do app (5/dia), pagos são generosos.
+ */
+export const NEXUS_QUOTA_INTERIM: Record<string, number> = {
+  free: 5,
+  pro: 100,
+  premium: 500,
+  premium_anual: 1000,
+};
+const NEXUS_QUOTA_DEFAULT = 5;
+
+export function nexusQuotaDay(now: Date = new Date()): string {
+  return now.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+}
+
+export function nexusQuotaForPlan(plan?: string): number {
+  if (plan && plan in NEXUS_QUOTA_INTERIM) return NEXUS_QUOTA_INTERIM[plan];
+  return NEXUS_QUOTA_DEFAULT;
+}
+
+export async function checkNexusQuota(
+  db: { collection: (path: string) => { doc: (id: string) => { get(): Promise<{ data(): Record<string, unknown> | undefined }>; set(data: Record<string, unknown>, opts?: unknown): Promise<unknown> } } },
+  uid: string,
+  plan?: string,
+  dayStr?: string,
+): Promise<{ allowed: boolean; used: number; quota: number }> {
+  const quota = nexusQuotaForPlan(plan);
+  const day = dayStr ?? nexusQuotaDay();
+  const ref = db.collection(`users/${uid}/nexusQuota`).doc(day);
+  const snap = await ref.get();
+  const used = typeof snap.data()?.count === 'number' ? (snap.data() as { count: number }).count : 0;
+  if (used >= quota) return { allowed: false, used, quota };
+  await ref.set({ count: used + 1, updatedAt: new Date().toISOString() }, { merge: true });
+  return { allowed: true, used: used + 1, quota };
 }
 
 async function getUserDebts(userId: string): Promise<any[]> {
@@ -86,17 +135,35 @@ function describeHistoryWindow(plan?: string): string {
   }
 }
 
-let tavilyUsageCount = 0;
 const TAVILY_MONTHLY_LIMIT = 1000;
+
+function tavilyPeriodKey(now: Date = new Date()): string {
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+/**
+ * Cota mensal do Tavily persistida em Firestore (N4). O contador anterior era
+ * uma variável em memória por instância — zerava a cada cold start/scale-out
+ * e o "teto" nunca era imposto. Leitura + incremento por busca web (não por
+ * mensagem); pequena corrida entre chamadas simultâneas é tolerada.
+ */
+export async function checkTavilyQuota(
+  db: { collection: (path: string) => { doc: (id: string) => { get(): Promise<{ data(): Record<string, unknown> | undefined }>; set(data: Record<string, unknown>, opts?: unknown): Promise<unknown> } } },
+  now: Date = new Date(),
+): Promise<boolean> {
+  const ref = db.collection('system').doc(`apiUsage_tavily_${tavilyPeriodKey(now)}`);
+  const snap = await ref.get();
+  const used = typeof snap.data()?.count === 'number' ? (snap.data() as { count: number }).count : 0;
+  if (used >= TAVILY_MONTHLY_LIMIT) {
+    logger.warn(`[Tavily] Cota mensal esgotada (${used}/${TAVILY_MONTHLY_LIMIT})`);
+    return false;
+  }
+  await ref.set({ count: FieldValue.increment(1), updatedAt: new Date().toISOString() }, { merge: true });
+  return true;
+}
 
 async function searchWebTavily(query: string, apiKey: string): Promise<string | null> {
   try {
-    tavilyUsageCount++;
-    logger.info(`[Tavily] Busca #${tavilyUsageCount}/1000: "${query}"`);
-    if (tavilyUsageCount > TAVILY_MONTHLY_LIMIT) {
-      logger.warn(`[Tavily] Limite mensal atingido (${TAVILY_MONTHLY_LIMIT})`);
-      return null;
-    }
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
     const response = await fetch('https://api.tavily.com/search', {
@@ -120,43 +187,17 @@ async function searchWebTavily(query: string, apiKey: string): Promise<string | 
   }
 }
 
-async function searchWebScraping(query: string): Promise<string | null> {
-  try {
-    logger.info(`[Scraping] Tentando: "${query}"`);
-    const url = `https://www.google.com/search?q=${encodeURIComponent(query)}&hl=pt-BR`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-    const response = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
-    if (!response.ok) { logger.warn(`[Scraping] HTTP ${response.status}`); return null; }
-    const html = await response.text();
-    const snippetRegex = /<div class="BNeawe">([^<]+)<\/div>/gi;
-    const matches = [];
-    let match;
-    while ((match = snippetRegex.exec(html)) !== null && matches.length < 3) {
-      const text = match[1].replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '"').trim();
-      if (text.length > 20 && !text.includes('...')) matches.push(text);
-    }
-    if (matches.length > 0) { logger.info(`[Scraping] ✅ ${matches.length} resultados extraídos`); return matches.join('\n\n'); }
-    logger.warn('[Scraping] Nenhum resultado extraído');
-    return null;
-  } catch (error: any) {
-    logger.error('[Scraping] Erro:', error.message);
-    return null;
-  }
-}
-
 async function searchWebCascade(query: string, tavilyKey: string): Promise<string> {
-  logger.info(`[WebSearch] Iniciando cascata para: "${query}"`);
-  const tavilyResult = await searchWebTavily(query, tavilyKey);
-  if (tavilyResult) return tavilyResult;
-  logger.info('[WebSearch] Tavily falhou, tentando scraping...');
-  const scrapingResult = await searchWebScraping(query);
-  if (scrapingResult) return scrapingResult;
-  logger.warn('[WebSearch] Todas tentativas falharam');
+  logger.info(`[WebSearch] Busca Tavily para: "${query}"`);
+  try {
+    if (await checkTavilyQuota(getFirestore())) {
+      const tavilyResult = await searchWebTavily(query, tavilyKey);
+      if (tavilyResult) return tavilyResult;
+    }
+  } catch (error: any) {
+    logger.error('[WebSearch] Falha na cota/busca Tavily:', error?.message);
+  }
+  logger.warn('[WebSearch] Sem resultado de busca disponível');
   return "Não consegui obter informações atualizadas no momento. Tente novamente em alguns instantes.";
 }
 
@@ -312,7 +353,6 @@ export const askAiAdvisor = onCall(
       GEMINI_API_KEY_SECRET,
       OPENROUTER_API_KEY_SECRET,
       GROQ_API_KEY_SECRET,
-      MISTRAL_API_KEY_SECRET,
       BRAPI_TOKEN_SECRET,
       TAVILY_API_KEY_SECRET,
     ],
@@ -327,9 +367,6 @@ export const askAiAdvisor = onCall(
       if (!request.auth) throw new HttpsError("unauthenticated", "Login necessário.");
       const { prompt, userName, history = [], isFirstInteraction, context: frontendContext = {} } = request.data;
       const { assets = [], passives = [], goals = [] } = frontendContext;
-      console.log("🔍 assets recebidos:", JSON.stringify(assets));
-      console.log("🔍 passives recebidos:", JSON.stringify(passives));
-      console.log("🔍 goals recebidos do frontend:", JSON.stringify(goals));
       const safeUserName = (userName || "Investidor").split(' ')[0];
       const userId = request.auth.uid;
 
@@ -371,16 +408,14 @@ export const askAiAdvisor = onCall(
       let serverDebts: any[] = [];
       let serverAssets: any[] = [];
       let serverPassives: any[] = [];
+      let userPlan: string | undefined;
       try {
-        const userPlan = await getUserPlan(userId);
+        userPlan = await getUserPlan(userId);
         serverDebts = await getUserDebts(userId);
         serverAssets = await getUserAssets(userId);
         serverPassives = await getUserPassives(userId);
-        logger.info(`🔍 [DEBUG] userId: ${userId}`);
-        logger.info(`🔍 [DEBUG] Plano retornado: "${userPlan}"`);
-        logger.info(`🔍 [DEBUG] Tipo: ${typeof userPlan}`);
         historyDescription = describeHistoryWindow(userPlan);
-        logger.info(`🔍 [DEBUG] historyDescription: "${historyDescription}"`);
+        logger.info(`[DEBUG] Plano retornado: "${userPlan}" (tipo: ${typeof userPlan})`);
         userData = await DataIntegrator.gatherUserData(userId, userPlan);
       } catch (dataError: any) {
         logger.error("Falha dados usuário:", dataError);
@@ -390,26 +425,16 @@ export const askAiAdvisor = onCall(
       // Fallback server-side: se frontend não enviou assets/passives, usa dados do Firestore
       const resolvedAssets = (assets && assets.length > 0) ? assets : serverAssets;
       const resolvedPassives = (passives && passives.length > 0) ? passives : serverPassives;
-
-      console.log("🔍 DEBUG - INÍCIO DO PROCESSAMENTO DE METAS");
-      console.log("🔍 userData existe?", !!userData);
-      console.log("🔍 userData.goals é array?", Array.isArray(userData?.goals));
-      console.log("🔍 Quantidade de goals em userData:", userData?.goals?.length || 0);
-      if (userData?.goals?.length > 0) console.log("🔍 Primeira goal:", JSON.stringify(userData.goals[0]));
-      console.log("🔍 userData.hasData:", userData?.hasData);
+      logger.info(`[DEBUG] Metas em userData: ${userData?.goals?.length || 0}; hasData: ${userData?.hasData}`);
 
       const assetsSummary = DataIntegrator.formatAssetsSummary(resolvedAssets);
       const passivesSummary = DataIntegrator.formatPassivesSummary(resolvedPassives);
-      const debtsSummary = DataIntegrator.formatDebtsSummary(serverDebts);
+      const debtsSummary = truncatePromptSegment(DataIntegrator.formatDebtsSummary(serverDebts));
       const patrimonioVisaoGerencialStr = DataIntegrator.formatPatrimonioVisaoGerencial(resolvedAssets, resolvedPassives);
 
       const assetsSource = (assets && assets.length > 0) ? 'frontend' : 'server';
       const passivesSource = (passives && passives.length > 0) ? 'frontend' : 'server';
-      console.log(`🔍 resolvedAssets (${assetsSource}):`, JSON.stringify(resolvedAssets));
-      console.log(`🔍 resolvedPassives (${passivesSource}):`, JSON.stringify(resolvedPassives));
-      console.log("🔍 assetsSummary:", assetsSummary);
-      console.log("🔍 passivesSummary:", passivesSummary);
-      console.log("🔍 patrimonioVisaoGerencialStr:", patrimonioVisaoGerencialStr);
+      logger.info(`[DEBUG] Resolvidos via ${assetsSource}/${passivesSource}: ${resolvedAssets.length} ativos, ${resolvedPassives.length} passivos`);
 
       const validHistory = Array.isArray(history) ? history.filter((h: any) => h && h.text && h.text.trim()) : [];
 
@@ -436,12 +461,11 @@ export const askAiAdvisor = onCall(
 
       let transactionsForPrompt = "Nenhuma transação registrada.";
       if (userData.recentTransactions && userData.recentTransactions.length > 0) {
-        transactionsForPrompt = DataIntegrator.formatTransactionsForPrompt(userData.recentTransactions, { 
-          ...context, 
-          requestedFocus: context.intent === 'cashflow_query' ? 'cashflow' : context.intent === 'patrimony_query' ? 'patrimony' : 'general' 
-        });
+        transactionsForPrompt = truncatePromptSegment(DataIntegrator.formatTransactionsForPrompt(userData.recentTransactions, {
+          ...context,
+          requestedFocus: context.intent === 'cashflow_query' ? 'cashflow' : context.intent === 'patrimony_query' ? 'patrimony' : 'general'
+        }));
       }
-      console.log("🔍 transactionsForPrompt:", transactionsForPrompt);
 
       let goalsForPrompt = "Nenhuma meta definida.";
       if (goals && goals.length > 0) {
@@ -452,15 +476,10 @@ export const askAiAdvisor = onCall(
           const frequencia = g.frequencia || g.frequency || 'N/A';
           return `• ${nome}: R$ ${valorNumerico.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${frequencia})`;
         }).join('\n');
-        goalsForPrompt = `**METAS DO USUÁRIO (${goals.length}):**\n${mappedGoals}`;
-        console.log("🔍 goalsForPrompt GERADO (frontend):", goalsForPrompt);
+        goalsForPrompt = truncatePromptSegment(`**METAS DO USUÁRIO (${goals.length}):**\n${mappedGoals}`);
       } else if (userData.goals && userData.goals.length > 0) {
-        goalsForPrompt = DataIntegrator.formatGoalsForPrompt(userData.goals, context);
-        console.log("🔍 goalsForPrompt GERADO (DataIntegrator):", goalsForPrompt);
-      } else {
-        console.log("🔍 goalsForPrompt permaneceu como padrão: 'Nenhuma meta definida.'");
+        goalsForPrompt = truncatePromptSegment(DataIntegrator.formatGoalsForPrompt(userData.goals, context));
       }
-      console.log("🔍 goalsForPrompt:", goalsForPrompt);
 
       let avoidRepetition = "";
       if (validHistory.length >= 2) {
@@ -501,6 +520,13 @@ export const askAiAdvisor = onCall(
       ];
 
       logger.info('[Router] Primeira chamada para análise...');
+
+      // N3: imposição técnica da cota (greetings/bloqueios CVM acima não consomem).
+      const quota = await checkNexusQuota(getFirestore(), userId, userPlan);
+      if (!quota.allowed) {
+        logger.warn(`[Quota] Cota diária esgotada (${quota.used}/${quota.quota})`);
+        throw new HttpsError('resource-exhausted', 'Limite diário de mensagens do Nexus atingido para o seu plano. Tente novamente amanhã.');
+      }
 
       const firstResponse = await router.routeRequest(messages, enhancedSystemPrompt, {
         temperature: 0.6,
@@ -559,65 +585,6 @@ export const askAiAdvisor = onCall(
     } catch (error: any) {
       logger.error("Erro Nexus:", error);
       return { success: false, answer: "Desculpe, ocorreu um erro temporário. Por favor, tente novamente.", error: error.message };
-    }
-  }
-);
-
-export const testMistral = onCall(
-  {
-    timeoutSeconds: 30,
-    region: "us-central1",
-    secrets: [MISTRAL_API_KEY_SECRET],
-  },
-  async (request) => {
-    logger.info("🧪 TESTE MISTRAL - Iniciando...");
-    const apiKey = process.env.MISTRAL_API_KEY as string;
-    if (!apiKey) {
-      logger.error("❌ MISTRAL_API_KEY não configurada!");
-      return { success: false, error: "API Key não encontrada", details: "Configure MISTRAL_API_KEY no Firebase" };
-    }
-    logger.info("✅ API Key encontrada");
-    const testMessages = [
-      { role: "system", content: "Você é um assistente útil. Responda em português." },
-      { role: "user", content: "Diga apenas: 'Mistral funcionando corretamente!'" }
-    ];
-    const requestBody = { model: "mistral-small-latest", messages: testMessages, temperature: 0.7, max_tokens: 100 };
-    logger.info("📤 Enviando requisição para Mistral...");
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
-      const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-        body: JSON.stringify(requestBody),
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-      logger.info(`📥 Response Status: ${response.status}`);
-      if (!response.ok) {
-        const errorText = await response.text();
-        logger.error(`❌ Mistral HTTP ${response.status}: ${errorText}`);
-        return { success: false, error: `HTTP ${response.status}`, details: errorText.substring(0, 500) };
-      }
-      const data: any = await response.json();
-      const content = data.choices?.[0]?.message?.content;
-      if (!content) {
-        logger.error("❌ Resposta sem conteúdo");
-        return { success: false, error: "Resposta vazia", details: JSON.stringify(data) };
-      }
-      logger.info("✅ MISTRAL FUNCIONANDO!");
-      logger.info(`Resposta: ${content}`);
-      return {
-        success: true,
-        message: "✅ Mistral funcionando corretamente!",
-        response: content,
-        model: data.model || "mistral-small-latest",
-        tokensUsed: data.usage?.total_tokens || 0,
-        details: { promptTokens: data.usage?.prompt_tokens, completionTokens: data.usage?.completion_tokens }
-      };
-    } catch (error: any) {
-      logger.error(`❌ Erro na requisição: ${error.message}`);
-      return { success: false, error: error.name, message: error.message, details: "Verifique se a API key é válida e se o modelo existe" };
     }
   }
 );

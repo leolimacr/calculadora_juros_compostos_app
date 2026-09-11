@@ -125,15 +125,16 @@ export class DataIntegrator {
                 const rtdb = getDatabase();
                 const path = `transactions/${userId}`;
                 const userTransactionsRef = rtdb.ref(path);
-                
-                const daysToFetch = this.getPeriodByPlan(userPlan);
+
+                const caps = txCapsByPlan(userPlan);
                 const cutoffDate = new Date();
-                cutoffDate.setDate(cutoffDate.getDate() - daysToFetch);
+                cutoffDate.setDate(cutoffDate.getDate() - caps.days);
                 const cutoffStr = cutoffDate.toISOString().split('T')[0];
 
                 const snapshot = await userTransactionsRef
                     .orderByChild('date')
                     .startAt(cutoffStr)
+                    .limitToLast(caps.max)
                     .get();
                 
                 clearTimeout(timeoutId);
@@ -161,7 +162,7 @@ export class DataIntegrator {
                 
                 transactions.sort((a, b) => b.date.getTime() - a.date.getTime());
                 
-                logger.info(`[DataIntegrator] ${transactions.length} transações dos últimos ${daysToFetch} dias (Filtro: ${cutoffStr})`);
+                logger.info(`[DataIntegrator] ${transactions.length} transações dos últimos ${caps.days} dias (Filtro: ${cutoffStr}, teto: ${caps.max})`);
                 resolve(transactions);
             } catch (error: any) {
                 clearTimeout(timeoutId);
@@ -242,7 +243,9 @@ export class DataIntegrator {
 
     static formatGoalsForPrompt(goals: UserGoal[], _context: any): string {
         if (!goals || goals.length === 0) return 'Nenhuma meta financeira registrada.';
-        return `**METAS ATIVAS (${goals.length}):**\n${goals.map(g => `• ${g.name}: R$ ${g.currentAmount}/${g.targetAmount}`).join('\n')}`;
+        const listed = goals.slice(0, MAX_GOALS_LISTED);
+        const extra = goals.length - listed.length;
+        return `**METAS ATIVAS (${goals.length}):**\n${listed.map(g => `• ${g.name}: R$ ${g.currentAmount}/${g.targetAmount}`).join('\n')}${extra > 0 ? `\n(+${extra} metas omitidas pelo limite de contexto)` : ''}`;
     }
 
     static formatAssetsSummary(assets: any[]): string {
@@ -339,14 +342,34 @@ export class DataIntegrator {
         const valid: UserGoal['category'][] = ['retirement','travel','property','education','emergency','investment'];
         return valid.includes(category as any) ? (category as UserGoal['category']) : 'investment';
     }
-
-    private static getPeriodByPlan(plan?: string): number {
-        switch (plan) {
-            case 'free': return 3;
-            case 'pro': return 30;
-            case 'premium': return 90;
-            case 'premium_anual': return 9999;
-            default: return 30;
-        }
-    }
 }
+
+/**
+ * Tetos de leitura de transacoes por plano (N6). `days` = janela para tras;
+ * `max` = teto de documentos lidos do RTDB (limitToLast). Sem `max`, o
+ * `premium_anual` ("ilimitado") baixaria o no inteiro a cada mensagem.
+ */
+export const NEXUS_TX_CAPS: Record<string, { days: number; max: number }> = {
+  free: { days: 3, max: 50 },
+  pro: { days: 30, max: 150 },
+  premium: { days: 90, max: 300 },
+  premium_anual: { days: 9999, max: 500 },
+};
+
+const DEFAULT_TX_CAP = { days: 30, max: 150 };
+
+export function txCapsByPlan(plan?: string): { days: number; max: number } {
+  if (plan && plan in NEXUS_TX_CAPS) return NEXUS_TX_CAPS[plan];
+  return DEFAULT_TX_CAP;
+}
+
+/** Teto de caracteres por segmento textual do prompt (N6). */
+export const MAX_PROMPT_SEGMENT_CHARS = 4000;
+
+export function truncatePromptSegment(text: string, max: number = MAX_PROMPT_SEGMENT_CHARS): string {
+  if (text.length <= max) return text;
+  return text.slice(0, max) + '\n[...trecho truncado por limite de contexto]';
+}
+
+/** Teto de metas listadas nominalmente no prompt (restante vira contagem). */
+export const MAX_GOALS_LISTED = 20;

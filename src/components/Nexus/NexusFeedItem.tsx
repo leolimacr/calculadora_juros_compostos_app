@@ -57,7 +57,7 @@ export const NexusFeedItem: React.FC<NexusFeedItemProps> = ({
             type="button"
             onClick={() => onDismiss(insight.id)}
             title="Descartar"
-            className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
           >
             <X size={14} />
           </button>

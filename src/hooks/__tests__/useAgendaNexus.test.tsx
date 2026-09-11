@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const callableMocks = vi.hoisted(() => ({
   interpret: vi.fn(),
   commit: vi.fn(),
+  undo: vi.fn(),
 }));
 
 vi.mock('../../firebase', () => ({ functions: {} }));
@@ -12,6 +13,7 @@ vi.mock('firebase/functions', () => ({
   httpsCallable: vi.fn((_functions: unknown, name: string) => {
     if (name === 'nexusAgendaInterpret') return callableMocks.interpret;
     if (name === 'nexusAgendaCommit') return callableMocks.commit;
+    if (name === 'nexusAgendaUndo') return callableMocks.undo;
     throw new Error(`Callable inesperado: ${name}`);
   }),
 }));
@@ -51,6 +53,7 @@ describe('useAgendaNexus', () => {
     vi.useRealTimers();
     callableMocks.interpret.mockReset();
     callableMocks.commit.mockReset();
+    callableMocks.undo.mockReset();
   });
 
   it('inicia em idle sem proposta ou resultado', () => {
@@ -99,6 +102,137 @@ describe('useAgendaNexus', () => {
     expect(result.current.ambiguous).toEqual(['data não identificada']);
   });
 
+  it('prioriza a pergunta natural `question` do backend sobre questions e ambiguous', async () => {
+    callableMocks.interpret.mockResolvedValue({
+      data: {
+        success: true,
+        outcome: 'clarification',
+        clarification: {
+          missing: ['title'],
+          ambiguous: ['mensagem qualquer'],
+          questions: ['Qual nome você deseja dar a esse compromisso?'],
+        },
+        question: 'Qual será o título do compromisso?',
+      },
+    });
+    const { result } = renderHook(() => useAgendaNexus());
+
+    await act(async () => { await result.current.interpret({ prompt: 'marque algo' }); });
+
+    expect(result.current.dialogue).toContainEqual({ role: 'assistant', text: 'Qual será o título do compromisso?' });
+    expect(result.current.dialogue).not.toContainEqual({ role: 'assistant', text: 'mensagem qualquer' });
+  });
+
+  it('usa questions[0] do backend quando question não está presente', async () => {
+    callableMocks.interpret.mockResolvedValue({
+      data: {
+        success: true,
+        outcome: 'clarification',
+        clarification: {
+          missing: ['title'],
+          ambiguous: [],
+          questions: ['Qual nome você deseja dar a esse compromisso?'],
+        },
+      },
+    });
+    const { result } = renderHook(() => useAgendaNexus());
+
+    await act(async () => { await result.current.interpret({ prompt: 'marque algo' }); });
+
+    expect(result.current.dialogue).toContainEqual({ role: 'assistant', text: 'Qual nome você deseja dar a esse compromisso?' });
+  });
+
+  it('usa ambiguous[0] quando question e questions não existem', async () => {
+    callableMocks.interpret.mockResolvedValue({
+      data: {
+        success: true,
+        outcome: 'clarification',
+        clarification: {
+          missing: ['title'],
+          ambiguous: ['Qual nome você deseja dar a esse compromisso?'],
+          questions: [],
+        },
+      },
+    });
+    const { result } = renderHook(() => useAgendaNexus());
+
+    await act(async () => { await result.current.interpret({ prompt: 'marque algo' }); });
+
+    expect(result.current.dialogue).toContainEqual({ role: 'assistant', text: 'Qual nome você deseja dar a esse compromisso?' });
+  });
+
+  it('gera fallback natural a partir de missing quando não há texto natural', async () => {
+    callableMocks.interpret.mockResolvedValue({
+      data: {
+        success: true,
+        outcome: 'clarification',
+        clarification: { missing: ['title'], ambiguous: [], questions: [] },
+      },
+    });
+    const { result } = renderHook(() => useAgendaNexus());
+
+    await act(async () => { await result.current.interpret({ prompt: 'marque algo' }); });
+
+    expect(result.current.dialogue).toContainEqual({ role: 'assistant', text: 'Informe, por favor, o título do compromisso.' });
+    expect(result.current.dialogue.join(' ')).not.toContain('title');
+  });
+
+  it('filtra perguntas técnicas do backend (ex.: "Informe title.") e usa o fallback natural', async () => {
+    callableMocks.interpret.mockResolvedValue({
+      data: {
+        success: true,
+        outcome: 'clarification',
+        clarification: { missing: ['title'], ambiguous: [], questions: ['Informe title.'] },
+      },
+    });
+    const { result } = renderHook(() => useAgendaNexus());
+
+    await act(async () => { await result.current.interpret({ prompt: 'marque algo' }); });
+
+    expect(result.current.dialogue.join(' ')).not.toContain('Informe title.');
+    expect(result.current.dialogue).toContainEqual({ role: 'assistant', text: 'Informe, por favor, o título do compromisso.' });
+  });
+
+  it('fluxo real: clarify de horário vira mensagem natural e "Às 20h." reenvia com histórico', async () => {
+    const timeQuestion = 'Você quer inserir o horário neste compromisso?';
+    callableMocks.interpret.mockResolvedValueOnce({
+      data: {
+        success: true,
+        outcome: 'clarification',
+        clarification: {
+          missing: ['startTime'],
+          ambiguous: [],
+          questions: [timeQuestion],
+        },
+        question: timeQuestion,
+      },
+    });
+    callableMocks.interpret.mockResolvedValueOnce({ data: proposalResponse });
+    const { result } = renderHook(() => useAgendaNexus());
+
+    await act(async () => {
+      await result.current.interpret({ prompt: 'Agende uma reunião para mim para amanhã.' });
+    });
+
+    expect(result.current.stage).toBe('clarify');
+    expect(result.current.error).toBeNull();
+    expect(result.current.dialogue).toContainEqual({ role: 'assistant', text: timeQuestion });
+    expect(result.current.dialogue.join(' ')).not.toContain('Não consegui estruturar esse comando de agenda.');
+
+    await act(async () => {
+      await result.current.interpret({ prompt: 'Às 20h.' });
+    });
+
+    expect(callableMocks.interpret).toHaveBeenCalledTimes(2);
+    const secondCall = callableMocks.interpret.mock.calls[1][0] as { prompt: string; history: Array<{ role: string; text: string }> };
+    expect(secondCall.prompt).toBe('Às 20h.');
+    expect(secondCall.history).toEqual([
+      { role: 'user', text: 'Agende uma reunião para mim para amanhã.' },
+      { role: 'assistant', text: timeQuestion },
+    ]);
+    expect(result.current.stage).toBe('done');
+  });
+
   it('preserva assumptions retornadas pelo backend', async () => {
     callableMocks.interpret.mockResolvedValue({ data: { ...proposalResponse, assumptions: [{ field: 'timeZone', note: 'SP' }] } });
     const { result } = renderHook(() => useAgendaNexus());
@@ -141,22 +275,40 @@ describe('useAgendaNexus', () => {
     expect(callableMocks.commit).toHaveBeenCalledWith({ confirmationToken: 'token-1', confirmed: true });
   });
 
-  it('envia alarm true ao commit quando o usuário ativa o alarme', async () => {
+  it('envia reminderMode notification ao commit quando o usuário escolhe apenas notificação', async () => {
+    callableMocks.interpret.mockResolvedValue({ data: proposalResponse });
+    callableMocks.commit.mockResolvedValue({ data: { success: true, status: 'committed', actionId: 'act-1', idsCreated: ['c-1'] } });
+    const { result } = renderHook(() => useAgendaNexus());
+    await act(async () => { await result.current.interpret({ prompt: 'reunião' }); });
+    await act(async () => { await result.current.commit(undefined, { reminderMode: 'notification' }); });
+    expect(callableMocks.commit).toHaveBeenCalledWith({ confirmationToken: 'token-1', confirmed: true, reminderMode: 'notification' });
+  });
+
+  it('envia reminderMode notification_alarm ao commit para notificação + alarme', async () => {
+    callableMocks.interpret.mockResolvedValue({ data: proposalResponse });
+    callableMocks.commit.mockResolvedValue({ data: { success: true, status: 'committed', actionId: 'act-1', idsCreated: ['c-1'] } });
+    const { result } = renderHook(() => useAgendaNexus());
+    await act(async () => { await result.current.interpret({ prompt: 'reunião' }); });
+    await act(async () => { await result.current.commit(undefined, { reminderMode: 'notification_alarm' }); });
+    expect(callableMocks.commit).toHaveBeenCalledWith({ confirmationToken: 'token-1', confirmed: true, reminderMode: 'notification_alarm' });
+  });
+
+  it('omite alarm e reminderMode do commit quando a escolha é sem aviso', async () => {
+    callableMocks.interpret.mockResolvedValue({ data: proposalResponse });
+    callableMocks.commit.mockResolvedValue({ data: { success: true, status: 'committed', actionId: 'act-1', idsCreated: ['c-1'] } });
+    const { result } = renderHook(() => useAgendaNexus());
+    await act(async () => { await result.current.interpret({ prompt: 'reunião' }); });
+    await act(async () => { await result.current.commit(undefined, { reminderMode: 'none' }); });
+    expect(callableMocks.commit).toHaveBeenCalledWith({ confirmationToken: 'token-1', confirmed: true });
+  });
+
+  it('mantém compatibilidade: alarm true vira notification', async () => {
     callableMocks.interpret.mockResolvedValue({ data: proposalResponse });
     callableMocks.commit.mockResolvedValue({ data: { success: true, status: 'committed', actionId: 'act-1', idsCreated: ['c-1'] } });
     const { result } = renderHook(() => useAgendaNexus());
     await act(async () => { await result.current.interpret({ prompt: 'reunião' }); });
     await act(async () => { await result.current.commit(undefined, { alarm: true }); });
     expect(callableMocks.commit).toHaveBeenCalledWith({ confirmationToken: 'token-1', confirmed: true, alarm: true });
-  });
-
-  it('omite alarm do commit quando a escolha é apenas anotar', async () => {
-    callableMocks.interpret.mockResolvedValue({ data: proposalResponse });
-    callableMocks.commit.mockResolvedValue({ data: { success: true, status: 'committed', actionId: 'act-1', idsCreated: ['c-1'] } });
-    const { result } = renderHook(() => useAgendaNexus());
-    await act(async () => { await result.current.interpret({ prompt: 'reunião' }); });
-    await act(async () => { await result.current.commit(undefined, { alarm: false }); });
-    expect(callableMocks.commit).toHaveBeenCalledWith({ confirmationToken: 'token-1', confirmed: true });
   });
 
   it('vai para success e prepara undo sem executar nexusAgendaUndo', async () => {
@@ -310,7 +462,8 @@ describe('useAgendaNexus', () => {
       data: {
         success: true,
         outcome: 'clarification',
-        clarification: { missing: ['title'], ambiguous: [], questions: ['Informe title.'] },
+        clarification: { missing: ['title'], ambiguous: [], questions: ['Qual nome você deseja dar a esse compromisso?'] },
+        question: 'Qual nome você deseja dar a esse compromisso?',
       },
     });
     const { result } = renderHook(() => useAgendaNexus());
@@ -328,9 +481,14 @@ describe('useAgendaNexus', () => {
       { role: 'user', text: 'reunião toda terça' },
       { role: 'assistant', text: question },
     ]);
+    expect(result.current.dialogue).toContainEqual({
+      role: 'assistant',
+      text: 'Qual nome você deseja dar a esse compromisso?',
+    });
+    expect(result.current.dialogue.join(' ')).not.toContain('Informe title.');
   });
 
-  it('limpa o histórico do diálogo após uma proposta (fim do refinamento)', async () => {
+  it('mantém o histórico após uma proposta e inclui o resumo como mensagem do assistente', async () => {
     const question = 'Entendi que você quer uma recorrência. Você quer até uma data limite ou até o limite da agenda?';
     callableMocks.interpret.mockResolvedValueOnce({
       data: {
@@ -361,10 +519,15 @@ describe('useAgendaNexus', () => {
     callableMocks.interpret.mockResolvedValueOnce({ data: proposalResponse });
     await act(async () => { await result.current.interpret({ prompt: 'nova reunião' }); });
     const thirdCall = callableMocks.interpret.mock.calls[2][0] as { prompt: string; history: Array<{ role: string; text: string }> };
-    expect(thirdCall.history).toEqual([]);
+    expect(thirdCall.history).toEqual([
+      { role: 'user', text: 'reunião toda terça' },
+      { role: 'assistant', text: question },
+      { role: 'user', text: 'até o fim de setembro' },
+      { role: 'assistant', text: 'Criar reunião.' },
+    ]);
   });
 
-  it('expoe o estado dialogue como thread do refinamento e limpa após proposta', async () => {
+  it('expoe o estado dialogue como thread contínua e não limpa após proposta', async () => {
     const question = 'Entendi que você quer uma recorrência. Você quer até uma data limite ou até o limite da agenda?';
     callableMocks.interpret.mockResolvedValueOnce({
       data: {
@@ -389,7 +552,12 @@ describe('useAgendaNexus', () => {
 
     await act(async () => { await result.current.interpret({ prompt: 'até o fim de setembro' }); });
     expect(result.current.stage).toBe('done');
-    expect(result.current.dialogue).toEqual([]);
+    expect(result.current.dialogue).toEqual([
+      { role: 'user', text: 'reunião toda terça' },
+      { role: 'assistant', text: question },
+      { role: 'user', text: 'até o fim de setembro' },
+      { role: 'assistant', text: 'Criar reunião.' },
+    ]);
   });
 
   it('empilha múltiplas trocas de refinamento na thread do dialogue', async () => {
@@ -432,7 +600,7 @@ describe('useAgendaNexus', () => {
     ]);
   });
 
-  it('não expõe thread de dialogue em clarificação clássica sem refinement', async () => {
+  it('expõe thread de dialogue também na clarificação clássica sem refinement', async () => {
     callableMocks.interpret.mockResolvedValue({
       data: {
         success: true,
@@ -447,7 +615,52 @@ describe('useAgendaNexus', () => {
     const { result } = renderHook(() => useAgendaNexus());
     await act(async () => { await result.current.interpret({ prompt: 'marque algo' }); });
     expect(result.current.stage).toBe('clarify');
-    expect(result.current.dialogue).toEqual([]);
+    expect(result.current.dialogue).toEqual([
+      { role: 'user', text: 'marque algo' },
+      { role: 'assistant', text: 'Qual título?' },
+    ]);
+  });
+
+  it('mantém a thread visível após falha de rede para nova tentativa em texto livre', async () => {
+    callableMocks.interpret.mockResolvedValue({
+      data: {
+        success: true,
+        outcome: 'clarification',
+        clarification: {
+          missing: ['title'],
+          ambiguous: ['data não identificada'],
+          questions: ['Qual título?'],
+        },
+      },
+    });
+    const { result } = renderHook(() => useAgendaNexus());
+    await act(async () => { await result.current.interpret({ prompt: 'marque algo' }); });
+    expect(result.current.dialogue).toHaveLength(2);
+
+    callableMocks.interpret.mockRejectedValue(new Error('network down'));
+    await act(async () => { await result.current.interpret({ prompt: 'continua?' }); });
+    expect(result.current.stage).toBe('error');
+    expect(result.current.dialogue).toHaveLength(3);
+  });
+
+  it('limita a thread a 24 mensagens sem descartar as mais recentes', async () => {
+    const clarifyResponse = {
+      data: {
+        success: true,
+        outcome: 'clarification',
+        clarification: { missing: [], ambiguous: ['Qual título?'], questions: ['Qual título?'] },
+      },
+    };
+    callableMocks.interpret.mockResolvedValue(clarifyResponse);
+    const { result } = renderHook(() => useAgendaNexus());
+
+    for (let index = 0; index < 14; index += 1) {
+      await act(async () => { await result.current.interpret({ prompt: `pergunta ${index}` }); });
+    }
+
+    expect(result.current.dialogue).toHaveLength(24);
+    expect(result.current.dialogue[0]).toEqual({ role: 'user', text: 'pergunta 2' });
+    expect(result.current.dialogue[23]).toEqual({ role: 'assistant', text: 'Qual título?' });
   });
 
   it('limpa o refinamento ao resetar e ao cancelar', async () => {
@@ -476,5 +689,79 @@ describe('useAgendaNexus', () => {
     expect(result.current.refinement?.question).toBe(question);
     act(() => { result.current.reset(); });
     expect(result.current.refinement).toBeNull();
+  });
+
+  it('interpreta proposta de edição com before/after e confirma sem oferecer desfazer', async () => {
+    callableMocks.interpret.mockResolvedValue({
+      data: {
+        success: true,
+        outcome: 'proposal',
+        status: 'awaiting_confirmation',
+        confirmationToken: 'token-edit',
+        expiresAtMs: Date.now() + 600000,
+        recap: {
+          intent: 'edit',
+          action: 'edit_commitment',
+          title: 'Reunião com o coordenador',
+          firstDate: '2026-08-18',
+          lastDate: '2026-08-18',
+          occurrenceCount: 1,
+          summary: 'Entendi! Vou editar alterando o início para 19:00. Confirma?',
+          before: { title: 'Reunião com o coordenador', date: '2026-08-18', startTime: '17:00', endTime: '18:00' },
+          after: { title: 'Reunião com o coordenador', date: '2026-08-18', startTime: '19:00', endTime: '20:00' },
+        },
+        warnings: [],
+      },
+    });
+    callableMocks.commit.mockResolvedValue({
+      data: { success: true, status: 'committed', intent: 'edit', actionId: 'act-edit', idsEdited: ['c1'], occurrenceCount: 1 },
+    });
+    const { result } = renderHook(() => useAgendaNexus());
+
+    await act(async () => { await result.current.interpret({ prompt: 'edite a reunião para as 19h' }); });
+    expect(result.current.stage).toBe('done');
+    expect(result.current.proposal?.before).toMatchObject({ startTime: '17:00' });
+    expect(result.current.proposal?.after).toMatchObject({ startTime: '19:00' });
+
+    await act(async () => { await result.current.commit(); });
+    expect(callableMocks.commit).toHaveBeenCalledWith({ confirmationToken: 'token-edit', confirmed: true });
+    expect(result.current.stage).toBe('success');
+    expect(result.current.commitResult?.idsEdited).toEqual(['c1']);
+    expect(result.current.canUndo).toBe(false);
+    expect(result.current.undoContract).toBeNull();
+  });
+
+  it('desfaz criação com sucesso (undone) e limpa o contrato', async () => {
+    callableMocks.interpret.mockResolvedValue({ data: proposalResponse });
+    callableMocks.commit.mockResolvedValue({ data: { success: true, status: 'committed', actionId: 'act-1', idsCreated: ['c-1'] } });
+    callableMocks.undo.mockResolvedValue({ data: { success: true, status: 'undone', actionId: 'act-1', idsRemoved: ['c-1'] } });
+    const { result } = renderHook(() => useAgendaNexus());
+
+    await act(async () => { await result.current.interpret({ prompt: 'reunião' }); });
+    await act(async () => { await result.current.commit(); });
+    expect(result.current.canUndo).toBe(true);
+
+    await act(async () => { await result.current.undo(); });
+    expect(callableMocks.undo).toHaveBeenCalledWith({ actionId: 'act-1' });
+    expect(result.current.stage).toBe('undone');
+    expect(result.current.canUndo).toBe(false);
+    expect(result.current.undoContract).toBeNull();
+  });
+
+  it('undo parcial estruturado vai para partial sem regex de mensagem (B3)', async () => {
+    callableMocks.interpret.mockResolvedValue({ data: proposalResponse });
+    callableMocks.commit.mockResolvedValue({ data: { success: true, status: 'committed', actionId: 'act-1', idsCreated: ['c-1', 'c-2'] } });
+    callableMocks.undo.mockResolvedValue({
+      data: { success: false, status: 'partial', actionId: 'act-1', idsRemoved: ['c-1'], error: 'Falha ao remover c-2.' },
+    });
+    const { result } = renderHook(() => useAgendaNexus());
+
+    await act(async () => { await result.current.interpret({ prompt: 'reunião' }); });
+    await act(async () => { await result.current.commit(); });
+    await act(async () => { await result.current.undo(); });
+
+    expect(result.current.stage).toBe('partial');
+    expect(result.current.error).toBe('Falha ao remover c-2.');
+    expect(result.current.commitResult).toMatchObject({ status: 'partial' });
   });
 });

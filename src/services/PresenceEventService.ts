@@ -106,6 +106,37 @@ export const PresenceEventService = {
     }
   },
 
+  async createNexusAdvisorAlert(
+    uid: string,
+    alert: {
+      id: string;
+      title: string;
+      body: string;
+      ctaLabel?: string;
+      deepLink: string;
+      urgency: 'high' | 'medium' | 'low';
+      cooldownHours?: number;
+    }
+  ): Promise<boolean> {
+    return this.create({
+      uid,
+      eventType: 'nexus.insight_ready',
+      persona: 'wealth',
+      urgency: alert.urgency,
+      message: {
+        title: alert.title,
+        body: alert.body,
+        ctaLabel: alert.ctaLabel || 'Ver Estratégia',
+      },
+      deepLink: alert.deepLink,
+      cooldownHours: alert.cooldownHours ?? 48,
+      expiresInHours: 72,
+      resourceId: alert.id,
+      payload: { insightId: alert.id },
+    });
+  },
+
+
   // Cria um evento de presença respeitando cooldown, frequency cap e preferências do usuário
   async create(params: CreatePresenceEventParams): Promise<boolean> {
     const {

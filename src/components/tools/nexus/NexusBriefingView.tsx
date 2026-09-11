@@ -6,18 +6,15 @@ import {
   Sparkles,
   ChevronRight,
   ArrowLeft,
-  LayoutDashboard,
   Brain,
   Zap,
   CheckCircle2,
   AlertCircle
 } from 'lucide-react';
 import { NEXUS_COPY } from '../../../theme/fpiVoiceGuide';
-
-interface Message {
-  role: 'ai';
-  text: string;
-}
+import type { Transaction, ActiveAsset, PassiveAsset } from '../../../types';
+import type { DebtItem } from '../../../services/debt/debt.types';
+import type { Goal } from '../../../services/goalService';
 
 const SECTION_COLORS: Record<string, string> = {
   'diagnóstico':     'bg-slate-50 border-slate-200 text-slate-700',
@@ -57,11 +54,11 @@ const formatMarkdown = (text: string) => {
 };
 
 const NexusBriefingView: React.FC<{
-  transactions: any[];
-  goals: any[];
-  assets?: any[];
-  passives?: any[];
-  debts?: any[];
+  transactions: Transaction[];
+  goals: Goal[];
+  assets?: ActiveAsset[];
+  passives?: PassiveAsset[];
+  debts?: DebtItem[];
 }> = ({ transactions, goals, assets, passives, debts }) => {
   const { user } = useAuth();
   const { sendToNexus, isLoading } = useAiAgent();
@@ -76,7 +73,7 @@ const NexusBriefingView: React.FC<{
     return user?.email?.split('@')[0] || 'Investidor';
   }, [user]);
 
-  const initialPrompt = (location.state as any)?.initialPrompt;
+  const initialPrompt = (location.state as { initialPrompt?: string } | null)?.initialPrompt;
 
   useEffect(() => {
     if (!initialPrompt) {
@@ -109,6 +106,9 @@ const NexusBriefingView: React.FC<{
     };
 
     fetchBriefing();
+    // Intencional: briefing único por montagem com o prompt inicial.
+    // Incluir as dependências de dados re-dispararia o LLM a cada atualização.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialPrompt]);
 
   const handleOptionClick = async (option: string) => {
@@ -119,7 +119,7 @@ const NexusBriefingView: React.FC<{
         `O usuário escolheu a opção: ${option}. Continue o briefing estratégico.`,
         { transactions, goals, assets, passives, debts },
         userName,
-        [{ role: 'ai', text: briefing }],
+        [{ role: 'ai', text: briefing ?? '' }],
         false
       );
 

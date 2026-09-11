@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import type { DebtItem } from './useDebts';
+import { useEffect, useRef } from 'react';
+import type { DebtItem } from '../services/debt/debt.types';
 import { PresenceEventService } from '../services/PresenceEventService';
 import { FPI_COPY } from '../theme/fpiVoiceGuide';
 
@@ -23,29 +23,24 @@ export const usePresenceTriggers = ({
   debts,
   debtsLoading,
 }: UsePresenceTriggersParams) => {
+  const firedRef = useRef(false);
+
   useEffect(() => {
     if (!userId || debtsLoading) return;
+    if (firedRef.current) return;
+    firedRef.current = true;
 
     const evaluate = async () => {
       for (const debt of debts) {
         const debtId = debt.id;
         if (!debtId) continue;
 
-        // --- debt.due_soon_3d e debt.due_soon_7d ---
-        const dateStr = debt.dataProximoPagamento ?? debt.dataVencimento;
+        const dateStr = debt.dataVencimento;
         if (dateStr) {
           const days = daysUntil(dateStr);
 
           if (days >= 0 && days <= 3) {
-            console.log('[usePresenceTriggers] Avaliando debt.due_soon_3d', {
-              userId,
-              debtId,
-              debtName: debt.nome,
-              dueDate: dateStr,
-              days,
-            });
-
-            const created = await PresenceEventService.create({
+            await PresenceEventService.create({
               uid: userId,
               eventType: 'debt.due_soon_3d',
               persona: 'debts',
@@ -55,17 +50,12 @@ export const usePresenceTriggers = ({
                 body: `${debt.nome} vence ${days === 0 ? 'hoje' : `em ${days} dia${days > 1 ? 's' : ''}`}. Vale revisar a prioridade de pagamento.`,
                 ctaLabel: 'Revisar dívidas',
               },
-              deepLink: `minhas-dividas`,
+              deepLink: 'minhas-dividas',
               cooldownHours: 24,
               expiresInHours: days <= 0 ? 24 : days * 24,
               resourceId: debtId,
               payload: { debtName: debt.nome, dueDate: dateStr, amount: debt.valorParcela },
-            });
-
-            console.log('[usePresenceTriggers] Resultado debt.due_soon_3d', {
-              debtId,
-              created,
-            });
+            }).catch(() => {});
           } else if (days > 3 && days <= 7) {
             await PresenceEventService.create({
               uid: userId,
@@ -82,14 +72,12 @@ export const usePresenceTriggers = ({
               expiresInHours: days * 24,
               resourceId: debtId,
               payload: { debtName: debt.nome, dueDate: dateStr },
-            });
+            }).catch(() => {});
           }
         }
-
-        // debt.missing_data é disparado pelo DebtManager no momento do save — não repetir aqui
       }
 
-      // --- debt.plan_stale_30d (plano gerado há mais de 30 dias) ---
+      // --- debt.plan_stale_30d ---
       try {
         const { firestore } = await import('../firebase');
         const { collection, query, orderBy, limit, getDocs } = await import('firebase/firestore');
@@ -121,12 +109,12 @@ export const usePresenceTriggers = ({
               expiresInHours: 30 * 24,
               resourceId: userId,
               payload: { daysSincePlan: Math.floor(daysSincePlan) },
-            });
+            }).catch(() => {});
           }
         }
       } catch { /* silencioso */ }
 
-      // --- debt.context_changed (sem lançamentos no Controla há mais de 10 dias, mas tem dívidas) ---
+      // --- debt.context_changed ---
       if (debts.length > 0) {
         try {
           const { firestore } = await import('../firebase');
@@ -159,15 +147,11 @@ export const usePresenceTriggers = ({
                 expiresInHours: 7 * 24,
                 resourceId: userId,
                 payload: { daysSinceLastTransaction: Math.floor(daysSinceTx) },
-              });
+              }).catch(() => {});
             }
           }
         } catch { /* silencioso */ }
       }
-
-      // debt.inactive_7d não deve nascer apenas porque a lista veio vazia.
-      // Esse evento precisa ser baseado em tempo real de inatividade/presença,
-      // não em ausência imediata de registros nesta leitura.
     };
 
     evaluate();
