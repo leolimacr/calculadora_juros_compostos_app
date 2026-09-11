@@ -44,6 +44,7 @@ export const HomeFooter: React.FC<Props> = ({
           </li>
           <li><button onClick={() => isAuthenticated ? onNavigate('manager') : onStartNow()} className="hover:text-blue-600 transition-colors">Área de Comando</button></li>
           <li><button onClick={() => onNavigate('tool-juros')} className="hover:text-blue-600 transition-colors">Simular Multiplicação</button></li>
+          <li><button onClick={() => onNavigate('download')} className="text-emerald-600 font-bold hover:text-emerald-700 transition-colors flex items-center gap-1">📱 Baixar App (Android)</button></li>
         </ul>
       </div>
 

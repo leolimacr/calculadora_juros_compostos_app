@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, Shield, TrendingUp, AlertTriangle } from 'lucide-react';
+import { ArrowRight, Shield, TrendingUp, AlertTriangle, Smartphone } from 'lucide-react';
 
 interface HomeHeroProps {
   isAuthenticated: boolean;
@@ -61,15 +61,11 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
               <ArrowRight size={18} />
             </button>
             <button 
-              onClick={() => { 
-                const el = document.getElementById('como-funciona'); 
-                if (el) { 
-                  el.scrollIntoView({ behavior: 'smooth' }); 
-                } 
-              }} 
-              className="text-slate-500 hover:text-slate-900 font-medium text-sm transition-all flex items-center gap-2 py-2"
+              onClick={() => onNavigate('download')}
+              className="bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 font-bold px-6 py-4 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 w-full sm:w-auto group"
             >
-              <span>Ver como funciona</span>
+              <Smartphone size={18} className="text-emerald-600 group-hover:scale-110 transition-transform" />
+              <span>Baixar no Celular (APK)</span>
             </button>
           </div>
 

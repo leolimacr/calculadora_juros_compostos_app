@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Smartphone } from 'lucide-react';
 
 interface Props {
   heroPersona: 'dividas' | 'patrimonio';
@@ -80,13 +80,20 @@ export const HomeSecoesSuporte: React.FC<Props> = ({ heroPersona, onNavigate, on
             : 'Consolide suas contas, acompanhe seu progresso real e deixe o cockpit te guiar com tranquilidade.'}
         </p>
 
-        <div className="pt-6">
+        <div className="pt-6 flex flex-col sm:flex-row items-center justify-center gap-4">
           <button 
             onClick={onStartNow} 
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-10 py-5 rounded-xl transition-all shadow-[0_4px_25px_rgba(16,185,129,0.3)] inline-flex items-center justify-center gap-2"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-10 py-5 rounded-xl transition-all shadow-[0_4px_25px_rgba(16,185,129,0.3)] inline-flex items-center justify-center gap-2 w-full sm:w-auto"
           >
             <span>Quero Mapear meu Colchão Inicial</span>
             <ArrowRight size={18} />
+          </button>
+          <button 
+            onClick={() => onNavigate('download')}
+            className="bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 font-bold px-8 py-5 rounded-xl transition-all shadow-sm inline-flex items-center justify-center gap-2 w-full sm:w-auto group"
+          >
+            <Smartphone size={18} className="text-emerald-600 group-hover:scale-110 transition-transform" />
+            <span>Baixar App no Celular</span>
           </button>
         </div>
       </div>

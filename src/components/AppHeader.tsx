@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
-import { LogOut, Settings, Eye, EyeOff, Menu, Globe, ArrowLeft, Crown, Bell } from 'lucide-react';
+import { LogOut, Settings, Eye, EyeOff, Menu, Globe, ArrowLeft, Crown, Bell, Smartphone } from 'lucide-react';
 import { useNavigation } from '../hooks/useNavigation';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useEntitlement } from '../hooks/useEntitlement';
@@ -136,12 +136,23 @@ const AppHeader: React.FC<AppHeaderProps> = ({
         )}
 
         {!isAuthenticated && (
-          <button 
-            onClick={() => handleNavigate('login')} 
-            className="text-[10px] md:text-xs font-black text-white bg-slate-950 hover:bg-slate-800 rounded-xl px-6 py-2.5 uppercase tracking-wider shadow-floating active:scale-95 transition-all"
-          >
-            Entrar
-          </button>
+          <div className="flex items-center gap-2">
+            {!isNative && (
+              <button
+                onClick={() => handleNavigate('download')}
+                className="hidden sm:inline-flex items-center gap-1.5 text-[10px] md:text-xs font-bold text-slate-700 hover:text-slate-950 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl px-3.5 py-2.5 uppercase tracking-wider transition-all active:scale-95"
+              >
+                <Smartphone size={14} className="text-emerald-600" />
+                <span>Baixar App</span>
+              </button>
+            )}
+            <button 
+              onClick={() => handleNavigate('login')} 
+              className="text-[10px] md:text-xs font-black text-white bg-slate-950 hover:bg-slate-800 rounded-xl px-5 md:px-6 py-2.5 uppercase tracking-wider shadow-floating active:scale-95 transition-all"
+            >
+              Entrar
+            </button>
+          </div>
         )}
 
         {isAuthenticated && (
