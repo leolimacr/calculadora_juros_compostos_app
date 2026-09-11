@@ -68,24 +68,14 @@ export const DownloadQrModal: React.FC<DownloadQrModalProps> = ({ isOpen, onClos
         </div>
 
         {/* Action buttons */}
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-col gap-3">
           <button
             onClick={handleCopy}
-            className="flex-1 py-3 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 active:scale-95"
+            className="w-full py-3.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 active:scale-95 shadow-md"
           >
-            {copied ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
-            <span>{copied ? 'Link Copiado!' : 'Copiar Link'}</span>
+            {copied ? <Check size={16} className="text-emerald-400" /> : <Copy size={16} />}
+            <span>{copied ? 'Link de Download Copiado!' : 'Copiar Link para Enviar'}</span>
           </button>
-
-          <a
-            href="/download"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md active:scale-95"
-          >
-            <ExternalLink size={16} />
-            <span>Abrir Página</span>
-          </a>
         </div>
       </div>
     </div>

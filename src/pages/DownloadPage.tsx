@@ -1,10 +1,23 @@
-import React, { useState } from 'react';
-import { Download, Smartphone, CheckCircle, ShieldCheck, ArrowRight, Share2, Copy, Check, ExternalLink } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Download, Smartphone, CheckCircle, ShieldCheck, ArrowRight, Share2, Copy, Check, ExternalLink, QrCode } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { useNavigate } from 'react-router-dom';
 
 export const DownloadPage: React.FC = () => {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
+  const [isMobile, setIsMobile] = useState(true);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const isMobileScreen = window.innerWidth < 768;
+      const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      setIsMobile(isMobileScreen || isMobileUA);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const apkUrl = '/download/FinancasProInvest.apk';
   const shareUrl = typeof window !== 'undefined' ? window.location.href : 'https://financasproinvest.com.br/download';
@@ -76,15 +89,36 @@ export const DownloadPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Botão de Download */}
-          <a
-            href={apkUrl}
-            download="FinancasProInvest.apk"
-            className="w-full py-4 px-6 rounded-2xl bg-slate-950 hover:bg-slate-800 text-white font-black text-sm uppercase tracking-widest shadow-floating active:scale-[0.99] transition-all flex items-center justify-center gap-3"
-          >
-            <Download size={20} className="text-emerald-400 animate-bounce" />
-            <span>Baixar Aplicativo Android (.apk)</span>
-          </a>
+          {/* Ação Condicional: Mobile (Download direto) vs Desktop (QR Code) */}
+          {isMobile ? (
+            <a
+              href={apkUrl}
+              download="FinancasProInvest.apk"
+              className="w-full py-4 px-6 rounded-2xl bg-slate-950 hover:bg-slate-800 text-white font-black text-sm uppercase tracking-widest shadow-floating active:scale-[0.99] transition-all flex items-center justify-center gap-3"
+            >
+              <Download size={20} className="text-emerald-400 animate-bounce" />
+              <span>Baixar Aplicativo Android (.apk)</span>
+            </a>
+          ) : (
+            <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl p-6 md:p-8 flex flex-col items-center justify-center text-center space-y-4">
+              <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+                <QRCodeSVG
+                  value={shareUrl}
+                  size={180}
+                  level="H"
+                  includeMargin={false}
+                />
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-black uppercase tracking-wider text-slate-800">
+                  Aponte a câmera do seu celular
+                </p>
+                <p className="text-xs text-slate-500 max-w-sm">
+                  O aplicativo é exclusivo para dispositivos Android. Escaneie o código acima com a câmera do seu celular para baixar e instalar diretamente no aparelho.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Instruções de Instalação */}
           <div className="space-y-3 pt-2">
