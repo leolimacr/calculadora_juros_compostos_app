@@ -56,17 +56,17 @@ export const MarketGroup = ({ title, items, onClickItem }: any) => (
 export const InfiniteTicker = ({ data }: any) => {
     const all = [ ...data.indicators, ...data.indices, ...data.currencies, ...data.stocks, ...data.cryptos ].filter(i => i.price);
     return (
-        <div className="w-full bg-[#0f172a] border-b border-slate-800 h-8 flex items-center overflow-hidden z-40 fixed top-16 left-0">
+        <div className="w-full bg-[#dbeafe] border-b border-slate-800 h-8 flex items-center overflow-hidden z-40 fixed top-16 left-0">
             <div className="animate-marquee flex whitespace-nowrap items-center">
                 {[...all, ...all].map((item, i) => {
                     const cVal = parseFloat(item.change);
                     const displayChange = !isNaN(cVal) ? cVal.toFixed(2) : "0.00";
                     return (
-                        <div key={i} className="flex items-center gap-3 mx-8 text-sm font-mono font-bold">
-                            <span className="text-slate-400">{item.symbol}</span>
-                            <span className={item.up ? 'text-emerald-400' : 'text-red-400'}>{getDisplayPrice(item.type, item.symbol, item.price)}</span>
+                        <div key={i} className="flex items-center gap-3 mx-8 text-[15px] font-mono font-bold">
+                            <span className="text-slate-700">{item.symbol}</span>
+                            <span className={item.up ? 'text-emerald-600' : 'text-red-600'}>{getDisplayPrice(item.type, item.symbol, item.price)}</span>
                             {item.type !== 'indicator' && (
-                                <span className={`text-[10px] ${item.up ? 'text-emerald-500' : 'text-red-500'} flex items-center`}>
+                                <span className={`text-[13px] ${item.up ? 'text-emerald-700' : 'text-red-700'} flex items-center`}>
                                     {item.up ? '▲' : '▼'} {displayChange}%
                                 </span>
                             )}
@@ -79,9 +79,33 @@ export const InfiniteTicker = ({ data }: any) => {
     );
 };
 
-export const ToolHubItem = ({ icon, name, route, onNavigate, onStartNow, isAuth }: any) => (
-    <button onClick={() => route === 'manager' && !isAuth ? onStartNow() : onNavigate(route)} className="bg-slate-900/50 border border-slate-800 p-6 rounded-[2.5rem] flex flex-col items-center justify-center gap-3 active:scale-95 group shadow-lg min-h-[160px] w-full">
+export const ToolHubItem = ({ icon, name, route, onNavigate, onStartNow, isAuth }: any) => {
+  const handleClick = () => {
+    // Detecta se é um dispositivo móvel
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+    if (route === 'manager' && isMobile) {
+      const appUrl = 'financaspro://manager';
+      const fallbackUrl = 'https://play.google.com/store/apps/details?id=com.leolimacr.financaspro';
+      
+      window.location.href = appUrl;
+      
+      setTimeout(() => {
+        window.location.href = fallbackUrl;
+      }, 500);
+    } else {
+      if (route === 'manager' && !isAuth) {
+        onStartNow();
+      } else {
+        onNavigate(route);
+      }
+    }
+  };
+
+  return (
+    <button onClick={handleClick} className="bg-slate-900/50 border border-slate-800 p-6 rounded-[2.5rem] flex flex-col items-center justify-center gap-3 active:scale-95 group shadow-lg min-h-[160px] w-full">
       <span className="text-4xl group-hover:scale-110 transition-transform mb-2">{icon}</span>
       <span className="text-white font-black text-[11px] uppercase tracking-[0.1em] leading-tight text-center px-2">{name}</span>
     </button>
-);
+  );
+};

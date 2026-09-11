@@ -1,9 +1,39 @@
-export declare const sendEmail: (to: string, templateId: string, data: any) => Promise<boolean>;
-export declare const TEMPLATES: {
-    WELCOME_FREE: string;
-    WELCOME_PRO: string;
-    TRIAL_ENDING: string;
-    PAYMENT_SUCCESS: string;
-    WEEKLY_NEWSLETTER: string;
-    RE_ENGAGEMENT: string;
-};
+export declare function sendWeeklySummary(params: {
+    to: string;
+    name: string;
+    totalGasto: number;
+    totalAnterior: number;
+    topCategorias: {
+        nome: string;
+        valor: number;
+    }[];
+    saldo: number;
+}): Promise<void>;
+export declare function sendInactivityAlert(params: {
+    to: string;
+    name: string;
+    diasSemRegistro: number;
+}): Promise<void>;
+export declare function sendMonthlyClose(params: {
+    to: string;
+    name: string;
+    mes: string;
+    saldo: number;
+    totalReceitas: number;
+    totalDespesas: number;
+    maiorCategoria: string;
+}): Promise<void>;
+export declare function sendDebtDueAlert(params: {
+    to: string;
+    name: string;
+    debtName: string;
+    dueDate: string;
+    amount: number;
+    diffDays: number;
+}): Promise<void>;
+export declare function sendGoalAportAlert(params: {
+    to: string;
+    name: string;
+    goalName: string;
+    amount: number;
+}): Promise<void>;
